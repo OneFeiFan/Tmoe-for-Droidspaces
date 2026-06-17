@@ -7,6 +7,9 @@ namespace tmoe::app {
         termux_ = std::make_unique<domain::TermuxManager>(cfg_);
         gui_ = std::make_unique<domain::GUIManager>(cfg_);
         mirror_mgr_ = std::make_unique<domain::MirrorManager>(cfg_);
+        backup_mgr_ = std::make_unique<domain::BackupManager>(cfg_);
+        docker_mgr_ = std::make_unique<domain::DockerManager>(cfg_);
+        virt_mgr_ = std::make_unique<domain::VirtualizationManager>(cfg_);
         init_routes();
     }
 
@@ -65,8 +68,7 @@ namespace tmoe::app {
 
         // 5. Termux 额外选项
         tui_routes_["5"] = [this]() {
-            Logger::step("进入 Android-Termux 额外选项面板...");
-            // TODO: 实现 Termux 额外选项子菜单
+            termux_->run_termux_menu();
         };
 
         // 6. 美化终端 (oh-my-zsh 等)
@@ -105,6 +107,26 @@ namespace tmoe::app {
         // 11. 镜像源管理子菜单
         tui_routes_["11"] = [this]() {
             run_mirror_menu();
+        };
+
+        // 12. GUI/VNC 远程桌面管理
+        tui_routes_["12"] = [this]() {
+            gui_->run_gui_menu();
+        };
+
+        // 13. 备份/恢复
+        tui_routes_["13"] = [this]() {
+            backup_mgr_->run_backup_menu();
+        };
+
+        // 14. Docker 容器管理
+        tui_routes_["14"] = [this]() {
+            docker_mgr_->run_docker_menu();
+        };
+
+        // 15. 虚拟化管理 (QEMU/VBox/Wine)
+        tui_routes_["15"] = [this]() {
+            virt_mgr_->run_virt_menu();
         };
     }
 
@@ -225,6 +247,10 @@ namespace tmoe::app {
                 "\"9\" \"" + _("menu.tui.report") + "\" "
                 "\"10\" \"" + _("menu.tui.fix_signal9") + "\" "
                 "\"11\" \"" + _("menu.tui.mirrors") + "\" "
+                "\"12\" \"" + _("menu.tui.gui") + "\" "
+                "\"13\" \"" + _("menu.tui.backup") + "\" "
+                "\"14\" \"" + _("menu.tui.docker") + "\" "
+                "\"15\" \"" + _("menu.tui.virt") + "\" "
                 "\"0\" \"" + _("menu.tui.exit") + "\"";
 
         return Executor::tui_select(menu_cmd);

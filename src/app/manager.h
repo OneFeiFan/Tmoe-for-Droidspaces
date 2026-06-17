@@ -12,6 +12,7 @@
 #include "domain/mirror_registry.h"
 #include "domain/backup.h"
 #include "domain/virtualization.h"
+#include "domain/docker.h"
 #include "domain/termux.h"
 #include <memory>
 
@@ -41,6 +42,9 @@ namespace tmoe::app {
         std::unique_ptr<domain::TermuxManager> termux_;
         std::unique_ptr<domain::GUIManager> gui_;
         std::unique_ptr<domain::MirrorManager> mirror_mgr_;
+        std::unique_ptr<domain::BackupManager> backup_mgr_;
+        std::unique_ptr<domain::DockerManager> docker_mgr_;
+        std::unique_ptr<domain::VirtualizationManager> virt_mgr_;
 
         // TUI 命令路由表
         std::map<std::string, std::function<void()> > tui_routes_;

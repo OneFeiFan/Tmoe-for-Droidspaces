@@ -10,7 +10,7 @@
 #include <stdexcept>
 
 namespace tmoe::domain {
-    enum class ContainerMode { Proot, Chroot, Nspawn };
+    enum class ContainerMode { Proot, Chroot, Nspawn, Qemu };
 
     /** 容器领域实体。
      *  聚合运行时策略以实现多态调用。

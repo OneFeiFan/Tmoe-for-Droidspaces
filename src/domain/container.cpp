@@ -1,4 +1,5 @@
 #include "domain/container.h"
+#include "domain/runtime.h"
 
 namespace tmoe::domain {
     Container::Container(std::string name, std::string distro, std::string version,
@@ -10,11 +11,30 @@ namespace tmoe::domain {
           mode_(mode),
           cfg_(cfg) {
         // 根据模式注入运行时策略
-        if (mode_ == ContainerMode::Proot) {
-            runtime_ = std::make_unique<ProotRuntime>();
-        } else {
-            // TODO: 实现 ChrootRuntime 和 NspawnRuntime
-            throw std::invalid_argument("目前仅支持引导 PRoot 运行时");
+        switch (mode_) {
+            case ContainerMode::Proot:
+                runtime_ = std::make_unique<ProotRuntime>();
+                break;
+            case ContainerMode::Chroot: {
+                ChrootRuntime::ChrootConfig cfg_;
+                cfg_.rootfs_path = rootfs_path_;
+                // 从配置文件加载（如有）
+                runtime_ = std::make_unique<ChrootRuntime>(cfg_);
+                break;
+            }
+            case ContainerMode::Nspawn: {
+                NspawnRuntime::NspawnConfig cfg_;
+                cfg_.rootfs_path = rootfs_path_;
+                runtime_ = std::make_unique<NspawnRuntime>(cfg_);
+                break;
+            }
+            case ContainerMode::Qemu: {
+                QemuRuntime::QemuConfig cfg_;
+                runtime_ = std::make_unique<QemuRuntime>(cfg_);
+                break;
+            }
+            default:
+                throw std::invalid_argument("不支持的容器运行模式");
         }
     }
 
