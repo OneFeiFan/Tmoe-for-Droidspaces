@@ -1,27 +1,15 @@
-//
-// Created by 30225 on 2026/5/25.
-//
-
 #include "installer.hpp"
-#include "rootfs_registry.h" // 引入我们刚刚做的数据驱动注册表
-
-#include "core/command_builder.hpp"
-#include "core/logger.h"
-#include "core/executor.h"
 
 namespace tmoe::domain {
-
     bool RootfsTarballInstaller::install(const Container &container) {
         const auto &cfg = container.get_cfg();
         std::string rootfs_path = container.rootfs_path();
         Logger::step("正在准备容器目录: " + rootfs_path);
 
-        // 1. 创建目录
+        // 1. 确保目标目录存在
         Executor::shell("mkdir -p " + rootfs_path);
 
-        // ==========================================
-        // 2. 获取 Rootfs (使用全新的 JSON 数据驱动)
-        // ==========================================
+        // 2. 从数据驱动注册表查询 rootfs 下载地址
         auto rootfs_opt = RootfsRegistry::get_instance().query_rootfs(
             container.distro(), container.version(), cfg.arch
         );
@@ -37,10 +25,10 @@ namespace tmoe::domain {
         Logger::step("正在下载 Rootfs (请耐心等待)...");
         Logger::info("下载地址: " + tarball_url);
 
-        // 使用你的 CommandBuilder 链式 API 执行下载
+        // 3. 下载 rootfs 压缩包
         auto dl_cmd = CommandBuilder("curl")
                 .add_arg("-L")
-                .add_arg("-#") // 增加进度条显示
+                .add_arg("-#")
                 .add_arg("-o").add_arg(tar_file)
                 .add_arg(tarball_url);
 
@@ -49,13 +37,10 @@ namespace tmoe::domain {
             return false;
         }
 
-        // ==========================================
-        // 3. 核心精髓：解压 (完美贴合原版 Termux 逻辑)
-        // ==========================================
+        // 4. 在 proot 沙箱中解压（Termux 下必须如此，否则会报 "operation not permitted"）
         Logger::step("正在解压 Rootfs 到指定容器路径...");
         auto extract_cmd = CommandBuilder("proot");
 
-        // 原版神级修复：在 Termux 中解压必须强制 link2symlink 否则必报 operation not permitted
         extract_cmd.add_arg_if(cfg.is_termux, "--link2symlink")
                 .add_arg("-0")
                 .add_arg("tar")
@@ -71,7 +56,7 @@ namespace tmoe::domain {
         }
 
         Logger::ok("容器 " + container.name() + " (" + container.distro() + ") 安装完毕！");
-        Executor::shell("rm -f " + tar_file); // 清理缓存
+        Executor::shell("rm -f " + tar_file);
         return true;
     }
 } // namespace tmoe::domain

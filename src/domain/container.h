@@ -1,34 +1,40 @@
 #pragma once
 #include <string>
 #include <memory>
-
+#include "core/logger.h"
+#include "core/executor.h"
+#include "core/command_builder.hpp"
 #include "core/config.h"
 #include "domain/runtime.h"
+#include "installer.hpp"
+#include <stdexcept>
 
 namespace tmoe::domain {
     enum class ContainerMode { Proot, Chroot, Nspawn };
 
-    /// 容器领域实体 (Entity)
+    /** 容器领域实体。
+     *  聚合运行时策略以实现多态调用。
+     */
     class Container {
     public:
         Container(std::string name, std::string distro, std::string version,
                   std::string rootfs_path, ContainerMode mode, const TmoeConfig &cfg);
 
-        const TmoeConfig &get_cfg() const { return cfg_; }
+        [[nodiscard]] const TmoeConfig &get_cfg() const { return cfg_; }
 
-        // ── 自身行为 ──
-        bool start(const LaunchContext* ctx = nullptr) const;
+        // ── Lifecycle ──
+        bool start(const LaunchContext *ctx = nullptr) const;
 
-        bool stop() const;
+        [[nodiscard]] bool stop() const;
 
-        bool install() const;
+        [[nodiscard]] bool install() const;
 
-        // ── 属性暴露 ──
-        const std::string &name() const { return name_; }
-        const std::string &distro() const { return distro_; }
-        const std::string &version() const { return version_; }
-        const std::string &rootfs_path() const { return rootfs_path_; }
-        ContainerMode mode() const { return mode_; }
+        // ── Accessors ──
+        [[nodiscard]] const std::string &name() const { return name_; }
+        [[nodiscard]] const std::string &distro() const { return distro_; }
+        [[nodiscard]] const std::string &version() const { return version_; }
+        [[nodiscard]] const std::string &rootfs_path() const { return rootfs_path_; }
+        [[nodiscard]] ContainerMode mode() const { return mode_; }
 
     private:
         std::string name_;
@@ -38,7 +44,7 @@ namespace tmoe::domain {
         ContainerMode mode_;
         const TmoeConfig &cfg_;
 
-        // 聚合运行时策略，实现多态调用
+        /** 运行时策略（多态分发）。 */
         std::unique_ptr<IContainerRuntime> runtime_;
     };
 } // namespace tmoe::domain

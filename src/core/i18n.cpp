@@ -1,9 +1,4 @@
-#include "core/i18n.h"
-#include "i18n_data.h"
-#include <nlohmann/json.hpp> // 引入 json 库
-#include <fstream>
-#include <algorithm>
-#include <iostream>
+#include "i18n.h"
 
 namespace tmoe {
     std::unordered_map<std::string, std::string> I18n::current_dict_;
@@ -20,13 +15,13 @@ namespace tmoe {
 
         using namespace i18n::embedded;
         available_langs_.clear();
-        for (auto const& [l, _]: LANGS) {
+        for (auto const &[l, _]: LANGS) {
             available_langs_.push_back(std::string(l));
         }
 
         auto it = LANGS.find(target);
         if (it == LANGS.end()) {
-            // 回退：en_US → 第一个可用语言
+            // 回退: en_US → 第一个可用语言
             it = LANGS.find("en_US");
             if (it == LANGS.end() && !LANGS.empty()) it = LANGS.begin();
         }
@@ -34,14 +29,13 @@ namespace tmoe {
         if (it != LANGS.end()) {
             current_lang_ = std::string(it->first);
             try {
-                // 使用 nlohmann::json 解析嵌入的 string_view 字节流
                 auto j = nlohmann::json::parse(it->second);
-                for (auto& [k, v] : j.items()) {
+                for (auto &[k, v]: j.items()) {
                     if (v.is_string()) {
                         current_dict_[k] = v.get<std::string>();
                     }
                 }
-            } catch (const nlohmann::json::parse_error& e) {
+            } catch (const nlohmann::json::parse_error &e) {
                 std::cerr << "[TMOE I18n Error] 嵌入式语言包解析失败: " << e.what() << "\n";
             }
         } else {
@@ -61,7 +55,7 @@ namespace tmoe {
         return current_lang_;
     }
 
-    const std::vector<std::string>& I18n::available_langs() {
+    const std::vector<std::string> &I18n::available_langs() {
         return available_langs_;
     }
 
@@ -69,7 +63,7 @@ namespace tmoe {
         std::string_view lang,
         const std::unordered_map<std::string, std::string> &dict) {
         if (current_lang_ == lang) {
-            for (auto const& [k, v]: dict) {
+            for (auto const &[k, v]: dict) {
                 current_dict_[k] = v;
             }
         }

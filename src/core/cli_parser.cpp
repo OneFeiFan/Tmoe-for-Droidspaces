@@ -1,9 +1,4 @@
-//
-// Created by 30225 on 2026/5/25.
-//
 #include "core/cli_parser.h"
-#include <filesystem>
-#include <sstream>
 
 namespace tmoe {
 
@@ -11,10 +6,9 @@ bool CliParser::is_path_argument(std::string_view arg) {
     if (arg.empty()) return false;
 
     std::filesystem::path p(arg);
-    // 1. 如果是 Windows(Git Bash转换后) 或 Linux 下的绝对路径 (形如 C:/... 或 /tmp/...)
     if (p.is_absolute()) return true;
 
-    // 2. 识别相对路径前缀边界情况 (兼容跨平台正反斜杠)
+    // 检测相对路径前缀（跨平台，支持正反斜杠）
     if (arg.rfind("./", 0) == 0 || arg.rfind("../", 0) == 0 ||
         arg.rfind(".\\", 0) == 0 || arg.rfind("..\\", 0) == 0) {
         return true;
@@ -23,6 +17,9 @@ bool CliParser::is_path_argument(std::string_view arg) {
     return false;
 }
 
+/** 通过六阶段状态机解析位置参数，对齐原版 Bash 逻辑：
+ *  $1 → 运行模式, $2 → 发行版, $3 → 版本/架构, $4/$5/$6 → 执行程序/脚本/软链接。
+ */
 LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
     LaunchContext ctx;
     if (pos_args.empty()) {
@@ -30,14 +27,14 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
         return ctx;
     }
 
-    // 拼装还原全局日志或子进程需要的原始参数字符串 ($*)
+    // 还原原始参数字符串（等价于 Bash $*）
     std::ostringstream oss;
     for (size_t i = 0; i < pos_args.size(); ++i) {
         oss << pos_args[i] << (i + 1 < pos_args.size() ? " " : "");
     }
     ctx.raw_parameters = oss.str();
 
-    // ─── 1. 解析第一个位置参数 $1 (核心路由状态机) ───
+    // 阶段1: 解析 $1 — 核心路由状态机
     std::string_view arg1 = pos_args[0];
     if (arg1.rfind("p", 0) == 0 || arg1 == "proot") {
         ctx.mode = LaunchMode::Proot;
@@ -47,7 +44,7 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
         ctx.mode = LaunchMode::Nspawn;
     } else if (arg1 == "ls") {
         ctx.mode = LaunchMode::ListContainers;
-        return ctx; // 立即拦截返回，不解析后续容器环境
+        return ctx;
     } else if (arg1 == "zsh") {
         ctx.mode = LaunchMode::ZshManager;
         return ctx;
@@ -77,7 +74,7 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
     if (pos_args.size() > 0) {
         std::string_view first = pos_args[0];
 
-        // 支持直接启动或在 m 参数后追加快捷启动
+        // 直接快捷方式 (如 -novnc, -vnc, -stop) — 覆写模式为 Proot
         if (first == "-novnc" || first == "-n" || (first == "m" && pos_args.size() > 1 && pos_args[1] == "-n")) {
             ctx.mode = LaunchMode::Proot;
             ctx.exec_program = "novnc";
@@ -95,7 +92,7 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
         }
     }
 
-    // ─── 2. 解析第二个位置参数 $2 (发行版匹配) ───
+    // 阶段2: 解析 $2 — 发行版名称匹配
     if (pos_args.size() > 1) {
         std::string_view arg2 = pos_args[1];
         if (arg2 == "a" || arg2 == "arch") ctx.distro_name = "arch";
@@ -124,7 +121,7 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
         else ctx.distro_name = arg2;
     }
 
-    // ─── 3. 解析第三个位置参数 $3 (版本号、架构或快捷程序匹配) ───
+    // 阶段3: 解析 $3 — 版本代号、架构或快捷程序
     if (pos_args.size() > 2) {
         std::string_view arg3 = pos_args[2];
         if (arg3 == "20.10") ctx.distro_code = "groovy";
@@ -160,7 +157,7 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
         else ctx.distro_code = arg3;
     }
 
-    // ─── 4. 解析第四个位置参数 $4 (支持状态反转的开端) ───
+    // 阶段4: 解析 $4 — 架构、执行程序、软链接或脚本文件（状态反转入口）
     if (pos_args.size() > 3) {
         std::string_view arg4 = pos_args[3];
         if (arg4 == "x" || arg4 == "amd64" || arg4 == "x64") ctx.arch_type = "amd64";
@@ -190,7 +187,7 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
         }
     }
 
-    // ─── 5. 解析第五个位置参数 $5 (强依赖状态反转上下文) ───
+    // 阶段5: 解析 $5 — 依赖阶段4中设定的软链接状态
     if (pos_args.size() > 4) {
         std::string_view arg5 = pos_args[4];
         if (arg5 == "v" || arg5 == "vnc" || arg5 == "startvnc") ctx.exec_program = "startvnc";
@@ -211,16 +208,16 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
             }
         } else if (is_path_argument(arg5)) {
             if (ctx.create_soft_link) {
-                ctx.link_source_dir = arg5; // 状态反转：此时路径作为链接源
+                ctx.link_source_dir = arg5;
             } else {
-                ctx.temporary_script_file_02 = arg5; // 普通状态：路径作为执行脚本
+                ctx.temporary_script_file_02 = arg5;
             }
         } else {
             ctx.exec_program_02 = arg5;
         }
     }
 
-    // ─── 6. 解析第六个位置参数 $6 (收尾) ───
+    // 阶段6: 解析 $6 — 最后一个参数，同样的状态反转逻辑
     if (pos_args.size() > 5) {
         std::string_view arg6 = pos_args[5];
         if (arg6 == "en" || arg6 == "entrypoint") {

@@ -1,26 +1,19 @@
 #include "core/config.h"
-#include "core/executor.h"
-#include <cstdlib>
-#include <fstream>
-#ifndef _WIN32
-#include <unistd.h>
-#endif
 
 namespace tmoe {
 
 TmoeConfig TmoeConfig::detect() {
     TmoeConfig cfg;
 #ifndef _WIN32
-    cfg.is_root = (geteuid() == 0); // 核心修复：精确探测当前是否具备真实 Root 权限
+    cfg.is_root = (geteuid() == 0);
 #endif
 
-    // ── 检测平台 ──
+    // 检测平台
 #ifdef TMOE_PLATFORM_LINUX
     cfg.kernel = "linux";
 #endif
 
-    // ── 检测 Termux ──
-    // 1. 判断是否处于 Android Termux 环境下
+    // 检测 Termux (Android)
     const char* termux = std::getenv("TERMUX_VERSION");
     if (termux) {
         cfg.is_termux = true;
@@ -32,18 +25,18 @@ TmoeConfig TmoeConfig::detect() {
         cfg.work_dir = "/data/data/com.termux/files/home/.local/share/tmoe";
         cfg.temp_dir = "/data/data/com.termux/files/usr/tmp/tmoe";
         cfg.container_root = cfg.work_dir / "containers";
-        cfg.tui_bin = "whiptail"; // 稍后可在领域层判断是否启用 android 独有 wrapper
-        return cfg; // Termux 探测直接安全截断返回
+        cfg.tui_bin = "whiptail";
+        return cfg; // Termux 短路返回
     }
 
-    // 2. 判断是否属于 WSL 环境
+    // 检测 WSL
     auto kernel_version = Executor::shell("uname -r").stdout_data;
     if (kernel_version.find("Microsoft") != std::string::npos ||
         kernel_version.find("microsoft") != std::string::npos) {
         cfg.is_wsl = true;
     }
 
-    // 3. 安全读取 /etc/os-release，进行高内聚特征识别
+    // 读取 /etc/os-release 进行发行版识别
     std::ifstream file("/etc/os-release");
     std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
@@ -57,7 +50,7 @@ TmoeConfig TmoeConfig::detect() {
         }
     }
 
-    // 发行版矩阵精准状态映射 (对标原 Bash 判断)
+    // 发行版家族检测（对齐原版 Bash 判断逻辑）
     if (content.find("debian") != std::string::npos || content.find("ubuntu") != std::string::npos ||
         content.find("deepin") != std::string::npos || content.find("kali") != std::string::npos) {
         cfg.linux_distro = "debian";
@@ -80,10 +73,10 @@ TmoeConfig TmoeConfig::detect() {
         cfg.remove_command = "sudo apk del";
     }
 
-    // 4. 判定默认的容器根目录存放路径
+    // 默认容器根目录路径
     cfg.container_root = "/var/lib/tmoe/containers";
 
-    // 兜底支持从外界全局环境变量任意强行覆盖
+    // 应用环境变量覆盖
     cfg.from_env();
     return cfg;
 }
@@ -104,7 +97,7 @@ void TmoeConfig::from_env() {
 }
 
 void TmoeConfig::export_env() const {
-    // 设置环境变量供子进程使用
+    // 将键值对导出为环境变量供子进程使用
     auto set = [](const char* k, const std::string& v) {
 #ifdef _WIN32
         _putenv_s(k, v.c_str());

@@ -1,16 +1,8 @@
-#include "domain/mirrors.h"
-#include "core/executor.h"
-#include "core/logger.h"
-#include <filesystem>
-#include <algorithm>
+#include "mirrors.h"
 
 namespace fs = std::filesystem;
 
 namespace tmoe::domain {
-
-// ────────────────────────────────────────────────────────
-//  构造 & 基础查询
-// ────────────────────────────────────────────────────────
 
 MirrorManager::MirrorManager(const TmoeConfig& cfg) : cfg_(cfg) {}
 
@@ -22,24 +14,23 @@ std::vector<MirrorEntry> MirrorManager::by_category(const std::string& cat) cons
     return MirrorRegistry::instance().by_category(cat);
 }
 
-// ────────────────────────────────────────────────────────
-//  版本号检测 — 对应 Bash check_debian_distro_and_modify_sources_list
-// ────────────────────────────────────────────────────────
-
+/** 检测当前发行版的版本代号。
+ *  读取 /etc/os-release 中的 VERSION_CODENAME；失败时回退到 PRETTY_NAME。
+ */
 std::string MirrorManager::detect_version_codename() const {
     const auto& distro = cfg_.linux_distro;
 
-    // Debian / Ubuntu / Kali: 读 VERSION_CODENAME
+    // Debian / Ubuntu / Kali: 读取 VERSION_CODENAME
     if (distro == "debian" || distro == "ubuntu" || distro == "kali") {
         auto r = Executor::shell(
             "grep VERSION_CODENAME /etc/os-release 2>/dev/null | cut -d= -f2");
         if (r.ok() && !r.stdout_data.empty()) {
-            // trim trailing newline
+            // 去掉末尾换行符
             auto s = r.stdout_data;
             while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
             if (!s.empty()) return s;
         }
-        // fallback: /etc/os-release PRETTY_NAME
+        // 回退: /etc/os-release PRETTY_NAME
         r = Executor::shell(
             "grep PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'");
         if (r.ok() && !r.stdout_data.empty()) {
@@ -59,7 +50,7 @@ std::string MirrorManager::detect_version_codename() const {
         if (r.ok() && !r.stdout_data.empty()) {
             auto s = r.stdout_data;
             while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
-            return s;  // e.g. "v3.18"
+            return s;  // 例如 "v3.18"
         }
         return "latest-stable";
     }
@@ -67,18 +58,14 @@ std::string MirrorManager::detect_version_codename() const {
     return "latest";
 }
 
-// ────────────────────────────────────────────────────────
-//  备份 — 对应 Bash check_tmoe_sources_list_backup_file
-//  只在第一次切换时备份原始文件
-// ────────────────────────────────────────────────────────
-
+/** 在首次修改前创建原始源的一次性备份。 */
 bool MirrorManager::ensure_backup() const {
     auto compat = MirrorRegistry::instance().compat_for(cfg_.linux_distro);
     std::string backup_path;
     std::string source_file;
 
     if (compat) {
-        // 展开 ~ 号
+        // 展开 ~ 为 $HOME
         std::string bp = compat->backup_path;
         if (!bp.empty() && bp[0] == '~') {
             bp = std::string(std::getenv("HOME") ? std::getenv("HOME") : "/root") + bp.substr(1);
@@ -92,13 +79,13 @@ bool MirrorManager::ensure_backup() const {
         return true;
     }
 
-    // 备份文件已存在 → 不覆盖（首次快照语义）
+    // 一次性快照: 备份已存在则不覆盖
     if (fs::exists(backup_path)) {
         Logger::debug("备份文件已存在，跳过: " + backup_path);
         return true;
     }
 
-    // RedHat 用 tar 打包目录
+    // RedHat: 打包整个 yum.repos.d 目录
     if (cfg_.linux_distro == "redhat") {
         Logger::step("正在创建 RedHat yum.repos.d 备份...");
         auto r = Executor::shell("mkdir -p \"$(dirname " + backup_path + ")\" && "
@@ -113,7 +100,7 @@ bool MirrorManager::ensure_backup() const {
                              "cp -pf " + source_file + " " + backup_path);
     Logger::ok_or_fail(r.ok(), "备份 " + source_file);
 
-    // Arch 额外备份 pacman.conf
+    // Arch: 额外备份 pacman.conf
     if (cfg_.linux_distro == "arch" && compat && !compat->backup_conf.empty()) {
         std::string bc = compat->backup_conf;
         if (!bc.empty() && bc[0] == '~') {
@@ -126,10 +113,7 @@ bool MirrorManager::ensure_backup() const {
     return r.ok();
 }
 
-// ────────────────────────────────────────────────────────
-//  update / dist-upgrade
-// ────────────────────────────────────────────────────────
-
+// ── 软件包数据库更新与升级 ──
 bool MirrorManager::run_update() const {
     Logger::step("更新软件包数据库...");
     if (cfg_.linux_distro == "debian" || cfg_.linux_distro == "ubuntu" || cfg_.linux_distro == "kali") {
@@ -172,14 +156,14 @@ bool MirrorManager::http_to_https_if_ca_available() const {
 }
 
 std::string MirrorManager::resolve_hostname(const std::string& url) const {
-    // 从 URL 中提取纯 hostname（去协议头、去路径）
+    // 从 URL 中提取纯主机名（去掉协议和路径）
     std::string host = url;
     auto pos = host.find("://");
     if (pos != std::string::npos) host = host.substr(pos + 3);
     pos = host.find('/');
     if (pos != std::string::npos) host = host.substr(0, pos);
 
-    // 方法1: getent hosts (glibc 原生，几乎没有额外依赖)
+    // 方法1: getent hosts (glibc 内置，依赖最少)
     auto r = Executor::shell("getent hosts " + host + " 2>/dev/null | awk '{print $1; exit}'");
     if (r.ok() && !r.stdout_data.empty()) {
         auto ip = r.stdout_data;
@@ -187,7 +171,7 @@ std::string MirrorManager::resolve_hostname(const std::string& url) const {
         return ip;
     }
 
-    // 方法2: python3 socket.gethostbyname fallback
+    // 方法2: python3 socket.gethostbyname 回退方案
     r = Executor::shell(
         "python3 -c \"import socket; print(socket.gethostbyname('" + host + "'))\" 2>/dev/null");
     if (r.ok() && !r.stdout_data.empty()) {
@@ -196,27 +180,24 @@ std::string MirrorManager::resolve_hostname(const std::string& url) const {
         return ip;
     }
 
-    return "";  // 所有方式均解析失败
+    return "";  // 所有方法均解析失败
 }
 
-// ────────────────────────────────────────────────────────
-//  发行版写入引擎 — 逐发行版实现，对齐 Bash heredoc 模板
-// ────────────────────────────────────────────────────────
-
+// ── 各发行版源写入器（对齐原版 Bash heredoc 模板）──
 bool MirrorManager::write_debian_sources(const MirrorEntry& mirror) {
     std::string codename = detect_version_codename();
     std::string url = mirror.url;
 
     Logger::info("检测到 Debian " + codename + " 系统，正在切换到 " + mirror.name);
 
-    // 1️⃣  注释掉所有旧 deb 行
+    // 注释掉所有旧 deb 行
     Executor::shell("sed -i 's/^deb/# &/g' /etc/apt/sources.list");
 
-    // 2️⃣  判断 old-style vs new-style（buster/stretch/jessie 沿用旧格式）
+    // 判断旧格式 vs 新格式（buster/stretch/jessie 沿用旧格式）
     bool old_style = (codename == "buster" || codename == "stretch" || codename == "jessie");
 
     if (codename == "sid") {
-        // sid 简化写法
+        // sid: 简化格式
         Executor::shell("cat >>/etc/apt/sources.list <<-'TMOE_EOF'\n"
                         "deb http://" + url + "/debian/ sid main contrib non-free\n"
                         "#deb http://" + url + "/debian/ experimental main contrib non-free\n"
@@ -230,7 +211,7 @@ bool MirrorManager::write_debian_sources(const MirrorEntry& mirror) {
                         "deb http://" + url + "/debian-security/ " + codename + "/updates main contrib non-free\n"
                         "TMOE_EOF");
     } else {
-        // 新版格式
+        // 新版 Debian 格式
         Executor::shell("cat >>/etc/apt/sources.list <<-TMOE_EOF\n"
                         "deb http://" + url + "/debian/ " + codename + " main contrib non-free\n"
                         "deb http://" + url + "/debian/ " + codename + "-updates main contrib non-free\n"
@@ -258,7 +239,7 @@ bool MirrorManager::write_ubuntu_sources(const MirrorEntry& mirror) {
                     "deb http://" + url + "/ubuntu/ " + codename + "-security main restricted universe multiverse\n"
                     "TMOE_EOF");
 
-    // ARM 架构自动切 ubuntu-ports
+    // ARM: 自动切换到 ubuntu-ports
     if (cfg_.arch != "amd64" && cfg_.arch != "i386" && cfg_.arch != "x86_64") {
         Logger::step("非 x86 架构，自动切换到 ubuntu-ports...");
         Executor::shell("sed -i 's:/ubuntu:/ubuntu-ports:g' /etc/apt/sources.list");
@@ -316,7 +297,7 @@ bool MirrorManager::write_alpine_sources(const MirrorEntry& mirror) {
     // Alpine: 注释所有旧 http 行
     Executor::shell("cd /etc/apk/ && sed -i 's@^http@#&@g' repositories");
 
-    // 写入新源
+    // 写入新仓库
     Executor::shell("cat >>/etc/apk/repositories <<-TMOE_EOF\n"
                     "http://" + url + "/alpine/" + version + "/main\n"
                     "http://" + url + "/alpine/" + version + "/community\n"
@@ -325,10 +306,7 @@ bool MirrorManager::write_alpine_sources(const MirrorEntry& mirror) {
     return true;
 }
 
-// ────────────────────────────────────────────────────────
-//  顶层 API — switch_to / auto_select / restore_official
-// ────────────────────────────────────────────────────────
-
+// ── 顶层 API: switch_to / auto_select / restore_official ──
 bool MirrorManager::switch_to(const std::string& mirror_id) {
     auto mirror_opt = MirrorRegistry::instance().find(mirror_id);
     if (!mirror_opt) {
@@ -339,10 +317,10 @@ bool MirrorManager::switch_to(const std::string& mirror_id) {
     auto& mirror = *mirror_opt;
     Logger::step("切换镜像源: " + mirror.name + " (" + mirror.url + ")");
 
-    // 0️⃣  备份原始源
+    // 备份原始源
     ensure_backup();
 
-    // 1️⃣  发行版路由
+    // 发行版路由
     const auto& distro = cfg_.linux_distro;
     bool ok = false;
 
@@ -363,10 +341,10 @@ bool MirrorManager::switch_to(const std::string& mirror_id) {
 
     if (!ok) return false;
 
-    // 2️⃣  HTTP → HTTPS 自动升级（如果已安装 ca-certificates）
+    // 如已安装 ca-certificates 则自动升级 HTTP → HTTPS
     http_to_https_if_ca_available();
 
-    // 3️⃣  更新数据库
+    // 刷新软件包数据库
     run_update();
     run_dist_upgrade();
 
@@ -386,7 +364,7 @@ bool MirrorManager::auto_select() {
 
     auto cn_mirrors = MirrorRegistry::instance().by_region("cn");
 
-    // ── 第一步：批量 DNS 预解析，避免每个 ping 各自等 DNS ──
+    // 第一步: 批量 DNS 预解析，避免每个 ping 各自等 DNS
     struct ResolvedMirror {
         std::string id;
         std::string name;
@@ -410,7 +388,7 @@ bool MirrorManager::auto_select() {
         return false;
     }
 
-    // ── 第二步：ping IP 地址（零 DNS 开销，感受瞬时出结果）──
+    // 第二步: ping 已解析的 IP 地址（零 DNS 开销）
     for (const auto& rm : resolved) {
         Logger::info("  ping " + rm.name + " (" + rm.ip + ")...");
         auto r = Executor::shell(
@@ -467,7 +445,7 @@ bool MirrorManager::restore_official() {
         return true;
     }
 
-    // RedHat 以外：文件覆盖
+    // 非 RedHat: 普通文件拷贝
     std::string source = compat->source_file;
     auto r = Executor::shell("cp -pfv " + backup_path + " " + source);
     Logger::ok_or_fail(r.ok(), "还原 " + source);
@@ -475,7 +453,7 @@ bool MirrorManager::restore_official() {
     // 显示新旧对比
     Executor::shell("diff " + backup_path + " " + source + " -y --color 2>/dev/null || true");
 
-    // Arch 额外还原 pacman.conf
+    // Arch: 额外还原 pacman.conf
     if (cfg_.linux_distro == "arch" && !compat->backup_conf.empty()) {
         std::string bc = compat->backup_conf;
         if (!bc.empty() && bc[0] == '~') {
@@ -491,16 +469,13 @@ bool MirrorManager::restore_official() {
     return true;
 }
 
-// ────────────────────────────────────────────────────────
-//  辅助操作
-// ────────────────────────────────────────────────────────
-
+// ── 辅助操作 ──
 bool MirrorManager::edit_manually() {
     auto compat = MirrorRegistry::instance().compat_for(cfg_.linux_distro);
     std::string file;
 
     if (cfg_.linux_distro == "debian" || cfg_.linux_distro == "ubuntu" || cfg_.linux_distro == "kali") {
-        // 优先 apt edit-sources
+        // 优先使用 apt edit-sources
         if (Executor::has("apt")) {
             Executor::shell("apt edit-sources 2>/dev/null || nano /etc/apt/sources.list");
         } else {
@@ -561,7 +536,7 @@ bool MirrorManager::clean_sources_list() {
         Executor::shell("sed -i '/^#.*http/d' " + compat->source_file);
     }
 
-    // sort -u 去重
+    // 去重 (sort -u)
     Executor::shell("sort -u " + compat->source_file + " -o " + compat->source_file);
 
     run_update();

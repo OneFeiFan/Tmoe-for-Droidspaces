@@ -1,9 +1,4 @@
-//
-// Created by WorkBuddy on 2026/5/26.
-//
 #include "mirror_registry.h"
-#include "mirror_data.h"
-#include <algorithm>
 
 namespace tmoe::domain {
 
@@ -116,7 +111,7 @@ std::optional<MirrorCompatInfo> MirrorRegistry::compat_for(const std::string& di
 std::string MirrorRegistry::build_source_url(const MirrorEntry& mirror,
                                               const std::string& distro,
                                               const std::string& codename) {
-    // 产出各发行版标准源地址，供 sources.list 等文件使用
+    // 构建各发行版标准源 URL，用于 sources.list 等
     if (distro == "debian") {
         return "http://" + mirror.url + "/debian/ " + codename + " main contrib non-free";
     }

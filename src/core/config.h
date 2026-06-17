@@ -1,4 +1,10 @@
 #pragma once
+#include "core/executor.h"
+#include <cstdlib>
+#include <fstream>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 #include <string>
 #include <filesystem>
 
@@ -6,14 +12,13 @@ namespace fs = std::filesystem;
 
 namespace tmoe {
 
-/// 全局配置 — 替代 Bash 的所有 $TMOE_XXX 全局变量
-/// 引用传递，IDE 可直接跳转到定义
+/** 全局配置 — 替代 Bash 中所有 $TMOE_XXX 全局变量。 */
 struct TmoeConfig {
     // ── 路径 ──
     fs::path work_dir        = "/data/local/tmoe";
     fs::path temp_dir        = "/tmp/tmoe";
     fs::path backup_dir      = "/sdcard/tmoe-backup";
-    fs::path container_root;  // 容器根目录，detect() 时自动设
+    fs::path container_root;  // detect() 时自动设置
 
     // ── 系统信息 ──
     std::string arch         = "arm64";       // arm64 / amd64 / i386
@@ -40,16 +45,16 @@ struct TmoeConfig {
     bool is_wsl                    = false;
 
     // ── 工厂方法 ──
-    /// 从当前运行环境自动检测所有字段
+    /** 从当前运行环境自动检测所有字段。 */
     static TmoeConfig detect();
 
-    /// 从环境变量覆盖
+    /** 从环境变量 (TMOE_*) 覆盖字段。 */
     void from_env();
 
-    /// 将关键变量导出为环境变量（传给子进程时）
+    /** 将关键字段导出为环境变量供子进程使用。 */
     void export_env() const;
 
-    /// 确保工作目录存在
+    /** 确保工作目录存在于磁盘上。 */
     void ensure_dirs() const;
 };
 

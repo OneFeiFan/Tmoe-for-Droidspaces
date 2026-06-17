@@ -1,48 +1,48 @@
-//
-// Created by 30225 on 2026/5/25.
-//
-
 #ifndef COMMAND_BUILDER_HPP
 #define COMMAND_BUILDER_HPP
 #pragma once
 #include "core/executor.h"
+#include "logger.h"
 #include <string>
 #include <vector>
 
 namespace tmoe {
-    /// 安全的终端命令建造者模式 (Fluent API)
-    class CommandBuilder {
-    public:
-        explicit CommandBuilder(std::string bin);
 
-        /// 追加普通参数
-        CommandBuilder &add_arg(std::string arg);
+/** 安全的命令构建器 (流式 API)。
+ *  支持条件参数、挂载绑定和环境变量注入。
+ */
+class CommandBuilder {
+public:
+    explicit CommandBuilder(std::string bin);
 
-        /// 根据条件追加参数（完美消除零碎的 if-else）
-        CommandBuilder &add_arg_if(bool condition, std::string arg);
+    /** 追加普通参数。 */
+    CommandBuilder &add_arg(std::string arg);
 
-        /// 添加挂载点 (等价于 -b source:dest)
-        CommandBuilder &add_bind(std::string_view source, std::string_view dest = "");
+    /** 按条件追加参数（消除零散的 if-else）。 */
+    CommandBuilder &add_arg_if(bool condition, std::string arg);
 
-        /// 根据条件添加挂载点
-        CommandBuilder &add_bind_if(bool condition, std::string_view source, std::string_view dest = "");
+    /** 添加挂载绑定 (-b source:dest)。 */
+    CommandBuilder &add_bind(std::string_view source, std::string_view dest = "");
 
-        /// 注入环境变量
-        CommandBuilder &add_env(std::string key, std::string value);
+    /** 按条件添加挂载绑定。 */
+    CommandBuilder &add_bind_if(bool condition, std::string_view source, std::string_view dest = "");
 
-        /// 输出用于调试的完整安全命令字符串
-        std::string build_string() const;
+    /** 注入环境变量。 */
+    CommandBuilder &add_env(std::string key, std::string value);
 
-        /// 执行最终拼装的命令
-        ExecResult execute() const;
+    /** 构建完整转义后的命令字符串（用于调试）。 */
+    std::string build_string() const;
 
-    private:
-        std::string bin_;
-        std::vector<std::string> args_;
-        std::vector<std::string> envs_;
+    /** 构建并执行命令。 */
+    ExecResult execute() const;
 
-        // 内部转义逻辑
-        static std::string shell_escape(std::string_view arg);
-    };
+private:
+    std::string bin_;
+    std::vector<std::string> args_;
+    std::vector<std::string> envs_;
+
+    static std::string shell_escape(std::string_view arg);
+};
+
 } // namespace tmoe
 #endif //COMMAND_BUILDER_HPP
