@@ -1,0 +1,31 @@
+{
+  "mirrors": {
+    "tuna": "https://mirrors.tuna.tsinghua.edu.cn",
+    "ustc": "https://mirrors.ustc.edu.cn",
+    "aliyun": "https://mirrors.aliyun.com",
+    "bfsu": "https://mirrors.bfsu.edu.cn"
+  },
+  "default_mirror": "tuna",
+  "distributions": {
+    "ubuntu": {
+      "path_template": "/lxc-images/ubuntu/{version}/{arch}/default/rootfs.tar.xz",
+      "supported_versions": ["bionic", "focal", "jammy", "noble"],
+      "supported_archs": ["amd64", "arm64", "armhf", "i386"]
+    },
+    "debian": {
+      "path_template": "/lxc-images/debian/{version}/{arch}/default/rootfs.tar.xz",
+      "supported_versions": ["buster", "bullseye", "bookworm", "sid"],
+      "supported_archs": ["amd64", "arm64", "armhf", "i386"]
+    },
+    "arch": {
+      "path_template": "/lxc-images/archlinux/current/{arch}/default/rootfs.tar.xz",
+      "supported_versions": ["current", "rolling"],
+      "supported_archs": ["amd64", "arm64"]
+    },
+    "alpine": {
+      "path_template": "/lxc-images/alpine/{version}/{arch}/default/rootfs.tar.xz",
+      "supported_versions": ["3.16", "3.17", "3.18", "3.19", "edge"],
+      "supported_archs": ["amd64", "arm64", "x86", "armhf"]
+    }
+  }
+}
