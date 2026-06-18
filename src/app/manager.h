@@ -14,6 +14,16 @@
 #include "domain/virtualization.h"
 #include "domain/docker.h"
 #include "domain/termux.h"
+#include "domain/config_manager.h"
+#include "domain/software_center.h"
+#include "domain/terminal_app.h"
+#include "domain/office.h"
+#include "domain/education.h"
+#include "domain/input_method.h"
+#include "domain/browser.h"
+#include "domain/beta_features.h"
+#include "domain/dev_tools.h"
+#include "domain/download_tools.h"
 #include <memory>
 
 #include "core/launch_context.h"
@@ -49,6 +59,16 @@ namespace tmoe::app {
         std::unique_ptr<domain::BackupManager> backup_mgr_;
         std::unique_ptr<domain::DockerManager> docker_mgr_;
         std::unique_ptr<domain::VirtualizationManager> virt_mgr_;
+        std::unique_ptr<domain::ConfigManager> config_mgr_;
+        std::unique_ptr<domain::SoftwareCenter> software_center_;
+        std::unique_ptr<domain::TerminalAppManager> terminal_app_;
+        std::unique_ptr<domain::OfficeManager> office_;
+        std::unique_ptr<domain::EducationManager> education_;
+        std::unique_ptr<domain::InputMethodManager> input_method_;
+        std::unique_ptr<domain::BrowserManager> browser_;
+        std::unique_ptr<domain::BetaFeaturesManager> beta_features_;
+        std::unique_ptr<domain::DeveloperTools> dev_tools_;
+        std::unique_ptr<domain::DownloadTools> download_tools_;
 
         // TUI 命令路由表
         std::map<std::string, std::function<void()> > tui_routes_;
@@ -67,5 +87,9 @@ namespace tmoe::app {
 
         /** 渲染 whiptail 菜单并返回用户选择的标签。 */
         std::string render_and_get_choice();
+
+        /** 通用容器启动辅助方法 (Proot/Chroot/Nspawn)。 */
+        int launch_container(const LaunchContext& ctx, domain::ContainerMode mode,
+                             const std::string& mode_label, bool needs_root);
     };
 } // namespace tmoe::app

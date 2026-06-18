@@ -23,14 +23,14 @@ namespace tmoe::domain {
             missing_pkgs += (cfg_.linux_distro == "gentoo") ? " app-admin/sudo" : " sudo";
         }
 
-        // 2. 检查 TUI 核心组件: whiptail / dialog
-        if (!Executor::has("whiptail") && !Executor::has("dialog")) {
+        // 2. 检查 TUI 核心组件: dialog / whiptail (dialog 优先，CJK 宽度处理更好)
+        if (!Executor::has("dialog") && !Executor::has("whiptail")) {
             if (cfg_.linux_distro == "arch" || cfg_.linux_distro == "gentoo") {
-                missing_pkgs += (cfg_.linux_distro == "gentoo") ? " dev-libs/newt" : " libnewt";
+                missing_pkgs += (cfg_.linux_distro == "gentoo") ? " dev-util/dialog" : " dialog";
             } else if (cfg_.linux_distro == "openwrt") {
-                missing_pkgs += " whiptail dialog";
+                missing_pkgs += " dialog whiptail";
             } else {
-                missing_pkgs += " whiptail";
+                missing_pkgs += " dialog";
             }
         }
 

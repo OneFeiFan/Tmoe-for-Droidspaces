@@ -11,6 +11,16 @@ namespace tmoe::app {
         backup_mgr_ = std::make_unique<domain::BackupManager>(cfg_);
         docker_mgr_ = std::make_unique<domain::DockerManager>(cfg_);
         virt_mgr_ = std::make_unique<domain::VirtualizationManager>(cfg_);
+        config_mgr_ = std::make_unique<domain::ConfigManager>(cfg_);
+        software_center_ = std::make_unique<domain::SoftwareCenter>(cfg_);
+        terminal_app_ = std::make_unique<domain::TerminalAppManager>(cfg_);
+        office_ = std::make_unique<domain::OfficeManager>(cfg_);
+        education_ = std::make_unique<domain::EducationManager>(cfg_);
+        input_method_ = std::make_unique<domain::InputMethodManager>(cfg_);
+        browser_ = std::make_unique<domain::BrowserManager>(cfg_);
+        beta_features_ = std::make_unique<domain::BetaFeaturesManager>(cfg_);
+        dev_tools_ = std::make_unique<domain::DeveloperTools>(cfg_);
+        download_tools_ = std::make_unique<domain::DownloadTools>(cfg_);
         init_routes();
     }
 
@@ -87,9 +97,18 @@ namespace tmoe::app {
 
         // 8. 常见问题
         tui_routes_["8"] = [this]() {
-            Logger::info("=== FAQ ===");
+            Logger::info("══════════ " + _("faq.title") + " ══════════");
+            Logger::info("");
             Logger::info(_("faq.android12"));
+            Logger::info("");
             Logger::info(_("faq.no_sound"));
+            Logger::info("");
+            Logger::info(_("faq.q3"));
+            Logger::info("");
+            Logger::info(_("faq.q4"));
+            Logger::info("");
+            Logger::info(_("faq.q5"));
+            Logger::press_enter();
         };
 
         // 9. 反馈 Bug
@@ -126,6 +145,97 @@ namespace tmoe::app {
         // 15. 虚拟化管理 (QEMU/VBox/Wine)
         tui_routes_["15"] = [this]() {
             virt_mgr_->run_virt_menu();
+        };
+
+        // 16. 容器配置管理 (DNS/时区/Locale/Fortune/共享目录/密码/主机名)
+        tui_routes_["16"] = [this]() {
+            config_mgr_->run_config_menu();
+        };
+
+        // 17. Zsh Tab 补全安装
+        tui_routes_["17"] = [this]() {
+            Logger::step(_("zsh.comp_installing"));
+            std::string comp_dir = "/usr/local/share/zsh/site-functions";
+            if (!fs::exists(comp_dir)) {
+                comp_dir = "/usr/share/zsh/site-functions";
+            }
+            fs::create_directories(comp_dir);
+            std::string comp_file = comp_dir + "/_tmoe";
+            std::ofstream ofs(comp_file);
+            if (ofs.is_open()) {
+                ofs << "#compdef tmoe\n\n";
+                ofs << "_tmoe() {\n";
+                ofs << "  local -a commands\n";
+                ofs << "  commands=(\n";
+                ofs << "    'proot:PRoot container'\n";
+                ofs << "    'chroot:Chroot container'\n";
+                ofs << "    'nspawn:systemd-nspawn container'\n";
+                ofs << "    'mirror:Mirror management'\n";
+                ofs << "    'list:List containers'\n";
+                ofs << "    'gui:GUI/remote desktop'\n";
+                ofs << "    'backup:Backup containers'\n";
+                ofs << "    'restore:Restore containers'\n";
+                ofs << "    'zsh:Zsh manager'\n";
+                ofs << "    'docker:Docker management'\n";
+                ofs << "    'virt:Virtualization'\n";
+                ofs << "    'config:Configuration'\n";
+                ofs << "    'help:Show help'\n";
+                ofs << "  )\n";
+                ofs << "  _describe 'command' commands\n";
+                ofs << "}\n";
+                ofs << "_tmoe\n";
+                ofs.close();
+                Executor::shell("chmod 644 " + comp_file + " 2>/dev/null");
+                Logger::ok(_f("zsh.comp_installed", comp_file));
+            } else {
+                Logger::error(_("zsh.comp_failed"));
+            }
+            Logger::press_enter();
+        };
+
+        // 18. 软件中心 (社交/游戏/媒体/文档/文件共享/清理)
+        tui_routes_["18"] = [this]() {
+            software_center_->run_software_center_menu();
+        };
+
+        // 19. 终端模拟器应用
+        tui_routes_["19"] = [this]() {
+            terminal_app_->run_terminal_menu();
+        };
+
+        // 20. 办公套件 (LibreOffice/WPS/永中/FreeOffice)
+        tui_routes_["20"] = [this]() {
+            office_->run_office_menu();
+        };
+
+        // 21. 教育学习 (数学/化学/物理/英语/考试)
+        tui_routes_["21"] = [this]() {
+            education_->run_education_menu();
+        };
+
+        // 22. 输入法 (fcitx4/fcitx5/ibus/搜狗)
+        tui_routes_["22"] = [this]() {
+            input_method_->run_input_method_menu();
+        };
+
+        // 23. 浏览器 (Firefox/Chromium/Edge/Falkon/…)
+        tui_routes_["23"] = [this]() {
+            browser_->run_browser_menu();
+        };
+
+        // 24. Beta/实验功能 (绘图/R语言/文件管理/多媒体/Deepin)
+        tui_routes_["24"] = [this]() {
+            beta_features_->run_beta_menu();
+        };
+
+        // 25. 开发工具安装 (构建工具/编辑器/语言/数据库/Web/网络/Shell/监控)
+        tui_routes_["25"] = [this]() {
+            dev_tools_->run_dev_tools_menu();
+        };
+
+        // 26. 下载工具 (Aria2/迅雷/视频下载/爬虫)
+        tui_routes_["26"] = [this]() {
+            download_tools_->run_download_menu();
         };
     }
 
@@ -266,6 +376,17 @@ namespace tmoe::app {
                 "\"13\" \"" + _("menu.tui.backup") + "\" "
                 "\"14\" \"" + _("menu.tui.docker") + "\" "
                 "\"15\" \"" + _("menu.tui.virt") + "\" "
+                "\"16\" \"" + _("menu.tui.config") + "\" "
+                "\"17\" \"" + _("zsh.comp_title") + "\" "
+                "\"18\" \"" + _("menu.tui.software_center") + "\" "
+                "\"19\" \"" + _("menu.tui.terminal_app") + "\" "
+                "\"20\" \"" + _("menu.tui.office") + "\" "
+                "\"21\" \"" + _("menu.tui.education") + "\" "
+                "\"22\" \"" + _("menu.tui.input_method") + "\" "
+                "\"23\" \"" + _("menu.tui.browser") + "\" "
+                "\"24\" \"" + _("menu.tui.beta") + "\" "
+                "\"25\" \"" + _("menu.tui.dev_tools") + "\" "
+                "\"26\" \"" + _("menu.tui.download_tools") + "\" "
                 "\"0\" \"" + _("menu.tui.exit") + "\"";
 
         return Executor::tui_select(menu_cmd);
@@ -314,47 +435,46 @@ namespace tmoe::app {
     /** 直接从命令行参数执行领域逻辑。 */
     int Manager::run_launch_context(const LaunchContext &ctx) {
         if (ctx.mode == LaunchMode::Help) {
-            // TODO: 打印详细帮助
+            Logger::info("══════════ " + _("help.title") + " ══════════");
+            Logger::info("");
+            Logger::info(_("help.usage") + ":  tmoe [mode] [distro] [version] [arch] [program] [script]");
+            Logger::info("");
+            Logger::info(_("help.commands") + ":");
+            Logger::info("  proot             " + _("help.proot_cmd"));
+            Logger::info("  chroot            " + _("help.chroot_cmd"));
+            Logger::info("  nspawn            " + _("help.nspawn_cmd"));
+            Logger::info("  ls                " + _("help.ls_cmd"));
+            Logger::info("  zsh               " + _("help.zsh_cmd"));
+            Logger::info("  theme             " + _("help.theme_cmd"));
+            Logger::info("  aria2             " + _("help.aria2_cmd"));
+            Logger::info("  i / -i            " + _("help.debian_cmd"));
+            Logger::info("  m / manager       " + _("help.manager_cmd"));
+            Logger::info("  t / tool          " + _("help.tool_cmd"));
+            Logger::info("  -m / mirror       " + _("help.mirror_cmd"));
+            Logger::info("  -novnc / -n       " + _("help.novnc_cmd"));
+            Logger::info("  -v / -vnc         " + _("help.vnc_cmd"));
+            Logger::info("  -s / -stop        " + _("help.stopvnc_cmd"));
+            Logger::info("  -x / -xsdl        " + _("help.xsdl_cmd"));
+            Logger::info("");
+            Logger::info(_("help.examples") + ":");
+            Logger::info("  tmoe proot debian sid                     # " + _("help.ex_proot"));
+            Logger::info("  tmoe chroot ubuntu focal                  # " + _("help.ex_chroot"));
+            Logger::info("  tmoe i                                    # " + _("help.ex_debian"));
+            Logger::info("  tmoe -vnc                                 # " + _("help.ex_vnc"));
+            Logger::info("  tmoe m                                    # " + _("help.ex_manager"));
             return 0;
         }
 
         environment_->initialize();
 
         switch (ctx.mode) {
-            case LaunchMode::Proot: {
-                Logger::info(_f("container.schedule", "PRoot", ctx.distro_name));
+            case LaunchMode::Proot:
+                return launch_container(ctx, domain::ContainerMode::Proot, "PRoot", false);
+            case LaunchMode::Chroot:
+                return launch_container(ctx, domain::ContainerMode::Chroot, "Chroot", true);
+            case LaunchMode::Nspawn:
+                return launch_container(ctx, domain::ContainerMode::Nspawn, "systemd-nspawn", true);
 
-                std::string container_name = ctx.distro_name.empty() ? "default" : ctx.distro_name;
-                auto container = container_mgr_->create(container_name, ctx.distro_name, ctx.distro_code,
-                                                        domain::ContainerMode::Proot);
-
-                // 启动前钩子
-                bool is_gui_mode = (ctx.exec_program == "startvnc" || ctx.exec_program == "novnc" || ctx.exec_program_01
-                                    == "startvnc");
-
-                if (is_gui_mode) {
-                    gui_->start_pulseaudio_bridge();
-                }
-
-                if (!container.start(&ctx)) {
-                    Logger::error(_("container.terminated"));
-                    return 1;
-                }
-
-                // 启动后钩子
-                if (is_gui_mode) {
-                    // 给 VNC/noVNC 服务一点初始化时间
-                    Executor::shell("sleep 3");
-
-                    std::string uri = (ctx.exec_program == "novnc" || ctx.exec_program_01 == "novnc")
-                                          ? "http://127.0.0.1:6080"
-                                          : "vnc://127.0.0.1:5901";
-
-                    environment_->open_uri(uri);
-                }
-
-                break;
-            }
             case LaunchMode::ListContainers: {
                 auto list = container_mgr_->list_all();
                 Logger::info(_("container.list_title"));
@@ -363,36 +483,88 @@ namespace tmoe::app {
                 }
                 break;
             }
-            case LaunchMode::Chroot:
-                // TODO: 实现 Chroot 启动
-                Logger::warn(_("misc.not_implemented"));
-                break;
-            case LaunchMode::Nspawn:
-                // TODO: 实现 systemd-nspawn 启动
-                Logger::warn(_("misc.not_implemented"));
-                break;
             case LaunchMode::ZshManager:
+                termux_->beautify_terminal();
+                break;
+            case LaunchMode::ThemeManager:
                 termux_->beautify_terminal();
                 break;
             case LaunchMode::MirrorManager:
                 run_mirror_menu();
                 break;
-            case LaunchMode::DebianInstall:
-                // TODO: 实现一键安装 Debian
-                Logger::warn(_("misc.not_implemented"));
+
+            case LaunchMode::DebianInstall: {
+                Logger::step(_("debian.oneclick_title"));
+                Logger::info(_("debian.oneclick_installing"));
+                auto container = container_mgr_->create("debian_default", "debian", "sid",
+                                                        domain::ContainerMode::Proot);
+                if (!container_mgr_->find("debian_default").has_value()) {
+                    container.install();
+                } else {
+                    Logger::warn(_("debian.already_installed"));
+                }
+                Logger::ok(_("debian.install_complete"));
                 break;
+            }
+
             case LaunchMode::ManagerMenu:
-                // TODO: 实现管理菜单跳转
-                break;
+                return run_interactive();
+
             case LaunchMode::ToolMenu:
-                // TODO: 实现工具菜单跳转
-                break;
+                dev_tools_->run_dev_tools_menu();
+                return 0;
+
             case LaunchMode::Aria2Manager:
-                // TODO: 实现 Aria2 管理器
-                break;
+                return download_tools_->run_download_menu(), 0;
+
+            case LaunchMode::Help:
+            case LaunchMode::Interactive:
             default:
-                Logger::warn(_("misc.route_undefined"));
                 break;
+        }
+        return 0;
+    }
+
+    int Manager::launch_container(const LaunchContext &ctx, domain::ContainerMode mode,
+                                   const std::string &mode_label, bool needs_root) {
+        if (needs_root && !cfg_.is_root) {
+            Logger::error(_("error.no_root"));
+            return 1;
+        }
+
+        Logger::info(_f("container.schedule", mode_label, ctx.distro_name));
+
+        std::string container_name = ctx.distro_name.empty() ? "default" : ctx.distro_name;
+        std::string distro = ctx.distro_name.empty() ? "debian" : ctx.distro_name;
+        auto container = container_mgr_->create(container_name, distro, ctx.distro_code, mode);
+
+        if (!container_mgr_->find(container_name).has_value()) {
+            if (Logger::confirm(_("container.confirm_install_default"))) {
+                container.install();
+            } else {
+                return 0;
+            }
+        }
+
+        // GUI 启动前钩子
+        bool is_gui_mode = (ctx.exec_program == "startvnc" || ctx.exec_program == "novnc" ||
+                            ctx.exec_program_01 == "startvnc");
+        if (is_gui_mode) {
+            gui_->start_pulseaudio_bridge();
+        }
+
+        if (!container.start(&ctx)) {
+            Logger::error(_("container.terminated"));
+            return 1;
+        }
+
+        // GUI 启动后钩子
+        if (is_gui_mode) {
+            Executor::shell("sleep 3");
+            std::string uri = (ctx.exec_program == "novnc" || ctx.exec_program_01 == "novnc")
+                                  ? "http://127.0.0.1:6080"
+                                  : "vnc://127.0.0.1:5901";
+            environment_->open_uri(uri);
         }
         return 0;
     }

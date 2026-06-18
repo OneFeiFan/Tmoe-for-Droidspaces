@@ -52,6 +52,13 @@ TmoeConfig TmoeConfig::detect() {
         cfg.is_wsl = true;
     }
 
+    // 检测 TUI 组件: 优先 dialog (Unicode/CJK 宽度处理更好)
+    if (Executor::has("dialog")) {
+        cfg.tui_bin = "dialog";
+    } else if (Executor::has("whiptail")) {
+        cfg.tui_bin = "whiptail";
+    }
+
     // 读取 /etc/os-release 进行发行版识别
     std::ifstream file("/etc/os-release");
     std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());

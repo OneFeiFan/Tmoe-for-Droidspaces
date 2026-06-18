@@ -110,7 +110,44 @@ ExecResult Executor::run_with_env(
 }
 
 std::string Executor::tui_select(std::string_view whiptail_args) {
-    std::string cmd = std::string(whiptail_args) + " 3>&1 1>&2 2>&3";
+    std::string args_str(whiptail_args);
+    std::string cmd;
+
+    // dialog 和 whiptail 的 stdout/stderr 方向相反:
+    //   whiptail: TUI→stdout, choice→stderr → 需要 3>&1 1>&2 2>&3 交换
+    //   dialog:   TUI→stderr, choice→stdout → 加 --stdout 即可, 不需要交换
+    bool is_dialog = (args_str.find("dialog") != std::string::npos &&
+                      args_str.find("whiptail") == std::string::npos);
+
+    if (is_dialog) {
+        // dialog: 确保 --stdout 让选项输出到 stdout，popen 直接捕获
+        if (args_str.find("--stdout") == std::string::npos) {
+            size_t first_dash = args_str.find(" --");
+            if (first_dash != std::string::npos) {
+                args_str.insert(first_dash, " --stdout");
+            } else {
+                args_str += " --stdout";
+            }
+        }
+        // 消除阴影: CJK 双宽度字符下阴影(░▒▓)会错位产生"像素凸起"
+        if (args_str.find("--no-shadow") == std::string::npos) {
+            size_t first_dash = args_str.find(" --");
+            if (first_dash != std::string::npos) {
+                args_str.insert(first_dash, " --no-shadow");
+            }
+        }
+        // 防止 CJK 空白被折叠导致宽度再计算
+        if (args_str.find("--no-collapse") == std::string::npos) {
+            size_t first_dash = args_str.find(" --");
+            if (first_dash != std::string::npos) {
+                args_str.insert(first_dash, " --no-collapse");
+            }
+        }
+        cmd = args_str;  // TUI→stderr→终端, choice→stdout→pipe
+    } else {
+        // whiptail: 交换 stdout/stderr，使选项进入 pipe
+        cmd = args_str + " 3>&1 1>&2 2>&3";
+    }
 
     std::unique_ptr<FILE, decltype(&::pclose)> pipe(::popen(cmd.c_str(), "r"), ::pclose);
     if (!pipe) {
