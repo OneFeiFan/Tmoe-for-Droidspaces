@@ -152,89 +152,48 @@ namespace tmoe::app {
             config_mgr_->run_config_menu();
         };
 
-        // 17. Zsh Tab 补全安装
+        // 17. 软件中心 (社交/游戏/媒体/文档/文件共享/清理)
         tui_routes_["17"] = [this]() {
-            Logger::step(_("zsh.comp_installing"));
-            std::string comp_dir = "/usr/local/share/zsh/site-functions";
-            if (!fs::exists(comp_dir)) {
-                comp_dir = "/usr/share/zsh/site-functions";
-            }
-            fs::create_directories(comp_dir);
-            std::string comp_file = comp_dir + "/_tmoe";
-            std::ofstream ofs(comp_file);
-            if (ofs.is_open()) {
-                ofs << "#compdef tmoe\n\n";
-                ofs << "_tmoe() {\n";
-                ofs << "  local -a commands\n";
-                ofs << "  commands=(\n";
-                ofs << "    'proot:PRoot container'\n";
-                ofs << "    'chroot:Chroot container'\n";
-                ofs << "    'nspawn:systemd-nspawn container'\n";
-                ofs << "    'mirror:Mirror management'\n";
-                ofs << "    'list:List containers'\n";
-                ofs << "    'gui:GUI/remote desktop'\n";
-                ofs << "    'backup:Backup containers'\n";
-                ofs << "    'restore:Restore containers'\n";
-                ofs << "    'zsh:Zsh manager'\n";
-                ofs << "    'docker:Docker management'\n";
-                ofs << "    'virt:Virtualization'\n";
-                ofs << "    'config:Configuration'\n";
-                ofs << "    'help:Show help'\n";
-                ofs << "  )\n";
-                ofs << "  _describe 'command' commands\n";
-                ofs << "}\n";
-                ofs << "_tmoe\n";
-                ofs.close();
-                Executor::shell("chmod 644 " + comp_file + " 2>/dev/null");
-                Logger::ok(_f("zsh.comp_installed", comp_file));
-            } else {
-                Logger::error(_("zsh.comp_failed"));
-            }
-            Logger::press_enter();
-        };
-
-        // 18. 软件中心 (社交/游戏/媒体/文档/文件共享/清理)
-        tui_routes_["18"] = [this]() {
             software_center_->run_software_center_menu();
         };
 
-        // 19. 终端模拟器应用
-        tui_routes_["19"] = [this]() {
+        // 18. 终端模拟器应用
+        tui_routes_["18"] = [this]() {
             terminal_app_->run_terminal_menu();
         };
 
-        // 20. 办公套件 (LibreOffice/WPS/永中/FreeOffice)
-        tui_routes_["20"] = [this]() {
+        // 19. 办公套件 (LibreOffice/WPS/永中/FreeOffice)
+        tui_routes_["19"] = [this]() {
             office_->run_office_menu();
         };
 
-        // 21. 教育学习 (数学/化学/物理/英语/考试)
-        tui_routes_["21"] = [this]() {
+        // 20. 教育学习 (数学/化学/物理/英语/考试)
+        tui_routes_["20"] = [this]() {
             education_->run_education_menu();
         };
 
-        // 22. 输入法 (fcitx4/fcitx5/ibus/搜狗)
-        tui_routes_["22"] = [this]() {
+        // 21. 输入法 (fcitx4/fcitx5/ibus/搜狗)
+        tui_routes_["21"] = [this]() {
             input_method_->run_input_method_menu();
         };
 
-        // 23. 浏览器 (Firefox/Chromium/Edge/Falkon/…)
-        tui_routes_["23"] = [this]() {
+        // 22. 浏览器 (Firefox/Chromium/Edge/Falkon/…)
+        tui_routes_["22"] = [this]() {
             browser_->run_browser_menu();
         };
 
-        // 24. Beta/实验功能 (绘图/R语言/文件管理/多媒体/Deepin)
-        tui_routes_["24"] = [this]() {
+        // 23. Beta/实验功能 (绘图/R语言/文件管理/多媒体/Deepin)
+        tui_routes_["23"] = [this]() {
             beta_features_->run_beta_menu();
         };
 
-        // 25. 开发工具安装 (构建工具/编辑器/语言/数据库/Web/网络/Shell/监控)
-        tui_routes_["25"] = [this]() {
+        // 24. 开发工具安装 (构建工具/编辑器/语言/数据库/Web/网络/Shell/监控)
+        tui_routes_["24"] = [this]() {
             dev_tools_->run_dev_tools_menu();
         };
 
-        // 26. 下载工具 (Aria2/迅雷/视频下载/爬虫)
-        tui_routes_["26"] = [this]() {
+        // 25. 下载工具 (Aria2/迅雷/视频下载/爬虫)
+        tui_routes_["25"] = [this]() {
             download_tools_->run_download_menu();
         };
     }
@@ -377,16 +336,15 @@ namespace tmoe::app {
                 "\"14\" \"" + _("menu.tui.docker") + "\" "
                 "\"15\" \"" + _("menu.tui.virt") + "\" "
                 "\"16\" \"" + _("menu.tui.config") + "\" "
-                "\"17\" \"" + _("zsh.comp_title") + "\" "
-                "\"18\" \"" + _("menu.tui.software_center") + "\" "
-                "\"19\" \"" + _("menu.tui.terminal_app") + "\" "
-                "\"20\" \"" + _("menu.tui.office") + "\" "
-                "\"21\" \"" + _("menu.tui.education") + "\" "
-                "\"22\" \"" + _("menu.tui.input_method") + "\" "
-                "\"23\" \"" + _("menu.tui.browser") + "\" "
-                "\"24\" \"" + _("menu.tui.beta") + "\" "
-                "\"25\" \"" + _("menu.tui.dev_tools") + "\" "
-                "\"26\" \"" + _("menu.tui.download_tools") + "\" "
+                "\"17\" \"" + _("menu.tui.software_center") + "\" "
+                "\"18\" \"" + _("menu.tui.terminal_app") + "\" "
+                "\"19\" \"" + _("menu.tui.office") + "\" "
+                "\"20\" \"" + _("menu.tui.education") + "\" "
+                "\"21\" \"" + _("menu.tui.input_method") + "\" "
+                "\"22\" \"" + _("menu.tui.browser") + "\" "
+                "\"23\" \"" + _("menu.tui.beta") + "\" "
+                "\"24\" \"" + _("menu.tui.dev_tools") + "\" "
+                "\"25\" \"" + _("menu.tui.download_tools") + "\" "
                 "\"0\" \"" + _("menu.tui.exit") + "\"";
 
         return Executor::tui_select(menu_cmd);
