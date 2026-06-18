@@ -62,7 +62,7 @@ namespace tmoe::app {
         /** 首次启动时让用户选择语言。 */
         void first_run_locale_setup();
 
-        /** 语言/区域切换菜单（支持全部 7 种语言）。 */
+        /** 语言/区域切换菜单（支持中/英文）。 */
         void run_locale_menu();
 
         /** 渲染 whiptail 菜单并返回用户选择的标签。 */

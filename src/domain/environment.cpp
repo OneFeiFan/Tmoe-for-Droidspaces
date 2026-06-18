@@ -386,17 +386,15 @@ namespace tmoe::domain {
 
     std::string Environment::lang_to_fc_code(std::string_view lang) {
         if (lang == "zh_CN") return "zh";
-        if (lang == "ja_JP") return "ja";
-        if (lang == "ko_KR") return "ko";
-        if (lang == "ru_RU") return "ru";
         return ""; // 拉丁语言不需要特殊检测
     }
 
     bool Environment::needs_cjk(std::string_view lang) {
-        return lang == "zh_CN" || lang == "ja_JP" || lang == "ko_KR";
+        return lang == "zh_CN";
     }
 
     bool Environment::needs_cyrillic(std::string_view lang) {
-        return lang == "ru_RU";
+        (void)lang;
+        return false; // 当前仅支持中/英文，无需西里尔字形
     }
 } // namespace tmoe::domain

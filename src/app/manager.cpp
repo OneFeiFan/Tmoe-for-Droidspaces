@@ -60,7 +60,7 @@ namespace tmoe::app {
             }
         };
 
-        // 4. 语言区域切换（支持 zh_CN / en_US / ja_JP / de_DE / fr_FR / ko_KR / ru_RU）
+        // 4. 语言区域切换（支持 zh_CN / en_US）
         tui_routes_["4"] = [this]() {
             run_locale_menu();
         };
@@ -412,19 +412,14 @@ namespace tmoe::app {
             " --title \"" + _("locale.firstrun_title") + "\""
             " --menu \"" + _("locale.firstrun_prompt") + "\" 0 0 0 "
             "\"en_US\" \"" + _("locale.firstrun.en") + "\" "
-            "\"zh_CN\" \"" + _("locale.firstrun.zh") + "\" "
-            "\"ja_JP\" \"" + _("locale.firstrun.ja") + "\" "
-            "\"ko_KR\" \"" + _("locale.firstrun.ko") + "\" "
-            "\"ru_RU\" \"" + _("locale.firstrun.ru") + "\" "
-            "\"de_DE\" \"" + _("locale.firstrun.de") + "\" "
-            "\"fr_FR\" \"" + _("locale.firstrun.fr") + "\" ";
+            "\"zh_CN\" \"" + _("locale.firstrun.zh") + "\" ";
 
         std::string choice = Executor::tui_select(menu);
         if (choice.empty()) return;
 
         // 验证合法性
         static const std::vector<std::string> valid = {
-            "en_US", "zh_CN", "ja_JP", "ko_KR", "ru_RU", "de_DE", "fr_FR"
+            "en_US", "zh_CN"
         };
         if (std::find(valid.begin(), valid.end(), choice) == valid.end()) return;
 
@@ -436,7 +431,7 @@ namespace tmoe::app {
         Logger::press_enter();
     }
 
-    /** 语言/区域切换菜单（支持全部 7 种语言包）。 */
+    /** 语言/区域切换菜单（支持中/英文）。 */
     void Manager::run_locale_menu() {
         // 支持的语言列表: {lang_code, 显示名称, 本地名称}
         struct LangEntry {
@@ -446,11 +441,6 @@ namespace tmoe::app {
         const std::vector<LangEntry> LANGS = {
             {"zh_CN", _("locale.zh_cn")},
             {"en_US", _("locale.en_us")},
-            {"ja_JP", _("locale.ja_jp")},
-            {"de_DE", _("locale.de_de")},
-            {"fr_FR", _("locale.fr_fr")},
-            {"ko_KR", _("locale.ko_kr")},
-            {"ru_RU", _("locale.ru_ru")},
         };
 
         // 构建 whiptail 菜单
