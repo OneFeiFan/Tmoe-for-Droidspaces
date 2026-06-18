@@ -3,6 +3,10 @@
 #include <ctime>
 #include <sstream>
 #include <iomanip>
+#ifndef _WIN32
+#include <unistd.h>
+#include <termios.h>
+#endif
 
 namespace tmoe {
 
@@ -74,13 +78,28 @@ void Logger::press_enter() {
     if (quiet_mode) return;
     std::fprintf(stderr, "%s[ENTER] 按回车继续...%s", ansi(INFO), RESET);
     std::fflush(stderr);
+#ifndef _WIN32
+    tcflush(STDIN_FILENO, TCIFLUSH);
+#endif
     std::getchar();
 }
 
 bool Logger::confirm(std::string_view question) {
     std::fprintf(stderr, "%s[?] %s (y/N) %s", ansi(WARN), question.data(), RESET);
     std::fflush(stderr);
+
+#ifndef _WIN32
+    // 清空 stdin 残留 (passthrough/system 调用后可能遗留换行符)
+    // 否则 getchar() 会立刻读到 \n → 用户来不及输入 → 被误判为 No
+    tcflush(STDIN_FILENO, TCIFLUSH);
+#endif
+
     int ch = std::getchar();
+    // 消费该行剩余内容 (用户可能键入 "yes" + Enter)
+    if (ch != EOF && ch != '\n') {
+        int c;
+        while ((c = std::getchar()) != '\n' && c != EOF) {}
+    }
     return (ch == 'y' || ch == 'Y');
 }
 

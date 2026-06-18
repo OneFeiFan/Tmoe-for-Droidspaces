@@ -5,6 +5,7 @@
 #include "app/manager.h"
 
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -34,9 +35,36 @@ static void print_usage() {
  *  阶段4: 构建顶层应用管理器。
  *  阶段5: 路由至交互式 TUI 或命令行分发模式。
  */
+/** 读取持久化的 locale 偏好 (若存在)。 */
+static std::string load_saved_locale() {
+    const char* home = std::getenv("HOME");
+    if (!home) return "";
+    std::string path = std::string(home) + "/.config/tmoe-linux/locale";
+    std::ifstream f(path);
+    if (!f.is_open()) return "";
+    std::string lang;
+    std::getline(f, lang);
+    // 清理换行符
+    while (!lang.empty() && (lang.back() == '\n' || lang.back() == '\r'))
+        lang.pop_back();
+    return lang;
+}
+
+/** 持久化 locale 偏好到文件。 */
+static void save_locale_pref(std::string_view lang) {
+    const char* home = std::getenv("HOME");
+    if (!home) return;
+    std::string dir  = std::string(home) + "/.config/tmoe-linux";
+    std::string path = dir + "/locale";
+    fs::create_directories(dir);
+    std::ofstream f(path);
+    if (f.is_open()) f << lang << "\n";
+}
+
 int main(int argc, char *argv[]) {
     std::vector<std::string_view> pos_args;
-    std::string lang = "zh_CN";
+    std::string lang = "en_US";  // 默认英文
+    bool lang_from_cli = false;
 
     // 阶段1: 剥离全局标志；剩余 token → 位置参数
     for (int i = 1; i < argc; ++i) {
@@ -46,6 +74,7 @@ int main(int argc, char *argv[]) {
             return 0;
         } else if (arg == "--lang" && i + 1 < argc) {
             lang = argv[++i];
+            lang_from_cli = true;
         } else if (arg == "--quiet") {
             tmoe::Logger::quiet_mode = true;
         } else if (arg == "--no-color") {
@@ -55,7 +84,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // 阶段2: 加载 i18n 翻译
+    // 阶段2: 加载 i18n 翻译 (先用默认/CLI 值)
     tmoe::I18n::init(lang);
 
     // 阶段3: 自动检测环境并提权
@@ -67,8 +96,17 @@ int main(int argc, char *argv[]) {
     }
     cfg.ensure_dirs();
 
-    // 阶段4: 初始化顶层应用管理器
-    tmoe::app::Manager manager(std::move(cfg));
+    // 阶段3.5: 读取持久化的 locale 偏好 (优先级: CLI > 持久化 > 默认英文)
+    if (!lang_from_cli) {
+        std::string saved = load_saved_locale();
+        if (!saved.empty() && saved != lang) {
+            lang = saved;
+            tmoe::I18n::init(lang);
+        }
+    }
+
+    // 阶段4: 初始化顶层应用管理器 (传入 save_locale_pref 回调)
+    tmoe::app::Manager manager(std::move(cfg), save_locale_pref);
 
     // 阶段5: 路由至交互模式或命令分发
     if (pos_args.empty()) {

@@ -206,7 +206,7 @@ namespace tmoe::domain {
         for (const auto &pkg: packages) oss << pkg << " ";
         std::string cmd = cfg_.install_command + " " + oss.str();
         Logger::step("安装软件包: " + oss.str());
-        return Executor::shell(cmd).ok();
+        return Executor::passthrough(cmd).ok();
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -254,13 +254,10 @@ namespace tmoe::domain {
         // 对应 Bash: which_vnc_server_do_you_prefer()
 
         std::string menu_cmd = cfg_.tui_bin +
-                               " --title \"选择 VNC 服务端\""
-                               " --menu \"请选择 VNC 服务端:\\n\\n"
-                               "TigerVNC: 兼容性好，支持 TLS 加密\\n"
-                               "TightVNC: 压缩效率高，低带宽流畅\\n\\n"
-                               "KDE/GNOME/Cinnamon/DDE 推荐 TigerVNC\" 0 0 0 "
-                               "\"tiger\" \"TigerVNC (推荐)\" "
-                               "\"tight\" \"TightVNC (压缩优秀)\" ";
+                               " --title \"" + std::string(_("gui.vnc_server_title")) + "\""
+                               " --menu \"" + std::string(_("gui.vnc_server_prompt")) + "\" 0 0 0 "
+                               "\"tiger\" \"" + std::string(_("gui.vnc_server_tiger")) + "\" "
+                               "\"tight\" \"" + std::string(_("gui.vnc_server_tight")) + "\" ";
 
         std::string choice = Executor::tui_select(menu_cmd);
         if (choice.empty()) {
@@ -296,8 +293,9 @@ namespace tmoe::domain {
         } else {
             // 交互式输入: 用 whiptail passwordbox
             std::string pass_cmd = cfg_.tui_bin +
-                                   " --title \"VNC 密码\" --passwordbox \"请输入 VNC 密码 (6-8 位):\" 10 40";
-            auto result = Executor::shell(pass_cmd + " 2>&1");
+                                   " --title \"" + std::string(_("gui.vnc_passwd_title")) +
+                                   "\" --passwordbox \"" + std::string(_("gui.vnc_passwd_prompt")) + "\" 10 40";
+            auto result = Executor::passthrough(pass_cmd + " 2>&1");
             passwd_to_use = result.stdout_data;
 
             // 去除尾部换行
@@ -314,7 +312,7 @@ namespace tmoe::domain {
         std::string cmd = "echo '" + passwd_to_use + "' | vncpasswd -f > " +
                           vnc_config_.passwd_file.string() + " 2>/dev/null";
 
-        if (Executor::shell(cmd).ok()) {
+        if (Executor::passthrough(cmd).ok()) {
             vnc_config_.password = passwd_to_use;
             // 修复权限 (仅 root)
             if (cfg_.is_root) {
@@ -575,7 +573,7 @@ namespace tmoe::domain {
 
         // 设置环境变量并启动 VNC
         std::string cmd = build_vnc_start_command(display, width, height);
-        ExecResult result = Executor::shell(cmd + " > /tmp/tmoe_vnc_startup.log 2>&1");
+        ExecResult result = Executor::passthrough(cmd + " > /tmp/tmoe_vnc_startup.log 2>&1");
 
         if (result.ok()) {
             Logger::ok(_f("gui.vnc.started",
@@ -608,7 +606,7 @@ namespace tmoe::domain {
 
         // 1. 使用 vncserver -kill 清理 (TigerVNC)
         std::string cmd = "vncserver -kill :" + std::to_string(display) + " 2>/dev/null";
-        Executor::shell(cmd);
+        Executor::passthrough(cmd);
 
         // 2. 基于 PID 文件精确停止
         remove_vnc_pid_file(display);
@@ -637,7 +635,7 @@ namespace tmoe::domain {
         // 1. 启动 Xvfb
         std::string xvfb_cmd = build_xvfb_command(x11_display, 0, 0);
         Logger::debug("执行: " + xvfb_cmd);
-        Executor::shell(xvfb_cmd);
+        Executor::passthrough(xvfb_cmd);
 
         // 等待 Xvfb 就绪
         Executor::shell("sleep 2");
@@ -645,7 +643,7 @@ namespace tmoe::domain {
         // 2. 启动 x11vnc
         std::string x11vnc_cmd = build_x11vnc_command(x11_display);
         Logger::debug("执行: " + x11vnc_cmd);
-        ExecResult result = Executor::shell(x11vnc_cmd);
+        ExecResult result = Executor::passthrough(x11vnc_cmd);
 
         if (result.ok()) {
             Logger::ok("x11vnc 已启动 — 端口 " + std::to_string(vnc_config_.rfb_port));
@@ -702,7 +700,7 @@ namespace tmoe::domain {
         // 检查是否需要 root 权限
         if (info.requires_root && !cfg_.is_root) {
             Logger::warn(info.name + " 建议在 root 环境下安装 (需要 systemd 支持)");
-            if (!Logger::confirm("是否继续尝试安装？(可能部分功能不可用)")) {
+            if (!Logger::confirm(_("gui.confirm_continue_install"))) {
                 return false;
             }
         }
@@ -790,13 +788,13 @@ namespace tmoe::domain {
         // 安装依赖
         std::vector<std::string> pkgs = {"novnc", "websockify", "python3-numpy", "python3-websockify"};
         for (const auto &pkg: pkgs) {
-            Executor::shell(cfg_.install_command + " " + pkg + " 2>/dev/null || true");
+            Executor::passthrough(cfg_.install_command + " " + pkg + " 2>/dev/null || true");
         }
 
         // 如果 apt 源没有 novnc，从 git 安装
         if (!fs::exists("/usr/share/novnc")) {
             Logger::info("从 GitHub 克隆 noVNC...");
-            Executor::shell("git clone --depth=1 https://github.com/novnc/noVNC.git "
+            Executor::passthrough("git clone --depth=1 https://github.com/novnc/noVNC.git "
                 "/opt/novnc 2>/dev/null || true");
             if (fs::exists("/opt/novnc")) {
                 // 创建符号链接
@@ -818,17 +816,19 @@ namespace tmoe::domain {
 
         // 选择端口
         std::string port_cmd = cfg_.tui_bin +
-                               " --title \"noVNC 端口\" --menu \"请选择 noVNC 端口:\" 0 0 0 "
-                               "\"36080\" \"默认端口 36080\" "
-                               "\"36081\" \"备用端口 36081\" "
-                               "\"6080\" \"标准端口 6080\" "
-                               "\"custom\" \"自定义端口\"";
+                               " --title \"" + std::string(_("gui.novnc_port_title")) +
+                               "\" --menu \"" + std::string(_("gui.novnc_port_prompt")) + "\" 0 0 0 "
+                               "\"36080\" \"" + std::string(_("gui.novnc_port_36080")) + "\" "
+                               "\"36081\" \"" + std::string(_("gui.novnc_port_36081")) + "\" "
+                               "\"6080\" \"" + std::string(_("gui.novnc_port_6080")) + "\" "
+                               "\"custom\" \"" + std::string(_("gui.novnc_port_custom")) + "\"";
 
         std::string choice = Executor::tui_select(port_cmd);
         if (choice == "custom") {
             std::string input_cmd = cfg_.tui_bin +
-                                    " --title \"自定义端口\" --inputbox \"请输入 noVNC HTTP 端口:\" 10 40 \"36080\"";
-            auto result = Executor::shell(input_cmd + " 2>&1");
+                                    " --title \"" + std::string(_("gui.novnc_custom_port_title")) +
+                                    "\" --inputbox \"" + std::string(_("gui.novnc_custom_port_input")) + "\" 10 40 \"36080\"";
+            auto result = Executor::passthrough(input_cmd + " 2>&1");
             try { novnc_port_ = std::stoi(result.stdout_data); } catch (...) { novnc_port_ = 36080; }
         } else if (!choice.empty()) {
             try { novnc_port_ = std::stoi(choice); } catch (...) { novnc_port_ = 36080; }
@@ -863,7 +863,7 @@ namespace tmoe::domain {
                 << novnc_port_ << " localhost:" << vnc_config_.rfb_port
                 << " > /tmp/tmoe_novnc.log 2>&1 &";
 
-        Executor::shell(cmd.str());
+        Executor::passthrough(cmd.str());
         Executor::shell("sleep 2");
 
         Logger::ok(_f("gui.novnc.url", get_novnc_url()));
@@ -907,7 +907,7 @@ namespace tmoe::domain {
         configure_xrdp_session("xfce");
 
         // 启动
-        Executor::shell("service xrdp start 2>/dev/null || systemctl start xrdp 2>/dev/null || true");
+        Executor::passthrough("service xrdp start 2>/dev/null || systemctl start xrdp 2>/dev/null || true");
 
         Logger::ok("XRDP 安装完成，默认端口: 3389");
         return true;
@@ -937,12 +937,12 @@ namespace tmoe::domain {
 
     bool GUIManager::start_xrdp() {
         Logger::step("启动 XRDP 服务...");
-        if (Executor::shell("service xrdp start 2>/dev/null || systemctl start xrdp 2>/dev/null").ok()) {
+        if (Executor::passthrough("service xrdp start 2>/dev/null || systemctl start xrdp 2>/dev/null").ok()) {
             Logger::ok("XRDP 已启动 — 端口 3389");
             return true;
         }
         // 备用: 直接启动 xrdp 守护进程
-        if (Executor::shell("xrdp 2>/dev/null &").ok()) {
+        if (Executor::passthrough("xrdp 2>/dev/null &").ok()) {
             Logger::ok("XRDP 已启动 (直接模式)");
             return true;
         }
@@ -952,7 +952,7 @@ namespace tmoe::domain {
 
     bool GUIManager::stop_xrdp() {
         Logger::step("停止 XRDP...");
-        Executor::shell("service xrdp stop 2>/dev/null || systemctl stop xrdp 2>/dev/null || "
+        Executor::passthrough("service xrdp stop 2>/dev/null || systemctl stop xrdp 2>/dev/null || "
             "pkill xrdp 2>/dev/null || true");
         Logger::ok("XRDP 已停止");
         return true;
@@ -984,7 +984,7 @@ namespace tmoe::domain {
 
     bool GUIManager::remove_xrdp() {
         Logger::step("卸载 XRDP...");
-        Executor::shell(cfg_.remove_command + " xrdp xorgxrdp 2>/dev/null || true");
+        Executor::passthrough(cfg_.remove_command + " xrdp xorgxrdp 2>/dev/null || true");
         Logger::ok("XRDP 已卸载");
         return true;
     }
@@ -998,17 +998,19 @@ namespace tmoe::domain {
 
         // 设置 DISPLAY 变量
         std::string display_cmd = cfg_.tui_bin +
-                                  " --title \"XSDL 配置\" --menu \"请配置 DISPLAY 地址:\" 0 0 0 "
-                                  "\"1\" \"127.0.0.1:0 (本地 X Server)\" "
-                                  "\"2\" \"自定义 IP:显示编号\"";
+                                  " --title \"" + std::string(_("gui.xsdl_config_title")) +
+                                  "\" --menu \"" + std::string(_("gui.xsdl_config_prompt")) + "\" 0 0 0 "
+                                  "\"1\" \"" + std::string(_("gui.xsdl_display_local")) + "\" "
+                                  "\"2\" \"" + std::string(_("gui.xsdl_display_custom")) + "\"";
 
         std::string choice = Executor::tui_select(display_cmd);
         std::string display = "127.0.0.1:0";
 
         if (choice == "2") {
             std::string input_cmd = cfg_.tui_bin +
-                                    " --title \"自定义 DISPLAY\" --inputbox \"请输入 DISPLAY 地址:\" 10 40 \"127.0.0.1:0\"";
-            auto result = Executor::shell(input_cmd + " 2>&1");
+                                    " --title \"" + std::string(_("gui.xsdl_custom_title")) +
+                                    "\" --inputbox \"" + std::string(_("gui.xsdl_custom_input")) + "\" 10 40 \"127.0.0.1:0\"";
+            auto result = Executor::passthrough(input_cmd + " 2>&1");
             if (!result.stdout_data.empty()) {
                 display = result.stdout_data;
                 while (!display.empty() && (display.back() == '\n' || display.back() == '\r'))
@@ -1016,7 +1018,7 @@ namespace tmoe::domain {
             }
         }
 
-        Executor::shell("export DISPLAY=" + display);
+        // DISPLAY should be set via C++ setenv instead of a standalone subshell export
         Logger::ok("XSDL DISPLAY 设置为: " + display);
         return true;
     }
@@ -1043,7 +1045,7 @@ namespace tmoe::domain {
         // 尝试启动桌面会话
         std::string cmd = env + " xfce4-session 2>/dev/null || " + env + " startxfce4 2>/dev/null || "
                           + env + " openbox 2>/dev/null &";
-        Executor::shell(cmd);
+        Executor::passthrough(cmd);
 
         Logger::ok("XSDL 模式已启动 — DISPLAY=" + display);
         return true;
@@ -1106,9 +1108,9 @@ namespace tmoe::domain {
         }
 
         std::string cmd = "Xwayland :" + std::to_string(display_port) + " -noreset &";
-        Executor::shell(cmd);
+        Executor::passthrough(cmd);
         Executor::shell("sleep 1");
-        Executor::shell("export DISPLAY=:" + std::to_string(display_port));
+        // DISPLAY should be set via C++ setenv instead of a standalone subshell export
 
         Logger::ok("WSLg Xwayland 已启动 — DISPLAY=:" + std::to_string(display_port));
         return true;
@@ -1127,15 +1129,15 @@ namespace tmoe::domain {
         Logger::debug("启动 D-Bus 守护进程...");
 
         // 尝试 service/systemctl
-        if (Executor::shell("service dbus start 2>/dev/null").ok()) return true;
-        if (Executor::shell("systemctl start dbus 2>/dev/null").ok()) return true;
+        if (Executor::passthrough("service dbus start 2>/dev/null").ok()) return true;
+        if (Executor::passthrough("systemctl start dbus 2>/dev/null").ok()) return true;
 
         // 直接启动 dbus-daemon
         Executor::shell("mkdir -p /run/dbus /var/lib/dbus 2>/dev/null");
-        if (Executor::shell("dbus-daemon --system --fork 2>/dev/null").ok()) return true;
+        if (Executor::passthrough("dbus-daemon --system --fork 2>/dev/null").ok()) return true;
 
         Logger::debug("使用 dbus-launch 启动会话 dbus");
-        return Executor::shell("dbus-launch --exit-with-session 2>/dev/null &").ok();
+        return Executor::passthrough("dbus-launch --exit-with-session 2>/dev/null &").ok();
     }
 
     bool GUIManager::fix_vnc_dbus() {
@@ -1220,7 +1222,7 @@ namespace tmoe::domain {
         else if (name_lower.find("materia") != std::string::npos) pkg_name = "materia-gtk-theme";
         else pkg_name = name_lower + "-theme";
 
-        return Executor::shell(cfg_.install_command + " " + pkg_name + " 2>/dev/null || true").ok();
+        return Executor::passthrough(cfg_.install_command + " " + pkg_name + " 2>/dev/null || true").ok();
     }
 
     bool GUIManager::install_icon_theme(std::string_view theme) {
@@ -1240,7 +1242,7 @@ namespace tmoe::domain {
         else if (name_lower.find("faenza") != std::string::npos) pkg_name = "faenza-icon-theme";
         else pkg_name = name_lower + "-icon-theme";
 
-        return Executor::shell(cfg_.install_command + " " + pkg_name + " 2>/dev/null || true").ok();
+        return Executor::passthrough(cfg_.install_command + " " + pkg_name + " 2>/dev/null || true").ok();
     }
 
     bool GUIManager::set_wallpaper(std::string_view path) {
@@ -1289,7 +1291,7 @@ namespace tmoe::domain {
                 prefix +
                 "\"pulseaudio --start --load=\\\"module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1\\\" --exit-idle-time=-1\"";
 
-        return Executor::shell(cmd + " >/dev/null 2>&1").ok();
+        return Executor::passthrough(cmd + " >/dev/null 2>&1").ok();
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1299,26 +1301,26 @@ namespace tmoe::domain {
     void GUIManager::run_gui_menu() {
         while (true) {
             std::string menu_cmd = cfg_.tui_bin +
-                                   " --title \"🖥️ GUI/VNC 远程桌面管理\""
-                                   " --menu \"请选择操作:\\n\\n当前配置: " + vnc_config_.server +
+                                   " --title \"" + std::string(_("gui.main_title")) + "\""
+                                   " --menu \"" + std::string(_("gui.main_menu_prompt")) + vnc_config_.server +
                                    " — 端口 " + std::to_string(vnc_config_.rfb_port) +
                                    " — 分辨率 " + std::to_string(vnc_config_.resolution_w) + "x" +
                                    std::to_string(vnc_config_.resolution_h) + "\" 0 0 0 "
-                                   "\"1\" \"安装桌面环境 (XFCE/LXDE/MATE/KDE/GNOME...)\" "
-                                   "\"2\" \"安装/配置 VNC 服务端\" "
-                                   "\"3\" \"启动 VNC 服务\" "
-                                   "\"4\" \"停止 VNC 服务\" "
-                                   "\"5\" \"noVNC (HTML5 浏览器访问)\" "
-                                   "\"6\" \"XRDP (RDP 协议远程桌面)\" "
-                                   "\"7\" \"XSDL/VcXsrv (WSL X Server)\" "
-                                   "\"8\" \"修改 VNC 配置 (密码/分辨率/端口...)\" "
-                                   "\"9\" \"桌面美化 (主题/图标/壁纸)\" "
-                                   "\"A\" \"安装中文字体 + Iosevka 编程字体\" "
-                                   "\"B\" \"安装 fcitx 中文输入法\" "
-                                   "\"C\" \"安装 Chromium 浏览器\" "
-                                   "\"D\" \"部署启动脚本 (startvnc/stopvnc)\" "
-                                   "\"E\" \"修复 VNC 权限\" "
-                                   "\"0\" \"返回上级菜单\"";
+                                   "\"1\" \"" + std::string(_("gui.install_de")) + "\" "
+                                   "\"2\" \"" + std::string(_("gui.install_vnc")) + "\" "
+                                   "\"3\" \"" + std::string(_("gui.start_vnc")) + "\" "
+                                   "\"4\" \"" + std::string(_("gui.stop_vnc")) + "\" "
+                                   "\"5\" \"" + std::string(_("gui.novnc")) + "\" "
+                                   "\"6\" \"" + std::string(_("gui.xrdp")) + "\" "
+                                   "\"7\" \"" + std::string(_("gui.xsdl")) + "\" "
+                                   "\"8\" \"" + std::string(_("gui.vnc_config")) + "\" "
+                                   "\"9\" \"" + std::string(_("gui.beautify")) + "\" "
+                                   "\"A\" \"" + std::string(_("gui.install_fonts")) + "\" "
+                                   "\"B\" \"" + std::string(_("gui.install_fcitx")) + "\" "
+                                   "\"C\" \"" + std::string(_("gui.install_chromium")) + "\" "
+                                   "\"D\" \"" + std::string(_("gui.deploy_scripts")) + "\" "
+                                   "\"E\" \"" + std::string(_("gui.fix_perms")) + "\" "
+                                   "\"0\" \"" + std::string(_("menu.tui.back_upper")) + "\"";
 
             std::string choice = Executor::tui_select(menu_cmd);
             if (choice == "0" || choice.empty()) break;
@@ -1334,7 +1336,7 @@ namespace tmoe::domain {
                 start_vnc();
                 Logger::press_enter();
             } else if (choice == "4") {
-                if (Logger::confirm("确认停止 VNC 服务？")) {
+                if (Logger::confirm(_("gui.confirm_stop_vnc"))) {
                     stop_vnc();
                 }
                 Logger::press_enter();
@@ -1381,27 +1383,28 @@ namespace tmoe::domain {
     void GUIManager::run_vnc_config_menu() {
         while (true) {
             std::string menu_cmd = cfg_.tui_bin +
-                                   " --title \"⚙️ VNC 配置修改\" --menu \"当前: " +
+                                   " --title \"" + std::string(_("gui.vnc_config_title")) +
+                                   "\" --menu \"" + std::string(_("gui.vnc_config_prompt")) +
                                    vnc_config_.server + " — 端口 " + std::to_string(vnc_config_.rfb_port) +
                                    " — " + std::to_string(vnc_config_.resolution_w) + "x" +
                                    std::to_string(vnc_config_.resolution_h) + "\" 0 0 0 "
-                                   "\"1\" \"VNC 密码\" "
-                                   "\"2\" \"切换 Tiger/Tight VNC 服务端\" "
-                                   "\"3\" \"修改分辨率 (当前: " + std::to_string(vnc_config_.resolution_w) + "x" +
+                                   "\"1\" \"" + std::string(_("gui.vnc_password")) + "\" "
+                                   "\"2\" \"" + std::string(_("gui.vnc_switch_server")) + "\" "
+                                   "\"3\" \"" + std::string(_("gui.vnc_resolution")) + " " + std::to_string(vnc_config_.resolution_w) + "x" +
                                    std::to_string(vnc_config_.resolution_h) + ")\" "
-                                   "\"4\" \"修改 VNC 端口 (当前: " + std::to_string(vnc_config_.rfb_port) + ")\" "
-                                   "\"5\" \"像素深度 (当前: " + std::to_string(vnc_config_.pixel_depth) + ")\" "
-                                   "\"6\" \"Zlib 压缩级别 (当前: " + std::to_string(vnc_config_.zlib_level) + ")\" "
-                                   "\"7\" \"PulseAudio 音频配置\" "
-                                   "\"8\" \"修复 dbus-launch\" "
-                                   "\"9\" \"显示 D-Bus 状态\" "
-                                   "\"10\" \"停止 D-Bus 守护进程\" "
-                                   "\"11\" \"CompareFB (帧缓冲对比: " +
+                                   "\"4\" \"" + std::string(_("gui.vnc_port")) + " " + std::to_string(vnc_config_.rfb_port) + ")\" "
+                                   "\"5\" \"" + std::string(_("gui.vnc_depth")) + " " + std::to_string(vnc_config_.pixel_depth) + ")\" "
+                                   "\"6\" \"" + std::string(_("gui.vnc_zlib")) + " " + std::to_string(vnc_config_.zlib_level) + ")\" "
+                                   "\"7\" \"" + std::string(_("gui.vnc_pulseaudio")) + "\" "
+                                   "\"8\" \"" + std::string(_("gui.vnc_fix_dbus")) + "\" "
+                                   "\"9\" \"" + std::string(_("gui.vnc_dbus_status")) + "\" "
+                                   "\"10\" \"" + std::string(_("gui.vnc_stop_dbus")) + "\" "
+                                   "\"11\" \"" + std::string(_("gui.vnc_comparefb")) + " " +
                                    std::string(vnc_config_.compare_fb ? "ON" : "OFF") + ")\" "
-                                   "\"12\" \"本地连接限制 (localhost: " +
+                                   "\"12\" \"" + std::string(_("gui.vnc_localhost")) + " " +
                                    std::string(vnc_config_.localhost_only ? "ON" : "OFF") + ")\" "
-                                   "\"13\" \"清理所有 VNC 进程\" "
-                                   "\"0\" \"返回\"";
+                                   "\"13\" \"" + std::string(_("gui.vnc_kill_all")) + "\" "
+                                   "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
 
             std::string choice = Executor::tui_select(menu_cmd);
             if (choice == "0" || choice.empty()) break;
@@ -1414,13 +1417,14 @@ namespace tmoe::domain {
             } else if (choice == "3") {
                 // 分辨率选择
                 std::string res_cmd = cfg_.tui_bin +
-                                      " --title \"分辨率\" --menu \"选择分辨率:\" 0 0 0 "
-                                      "\"1440x720\"  \"默认 18:9\" "
-                                      "\"1280x720\"  \"HD 16:9\" "
-                                      "\"1920x1080\" \"FHD 16:9\" "
-                                      "\"2560x1440\" \"2K 16:9\" "
-                                      "\"1024x768\"  \"4:3 传统\" "
-                                      "\"custom\"    \"自定义\"";
+                                      " --title \"" + std::string(_("gui.resolution_title")) +
+                                      "\" --menu \"" + std::string(_("gui.resolution_prompt")) + "\" 0 0 0 "
+                                      "\"1440x720\"  \"" + std::string(_("gui.resolution_1440x720")) + "\" "
+                                      "\"1280x720\"  \"" + std::string(_("gui.resolution_1280x720")) + "\" "
+                                      "\"1920x1080\" \"" + std::string(_("gui.resolution_1920x1080")) + "\" "
+                                      "\"2560x1440\" \"" + std::string(_("gui.resolution_2560x1440")) + "\" "
+                                      "\"1024x768\"  \"" + std::string(_("gui.resolution_1024x768")) + "\" "
+                                      "\"custom\"    \"" + std::string(_("gui.resolution_custom")) + "\"";
                 std::string res = Executor::tui_select(res_cmd);
                 if (!res.empty() && res != "custom") {
                     auto xpos = res.find('x');
@@ -1432,10 +1436,11 @@ namespace tmoe::domain {
                 }
             } else if (choice == "4") {
                 std::string port_cmd = cfg_.tui_bin +
-                                       " --title \"VNC 端口\" --menu \"选择端口:\" 0 0 0 "
-                                       "\"5902\" \"默认 (display :2)\" "
-                                       "\"5903\" \"备用 (display :3)\" "
-                                       "\"5901\" \"display :1\"";
+                                       " --title \"" + std::string(_("gui.port_title")) +
+                                       "\" --menu \"" + std::string(_("gui.port_prompt")) + "\" 0 0 0 "
+                                       "\"5902\" \"" + std::string(_("gui.port_5902")) + "\" "
+                                       "\"5903\" \"" + std::string(_("gui.port_5903")) + "\" "
+                                       "\"5901\" \"" + std::string(_("gui.port_5901")) + "\"";
                 std::string port = Executor::tui_select(port_cmd);
                 if (!port.empty()) {
                     int p = std::stoi(port);
@@ -1444,18 +1449,20 @@ namespace tmoe::domain {
                 }
             } else if (choice == "5") {
                 std::string depth_cmd = cfg_.tui_bin +
-                                        " --title \"像素深度\" --menu \"选择:\" 0 0 0 "
-                                        "\"24\" \"24位真彩色 (推荐)\" "
-                                        "\"16\" \"16位 (省带宽)\"";
+                                        " --title \"" + std::string(_("gui.depth_title")) +
+                                        "\" --menu \"" + std::string(_("gui.depth_prompt")) + "\" 0 0 0 "
+                                        "\"24\" \"" + std::string(_("gui.depth_24")) + "\" "
+                                        "\"16\" \"" + std::string(_("gui.depth_16")) + "\"";
                 std::string depth = Executor::tui_select(depth_cmd);
                 if (!depth.empty()) vnc_config_.pixel_depth = std::stoi(depth);
             } else if (choice == "6") {
                 std::string zlib_cmd = cfg_.tui_bin +
-                                       " --title \"Zlib 压缩\" --menu \"0=最快 9=最优压缩:\" 0 0 0 "
-                                       "\"0\" \"级别 0 — 不压缩 (最快)\" "
-                                       "\"3\" \"级别 3 — 平衡\" "
-                                       "\"6\" \"级别 6 — 较优\" "
-                                       "\"9\" \"级别 9 — 最优压缩 (慢速连接推荐)\"";
+                                       " --title \"" + std::string(_("gui.zlib_title")) +
+                                       "\" --menu \"" + std::string(_("gui.zlib_prompt")) + "\" 0 0 0 "
+                                       "\"0\" \"" + std::string(_("gui.zlib_0")) + "\" "
+                                       "\"3\" \"" + std::string(_("gui.zlib_3")) + "\" "
+                                       "\"6\" \"" + std::string(_("gui.zlib_6")) + "\" "
+                                       "\"9\" \"" + std::string(_("gui.zlib_9")) + "\"";
                 std::string zlib = Executor::tui_select(zlib_cmd);
                 if (!zlib.empty()) vnc_config_.zlib_level = std::stoi(zlib);
             } else if (choice == "7") {
@@ -1465,7 +1472,7 @@ namespace tmoe::domain {
             } else if (choice == "9") {
                 show_dbus_status();
             } else if (choice == "10") {
-                if (Logger::confirm("确认停止 D-Bus 守护进程？(可能影响桌面环境)")) {
+                if (Logger::confirm(_("gui.confirm_stop_dbus"))) {
                     stop_dbus_daemon();
                 }
             } else if (choice == "11") {
@@ -1477,7 +1484,7 @@ namespace tmoe::domain {
                 configure_vnc_defaults();
                 Logger::ok("localhost 限制已" + std::string(vnc_config_.localhost_only ? "启用" : "禁用"));
             } else if (choice == "13") {
-                if (Logger::confirm("确认终止所有 VNC 进程？")) {
+                if (Logger::confirm(_("gui.confirm_kill_vnc"))) {
                     kill_all_vnc();
                 }
             }
@@ -1487,9 +1494,8 @@ namespace tmoe::domain {
 
     void GUIManager::run_desktop_install_menu() {
         std::string menu_cmd = cfg_.tui_bin +
-                               " --title \"📦 安装桌面环境\""
-                               " --menu \"请选择要安装的桌面环境:\\n\\n"
-                               "🟢 = 支持 proot 无 root 运行  🔴 = 需要 root/systemd\\n\" 0 0 0 ";
+                               " --title \"" + std::string(_("gui.de_install_title")) + "\""
+                               " --menu \"" + std::string(_("gui.de_install_prompt")) + "\" 0 0 0 ";
 
         auto desktops = list_desktops();
         for (size_t i = 0; i < desktops.size(); ++i) {
@@ -1502,8 +1508,8 @@ namespace tmoe::domain {
         }
 
         // 窗口管理器选项
-        menu_cmd += "\"wm\" \"📦 安装窗口管理器 (openbox/i3/awesome/icewm...)\" ";
-        menu_cmd += "\"0\" \"返回\"";
+        menu_cmd += "\"wm\" \"" + std::string(_("gui.de_install_wm")) + "\" ";
+        menu_cmd += "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
 
         std::string choice = Executor::tui_select(menu_cmd);
         if (choice == "0" || choice.empty()) return;
@@ -1511,12 +1517,13 @@ namespace tmoe::domain {
         if (choice == "wm") {
             // 窗口管理器子菜单
             std::string wm_menu = cfg_.tui_bin +
-                                  " --title \"窗口管理器\" --menu \"选择窗口管理器:\" 0 0 0 ";
+                                  " --title \"" + std::string(_("gui.wm_title")) +
+                                  "\" --menu \"" + std::string(_("gui.wm_prompt")) + "\" 0 0 0 ";
             int idx = 1;
             for (const auto &name: list_window_managers()) {
                 wm_menu += "\"" + std::to_string(idx++) + "\" \"" + name + "\" ";
             }
-            wm_menu += "\"0\" \"返回\"";
+            wm_menu += "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
             std::string wm_choice = Executor::tui_select(wm_menu);
             if (wm_choice != "0" && !wm_choice.empty()) {
                 auto wms = list_window_managers();
@@ -1537,12 +1544,13 @@ namespace tmoe::domain {
     void GUIManager::run_remote_desktop_menu() {
         while (true) {
             std::string menu_cmd = cfg_.tui_bin +
-                                   " --title \"🌐 远程桌面协议\" --menu \"请选择协议:\" 0 0 0 "
-                                   "\"1\" \"noVNC (HTML5 Web 客户端)\" "
-                                   "\"2\" \"x11vnc (基于 Xvfb 的 VNC)\" "
-                                   "\"3\" \"XRDP (RDP 协议)\" "
-                                   "\"4\" \"XSDL / VcXsrv (WSL)\" "
-                                   "\"0\" \"返回\"";
+                                   " --title \"" + std::string(_("gui.remote_title")) +
+                                   "\" --menu \"" + std::string(_("gui.remote_prompt")) + "\" 0 0 0 "
+                                   "\"1\" \"" + std::string(_("gui.remote_novnc")) + "\" "
+                                   "\"2\" \"" + std::string(_("gui.remote_x11vnc")) + "\" "
+                                   "\"3\" \"" + std::string(_("gui.remote_xrdp")) + "\" "
+                                   "\"4\" \"" + std::string(_("gui.remote_xsdl")) + "\" "
+                                   "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
 
             std::string choice = Executor::tui_select(menu_cmd);
             if (choice == "0" || choice.empty()) break;
@@ -1552,7 +1560,7 @@ namespace tmoe::domain {
                 configure_novnc();
                 start_novnc();
             } else if (choice == "2") {
-                if (Logger::confirm("启动 x11vnc？将先停止可能存在的 VNC 服务。")) {
+                if (Logger::confirm(_("gui.confirm_start_x11vnc"))) {
                     stop_vnc();
                     start_x11vnc();
                 }
@@ -1560,14 +1568,15 @@ namespace tmoe::domain {
                 // XRDP 子菜单
                 while (true) {
                     std::string xrdp_menu = cfg_.tui_bin +
-                                            " --title \"XRDP 管理\" --menu \"XRDP 操作:\" 0 0 0 "
-                                            "\"1\" \"一键安装+配置 XRDP\" "
-                                            "\"2\" \"启动 XRDP\" "
-                                            "\"3\" \"停止 XRDP\" "
-                                            "\"4\" \"重启 XRDP\" "
-                                            "\"5\" \"修改端口\" "
-                                            "\"6\" \"卸载 XRDP\" "
-                                            "\"0\" \"返回\"";
+                                            " --title \"" + std::string(_("gui.xrdp_title")) +
+                                            "\" --menu \"" + std::string(_("gui.xrdp_prompt")) + "\" 0 0 0 "
+                                            "\"1\" \"" + std::string(_("gui.xrdp_install")) + "\" "
+                                            "\"2\" \"" + std::string(_("gui.xrdp_start")) + "\" "
+                                            "\"3\" \"" + std::string(_("gui.xrdp_stop")) + "\" "
+                                            "\"4\" \"" + std::string(_("gui.xrdp_restart")) + "\" "
+                                            "\"5\" \"" + std::string(_("gui.xrdp_change_port")) + "\" "
+                                            "\"6\" \"" + std::string(_("gui.xrdp_remove")) + "\" "
+                                            "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
                     std::string xchoice = Executor::tui_select(xrdp_menu);
                     if (xchoice == "0" || xchoice.empty()) break;
                     if (xchoice == "1") install_xrdp();
@@ -1576,8 +1585,9 @@ namespace tmoe::domain {
                     else if (xchoice == "4") restart_xrdp();
                     else if (xchoice == "5") {
                         std::string port_cmd = cfg_.tui_bin +
-                                               " --title \"XRDP 端口\" --inputbox \"输入端口号:\" 10 40 \"3389\"";
-                        auto result = Executor::shell(port_cmd + " 2>&1");
+                                               " --title \"" + std::string(_("gui.xrdp_port_title")) +
+                                               "\" --inputbox \"" + std::string(_("gui.xrdp_port_input")) + "\" 10 40 \"3389\"";
+                        auto result = Executor::passthrough(port_cmd + " 2>&1");
                         if (!result.stdout_data.empty()) {
                             try {
                                 set_xrdp_port(std::stoi(result.stdout_data));
@@ -1601,51 +1611,55 @@ namespace tmoe::domain {
     void GUIManager::run_beautification_menu() {
         while (true) {
             std::string menu_cmd = cfg_.tui_bin +
-                                   " --title \"🎨 桌面美化\" --menu \"请选择:\" 0 0 0 "
-                                   "\"1\" \"安装 GTK 主题\" "
-                                   "\"2\" \"安装图标主题\" "
-                                   "\"3\" \"下载/设置壁纸\" "
-                                   "\"4\" \"安装 Plank dock\" "
-                                   "\"5\" \"安装 Compiz 窗口特效\" "
-                                   "\"6\" \"安装 Conky 系统监控\" "
-                                   "\"7\" \"安装鼠标指针主题\" "
-                                   "\"8\" \"部署 XFCE4 面板配置\" "
-                                   "\"9\" \"安装 Iosevka 编程字体\" "
-                                   "\"0\" \"返回\"";
+                                   " --title \"" + std::string(_("gui.beautify_title")) +
+                                   "\" --menu \"" + std::string(_("gui.beautify_prompt")) + "\" 0 0 0 "
+                                   "\"1\" \"" + std::string(_("gui.beautify_gtk_theme")) + "\" "
+                                   "\"2\" \"" + std::string(_("gui.beautify_icon_theme")) + "\" "
+                                   "\"3\" \"" + std::string(_("gui.beautify_wallpaper")) + "\" "
+                                   "\"4\" \"" + std::string(_("gui.beautify_plank")) + "\" "
+                                   "\"5\" \"" + std::string(_("gui.beautify_compiz")) + "\" "
+                                   "\"6\" \"" + std::string(_("gui.beautify_conky")) + "\" "
+                                   "\"7\" \"" + std::string(_("gui.beautify_cursor")) + "\" "
+                                   "\"8\" \"" + std::string(_("gui.beautify_xfce_panel")) + "\" "
+                                   "\"9\" \"" + std::string(_("gui.beautify_iosevka")) + "\" "
+                                   "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
 
             std::string choice = Executor::tui_select(menu_cmd);
             if (choice == "0" || choice.empty()) break;
 
             if (choice == "1") {
                 std::string theme_menu = cfg_.tui_bin +
-                                         " --title \"GTK 主题\" --menu \"选择主题:\" 0 0 0 "
-                                         "\"arc\" \"Arc (流行简洁)\" "
-                                         "\"adapta\" \"Adapta (Material Design)\" "
-                                         "\"numix\" \"Numix (现代扁平)\" "
-                                         "\"materia\" \"Materia (Material)\" "
-                                         "\"breeze\" \"Breeze (KDE 风格)\"";
+                                         " --title \"" + std::string(_("gui.gtk_theme_title")) +
+                                         "\" --menu \"" + std::string(_("gui.gtk_theme_prompt")) + "\" 0 0 0 "
+                                         "\"arc\" \"" + std::string(_("gui.gtk_theme_arc")) + "\" "
+                                         "\"adapta\" \"" + std::string(_("gui.gtk_theme_adapta")) + "\" "
+                                         "\"numix\" \"" + std::string(_("gui.gtk_theme_numix")) + "\" "
+                                         "\"materia\" \"" + std::string(_("gui.gtk_theme_materia")) + "\" "
+                                         "\"breeze\" \"" + std::string(_("gui.gtk_theme_breeze")) + "\"";
                 std::string t = Executor::tui_select(theme_menu);
                 if (!t.empty() && t != "0") install_theme(t);
             } else if (choice == "2") {
                 std::string icon_menu = cfg_.tui_bin +
-                                        " --title \"图标主题\" --menu \"选择:\" 0 0 0 "
-                                        "\"papirus\" \"Papirus (推荐，图标最全)\" "
-                                        "\"numix\" \"Numix Circle\" "
-                                        "\"breeze\" \"Breeze\" "
-                                        "\"elementary\" \"elementary Xfce\" "
-                                        "\"tango\" \"Tango 经典\" "
-                                        "\"moka\" \"Moka + Faba\""
-                                        "\"faenza\" \"Faenza\"";
+                                        " --title \"" + std::string(_("gui.icon_theme_title")) +
+                                        "\" --menu \"" + std::string(_("gui.icon_theme_prompt")) + "\" 0 0 0 "
+                                        "\"papirus\" \"" + std::string(_("gui.icon_papirus")) + "\" "
+                                        "\"numix\" \"" + std::string(_("gui.icon_numix")) + "\" "
+                                        "\"breeze\" \"" + std::string(_("gui.icon_breeze")) + "\" "
+                                        "\"elementary\" \"" + std::string(_("gui.icon_elementary")) + "\" "
+                                        "\"tango\" \"" + std::string(_("gui.icon_tango")) + "\" "
+                                        "\"moka\" \"" + std::string(_("gui.icon_moka")) + "\" "
+                                        "\"faenza\" \"" + std::string(_("gui.icon_faenza")) + "\"";
                 std::string i = Executor::tui_select(icon_menu);
                 if (!i.empty() && i != "0") install_icon_theme(i);
             } else if (choice == "3") {
                 std::string wp_menu = cfg_.tui_bin +
-                                      " --title \"壁纸\" --menu \"选择壁纸源:\" 0 0 0 "
-                                      "\"gnome\" \"GNOME 壁纸包\" "
-                                      "\"xfce\" \"XFCE 官方壁纸\" "
-                                      "\"mate\" \"Ubuntu MATE 壁纸包\" "
-                                      "\"deepin\" \"Deepin 壁纸包\" "
-                                      "\"kde\" \"KDE 壁纸包\"";
+                                      " --title \"" + std::string(_("gui.wallpaper_title")) +
+                                      "\" --menu \"" + std::string(_("gui.wallpaper_prompt")) + "\" 0 0 0 "
+                                      "\"gnome\" \"" + std::string(_("gui.wp_gnome")) + "\" "
+                                      "\"xfce\" \"" + std::string(_("gui.wp_xfce")) + "\" "
+                                      "\"mate\" \"" + std::string(_("gui.wp_mate")) + "\" "
+                                      "\"deepin\" \"" + std::string(_("gui.wp_deepin")) + "\" "
+                                      "\"kde\" \"" + std::string(_("gui.wp_kde")) + "\"";
                 std::string wp = Executor::tui_select(wp_menu);
                 if (!wp.empty() && wp != "0") download_wallpaper(wp);
             } else if (choice == "4") {
@@ -1656,9 +1670,10 @@ namespace tmoe::domain {
                 install_conky();
             } else if (choice == "7") {
                 std::string cursor_menu = cfg_.tui_bin +
-                                          " --title \"鼠标指针\" --menu \"选择:\" 0 0 0 "
-                                          "\"breeze\" \"Breeze 指针\" "
-                                          "\"chameleon\" \"Chameleon 多彩\"";
+                                          " --title \"" + std::string(_("gui.cursor_title")) +
+                                          "\" --menu \"" + std::string(_("gui.cursor_prompt")) + "\" 0 0 0 "
+                                          "\"breeze\" \"" + std::string(_("gui.cursor_breeze")) + "\" "
+                                          "\"chameleon\" \"" + std::string(_("gui.cursor_chameleon")) + "\"";
                 std::string c = Executor::tui_select(cursor_menu);
                 if (!c.empty() && c != "0") install_cursor_theme(c);
             } else if (choice == "8") {
@@ -1802,7 +1817,7 @@ namespace tmoe::domain {
                 std::string mypid = pid_data;
                 while (!mypid.empty() && (mypid.back() == '\n' || mypid.back() == '\r')) mypid.pop_back();
                 if (!mypid.empty())
-                    Executor::shell("kill " + mypid + " 2>/dev/null || true");
+                    Executor::passthrough("kill " + mypid + " 2>/dev/null || true");
             }
             fs::remove(vnc_config_.vnc_pid_file);
         }
@@ -1812,7 +1827,7 @@ namespace tmoe::domain {
                 std::string mypid = pid_data;
                 while (!mypid.empty() && (mypid.back() == '\n' || mypid.back() == '\r')) mypid.pop_back();
                 if (!mypid.empty())
-                    Executor::shell("kill " + mypid + " 2>/dev/null || true");
+                    Executor::passthrough("kill " + mypid + " 2>/dev/null || true");
             }
             fs::remove(vnc_config_.x_pid_file);
         }
@@ -1831,21 +1846,21 @@ namespace tmoe::domain {
 
         if (has_apt) {
             Logger::info("安装中文字体 (fonts-noto-cjk)...");
-            Executor::shell(cfg_.install_command +
+            Executor::passthrough(cfg_.install_command +
                 " fonts-noto-cjk fonts-noto-color-emoji 2>/dev/null || true");
         } else if (has_pacman) {
             Logger::info("安装中文字体 (noto-fonts-cjk)...");
-            Executor::shell(cfg_.install_command +
+            Executor::passthrough(cfg_.install_command +
                 " noto-fonts-cjk noto-fonts-emoji 2>/dev/null || true");
         } else {
             // 通用尝试
-            Executor::shell(cfg_.install_command +
+            Executor::passthrough(cfg_.install_command +
                 " fonts-noto-cjk 2>/dev/null || "
                 + cfg_.install_command + " wqy-microhei 2>/dev/null || true");
         }
 
         // 刷新字体缓存
-        Executor::shell("fc-cache -fv 2>/dev/null || true");
+        Executor::passthrough("fc-cache -fv 2>/dev/null || true");
         Logger::ok(_("gui.font.install_ok"));
         return true;
     }
@@ -1861,7 +1876,7 @@ namespace tmoe::domain {
         }
 
         // 先尝试包管理器
-        if (Executor::shell(cfg_.install_command + " fonts-iosevka 2>/dev/null").ok()) {
+        if (Executor::passthrough(cfg_.install_command + " fonts-iosevka 2>/dev/null").ok()) {
             Logger::ok("Iosevka 字体安装完成");
             return true;
         }
@@ -1880,8 +1895,8 @@ namespace tmoe::domain {
                              " && unzip -o iosevka.zip -d " + font_dir +
                              " 2>/dev/null && rm -f iosevka.zip";
 
-        if (Executor::shell(dl_cmd).ok()) {
-            Executor::shell("fc-cache -fv 2>/dev/null || true");
+        if (Executor::passthrough(dl_cmd).ok()) {
+            Executor::passthrough("fc-cache -fv 2>/dev/null || true");
             Logger::ok("Iosevka 字体安装完成 -> " + font_dir);
             return true;
         }
@@ -1983,15 +1998,15 @@ namespace tmoe::domain {
         }
 
         // 尝试多种方式安装
-        if (Executor::shell(cfg_.install_command + " chromium-browser 2>/dev/null").ok()) {
+        if (Executor::passthrough(cfg_.install_command + " chromium-browser 2>/dev/null").ok()) {
             Logger::ok("Chromium 安装完成");
             return true;
         }
-        if (Executor::shell(cfg_.install_command + " chromium 2>/dev/null").ok()) {
+        if (Executor::passthrough(cfg_.install_command + " chromium 2>/dev/null").ok()) {
             Logger::ok("Chromium 安装完成");
             return true;
         }
-        if (Executor::shell(cfg_.install_command + " google-chrome-stable 2>/dev/null").ok()) {
+        if (Executor::passthrough(cfg_.install_command + " google-chrome-stable 2>/dev/null").ok()) {
             Logger::ok("Chrome 安装完成 (备选)");
             return true;
         }
@@ -2059,10 +2074,10 @@ namespace tmoe::domain {
         Logger::step("卸载 noVNC...");
         stop_novnc();
         // 清理 pip3 安装的包
-        Executor::shell("pip3 uninstall -y websockify numpy 2>/dev/null || true");
+        Executor::passthrough("pip3 uninstall -y websockify numpy 2>/dev/null || true");
         // 清理目录
         Executor::shell("rm -rf /opt/novnc /usr/share/novnc 2>/dev/null || true");
-        Executor::shell(cfg_.remove_command + " novnc websockify 2>/dev/null || true");
+        Executor::passthrough(cfg_.remove_command + " novnc websockify 2>/dev/null || true");
         Logger::ok("noVNC 已卸载");
         return true;
     }
@@ -2078,20 +2093,20 @@ namespace tmoe::domain {
         if (fs::exists("/run/dbus/pid")) {
             auto pid_data = read_file("/run/dbus/pid");
             if (!pid_data.empty()) {
-                Executor::shell("kill " + pid_data + " 2>/dev/null || true");
+                Executor::passthrough("kill " + pid_data + " 2>/dev/null || true");
             }
             fs::remove("/run/dbus/pid");
         }
         if (fs::exists("/var/run/dbus/pid")) {
             auto pid_data = read_file("/var/run/dbus/pid");
             if (!pid_data.empty()) {
-                Executor::shell("kill " + pid_data + " 2>/dev/null || true");
+                Executor::passthrough("kill " + pid_data + " 2>/dev/null || true");
             }
             fs::remove("/var/run/dbus/pid");
         }
 
         // 标准停止
-        Executor::shell("service dbus stop 2>/dev/null || systemctl stop dbus 2>/dev/null || "
+        Executor::passthrough("service dbus stop 2>/dev/null || systemctl stop dbus 2>/dev/null || "
             "pkill dbus-daemon 2>/dev/null || true");
         Executor::shell("pkill dbus-launch 2>/dev/null || true");
 
@@ -2152,7 +2167,7 @@ namespace tmoe::domain {
         }
 
         if (!url.empty()) {
-            Executor::shell("wget -q '" + url + "' -O " + wallpaper_dir + "/" + filename +
+            Executor::passthrough("wget -q '" + url + "' -O " + wallpaper_dir + "/" + filename +
                 " 2>/dev/null || curl -sL '" + url + "' -o " + wallpaper_dir + "/" + filename + " 2>/dev/null");
             set_wallpaper(wallpaper_dir + "/" + filename);
         }
@@ -2243,7 +2258,7 @@ namespace tmoe::domain {
         else if (name_lower.find("chameleon") != std::string::npos) pkg_name = "chameleon-cursor-theme";
         else pkg_name = std::string(theme) + "-cursor-theme";
 
-        if (!Executor::shell(cfg_.install_command + " " + pkg_name + " 2>/dev/null || true").ok()) {
+        if (!Executor::passthrough(cfg_.install_command + " " + pkg_name + " 2>/dev/null || true").ok()) {
             Logger::warn("鼠标指针安装可能失败，请手动检查");
             return false;
         }

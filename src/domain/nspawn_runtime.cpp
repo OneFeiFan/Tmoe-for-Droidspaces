@@ -307,8 +307,9 @@ namespace tmoe::domain {
         std::string cmd = generate_launch_cmd(container, ctx);
         Logger::step("Nspawn 启动命令: " + cmd);
 
-        // 清除 LD_PRELOAD
-        Executor::shell("unset LD_PRELOAD");
+        // 注：Bash 原版在此处执行 unset LD_PRELOAD，
+        //    但 C++ 每次 Executor::shell 调用独立 shell 进程，无需 unset。
+        //   如需清除环境变量，请使用 C++ unsetenv("LD_PRELOAD")。
 
         // 执行：需要 root 权限
         std::string prefix;
@@ -324,7 +325,7 @@ namespace tmoe::domain {
             cmd = prefix + " \"" + cmd + "\"";
         }
 
-        return Executor::shell(cmd).ok();
+        return Executor::passthrough(cmd).ok();
     }
 
     bool NspawnRuntime::stop(const Container &container) {
@@ -338,7 +339,7 @@ namespace tmoe::domain {
             }
         }
 
-        Executor::shell(cmd);
+        Executor::passthrough(cmd);
         return true;
     }
 } // namespace tmoe::domain

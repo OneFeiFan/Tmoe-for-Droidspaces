@@ -25,7 +25,10 @@ namespace tmoe::app {
      */
     class Manager {
     public:
-        explicit Manager(TmoeConfig cfg);
+        using LocaleSaveFunc = std::function<void(std::string_view)>;
+
+        explicit Manager(TmoeConfig cfg,
+                         LocaleSaveFunc save_locale = nullptr);
 
         /** 运行交互式 TUI 循环。 */
         int run_interactive();
@@ -35,6 +38,7 @@ namespace tmoe::app {
 
     private:
         TmoeConfig cfg_;
+        LocaleSaveFunc save_locale_;
 
         // 领域模块
         std::unique_ptr<domain::ContainerManager> container_mgr_;
@@ -54,6 +58,9 @@ namespace tmoe::app {
 
         /** 镜像源管理子菜单。 */
         void run_mirror_menu();
+
+        /** 首次启动时让用户选择语言。 */
+        void first_run_locale_setup();
 
         /** 语言/区域切换菜单（支持全部 7 种语言）。 */
         void run_locale_menu();

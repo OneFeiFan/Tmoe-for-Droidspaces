@@ -1,4 +1,5 @@
 #include "domain/docker.h"
+#include "core/i18n.h"
 #include <algorithm>
 #include <cstdio>
 #include <fstream>
@@ -36,30 +37,31 @@ DockerManager::DockerManager(const TmoeConfig& cfg) : cfg_(cfg) {}
 void DockerManager::run_docker_menu() {
     while (true) {
         std::string available = is_docker_available() ?
-            "✅ Docker 已安装" : "❌ Docker 未安装";
+            _("docker.status_installed") : _("docker.status_not_installed");
 
         std::string menu = cfg_.tui_bin +
-            " --title \"🐳 Docker 容器管理 — " + available + "\""
-            " --menu \"请选择操作:\" 0 0 0 "
-            "\"1\" \"📥 安装 Docker CE / Docker.io\" "
-            "\"2\" \"⬇️  拉取 Linux 发行版镜像 (17种)\" "
-            "\"3\" \"🚀 运行 Docker 容器\" "
-            "\"4\" \"🌐 安装 Portainer Web 管理\" "
-            "\"5\" \"💾 导出/导入容器\" "
-            "\"6\" \"🔧 配置 Docker 镜像源\" "
-            "\"7\" \"👥 添加用户到 docker 组\" "
-            "\"8\" \"🔄 安装 qemu-user-static (跨架构)\" "
-            "\"9\" \"📋 列出镜像/容器\" "
-            "\"0\" \"返回上级菜单\"";
+            " --title \"" + _("docker.title") + " — " + available + "\""
+            " --menu \"" + _("docker.menu_prompt") + "\" 0 0 0 "
+            "\"1\" \"" + _("docker.install") + "\" "
+            "\"2\" \"" + _("docker.pull_image") + "\" "
+            "\"3\" \"" + _("docker.run_container") + "\" "
+            "\"4\" \"" + _("docker.install_portainer") + "\" "
+            "\"5\" \"" + _("docker.export_import") + "\" "
+            "\"6\" \"" + _("docker.configure_mirror") + "\" "
+            "\"7\" \"" + _("docker.add_user_group") + "\" "
+            "\"8\" \"" + _("docker.install_qemu") + "\" "
+            "\"9\" \"" + _("docker.list") + "\" "
+            "\"0\" \"" + _("menu.tui.back_upper") + "\"";
 
         std::string choice = Executor::tui_select(menu);
         if (choice == "0" || choice.empty()) break;
 
         if (choice == "1") {
             std::string sub_menu = cfg_.tui_bin +
-                " --title \"选择版本\" --menu \"安装哪个版本?\" 0 0 0 "
-                "\"1\" \"Docker CE (社区版 — 推荐)\" "
-                "\"2\" \"Docker.io (发行版仓库版)\"";
+                " --title \"" + _("docker.version_title") + "\""
+                " --menu \"" + _("docker.version_prompt") + "\" 0 0 0 "
+                "\"1\" \"" + _("docker.version_ce") + "\" "
+                "\"2\" \"" + _("docker.version_io") + "\"";
             std::string sub = Executor::tui_select(sub_menu);
             if (sub == "2") install_docker_io();
             else install_docker_ce();
@@ -67,15 +69,17 @@ void DockerManager::run_docker_menu() {
             tui_pull_distro_image();
         } else if (choice == "3") {
             std::string img_cmd = cfg_.tui_bin +
-                " --title \"镜像\" --inputbox \"输入镜像名 (如 debian:latest):\" 0 0 \"debian:latest\"";
-            auto result = Executor::shell("echo \"$(" + img_cmd + " 2>&1 1>/dev/tty)\"");
+                " --title \"" + _("docker.image_title") + "\""
+                " --inputbox \"" + _("docker.image_input") + "\" 0 0 \"debian:latest\"";
+            auto result = Executor::passthrough("echo \"$(" + img_cmd + " 2>&1 1>/dev/tty)\"");
             std::string image = result.stdout_data;
             image.erase(std::remove(image.begin(), image.end(), '\n'), image.end());
             if (image.empty()) continue;
 
             std::string name_cmd = cfg_.tui_bin +
-                " --title \"容器名\" --inputbox \"输入容器名称:\" 0 0 \"tmoe-container\"";
-            result = Executor::shell("echo \"$(" + name_cmd + " 2>&1 1>/dev/tty)\"");
+                " --title \"" + _("docker.container_name_title") + "\""
+                " --inputbox \"" + _("docker.container_name_input") + "\" 0 0 \"tmoe-container\"";
+            result = Executor::passthrough("echo \"$(" + name_cmd + " 2>&1 1>/dev/tty)\"");
             std::string name = result.stdout_data;
             name.erase(std::remove(name.begin(), name.end(), '\n'), name.end());
             if (name.empty()) continue;
@@ -83,22 +87,25 @@ void DockerManager::run_docker_menu() {
             run_container(image, name);
         } else if (choice == "4") {
             std::string port_cmd = cfg_.tui_bin +
-                " --title \"Portainer 端口\" --inputbox \"输入 Portainer 访问端口:\" 0 0 \"9000\"";
-            auto result = Executor::shell("echo \"$(" + port_cmd + " 2>&1 1>/dev/tty)\"");
+                " --title \"" + _("docker.portainer_port_title") + "\""
+                " --inputbox \"" + _("docker.portainer_port_input") + "\" 0 0 \"9000\"";
+            auto result = Executor::passthrough("echo \"$(" + port_cmd + " 2>&1 1>/dev/tty)\"");
             std::string port_str = result.stdout_data;
             port_str.erase(std::remove(port_str.begin(), port_str.end(), '\n'), port_str.end());
             int port = port_str.empty() ? 9000 : std::stoi(port_str);
             install_portainer(port);
         } else if (choice == "5") {
             std::string sub_menu = cfg_.tui_bin +
-                " --title \"导入/导出\" --menu \"选择操作:\" 0 0 0 "
-                "\"1\" \"📤 导出容器\" "
-                "\"2\" \"📥 导入镜像\"";
+                " --title \"" + _("docker.export_import_title") + "\""
+                " --menu \"" + _("docker.export_import_prompt") + "\" 0 0 0 "
+                "\"1\" \"" + _("docker.export") + "\" "
+                "\"2\" \"" + _("docker.import") + "\"";
             std::string sub = Executor::tui_select(sub_menu);
             if (sub == "1") {
                 std::string name_cmd = cfg_.tui_bin +
-                    " --title \"容器名\" --inputbox \"输入要导出的容器名:\" 0 0";
-                auto result = Executor::shell("echo \"$(" + name_cmd + " 2>&1 1>/dev/tty)\"");
+                    " --title \"" + _("docker.export_name_title") + "\""
+                    " --inputbox \"" + _("docker.export_name_input") + "\" 0 0";
+                auto result = Executor::passthrough("echo \"$(" + name_cmd + " 2>&1 1>/dev/tty)\"");
                 std::string cname = result.stdout_data;
                 cname.erase(std::remove(cname.begin(), cname.end(), '\n'), cname.end());
                 if (!cname.empty()) {
@@ -107,14 +114,16 @@ void DockerManager::run_docker_menu() {
                 }
             } else {
                 std::string path_cmd = cfg_.tui_bin +
-                    " --title \"TAR 路径\" --inputbox \"输入 .tar 文件路径:\" 0 0";
-                auto result = Executor::shell("echo \"$(" + path_cmd + " 2>&1 1>/dev/tty)\"");
+                    " --title \"" + _("docker.tar_path_title") + "\""
+                    " --inputbox \"" + _("docker.tar_path_input") + "\" 0 0";
+                auto result = Executor::passthrough("echo \"$(" + path_cmd + " 2>&1 1>/dev/tty)\"");
                 std::string tarpath = result.stdout_data;
                 tarpath.erase(std::remove(tarpath.begin(), tarpath.end(), '\n'), tarpath.end());
                 if (!tarpath.empty() && fs::exists(tarpath)) {
                     std::string img_cmd = cfg_.tui_bin +
-                        " --title \"镜像名\" --inputbox \"输入镜像名:tag:\" 0 0 \"myimage:latest\"";
-                    result = Executor::shell("echo \"$(" + img_cmd + " 2>&1 1>/dev/tty)\"");
+                        " --title \"" + _("docker.import_image_title") + "\""
+                        " --inputbox \"" + _("docker.import_image_input") + "\" 0 0 \"myimage:latest\"";
+                    result = Executor::passthrough("echo \"$(" + img_cmd + " 2>&1 1>/dev/tty)\"");
                     std::string img = result.stdout_data;
                     img.erase(std::remove(img.begin(), img.end(), '\n'), img.end());
                     if (!img.empty()) {
@@ -169,22 +178,22 @@ bool DockerManager::install_docker_ce() {
         } else {
             install_cmd = "apt install -y docker-ce docker-ce-cli containerd.io";
         }
-        return Executor::shell(install_cmd).ok();
+        return Executor::passthrough(install_cmd).ok();
     }
 
     if (is_redhat_family()) {
-        Executor::shell("dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo 2>/dev/null");
-        return Executor::shell("dnf install -y docker-ce docker-ce-cli containerd.io").ok();
+        Executor::passthrough("dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo 2>/dev/null");
+        return Executor::passthrough("dnf install -y docker-ce docker-ce-cli containerd.io").ok();
     }
 
     if (is_arch_family()) {
-        return Executor::shell("pacman -S --noconfirm docker").ok();
+        return Executor::passthrough("pacman -S --noconfirm docker").ok();
     }
 
     if (is_alpine()) {
-        Executor::shell("apk add docker docker-cli-compose");
-        Executor::shell("rc-update add docker boot");
-        return Executor::shell("service docker start").ok();
+        Executor::passthrough("apk add docker docker-cli-compose");
+        Executor::passthrough("rc-update add docker boot");
+        return Executor::passthrough("service docker start").ok();
     }
 
     Logger::warn("当前发行版不在自动安装支持列表中，请手动安装 Docker");
@@ -195,7 +204,7 @@ bool DockerManager::install_docker_io() {
     Logger::step("安装 Docker.io...");
 
     if (is_debian_family()) {
-        return Executor::shell(cfg_.install_command + " docker.io").ok();
+        return Executor::passthrough(cfg_.install_command + " docker.io").ok();
     }
     Logger::warn("Docker.io 仅在 Debian/Ubuntu 上可用，使用 Docker CE 替代");
     return install_docker_ce();
@@ -214,7 +223,7 @@ bool DockerManager::install_portainer(int port) {
         << "-p " << port << ":9000 "
         << "-v /var/run/docker.sock:/var/run/docker.sock "
         << "portainer/portainer-ce:latest";
-    auto result = Executor::shell(cmd.str());
+    auto result = Executor::passthrough(cmd.str());
     if (result.ok()) {
         Logger::ok("Portainer 已启动！");
         Logger::info("访问地址: http://localhost:" + std::to_string(port));
@@ -229,7 +238,7 @@ bool DockerManager::install_portainer(int port) {
 bool DockerManager::pull_image(std::string_view image, std::string_view tag) {
     Logger::step("拉取 Docker 镜像: " + std::string(image) + ":" + std::string(tag));
     std::string full = std::string(image) + ":" + std::string(tag);
-    return Executor::shell("docker pull " + full).ok();
+    return Executor::passthrough("docker pull " + full).ok();
 }
 
 std::vector<DockerImageInfo> DockerManager::list_images() const {
@@ -255,13 +264,14 @@ std::vector<DockerImageInfo> DockerManager::list_images() const {
 bool DockerManager::tui_pull_distro_image() {
     // 构建 17 种发行版的 TUI 菜单
     std::string menu = cfg_.tui_bin +
-        " --title \"选择 Linux 发行版镜像\" --menu \"请选择要拉取的镜像:\" 0 0 0 ";
+        " --title \"" + _("docker.pull_distro_title") + "\""
+        " --menu \"" + _("docker.pull_distro_prompt") + "\" 0 0 0 ";
 
     for (size_t i = 0; i < DISTRO_IMAGES.size(); ++i) {
         menu += "\"" + std::to_string(i + 1) + "\" \""
              + DISTRO_IMAGES[i].second + "\" ";
     }
-    menu += "\"0\" \"返回\"";
+    menu += "\"0\" \"" + _("menu.tui.back") + "\"";
 
     std::string choice = Executor::tui_select(menu);
     if (choice == "0" || choice.empty()) return false;
@@ -305,7 +315,7 @@ bool DockerManager::run_container(std::string_view image,
 
     cmd << " \"" << image << "\"";
 
-    auto result = Executor::shell(cmd.str());
+    auto result = Executor::passthrough(cmd.str());
     if (result.ok()) {
         Logger::ok("容器已启动: " + std::string(name));
     }
@@ -327,7 +337,7 @@ bool DockerManager::run_cross_arch_container(std::string_view image,
         << " --restart on-failure"
         << " \"" << image << "\"";
 
-    return Executor::shell(cmd.str()).ok();
+    return Executor::passthrough(cmd.str()).ok();
 }
 
 std::vector<std::string> DockerManager::list_containers(bool all) const {
@@ -347,8 +357,8 @@ std::vector<std::string> DockerManager::list_containers(bool all) const {
 bool DockerManager::remove_container(std::string_view name) {
     Logger::step("移除 Docker 容器: " + std::string(name));
     // 先停止再删除
-    Executor::shell("docker stop \"" + std::string(name) + "\" 2>/dev/null");
-    return Executor::shell("docker rm \"" + std::string(name) + "\"").ok();
+    Executor::passthrough("docker stop \"" + std::string(name) + "\" 2>/dev/null");
+    return Executor::passthrough("docker rm \"" + std::string(name) + "\"").ok();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -367,7 +377,7 @@ bool DockerManager::export_container(std::string_view name,
 
     std::string cmd = "docker export \"" + std::string(name) +
                       "\" > \"" + std::string(output_path) + "\"";
-    auto result = Executor::shell(cmd);
+    auto result = Executor::passthrough(cmd);
     if (result.ok()) {
         auto size_mb = fs::file_size(output_path) / (1024 * 1024);
         Logger::ok("容器已导出: " + std::string(output_path) +
@@ -384,7 +394,7 @@ bool DockerManager::import_image(std::string_view tar_path,
     std::string full_name = std::string(image_name) + ":" + std::string(tag);
     std::string cmd = "docker import - \"" + full_name +
                       "\" < \"" + std::string(tar_path) + "\"";
-    auto result = Executor::shell(cmd);
+    auto result = Executor::passthrough(cmd);
     if (result.ok()) {
         Logger::ok("镜像已导入: " + full_name);
     }
@@ -399,12 +409,13 @@ bool DockerManager::configure_mirror() {
     Logger::step("配置 Docker 镜像源...");
 
     std::string menu = cfg_.tui_bin +
-        " --title \"Docker 镜像源\" --menu \"选择镜像源:\" 0 0 0 "
-        "\"1\" \"中科大 USTC\" "
-        "\"2\" \"网易 163\" "
-        "\"3\" \"阿里云\" "
-        "\"4\" \"腾讯云\" "
-        "\"0\" \"返回\"";
+        " --title \"" + _("docker.mirror_title") + "\""
+        " --menu \"" + _("docker.mirror_prompt") + "\" 0 0 0 "
+        "\"1\" \"" + _("docker.mirror_ustc") + "\" "
+        "\"2\" \"" + _("docker.mirror_163") + "\" "
+        "\"3\" \"" + _("docker.mirror_aliyun") + "\" "
+        "\"4\" \"" + _("docker.mirror_tencent") + "\" "
+        "\"0\" \"" + _("menu.tui.back") + "\"";
 
     std::string choice = Executor::tui_select(menu);
     if (choice == "0" || choice.empty()) return false;
@@ -467,12 +478,12 @@ bool DockerManager::install_qemu_user_static() {
     // 方法 1: 通过包管理器安装
     if (is_debian_family() || is_redhat_family() || is_arch_family()) {
         std::string install_cmd = cfg_.install_command + " qemu-user-static";
-        Executor::shell(install_cmd);
+        Executor::passthrough(install_cmd);
     }
 
     // 方法 2: 通过 Docker 注册 binfmt
     if (is_docker_available()) {
-        auto result = Executor::shell(
+        auto result = Executor::passthrough(
             "docker run --rm --privileged multiarch/qemu-user-static:register --reset 2>/dev/null");
         if (result.ok()) {
             Logger::ok("qemu-user-static 已注册 — 支持跨架构运行容器");
@@ -548,13 +559,13 @@ bool DockerManager::add_docker_debian_repo() {
     }
 
     // 安装依赖
-    Executor::shell(cfg_.install_command + " ca-certificates curl gnupg lsb-release");
+    Executor::passthrough(cfg_.install_command + " ca-certificates curl gnupg lsb-release");
 
     // 下载 GPG 密钥
     std::string mirror = "https://mirrors.bfsu.edu.cn/docker-ce/linux/" + release;
     std::string gpg_cmd = "curl -fsSL " + mirror + "/gpg 2>/dev/null | "
                           "gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg 2>/dev/null";
-    Executor::shell(gpg_cmd);
+    Executor::passthrough(gpg_cmd);
 
     // 写 sources.list
     std::string repo_line = "deb [arch=$(dpkg --print-architecture) "
@@ -570,7 +581,7 @@ bool DockerManager::add_docker_debian_repo() {
     ofs.close();
 
     // 更新索引
-    Executor::shell(cfg_.update_command);
+    Executor::passthrough(cfg_.update_command);
 
     Logger::ok("Docker 软件源已添加");
     return true;
@@ -578,8 +589,9 @@ bool DockerManager::add_docker_debian_repo() {
 
 std::string DockerManager::tui_input_tag() {
     std::string cmd = cfg_.tui_bin +
-        " --title \"标签\" --inputbox \"输入镜像标签:\" 0 0 \"latest\"";
-    auto result = Executor::shell("echo \"$(" + cmd + " 2>&1 1>/dev/tty)\"");
+        " --title \"" + _("docker.tag_title") + "\""
+        " --inputbox \"" + _("docker.tag_input") + "\" 0 0 \"latest\"";
+    auto result = Executor::passthrough("echo \"$(" + cmd + " 2>&1 1>/dev/tty)\"");
     std::string tag = result.stdout_data;
     tag.erase(std::remove(tag.begin(), tag.end(), '\n'), tag.end());
     return tag.empty() ? "latest" : tag;

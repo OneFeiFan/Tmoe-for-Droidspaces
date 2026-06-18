@@ -61,7 +61,11 @@ ExecResult Executor::run(std::string_view bin,
 
 ExecResult Executor::shell(std::string_view cmd) {
     std::string full_cmd(cmd);
-    full_cmd += " 2>&1";
+    // heredoc 结束标记必须独占一行，追加 2>&1 会破坏 <<-'EOF' 的识别
+    // → TMOE_EOF 被写入文件正文 → apt 报 "无法识别类别 TMOE_EOF"
+    if (full_cmd.find("<<-") == std::string::npos) {
+        full_cmd += " 2>&1";
+    }
 
     std::unique_ptr<FILE, decltype(&::pclose)> pipe(::popen(full_cmd.c_str(), "r"), ::pclose);
     if (!pipe) {
@@ -131,6 +135,23 @@ std::string Executor::tui_select(std::string_view whiptail_args) {
     return result;
 }
 
+ExecResult Executor::passthrough(std::string_view cmd) {
+    std::string full_cmd(cmd);
+    int raw = std::system(full_cmd.c_str());
+#ifdef _WIN32
+    return ExecResult{raw, "", ""};
+#else
+    if (raw == -1) {
+        return ExecResult{-1, "", "system() failed"};
+    }
+    return ExecResult{
+        WIFEXITED(raw) ? WEXITSTATUS(raw) : -1,
+        "",
+        WIFSIGNALED(raw) ? ("signal " + std::to_string(WTERMSIG(raw))) : ""
+    };
+#endif
+}
+
 [[noreturn]] void Executor::escalate_privileges(int argc, char* argv[]) {
 #ifndef _WIN32
     if (geteuid() == 0) {
@@ -138,7 +159,7 @@ std::string Executor::tui_select(std::string_view whiptail_args) {
     }
 
     if (has("sudo")) {
-        Logger::warn("当前操作需要 Root 权限，正在通过 sudo 提权...");
+        Logger::warn("This operation requires root privileges. Elevating via sudo...");
 
         std::vector<char*> exec_args;
         exec_args.push_back(const_cast<char*>("sudo"));
@@ -151,11 +172,11 @@ std::string Executor::tui_select(std::string_view whiptail_args) {
 
         ::execvp("sudo", exec_args.data());
 
-        Logger::error("sudo 进程提权拉起失败！");
+        Logger::error("Failed to elevate privileges via sudo!");
         std::exit(1);
 
     } else if (has("su")) {
-        Logger::warn("未检测到 sudo，正在通过 su 提权，请输入 root 密码...");
+        Logger::warn("sudo not found. Elevating via su. Please enter root password...");
 
         std::string cmd = argv[0];
         for (int i = 1; i < argc; ++i) {
@@ -171,14 +192,14 @@ std::string Executor::tui_select(std::string_view whiptail_args) {
 
         ::execvp("su", exec_args.data());
 
-        Logger::error("su 进程提权拉起失败！");
+        Logger::error("Failed to elevate privileges via su!");
         std::exit(1);
     } else {
-        Logger::error("需要 Root 权限，但在系统中未找到 sudo 或 su 命令！");
+        Logger::error("Root privileges required, but neither sudo nor su was found!");
         std::exit(1);
     }
 #else
-    Logger::error("当前平台不支持自动权限提升");
+    Logger::error("Current platform does not support automatic privilege elevation");
     std::exit(1);
 #endif
 }

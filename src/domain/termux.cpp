@@ -1,4 +1,5 @@
 #include "termux.h"
+#include "core/i18n.h"
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
@@ -112,11 +113,11 @@ namespace tmoe::domain {
     }
 
     std::string TermuxManager::select_desktop_environment() {
-        std::string cmd = cfg_.tui_bin + " --title \"Termux GUI\" "
-                          "--menu \"选择要安装的桌面环境\\nChoose desktop environment\" 0 50 0 "
-                          "\"1\" \"XFCE4 (轻量推荐)\" "
-                          "\"2\" \"LXQt (极简)\" "
-                          "\"0\" \"返回 Back\"";
+        std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.gui_title") + "\" "
+                          "--menu \"" + _("termux.de_select_prompt") + "\" 0 50 0 "
+                          "\"1\" \"" + _("termux.de_xfce") + "\" "
+                          "\"2\" \"" + _("termux.de_lxqt") + "\" "
+                          "\"0\" \"" + _("menu.tui.back") + "\"";
 
         auto result = Executor::tui_select(cmd);
         if (result == "1") return "xfce";
@@ -166,13 +167,13 @@ namespace tmoe::domain {
     }
 
     std::string TermuxManager::select_vnc_resolution() {
-        std::string cmd = cfg_.tui_bin + " --title \"VNC 分辨率\" "
-                          "--menu \"选择 VNC 显示分辨率\\nChoose VNC resolution\" 0 50 0 "
-                          "\"1\" \"1280x720 (HD)\" "
-                          "\"2\" \"1920x1080 (Full HD)\" "
-                          "\"3\" \"720x1440 (手机竖屏)\" "
-                          "\"4\" \"2560x1440 (2K)\" "
-                          "\"5\" \"自定义 Custom\"";
+        std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.vnc_res_title") + "\" "
+                          "--menu \"" + _("termux.vnc_res_prompt") + "\" 0 50 0 "
+                          "\"1\" \"" + _("termux.vnc_res_hd") + "\" "
+                          "\"2\" \"" + _("termux.vnc_res_fhd") + "\" "
+                          "\"3\" \"" + _("termux.vnc_res_portrait") + "\" "
+                          "\"4\" \"" + _("termux.vnc_res_2k") + "\" "
+                          "\"5\" \"" + _("termux.vnc_res_custom") + "\"";
 
         auto result = Executor::tui_select(cmd);
 
@@ -181,12 +182,12 @@ namespace tmoe::domain {
         if (result == "3") return "720x1440";
         if (result == "4") return "2560x1440";
         if (result == "5") {
-            std::string input_cmd = cfg_.tui_bin + " --title \"自定义分辨率\" "
-                                    "--inputbox \"输入分辨率 (例如 1440x2560)\" 0 50";
+            std::string input_cmd = cfg_.tui_bin + " --title \"" + _("termux.vnc_custom_title") + "\" "
+                                    "--inputbox \"" + _("termux.vnc_custom_input") + "\" 0 50";
             auto custom = Executor::tui_select(input_cmd);
             if (!custom.empty()) return custom;
         }
-        return "1280x720"; // 默认
+        return "1280x720"; // default
     }
 
     void TermuxManager::create_startvnc_script(const std::string &resolution, const std::string &desktop_env) {
@@ -304,13 +305,13 @@ namespace tmoe::domain {
             return false;
         }
 
-        std::string cmd = cfg_.tui_bin + " --title \"VNC 配置\" "
-            "--menu \"VNC 配置选项\\n\" 0 50 0 "
-            "\"1\" \"📐 修改 VNC 分辨率\" "
-            "\"2\" \"✏️ 使用 nano 手动编辑 startvnc\" "
-            "\"3\" \"🌐 查看局域网 VNC 地址\" "
-            "\"4\" \"🔧 termux-fix-shebang 修复\" "
-            "\"0\" \"返回 Back\"";
+        std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.vnc_conf_title") + "\" "
+            "--menu \"" + _("termux.vnc_conf_prompt") + "\" 0 50 0 "
+            "\"1\" \"" + _("termux.vnc_conf_resolution") + "\" "
+            "\"2\" \"" + _("termux.vnc_conf_edit") + "\" "
+            "\"3\" \"" + _("termux.vnc_conf_lan") + "\" "
+            "\"4\" \"" + _("termux.vnc_conf_fix") + "\" "
+            "\"0\" \"" + _("menu.tui.back") + "\"";
 
         auto choice = Executor::tui_select(cmd);
 
@@ -335,8 +336,8 @@ namespace tmoe::domain {
     bool TermuxManager::remove_termux_gui() {
         if (!cfg_.is_termux) return true;
 
-        std::string confirm = cfg_.tui_bin + " --title \"移除 GUI\" "
-                              "--yesno \"确定要卸载 xfce4,lxqt,tigervnc,x11-repo 吗？\\nRemove GUI packages?\" 0 50";
+        std::string confirm = cfg_.tui_bin + " --title \"" + _("termux.remove_gui_title") + "\" "
+                              "--yesno \"" + _("termux.remove_gui_confirm") + "\" 0 50";
 
         if (!Executor::shell(confirm).ok()) {
             Logger::info("用户取消了 GUI 移除。");
@@ -359,13 +360,13 @@ namespace tmoe::domain {
 
     int TermuxManager::run_termux_gui_menu() {
         while (true) {
-            std::string cmd = cfg_.tui_bin + " --title \"Termux GUI 管理\" "
-                              "--menu \"Termux 原生 GUI 管理\\n\" 0 50 0 "
-                              "\"1\" \"安装 XFCE4 桌面\" "
-                              "\"2\" \"安装 LXQt 桌面\" "
-                              "\"3\" \"修改 VNC 分辨率\" "
-                              "\"4\" \"移除 GUI\" "
-                              "\"0\" \"返回 Back\"";
+            std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.gui_mgmt_title") + "\" "
+                              "--menu \"" + _("termux.gui_mgmt_prompt") + "\" 0 50 0 "
+                              "\"1\" \"" + _("termux.gui_xfce4") + "\" "
+                              "\"2\" \"" + _("termux.gui_lxqt") + "\" "
+                              "\"3\" \"" + _("termux.gui_resolution") + "\" "
+                              "\"4\" \"" + _("termux.gui_remove") + "\" "
+                              "\"0\" \"" + _("menu.tui.back") + "\"";
 
             auto choice = Executor::tui_select(cmd);
             if (choice == "1") install_termux_xfce();
@@ -399,8 +400,8 @@ namespace tmoe::domain {
     }
 
     std::string TermuxManager::get_backup_filename() {
-        std::string cmd = cfg_.tui_bin + " --title \"备份文件名\" "
-                          "--inputbox \"输入自定义备份文件名 (可留空使用默认)\\nEnter backup filename\" 0 50 \"termux-backup\"";
+        std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.backup_name_title") + "\" "
+                          "--inputbox \"" + _("termux.backup_name_input") + "\" 0 50 \"termux-backup\"";
 
         auto name = Executor::tui_select(cmd);
         if (name.empty()) name = "termux-backup";
@@ -408,10 +409,10 @@ namespace tmoe::domain {
     }
 
     std::string TermuxManager::select_backup_directories() {
-        std::string cmd = cfg_.tui_bin + " --title \"选择备份目录\" "
-                          "--checklist \"勾选要备份的目录 (空格选择)\\nSelect directories to backup\" 0 50 0 "
-                          "\"home\" \"$HOME 家目录\" ON "
-                          "\"usr\" \"$PREFIX/usr 系统目录\" OFF "
+        std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.backup_dir_title") + "\" "
+                          "--checklist \"" + _("termux.backup_dir_prompt") + "\" 0 50 0 "
+                          "\"home\" \"" + _("termux.backup_home") + "\" ON "
+                          "\"usr\" \"" + _("termux.backup_usr") + "\" OFF "
                           "3>&1 1>&2 2>&3";
 
         return Executor::tui_select(cmd);
@@ -440,9 +441,9 @@ namespace tmoe::domain {
         if (filename.empty()) return false;
 
         // 3. 选择压缩类型
-        std::string compress_cmd = cfg_.tui_bin + " --title \"压缩格式\" "
-                                   "--yesno \"使用 zstd 压缩? (No = xz)\\nUse zstd? (No = xz)\" 0 50 "
-                                   "--yes-button \"zstd (快)\" --no-button \"xz (小)\"";
+        std::string compress_cmd = cfg_.tui_bin + " --title \"" + _("termux.compress_title") + "\" "
+                                   "--yesno \"" + _("termux.compress_yesno") + "\" 0 50 "
+                                   "--yes-button \"" + _("termux.compress_zstd") + "\" --no-button \"" + _("termux.compress_xz") + "\"";
 
         bool use_zstd = Executor::shell(compress_cmd).ok();
 
@@ -513,8 +514,8 @@ namespace tmoe::domain {
 
         // 构建 whiptail 菜单
         std::stringstream menu_builder;
-        menu_builder << cfg_.tui_bin << " --title \"选择备份文件\" "
-                << "--menu \"Choose backup file\\n选择备份文件\" 0 50 20 ";
+        menu_builder << cfg_.tui_bin << " --title \"" + _("termux.select_backup_title") + "\" "
+                << "--menu \"" + _("termux.select_backup_prompt") + "\" 0 50 20 ";
 
         std::stringstream ss(ls_result);
         std::string line;
@@ -527,7 +528,7 @@ namespace tmoe::domain {
             menu_builder << "\"" << idx << "\" \"" << fname << "\" ";
             idx++;
         }
-        menu_builder << "\"0\" \"返回 Back\"";
+        menu_builder << "\"0\" \"" + _("menu.tui.back") + "\"";
         menu_builder << " 3>&1 1>&2 2>&3";
 
         auto choice = Executor::tui_select(menu_builder.str());
@@ -560,9 +561,8 @@ namespace tmoe::domain {
             // 检查是否有最新备份
             std::string latest = detect_latest_backup();
             if (!latest.empty()) {
-                std::string confirm = cfg_.tui_bin + " --title \"还原 Termux\" "
-                                      "--yesno \"检测到最新备份:\\n" + latest +
-                                      "\\n\\n是否使用此备份还原？\\nUse latest backup?\" 0 50";
+                std::string confirm = cfg_.tui_bin + " --title \"" + _("termux.restore_title") + "\" "
+                                      "--yesno \"" + _f("termux.restore_confirm_latest", latest) + "\" 0 50";
                 if (Executor::shell(confirm).ok()) {
                     restore_file = latest;
                 } else {
@@ -579,8 +579,8 @@ namespace tmoe::domain {
         }
 
         // 警告
-        std::string warn = cfg_.tui_bin + " --title \"⚠️ 警告\" "
-                           "--yesno \"还原将覆盖当前 Termux 数据！\\n继续？\\n\\nRESTORE WILL OVERWRITE CURRENT DATA!\" 0 50";
+        std::string warn = cfg_.tui_bin + " --title \"" + _("termux.warning_title") + "\" "
+                           "--yesno \"" + _("termux.restore_warning") + "\" 0 50";
         if (!Executor::shell(warn).ok()) {
             Logger::info("用户取消了还原。");
             return false;
@@ -630,13 +630,13 @@ namespace tmoe::domain {
     bool TermuxManager::beautify_terminal() {
         Logger::step("终端美化");
 
-        std::string cmd = cfg_.tui_bin + " --title \"终端美化\" "
-                          "--menu \"选择美化方式\\nChoose beautification\" 0 50 0 "
-                          "\"1\" \"配置 tmoe-zsh (推荐)\" "
-                          "\"2\" \"安装 oh-my-zsh\" "
-                          "\"3\" \"安装 powerlevel10k 主题\" "
-                          "\"4\" \"安装 colorls\" "
-                          "\"0\" \"返回 Back\"";
+        std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.beautify_title") + "\" "
+                          "--menu \"" + _("termux.beautify_prompt") + "\" 0 50 0 "
+                          "\"1\" \"" + _("termux.beautify_tmoe_zsh") + "\" "
+                          "\"2\" \"" + _("termux.beautify_ohmyzsh") + "\" "
+                          "\"3\" \"" + _("termux.beautify_p10k") + "\" "
+                          "\"4\" \"" + _("termux.beautify_colorls") + "\" "
+                          "\"0\" \"" + _("menu.tui.back") + "\"";
 
         auto choice = Executor::tui_select(cmd);
 
@@ -687,8 +687,8 @@ namespace tmoe::domain {
         }
 
         // 安装依赖
-        std::string confirm = cfg_.tui_bin + " --title \"tmoe-zsh\" "
-                              "--yesno \"tmoe-zsh 提供 zinit + 主题 + 插件 一站式配置。\\n将下载约 10MB 文件，继续？\" 0 50";
+        std::string confirm = cfg_.tui_bin + " --title \"" + _("termux.zsh_title") + "\" "
+                              "--yesno \"" + _("termux.zsh_confirm") + "\" 0 50";
         if (!Executor::shell(confirm).ok()) {
             Logger::info("用户取消了 tmoe-zsh 配置。");
             return false;
@@ -756,21 +756,21 @@ namespace tmoe::domain {
         }
 
         // 否则显示 TUI 菜单
-        std::string cmd = cfg_.tui_bin + " --title \"Termux 软件源管理\" "
-                          "--menu \"Termux 软件包镜像源管理\\nPackage mirror management\" 0 50 0 "
-                          "\"1\" \"北外镜像站 (BFSU)\" "
-                          "\"2\" \"腾讯云镜像站 (Tencent)\" "
-                          "\"3\" \"清华镜像站 (Tsinghua)\" "
-                          "\"4\" \"中科大镜像站 (USTC)\" "
-                          "\"5\" \"启用/禁用仓库 (game/root/science...)\" "
-                          "\"6\" \"镜像站下载测速\" "
-                          "\"7\" \"手动编辑 sources.list\" "
-                          "\"8\" \"清理无效行\" "
-                          "\"9\" \"恢复默认官方源\" "
-                          "\"A\" \"💾 备份当前 sources.list\" "
-                          "\"B\" \"📼 旧版格式 (pre-2021 Termux)\" "
-                          "\"C\" \"🐧 Alpine Linux 镜像\" "
-                          "\"0\" \"返回 Back\"";
+        std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.mirror_title") + "\" "
+                          "--menu \"" + _("termux.mirror_prompt") + "\" 0 50 0 "
+                          "\"1\" \"" + _("termux.mirror_bfsu") + "\" "
+                          "\"2\" \"" + _("termux.mirror_tencent") + "\" "
+                          "\"3\" \"" + _("termux.mirror_tsinghua") + "\" "
+                          "\"4\" \"" + _("termux.mirror_ustc") + "\" "
+                          "\"5\" \"" + _("termux.mirror_repos") + "\" "
+                          "\"6\" \"" + _("termux.mirror_speed_test") + "\" "
+                          "\"7\" \"" + _("termux.mirror_edit") + "\" "
+                          "\"8\" \"" + _("termux.mirror_clean") + "\" "
+                          "\"9\" \"" + _("termux.mirror_restore") + "\" "
+                          "\"A\" \"" + _("termux.mirror_backup_sources") + "\" "
+                          "\"B\" \"" + _("termux.mirror_old_format") + "\" "
+                          "\"C\" \"" + _("termux.mirror_alpine") + "\" "
+                          "\"0\" \"" + _("menu.tui.back") + "\"";
 
         auto choice = Executor::tui_select(cmd);
 
@@ -868,14 +868,14 @@ namespace tmoe::domain {
 
         Logger::step("Termux 仓库管理");
 
-        std::string cmd = cfg_.tui_bin + " --title \"仓库管理\" "
-                          "--menu \"启用/禁用 Termux 额外仓库\\nEnable/disable repos\" 0 50 0 "
-                          "\"1\" \"🐧 root-repo (root 权限工具)\" "
-                          "\"2\" \"🖥️ x11-repo (GUI 支持)\" "
-                          "\"3\" \"🎮 game-repo (游戏)\" "
-                          "\"4\" \"🔬 science-repo (科学计算)\" "
-                          "\"5\" \"⚠️ unstable-repo (不稳定版)\" "
-                          "\"0\" \"返回 Back\"";
+        std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.repo_title") + "\" "
+                          "--menu \"" + _("termux.repo_prompt") + "\" 0 50 0 "
+                          "\"1\" \"" + _("termux.repo_root") + "\" "
+                          "\"2\" \"" + _("termux.repo_x11") + "\" "
+                          "\"3\" \"" + _("termux.repo_game") + "\" "
+                          "\"4\" \"" + _("termux.repo_science") + "\" "
+                          "\"5\" \"" + _("termux.repo_unstable") + "\" "
+                          "\"0\" \"" + _("menu.tui.back") + "\"";
 
         auto choice = Executor::tui_select(cmd);
         if (choice == "0" || choice.empty()) return;
@@ -885,9 +885,9 @@ namespace tmoe::domain {
         if (idx < 1 || idx > 5) return;
 
         std::string repo = repos[idx];
-        std::string action = cfg_.tui_bin + " --title \"" + repo + "-repo\" "
-                             "--yesno \"启用还是禁用 " + repo + "-repo?\" 0 50 "
-                             "--yes-button \"启用 enable\" --no-button \"禁用 disable\"";
+        std::string action = cfg_.tui_bin + " --title \"" + _f("termux.repo_toggle_title", repo) + "\" "
+                             "--yesno \"" + _f("termux.repo_toggle_confirm", repo) + "\" 0 50 "
+                             "--yes-button \"" + _("termux.btn_enable") + "\" --no-button \"" + _("termux.btn_disable") + "\"";
 
         if (Executor::shell(action).ok()) {
             Logger::step("启用 " + repo + "-repo...");
@@ -1015,8 +1015,8 @@ namespace tmoe::domain {
     void TermuxManager::restore_default_sources() {
         if (!cfg_.is_termux) return;
 
-        std::string confirm = cfg_.tui_bin + " --title \"恢复默认源\" "
-                              "--yesno \"将 sources.list 恢复为 Termux 官方默认源？\" 0 50";
+        std::string confirm = cfg_.tui_bin + " --title \"" + _("termux.restore_default_title") + "\" "
+                              "--yesno \"" + _("termux.restore_default_confirm") + "\" 0 50";
         if (!Executor::shell(confirm).ok()) return;
 
         Logger::step("恢复 Termux 默认官方源...");
@@ -1065,24 +1065,23 @@ namespace tmoe::domain {
         Logger::step("Android 12+ Signal 9 (Phantom Process) 修复向导");
 
         // 扩展菜单
-        std::string ask = cfg_.tui_bin + " --title \"Signal 9 问题检测\" "
-            "--yesno \"是否遇到 Termux 进程被系统强制杀死 (Signal 9) 的问题？\\n\\n"
-            "(Android 12+ 会限制后台进程数，导致 Termux 意外退出)\" 0 50";
+        std::string ask = cfg_.tui_bin + " --title \"" + _("termux.signal9_detect_title") + "\" "
+            "--yesno \"" + _("termux.signal9_detect_yesno") + "\" 0 50";
         if (!Executor::shell(ask).ok()) {
             Logger::info("未遇到 Signal 9 问题，跳过修复。");
             return true;
         }
 
         // 增强菜单
-        std::string fix_menu = cfg_.tui_bin + " --title \"🩹 Signal 9 修复\" "
-            "--menu \"Signal 9 修复选项\\n\" 0 50 0 "
-            "\"1\" \"🔧 ADB 连接并修复 (向导)\" "
-            "\"2\" \"📱 三星设备兼容模式\" "
-            "\"3\" \"🔗 ADB 配对+连接 (无线调试)\" "
-            "\"4\" \"🔌 配置 ADB 服务器端口\" "
-            "\"5\" \"✅ 验证修复效果 (dumpsys)\" "
-            "\"6\" \"📖 显示手动命令\" "
-            "\"0\" \"返回 Back\"";
+        std::string fix_menu = cfg_.tui_bin + " --title \"" + _("termux.signal9_fix_title") + "\" "
+            "--menu \"" + _("termux.signal9_fix_prompt") + "\" 0 50 0 "
+            "\"1\" \"" + _("termux.signal9_adb_fix") + "\" "
+            "\"2\" \"" + _("termux.signal9_samsung") + "\" "
+            "\"3\" \"" + _("termux.signal9_adb_pair") + "\" "
+            "\"4\" \"" + _("termux.signal9_adb_port") + "\" "
+            "\"5\" \"" + _("termux.signal9_verify") + "\" "
+            "\"6\" \"" + _("termux.signal9_manual") + "\" "
+            "\"0\" \"" + _("menu.tui.back") + "\"";
 
         auto choice = Executor::tui_select(fix_menu);
 
@@ -1128,21 +1127,21 @@ namespace tmoe::domain {
         // 2. 三星设备处理
         if (is_samsung_device()) {
             Logger::warn("检测到三星设备，建议启用兼容模式。");
-            std::string samsung_ask = cfg_.tui_bin + " --title \"三星设备\" "
-                "--yesno \"检测到三星设备。\\n是否启用 ADB 兼容模式 (fakeroot + 域套接字)？\" 0 50";
+            std::string samsung_ask = cfg_.tui_bin + " --title \"" + _("termux.samsung_title") + "\" "
+                "--yesno \"" + _("termux.samsung_yesno") + "\" 0 50";
             if (Executor::shell(samsung_ask).ok()) {
                 set_samsung_adb_comp_mode();
             }
         }
 
         // 3. 连接方式选择
-        std::string method = cfg_.tui_bin + " --title \"ADB 连接\" "
-                             "--menu \"选择连接方式\\nConnect method\" 0 50 0 "
-                             "\"1\" \"无线调试 (配对+连接 Android 11+)\" "
-                             "\"2\" \"直接连接 (已知设备 IP:PORT)\" "
-                             "\"3\" \"USB 连接\" "
-                             "\"4\" \"查看已连接设备\" "
-                             "\"0\" \"跳过 (仅显示手动命令)\"";
+        std::string method = cfg_.tui_bin + " --title \"" + _("termux.adb_connect_title") + "\" "
+                             "--menu \"" + _("termux.adb_connect_prompt") + "\" 0 50 0 "
+                             "\"1\" \"" + _("termux.adb_wireless_pair") + "\" "
+                             "\"2\" \"" + _("termux.adb_direct") + "\" "
+                             "\"3\" \"" + _("termux.adb_usb") + "\" "
+                             "\"4\" \"" + _("termux.adb_list_devices") + "\" "
+                             "\"0\" \"" + _("termux.adb_skip") + "\"";
 
         auto choice = Executor::tui_select(method);
         std::string adb_target;
@@ -1155,8 +1154,8 @@ namespace tmoe::domain {
                 Logger::warn("未检测到设备。");
             }
         } else if (choice == "2") {
-            std::string conn_cmd = cfg_.tui_bin + " --title \"连接地址\" "
-                                   "--inputbox \"输入 IP:PORT (例如 192.168.1.100:5555)\" 0 50";
+            std::string conn_cmd = cfg_.tui_bin + " --title \"" + _("termux.adb_addr_title") + "\" "
+                                   "--inputbox \"" + _("termux.adb_addr_input") + "\" 0 50";
             adb_target = Executor::tui_select(conn_cmd);
             if (!adb_target.empty()) {
                 Logger::step("正在连接: " + adb_target);
@@ -1255,13 +1254,13 @@ namespace tmoe::domain {
             return;
         }
 
-        std::string cmd = cfg_.tui_bin + " --title \"磁盘空间查询\" "
-                          "--menu \"Termux 磁盘空间占用查询\\nDisk usage query\" 0 50 0 "
-                          "\"1\" \"📁 目录大小排行 (home/usr)\" "
-                          "\"2\" \"📄 最大文件 TOP30\" "
-                          "\"3\" \"💾 SD 卡占用 (sdcard)\" "
-                          "\"4\" \"📊 总磁盘用量 (df -h)\" "
-                          "\"0\" \"返回 Back\"";
+        std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.disk_title") + "\" "
+                          "--menu \"" + _("termux.disk_prompt") + "\" 0 50 0 "
+                          "\"1\" \"" + _("termux.disk_dir_ranking") + "\" "
+                          "\"2\" \"" + _("termux.disk_large_files") + "\" "
+                          "\"3\" \"" + _("termux.disk_sdcard") + "\" "
+                          "\"4\" \"" + _("termux.disk_overall") + "\" "
+                          "\"0\" \"" + _("menu.tui.back") + "\"";
 
         auto choice = Executor::tui_select(cmd);
 
@@ -1385,16 +1384,16 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
 
     void TermuxManager::termux_color_scheme_menu() {
-        std::string cmd = cfg_.tui_bin + " --title \"COLOR SCHEMES\" "
-                          "--menu \"Your colors.properties is empty, please choose color scheme of termux.\\n请选择终端配色\" 0 50 0 "
-                          "\"1\" \"neon\" "
-                          "\"2\" \"monokai.dark\" "
-                          "\"3\" \"material(Cyan)\" "
-                          "\"4\" \"bright.light\" "
-                          "\"5\" \"materia(Orange)\" "
-                          "\"6\" \"miu\" "
-                          "\"7\" \"wild.cherry(Purple)\" "
-                          "\"0\" \"skip(跳过)\"";
+        std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.color_title") + "\" "
+                          "--menu \"" + _("termux.color_prompt") + "\" 0 50 0 "
+                          "\"1\" \"" + _("termux.color_neon") + "\" "
+                          "\"2\" \"" + _("termux.color_monokai") + "\" "
+                          "\"3\" \"" + _("termux.color_material") + "\" "
+                          "\"4\" \"" + _("termux.color_bright") + "\" "
+                          "\"5\" \"" + _("termux.color_materia") + "\" "
+                          "\"6\" \"" + _("termux.color_miu") + "\" "
+                          "\"7\" \"" + _("termux.color_wildcherry") + "\" "
+                          "\"0\" \"" + _("termux.skip") + "\"";
 
         std::string choice = Executor::tui_select(cmd);
         std::string color_file;
@@ -1416,15 +1415,15 @@ namespace tmoe::domain {
     }
 
     void TermuxManager::termux_font_menu() {
-        std::string cmd = cfg_.tui_bin + " --title \"FONTS\" "
-                          "--menu \"Your font file does not exist, please choose a font.\\n请选择终端字体,若跳过则部分字符可能无法正常显示\" 0 50 0 "
-                          "\"1\" \"Inconsolata-go(粗)\" "
-                          "\"2\" \"Iosevka(细)\" "
-                          "\"3\" \"Iosevka Term Bold Italic(斜)\" "
-                          "\"4\" \"Iosevka Term Mono\" "
-                          "\"5\" \"Fira code(细)\" "
-                          "\"6\" \"Fira code Medium\" "
-                          "\"0\" \"skip(跳过)\"";
+        std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.font_title") + "\" "
+                          "--menu \"" + _("termux.font_prompt") + "\" 0 50 0 "
+                          "\"1\" \"" + _("termux.font_inconsolata") + "\" "
+                          "\"2\" \"" + _("termux.font_iosevka") + "\" "
+                          "\"3\" \"" + _("termux.font_iosevka_bold") + "\" "
+                          "\"4\" \"" + _("termux.font_iosevka_mono") + "\" "
+                          "\"5\" \"" + _("termux.font_fira") + "\" "
+                          "\"6\" \"" + _("termux.font_fira_medium") + "\" "
+                          "\"0\" \"" + _("termux.skip") + "\"";
 
         std::string choice = Executor::tui_select(cmd);
         std::string font_path;
@@ -1453,8 +1452,8 @@ namespace tmoe::domain {
         std::string prop_file = termux_dir + "/termux.properties";
 
         if (!fs::exists(prop_file) || Executor::shell("grep -q '# extra-keys-style = default' " + prop_file).ok()) {
-            std::string cmd = cfg_.tui_bin + " --title \"termux.properties\" "
-                              "--yesno \"Your extra-keys-style is default, do you want to configure it?\\n是否需要创建termux.properties？这将会修改小键盘布局。\" 10 50";
+            std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.keys_title") + "\" "
+                              "--yesno \"" + _("termux.keys_yesno") + "\" 10 50";
 
             if (Executor::shell(cmd).ok()) {
                 Logger::step("正在配置 Termux 拓展按键布局...");
@@ -1482,20 +1481,20 @@ namespace tmoe::domain {
 
     int TermuxManager::run_termux_menu() {
         while (true) {
-            std::string cmd = cfg_.tui_bin + " --title \"📱 Termux 专用功能\" "
-                              "--menu \"Termux 功能管理\\n\" 0 50 0 "
-                              "\"1\" \"🖥️ Termux 原生 GUI (X11/VNC)\" "
-                              "\"2\" \"💾 备份 Termux\" "
-                              "\"3\" \"📥 还原 Termux\" "
-                              "\"4\" \"🎨 终端美化 (oh-my-zsh)\" "
-                              "\"5\" \"📦 软件源管理 (镜像切换)\" "
-                              "\"6\" \"📊 磁盘空间查询\" "
-                              "\"7\" \"🔧 环境初始化 (配色/字体/按键)\" "
-                              "\"8\" \"🩹 Signal 9 修复 (Android 12+)\" "
-                              "\"9\" \"📂 共享存储设置\" "
-                              "\"A\" \"🔊 PulseAudio 音频配置\" "
-                              "\"B\" \"🔄 自更新 (git pull)\" "
-                              "\"0\" \"返回 Back\"";
+            std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.title") + "\" "
+                              "--menu \"" + _("termux.menu_prompt") + "\" 0 50 0 "
+                              "\"1\" \"" + _("termux.gui") + "\" "
+                              "\"2\" \"" + _("termux.backup") + "\" "
+                              "\"3\" \"" + _("termux.restore") + "\" "
+                              "\"4\" \"" + _("termux.beautify") + "\" "
+                              "\"5\" \"" + _("termux.mirror") + "\" "
+                              "\"6\" \"" + _("termux.disk_usage") + "\" "
+                              "\"7\" \"" + _("termux.env_init") + "\" "
+                              "\"8\" \"" + _("termux.signal9") + "\" "
+                              "\"9\" \"" + _("termux.storage") + "\" "
+                              "\"A\" \"" + _("termux.pulseaudio") + "\" "
+                              "\"B\" \"" + _("termux.self_update") + "\" "
+                              "\"0\" \"" + _("menu.tui.back") + "\"";
 
             auto choice = Executor::tui_select(cmd);
 
@@ -1509,12 +1508,12 @@ namespace tmoe::domain {
             else if (choice == "8") fix_android_12_signal_9();
             else if (choice == "9") setup_storage();
             else if (choice == "A" || choice == "a") {
-                std::string pa_cmd = cfg_.tui_bin + " --title \"🔊 PulseAudio 配置\" "
-                    "--menu \"PulseAudio 音频管理\\n\" 0 50 0 "
-                    "\"1\" \"🔧 配置 TCP 本地音频 (localhost)\" "
-                    "\"2\" \"🌐 切换局域网音频访问\" "
-                    "\"3\" \"⏱️ 设置空闲超时\" "
-                    "\"0\" \"返回 Back\"";
+                std::string pa_cmd = cfg_.tui_bin + " --title \"" + _("termux.pulseaudio_title") + "\" "
+                    "--menu \"" + _("termux.pulseaudio_prompt") + "\" 0 50 0 "
+                    "\"1\" \"" + _("termux.pa_tcp_local") + "\" "
+                    "\"2\" \"" + _("termux.pa_lan_toggle") + "\" "
+                    "\"3\" \"" + _("termux.pa_idle_timeout") + "\" "
+                    "\"0\" \"" + _("menu.tui.back") + "\"";
                 auto pa_choice = Executor::tui_select(pa_cmd);
                 if (pa_choice == "1") configure_pulseaudio_tcp();
                 else if (pa_choice == "2") toggle_lan_audio();
@@ -1603,9 +1602,9 @@ namespace tmoe::domain {
         bool lan_enabled = Executor::shell(
             "grep -Eq '192\\.168\\.0\\.0/16.*172\\.16\\.0\\.0/12' " + pa_conf).ok();
 
-        std::string status_msg = lan_enabled ? "当前状态: 已启用局域网音频" : "当前状态: 仅本地音频 (localhost)";
-        std::string cmd = cfg_.tui_bin + " --title \"🌐 局域网音频\" "
-                          "--yesno \"" + status_msg + "\\n\\n启用局域网音频允许同一局域网内其他设备访问 Termux 音频服务。\\n\\n是否切换？\" 12 60";
+        std::string status_msg = lan_enabled ? _("termux.lan_audio_enabled") : _("termux.lan_audio_local_only");
+        std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.lan_audio_title") + "\" "
+                          "--yesno \"" + _f("termux.lan_audio_yesno", status_msg) + "\" 12 60";
 
         if (!Executor::shell(cmd).ok()) {
             Logger::info("用户取消了局域网音频切换。");
@@ -1743,9 +1742,9 @@ namespace tmoe::domain {
             if (major < 7) {
                 Logger::error("⚠️ Android " + version + " (< 7) 不支持换源操作。");
                 Logger::error("旧版 Android 的 Termux 可能无法正常使用新镜像格式。");
-                std::string cmd = cfg_.tui_bin + " --title \"⚠️ Android 版本\" "
-                                  "--yesno \"您的 Android 版本 (" + version + ") 低于 7，换源可能导致问题。\\n是否仍要尝试使用旧版镜像格式？\" 10 50 "
-                                  "--yes-button \"使用旧格式\" --no-button \"取消\"";
+                std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.android_version_title") + "\" "
+                                  "--yesno \"" + _f("termux.android_version_yesno", version) + "\" 10 50 "
+                                  "--yes-button \"" + _("termux.android_use_old") + "\" --no-button \"" + _("termux.btn_cancel") + "\"";
 
                 if (Executor::shell(cmd).ok()) {
                     use_old_mirror_format("https://mirrors.tuna.tsinghua.edu.cn/termux");
@@ -1793,11 +1792,11 @@ namespace tmoe::domain {
             return;
         }
 
-        std::string cmd = cfg_.tui_bin + " --title \"Alpine 镜像\" "
-                          "--menu \"选择 Alpine 镜像站\\n\" 0 50 0 "
-                          "\"1\" \"🔵 清华大学镜像 (TUNA)\" "
-                          "\"2\" \"🔴 官方源 (alpine)\" "
-                          "\"0\" \"返回 Back\"";
+        std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.alpine_mirror_title") + "\" "
+                          "--menu \"" + _("termux.alpine_mirror_prompt") + "\" 0 50 0 "
+                          "\"1\" \"" + _("termux.alpine_tuna") + "\" "
+                          "\"2\" \"" + _("termux.alpine_official") + "\" "
+                          "\"0\" \"" + _("menu.tui.back") + "\"";
 
         auto choice = Executor::tui_select(cmd);
 
@@ -1825,12 +1824,12 @@ namespace tmoe::domain {
 
         // Debian/Ubuntu
         if (fs::exists("/etc/apt/sources.list")) {
-            std::string cmd = cfg_.tui_bin + " --title \"GNU/Linux 镜像\" "
-                "--menu \"检测到 APT (Debian/Ubuntu) 系统。\\n选择操作:\\n\" 0 50 0 "
-                "\"1\" \"🔵 切换至 TUNA (清华)\" "
-                "\"2\" \"🔴 恢复官方源\" "
-                "\"3\" \"💾 备份当前 sources.list\" "
-                "\"0\" \"返回 Back\"";
+            std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.linux_mirror_title") + "\" "
+                "--menu \"" + _("termux.linux_mirror_prompt") + "\" 0 50 0 "
+                "\"1\" \"" + _("termux.linux_mirror_tuna") + "\" "
+                "\"2\" \"" + _("termux.linux_mirror_restore") + "\" "
+                "\"3\" \"" + _("termux.linux_mirror_backup") + "\" "
+                "\"0\" \"" + _("menu.tui.back") + "\"";
 
             auto choice = Executor::tui_select(cmd);
 
@@ -1906,8 +1905,8 @@ namespace tmoe::domain {
     bool TermuxManager::adb_pair_and_connect_flow() {
         Logger::step("ADB 无线调试配对与连接 (Android 11+)...");
 
-        std::string cmd = cfg_.tui_bin + " --title \"ADB 无线调试\" "
-            "--inputbox \"请输入无线调试 IP 地址和端口\\n格式: 192.168.1.100:5555\\n\\nEnter wireless debugging address\" 0 50 \"\"";
+        std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.adb_wireless_title") + "\" "
+            "--inputbox \"" + _("termux.adb_wireless_input") + R"(" 0 50 "")";
 
         std::string addr = Executor::tui_select(cmd);
         if (addr.empty()) {
@@ -1916,8 +1915,8 @@ namespace tmoe::domain {
         }
 
         // 阶段 1: 配对
-        std::string pair_cmd = cfg_.tui_bin + " --title \"ADB 配对\" "
-            "--inputbox \"请输入配对码 (6位数字)\\n配对地址: " + addr + "\\n\\nEnter pairing code\" 0 50 \"\"";
+        std::string pair_cmd = cfg_.tui_bin + " --title \"" + _("termux.adb_pair_title") + "\" "
+            "--inputbox \"" + _f("termux.adb_pair_input", addr) + R"(" 0 50 "")";
 
         std::string pair_code = Executor::tui_select(pair_cmd);
 
@@ -1931,8 +1930,8 @@ namespace tmoe::domain {
         }
 
         // 阶段 2: 连接 (地址可能不同)
-        std::string connect_cmd = cfg_.tui_bin + " --title \"ADB 连接\" "
-            "--inputbox \"请输入连接地址 (可能与配对地址不同)\\n格式: 192.168.1.100:5555\\n\\nEnter connection address\" 0 50 \"" + addr + "\"";
+        std::string connect_cmd = cfg_.tui_bin + " --title \"" + _("termux.adb_connect2_title") + "\" "
+            "--inputbox \"" + _f("termux.adb_connect2_input", addr) + "\" 0 50 \"" + addr + "\"";
 
         std::string connect_addr = Executor::tui_select(connect_cmd);
         if (connect_addr.empty()) {
@@ -1956,8 +1955,8 @@ namespace tmoe::domain {
     bool TermuxManager::select_adb_port() {
         Logger::step("配置 ADB 服务端端口...");
 
-        std::string cmd = cfg_.tui_bin + " --title \"ADB 端口配置\" "
-            "--inputbox \"请输入 ADB 服务端端口 (1024-65535)\\n默认: 5037\\n\\nEnter ADB server port\" 0 50 \"5037\"";
+        std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.adb_port_title") + "\" "
+            "--inputbox \"" + _("termux.adb_port_input") + "\" 0 50 \"5037\"";
 
         std::string port_str = Executor::tui_select(cmd);
         if (port_str.empty()) return false;
@@ -2179,12 +2178,12 @@ namespace tmoe::domain {
             return;
         }
 
-        std::string cmd = cfg_.tui_bin + " --title \"Timeshift 备份\" "
-            "--menu \"Timeshift 系统备份\\n适用于 GNU/Linux 宿主机 (非 Android)\\n\" 0 50 0 "
-            "\"1\" \"📦 安装 Timeshift\" "
-            "\"2\" \"📸 创建系统快照\" "
-            "\"3\" \"🔙 恢复系统快照\" "
-            "\"0\" \"返回 Back\"";
+        std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.timeshift_title") + "\" "
+            "--menu \"" + _("termux.timeshift_prompt") + "\" 0 50 0 "
+            "\"1\" \"" + _("termux.timeshift_install") + "\" "
+            "\"2\" \"" + _("termux.timeshift_create") + "\" "
+            "\"3\" \"" + _("termux.timeshift_restore") + "\" "
+            "\"0\" \"" + _("menu.tui.back") + "\"";
 
         auto choice = Executor::tui_select(cmd);
 

@@ -331,7 +331,7 @@ void ProotRuntime::apply_proot_args(const Container &container, std::vector<std:
 bool ProotRuntime::start(const Container &container, const LaunchContext *ctx) {
     std::string cmd = generate_launch_cmd(container, ctx);
     Logger::step("[PRoot] 启动容器: " + container.name());
-    return Executor::shell(cmd).ok();
+    return Executor::passthrough(cmd).ok();
 }
 
 bool ProotRuntime::stop(const Container &container) {

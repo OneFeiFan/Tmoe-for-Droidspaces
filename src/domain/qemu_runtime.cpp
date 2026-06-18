@@ -417,7 +417,9 @@ namespace tmoe::domain {
         } else if (cfg.connection_type == "remote-x11") {
             std::string disp = cfg.remote_x11_addr;
             if (!disp.empty()) {
-                Executor::shell("export DISPLAY=" + disp);
+                // 注：Bash 原版在此处执行 export DISPLAY=...，
+                //    但 C++ 每次 Executor::shell 调用独立 shell 进程，此 export 无效。
+                //   如需设置环境变量，请使用 C++ setenv("DISPLAY", disp.c_str(), 1)。
             }
         }
     }
@@ -580,9 +582,12 @@ namespace tmoe::domain {
         // 18. PulseAudio
         if (!cfg.audio_addr.empty()) {
             if (cfg.connection_type != "x11" && cfg.connection_type != "wayland") {
-                Executor::shell("export PULSE_SERVER=" + cfg.audio_addr);
+                // 注：Bash 原版在此处执行 export PULSE_SERVER=...，
+                //    但 C++ 每次 Executor::shell 调用独立 shell 进程，此 export 无效。
+                //   如需设置环境变量，请使用 C++ setenv("PULSE_SERVER", cfg.audio_addr.c_str(), 1)。
             } else if (cfg.wayland_remote_pulse) {
-                Executor::shell("export PULSE_SERVER=" + cfg.audio_addr);
+                // 注：同上，export PULSE_SERVER 在独立 shell 进程中无效。
+                //   如需设置环境变量，请使用 C++ setenv("PULSE_SERVER", cfg.audio_addr.c_str(), 1)。
             }
         }
     }
@@ -633,10 +638,11 @@ namespace tmoe::domain {
         std::string cmd = generate_launch_cmd(container, ctx);
         Logger::step("QEMU 启动命令: " + cmd);
 
-        // 清除 LD_PRELOAD
-        Executor::shell("unset LD_PRELOAD");
+        // 注：Bash 原版在此处执行 unset LD_PRELOAD，
+        //    但 C++ 每次 Executor::shell 调用独立 shell 进程，无需 unset。
+        //   如需清除环境变量，请使用 C++ unsetenv("LD_PRELOAD")。
 
-        return Executor::shell(cmd).ok();
+        return Executor::passthrough(cmd).ok();
     }
 
     bool QemuRuntime::stop(const Container &container) {

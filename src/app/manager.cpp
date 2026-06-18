@@ -1,7 +1,8 @@
 #include "manager.h"
 
 namespace tmoe::app {
-    Manager::Manager(TmoeConfig cfg) : cfg_(std::move(cfg)) {
+    Manager::Manager(TmoeConfig cfg, LocaleSaveFunc save_locale)
+        : cfg_(std::move(cfg)), save_locale_(std::move(save_locale)) {
         environment_ = std::make_unique<domain::Environment>(cfg_);
         container_mgr_ = std::make_unique<domain::ContainerManager>(cfg_);
         termux_ = std::make_unique<domain::TermuxManager>(cfg_);
@@ -17,11 +18,11 @@ namespace tmoe::app {
         // 1. Proot 容器向导
         tui_routes_["1"] = [this]() {
             termux_->check_and_init_environment();
-            Logger::step("进入 Proot 容器向导...");
+            Logger::step("Entering Proot container wizard...");
             auto container = container_mgr_->create("debian_default", "debian", "sid");
 
             if (!container_mgr_->find("debian_default").has_value()) {
-                if (Logger::confirm("未检测到默认容器，是否立即安装 Debian Sid?")) {
+                if (Logger::confirm(_("container.confirm_install_default"))) {
                     container.install();
                 }
             } else {
@@ -35,27 +36,27 @@ namespace tmoe::app {
                 Logger::error(_("error.no_root"));
                 return;
             }
-            Logger::step("唤起 Chroot 高级挂载模块...");
+            Logger::step("Launching Chroot advanced mount module...");
             // TODO: 实现 Chroot 容器启动逻辑
         };
 
         // 3. 移除/卸载容器
         tui_routes_["3"] = [this]() {
-            Logger::step("进入移除/卸载管理模块...");
+            Logger::step("Entering removal/uninstall management module...");
             auto containers = container_mgr_->list_all();
             if (containers.empty()) {
-                Logger::warn("当前未安装任何容器！");
+                Logger::warn("No containers currently installed!");
                 return;
             }
 
-            Logger::info("已安装的容器:");
+            Logger::info("Installed containers:");
             for (const auto &c: containers) {
                 Logger::info(" - " + c.name() + " (" + c.distro() + ")");
             }
             // TODO: 扩展 whiptail 多选清单功能
-            if (Logger::confirm("确认要卸载名为 default 的容器吗？此操作不可逆！")) {
+            if (Logger::confirm(_("container.confirm_remove_default"))) {
                 container_mgr_->remove("default");
-                Logger::ok("已成功清理容器残留。");
+                Logger::ok("Container residue cleaned successfully.");
             }
         };
 
@@ -76,24 +77,24 @@ namespace tmoe::app {
 
         // 7. 通过 git pull 自更新
         tui_routes_["7"] = [this]() {
-            Logger::step("正在拉取最新代码更新...");
-            if (Executor::shell("git -C " + cfg_.work_dir.string() + " pull").ok()) {
-                Logger::ok("更新成功！请重新启动 tmoes。");
+            Logger::step("Fetching latest code update...");
+            if (Executor::passthrough("git -C " + cfg_.work_dir.string() + " pull").ok()) {
+                Logger::ok("Update successful! Please restart tmoes.");
             } else {
-                Logger::error("更新失败，请检查网络或 Git 配置。");
+                Logger::error("Update failed. Please check network or Git configuration.");
             }
         };
 
         // 8. 常见问题
         tui_routes_["8"] = [this]() {
             Logger::info("=== FAQ ===");
-            Logger::info("Q: Android 12+ 闪退怎么办？\nA: 请运行菜单 10 修复 signal 9 限制。");
-            Logger::info("Q: 容器内无声音？\nA: 安装 pulseaudio 并检查环境变量。");
+            Logger::info("Q: Android 12+ crash?\nA: Run menu 10 to fix signal 9 restriction.");
+            Logger::info("Q: No sound in container?\nA: Install pulseaudio and check environment variables.");
         };
 
         // 9. 反馈 Bug
         tui_routes_["9"] = [this]() {
-            Logger::info("如需反馈 Bug，请访问 Github 仓库提交 Issue:");
+            Logger::info("To report bugs, please visit the GitHub repo and submit an issue:");
             Logger::info("https://github.com/2-moe/tmoe-linux");
         };
 
@@ -135,18 +136,22 @@ namespace tmoe::app {
         while (true) {
             // 第一级：镜像源管理主菜单
             std::string menu_cmd = cfg_.tui_bin +
-                                   " --title \"镜像源管理 — " + cfg_.os_pretty_name + "\"" +
-                                   " --menu \"请选择操作 (当前发行版: " + cfg_.linux_distro + ")\" 0 0 0 "
-                                   "\"1\" \"商业镜像源 (华为云/阿里云/腾讯云/网易…)\" "
-                                   "\"2\" \"高校镜像源 (清华/中科大/上交/浙大…)\" "
-                                   "\"3\" \"全球镜像站 (Debian/Arch 官方源)\" "
-                                   "\"4\" \"自动选择最优镜像 (ping 测速)\" "
-                                   "\"5\" \"还原为默认官方源\" "
-                                   "\"6\" \"手动编辑源列表\" "
-                                   "\"7\" \"HTTP ⇄ HTTPS 协议切换\" "
-                                   "\"8\" \"清理无效行 (去注释+去重)\" "
-                                   "\"9\" \"强制信任软件源\" "
-                                   "\"0\" \"返回上级菜单\"";
+                                   " --title \"" + _("mirror.title") + " " + cfg_.os_pretty_name + "\"" +
+                                   " --menu \"" + _("mirror.menu_prompt") + " " + cfg_.linux_distro + ")\" 0 0 0 "
+                                   "\"1\" \"" + _("mirror.cat_business") + "\" "
+                                   "\"2\" \"" + _("mirror.cat_university") + "\" "
+                                   "\"3\" \"" + _("mirror.cat_worldwide") + "\" "
+                                   "\"4\" \"" + _("mirror.auto_select") + "\" "
+                                   "\"5\" \"" + _("mirror.restore_official") + "\" "
+                                   "\"6\" \"" + _("mirror.edit_manual") + "\" "
+                                   "\"7\" \"" + _("mirror.toggle_protocol") + "\" "
+                                   "\"8\" \"" + _("mirror.clean_sources") + "\" "
+                                   "\"9\" \"" + _("mirror.trust_sources") + "\" "
+                                   "\"A\" \"" + _("mirror.speed_test") + "\" "
+                                   "\"B\" \"" + _("mirror.extra_sources") + "\" "
+                                   "\"C\" \"" + _("mirror.ping_test") + "\" "
+                                   "\"D\" \"" + _("mirror.faq") + "\" "
+                                   "\"0\" \"" + _("menu.tui.back_upper") + "\"";
 
             std::string choice = Executor::tui_select(menu_cmd);
             if (choice == "0" || choice.empty()) break;
@@ -170,18 +175,18 @@ namespace tmoe::app {
                 }
 
                 if (mirrors.empty()) {
-                    Logger::warn("该分类下无可用镜像站");
+                    Logger::warn("No available mirrors in this category");
                     Logger::press_enter();
                     continue;
                 }
 
                 // 构建 whiptail menu 字符串
-                std::string sub_menu = cfg_.tui_bin + " --title \"选择镜像站\" --menu \"请选择镜像站:\" 0 0 0 ";
+                std::string sub_menu = cfg_.tui_bin + " --title \"" + _("mirror.select_mirror_title") + "\" --menu \"" + _("mirror.select_mirror_prompt") + "\" 0 0 0 ";
                 for (size_t i = 0; i < mirrors.size(); ++i) {
                     sub_menu += "\"" + std::to_string(i + 1) + "\" \""
                             + mirrors[i].name + " (" + mirrors[i].url + ")\" ";
                 }
-                sub_menu += "\"0\" \"返回\"";
+                sub_menu += "\"0\" \"" + _("menu.tui.back") + "\"";
 
                 std::string sub_choice = Executor::tui_select(sub_menu);
                 if (sub_choice == "0" || sub_choice.empty()) continue;
@@ -195,7 +200,7 @@ namespace tmoe::app {
                 mirror_mgr_->auto_select();
                 Logger::press_enter();
             } else if (choice == "5") {
-                if (Logger::confirm("确认还原为默认官方源？这将覆盖当前源配置。")) {
+                if (Logger::confirm(_("mirror.confirm_restore_official"))) {
                     mirror_mgr_->restore_official();
                 }
                 Logger::press_enter();
@@ -204,24 +209,36 @@ namespace tmoe::app {
                 Logger::press_enter();
             } else if (choice == "7") {
                 std::string toggle_cmd = cfg_.tui_bin +
-                                         " --title \"HTTP / HTTPS\" --yes-button \"切换为 HTTPS\" --no-button \"切换为 HTTP\""
-                                         " --yesno \"请选择协议:\" 0 0";
-                auto result = Executor::shell(toggle_cmd);
+                                         " --title \"" + _("mirror.protocol_title") + "\" --yes-button \"" + _("mirror.btn_switch_https") + "\" --no-button \"" + _("mirror.btn_switch_http") + "\""
+                                         " --yesno \"" + _("mirror.select_protocol") + "\" 0 0";
+                auto result = Executor::passthrough(toggle_cmd);
                 bool use_https = result.exit_code == 0;
                 mirror_mgr_->toggle_http_https(use_https);
                 Logger::press_enter();
             } else if (choice == "8") {
-                if (Logger::confirm("将删除源列表中的所有注释行并去除重复行，确认？")) {
+                if (Logger::confirm(_("mirror.confirm_clean_sources"))) {
                     mirror_mgr_->clean_sources_list();
                 }
                 Logger::press_enter();
             } else if (choice == "9") {
                 std::string trust_cmd = cfg_.tui_bin +
-                                        " --title \"强制信任\" --yes-button \"信任\" --no-button \"取消信任\""
-                                        " --yesno \"强制信任软件源？\\n(可能有安全风险)\" 0 0";
-                auto result = Executor::shell(trust_cmd);
+                                        " --title \"" + _("mirror.trust_title") + "\" --yes-button \"" + _("mirror.btn_trust") + "\" --no-button \"" + _("mirror.btn_untrust") + "\""
+                                        " --yesno \"" + _("mirror.trust_warning") + "\" 0 0";
+                auto result = Executor::passthrough(trust_cmd);
                 bool trust = result.exit_code == 0;
                 mirror_mgr_->trust_sources(trust);
+                Logger::press_enter();
+            } else if (choice == "A") {
+                mirror_mgr_->run_download_speed_test();
+                Logger::press_enter();
+            } else if (choice == "B") {
+                mirror_mgr_->manage_extra_sources();
+                Logger::press_enter();
+            } else if (choice == "C") {
+                mirror_mgr_->run_ping_latency_test();
+                Logger::press_enter();
+            } else if (choice == "D") {
+                mirror_mgr_->show_mirror_faq();
                 Logger::press_enter();
             }
         }
@@ -229,7 +246,7 @@ namespace tmoe::app {
 
     std::string Manager::render_and_get_choice() {
         std::string cur_lang = std::string(I18n::current_lang());
-        std::string title = "tmoes manager running on " + cfg_.os_pretty_name;
+        std::string title = _("menu.tui.title_bar") + " " + cfg_.os_pretty_name;
 
         std::string menu_cmd = "LANG=" + cur_lang + ".UTF-8 " + cfg_.tui_bin +
                                " --title \"" + title + "\" --menu \"" + _("menu.tui.title") + "\" 0 0 0 ";
@@ -266,6 +283,9 @@ namespace tmoe::app {
             cfg_.tui_bin = termux_->check_and_patch_tui_env();
         }
 
+        // 首次启动：让用户选择语言
+        first_run_locale_setup();
+
         // 环境前置检查 (配色方案、字体、崩溃修复)
         termux_->check_and_init_environment();
 
@@ -282,7 +302,7 @@ namespace tmoe::app {
                 it->second();
                 Logger::press_enter();
             } else {
-                Logger::warn("即将到来的新功能交互项: " + choice);
+                Logger::warn("Upcoming new feature interaction item: " + choice);
                 Logger::press_enter();
             }
         }
@@ -302,7 +322,7 @@ namespace tmoe::app {
 
         switch (ctx.mode) {
             case LaunchMode::Proot: {
-                Logger::info("核心容器调度: [模式: PRoot] -> [发行版: " + ctx.distro_name + "]");
+                Logger::info("Core container schedule: [Mode: PRoot] -> [Distro: " + ctx.distro_name + "]");
 
                 std::string container_name = ctx.distro_name.empty() ? "default" : ctx.distro_name;
                 auto container = container_mgr_->create(container_name, ctx.distro_name, ctx.distro_code,
@@ -317,7 +337,7 @@ namespace tmoe::app {
                 }
 
                 if (!container.start(&ctx)) {
-                    Logger::error("容器运行异常终止");
+                    Logger::error("Container terminated abnormally");
                     return 1;
                 }
 
@@ -337,7 +357,7 @@ namespace tmoe::app {
             }
             case LaunchMode::ListContainers: {
                 auto list = container_mgr_->list_all();
-                Logger::info("已安装的容器列表:");
+                Logger::info("Installed container list:");
                 for (const auto &c: list) {
                     std::fprintf(stderr, "  - %s [%s]\n", c.name().c_str(), c.rootfs_path().c_str());
                 }
@@ -345,11 +365,11 @@ namespace tmoe::app {
             }
             case LaunchMode::Chroot:
                 // TODO: 实现 Chroot 启动
-                Logger::warn("Chroot 模式暂未实现");
+                Logger::warn("Chroot mode not yet implemented");
                 break;
             case LaunchMode::Nspawn:
                 // TODO: 实现 systemd-nspawn 启动
-                Logger::warn("systemd-nspawn 模式暂未实现");
+                Logger::warn("systemd-nspawn mode not yet implemented");
                 break;
             case LaunchMode::ZshManager:
                 termux_->beautify_terminal();
@@ -359,7 +379,7 @@ namespace tmoe::app {
                 break;
             case LaunchMode::DebianInstall:
                 // TODO: 实现一键安装 Debian
-                Logger::warn("一键安装 Debian 暂未实现");
+                Logger::warn("One-click Debian install not yet implemented");
                 break;
             case LaunchMode::ManagerMenu:
                 // TODO: 实现管理菜单跳转
@@ -371,10 +391,49 @@ namespace tmoe::app {
                 // TODO: 实现 Aria2 管理器
                 break;
             default:
-                Logger::warn("路由模式未完全实现或未定义");
+                Logger::warn("Route mode not fully implemented or undefined");
                 break;
         }
         return 0;
+    }
+
+    /** 首次启动语言选择。仅在未持久化过语言偏好时触发。 */
+    void Manager::first_run_locale_setup() {
+        const char* home = std::getenv("HOME");
+        if (!home) return;
+        std::string marker = std::string(home) + "/.config/tmoe-linux/locale";
+        if (fs::exists(marker)) return;  // 已选择过，跳过
+
+        Logger::info("First run detected — please choose your language");
+        Logger::info("First run detected — please choose your language");
+
+        // 直接用英文简短提示，此时还没选择语言
+        std::string menu = cfg_.tui_bin +
+            " --title \"" + _("locale.firstrun_title") + "\""
+            " --menu \"" + _("locale.firstrun_prompt") + "\" 0 0 0 "
+            "\"en_US\" \"" + _("locale.firstrun.en") + "\" "
+            "\"zh_CN\" \"" + _("locale.firstrun.zh") + "\" "
+            "\"ja_JP\" \"" + _("locale.firstrun.ja") + "\" "
+            "\"ko_KR\" \"" + _("locale.firstrun.ko") + "\" "
+            "\"ru_RU\" \"" + _("locale.firstrun.ru") + "\" "
+            "\"de_DE\" \"" + _("locale.firstrun.de") + "\" "
+            "\"fr_FR\" \"" + _("locale.firstrun.fr") + "\" ";
+
+        std::string choice = Executor::tui_select(menu);
+        if (choice.empty()) return;
+
+        // 验证合法性
+        static const std::vector<std::string> valid = {
+            "en_US", "zh_CN", "ja_JP", "ko_KR", "ru_RU", "de_DE", "fr_FR"
+        };
+        if (std::find(valid.begin(), valid.end(), choice) == valid.end()) return;
+
+        I18n::init(choice);
+        cfg_.locale = choice;
+        environment_->set_locale(choice);
+        if (save_locale_) save_locale_(choice);
+        Logger::ok("Language set to: " + choice);
+        Logger::press_enter();
     }
 
     /** 语言/区域切换菜单（支持全部 7 种语言包）。 */
@@ -384,26 +443,26 @@ namespace tmoe::app {
             std::string code;
             std::string label;
         };
-        static const std::vector<LangEntry> LANGS = {
-            {"zh_CN", "1  简体中文 (Chinese Simplified)"},
-            {"en_US", "2  English (United States)"},
-            {"ja_JP", "3  日本語 (Japanese)"},
-            {"de_DE", "4  Deutsch (German)"},
-            {"fr_FR", "5  Français (French)"},
-            {"ko_KR", "6  한국어 (Korean)"},
-            {"ru_RU", "7  Русский (Russian)"},
+        const std::vector<LangEntry> LANGS = {
+            {"zh_CN", _("locale.zh_cn")},
+            {"en_US", _("locale.en_us")},
+            {"ja_JP", _("locale.ja_jp")},
+            {"de_DE", _("locale.de_de")},
+            {"fr_FR", _("locale.fr_fr")},
+            {"ko_KR", _("locale.ko_kr")},
+            {"ru_RU", _("locale.ru_ru")},
         };
 
         // 构建 whiptail 菜单
         std::string cur = std::string(I18n::current_lang());
         std::string menu_cmd = cfg_.tui_bin +
-                               " --title \"Language / 言語 / Sprache / 언어 / Язык\"" +
-                               " --menu \"Current: " + cur + "  |  Select interface language:\" 0 0 0 ";
+                               " --title \"" + _("locale.title") + "\"" +
+                               " --menu \"" + _("locale.menu_prompt") + cur + "  |  Select interface language:\" 0 0 0 ";
         for (const auto &e: LANGS) {
             std::string mark = (e.code == cur) ? " ✓" : "";
             menu_cmd += "\"" + e.code + "\" \"" + e.label + mark + "\" ";
         }
-        menu_cmd += "\"back\" \"↩ 返回 / Back\"";
+        menu_cmd += "\"back\" \"" + _("locale.back") + "\"";
 
         std::string choice = Executor::tui_select(menu_cmd);
         if (choice.empty() || choice == "back") return;
@@ -415,11 +474,27 @@ namespace tmoe::app {
         }
         if (!valid) return;
 
-        // 切换语言
+        // 切换语言 (当前进程)
         I18n::init(choice);
         cfg_.locale = choice;
         environment_->set_locale(choice);
-        Logger::ok("Language switched to: " + choice);
+        // 持久化 tmoes 自身语言偏好 (下次启动自动加载)
+        if (save_locale_) save_locale_(choice);
+        Logger::ok("Software language switched to: " + choice);
+
+        // 询问是否持久化为系统默认 locale
+        {
+            std::string prompt = cfg_.tui_bin +
+                " --title \"" + _("locale.system_title") + "\""
+                " --yesno \"" + _("locale.system_yesno") + choice + "。\\n\\n"
+                "是否同时将此语言设为系统默认 locale？\\n"
+                "(写入 /etc/default/locale 或 /etc/locale.conf，重启后生效)\" 0 0";
+            auto result = Executor::passthrough(prompt);
+            if (result.exit_code == 0) {
+                environment_->apply_system_locale(choice);
+            }
+        }
+
         Logger::press_enter();
     }
 } // namespace tmoe::app

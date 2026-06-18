@@ -13,13 +13,16 @@ namespace tmoe::domain {
 /** 镜像源管理 — 涵盖原版 Bash `tools/sources/gnu-linux_mirrors` 脚本的全部功能。
  *
  *  职责:
- *   1. 发行版路由 (Debian/Ubuntu/Kali/Arch/Manjaro/Alpine)
+ *   1. 发行版路由 (Debian/Ubuntu/Kali/Arch/Manjaro/Alpine/RedHat/Solus)
  *   2. 原始源备份 (~/.config/tmoe-linux/*.bak)
- *   3. sources.list / mirrorlist / repositories 模板生成
+ *   3. sources.list / mirrorlist / repositories / yum.repos.d 模板生成
  *   4. 版本代号自动检测 (VERSION_CODENAME + 回退方案)
  *   5. ARM 架构自动适配 (ubuntu-ports / archlinuxarm)
  *   6. 基于延迟的自动选择
  *   7. 备份还原 / 手动编辑 / HTTP-HTTPS 切换 / 去重 / 信任
+ *   8. 下载速度测试 (aria2c)
+ *   9. 额外源管理 (kali/archlinuxcn/EPEL/rpmfusion)
+ *  10. 镜像源 FAQ
  */
 class MirrorManager {
 public:
@@ -61,6 +64,20 @@ public:
     /** 检测当前发行版的版本代号。 */
     std::string detect_version_codename() const;
 
+    // ── 新增功能 ──
+
+    /** 下载速度测试：aria2c 下载 debian/ls-lR.gz，逐站测速。 */
+    bool run_download_speed_test();
+
+    /** 额外源管理菜单（kali/archlinuxcn/EPEL/rpmfusion）。 */
+    bool manage_extra_sources();
+
+    /** 显示镜像源 FAQ 帮助信息。 */
+    void show_mirror_faq() const;
+
+    /** Ping 延迟对比测试（6个国内镜像站 + 4个国际站）。 */
+    bool run_ping_latency_test();
+
 private:
     const TmoeConfig& cfg_;
 
@@ -69,7 +86,22 @@ private:
     bool write_ubuntu_sources(const MirrorEntry& mirror);
     bool write_kali_sources(const MirrorEntry& mirror);
     bool write_arch_sources(const MirrorEntry& mirror);
+    bool write_manjaro_sources(const MirrorEntry& mirror);
     bool write_alpine_sources(const MirrorEntry& mirror);
+    bool write_redhat_sources(const MirrorEntry& mirror);
+    bool write_solus_sources(const MirrorEntry& mirror);
+
+    // ── 额外源 ──
+    bool add_kali_extra_source();
+    bool add_archlinuxcn_source();
+    bool add_epel_source();
+    bool add_rpmfusion_source();
+
+    // ── Fedora 内部 ──
+    void fedora_31_repos(const std::string& url);
+    void fedora_32_repos(const std::string& url);
+    void fedora_3x_repos(const std::string& url);
+    int  detect_fedora_version() const;
 
     // ── 工具方法 ──
     /** 在首次切换时备份原始源（一次性操作）。 */

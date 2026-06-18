@@ -1,4 +1,5 @@
 #include "virtualization.h"
+#include "core/i18n.h"
 
 namespace tmoe::domain {
     VirtualizationManager::VirtualizationManager(const TmoeConfig &cfg) : cfg_(cfg) {
@@ -11,15 +12,15 @@ namespace tmoe::domain {
     void VirtualizationManager::run_virt_menu() {
         while (true) {
             std::string menu = cfg_.tui_bin +
-                               " --title \"💻 虚拟化管理 (Virtualization)\""
-                               " --menu \"请选择虚拟化工具:\" 0 0 0 "
-                               "\"1\" \"🖥️  QEMU 虚拟机 (创建/启动/停止)\" "
-                               "\"2\" \"⬇️  下载 ISO / 磁盘镜像\" "
-                               "\"3\" \"🐳 Docker 容器管理\" "
-                               "\"4\" \"📦 VirtualBox 安装\" "
-                               "\"5\" \"🍷 Wine (Windows API 兼容层)\" "
-                               "\"6\" \"🖼️  virt-manager GUI 安装\" "
-                               "\"0\" \"返回\"";
+                               " --title \"" + _("virt.title") + "\""
+                               " --menu \"" + _("virt.menu_prompt") + "\" 0 0 0 "
+                               "\"1\" \"" + _("virt.qemu") + "\" "
+                               "\"2\" \"" + _("virt.download_iso") + "\" "
+                               "\"3\" \"" + _("virt.docker") + "\" "
+                               "\"4\" \"" + _("virt.virtualbox") + "\" "
+                               "\"5\" \"" + _("virt.wine") + "\" "
+                               "\"6\" \"" + _("virt.virt_manager") + "\" "
+                               "\"0\" \"" + _("menu.tui.back") + "\"";
 
             std::string choice = Executor::tui_select(menu);
             if (choice == "0" || choice.empty()) break;
@@ -88,7 +89,7 @@ namespace tmoe::domain {
         std::string cmd = "qemu-img convert -c -O qcow2 \"" +
                           std::string(disk_path) + "\" \"" +
                           compressed.string() + "\"";
-        auto result = Executor::shell(cmd);
+        auto result = Executor::passthrough(cmd);
         if (result.ok()) {
             auto orig_size = fs::file_size(original) / (1024 * 1024);
             auto comp_size = fs::file_size(compressed) / (1024 * 1024);
@@ -149,7 +150,7 @@ namespace tmoe::domain {
         fs::path script = vm_store_dir() / (std::string(name) + "_start.sh");
         if (fs::exists(script)) {
             std::string cmd = "bash \"" + script.string() + "\" &";
-            Executor::shell(cmd);
+            Executor::passthrough(cmd);
             Logger::ok("虚拟机正在启动 (后台)...");
             return true;
         }
@@ -162,7 +163,7 @@ namespace tmoe::domain {
                               "-drive file=\"" + disk.string() + "\",if=virtio "
                               "-vnc :1 -netdev user,id=net0 "
                               "-device virtio-net-pci,netdev=net0 &";
-            Executor::shell(cmd);
+            Executor::passthrough(cmd);
             Logger::ok("虚拟机正在启动 (后台)...");
             Logger::info("VNC 地址: 127.0.0.1:5901");
             return true;
@@ -199,15 +200,15 @@ namespace tmoe::domain {
             auto running = qemu_list();
 
             std::string menu = cfg_.tui_bin +
-                               " --title \"🖥️ QEMU 虚拟机管理\""
-                               " --menu \"请选择操作 (已运行: " +
+                               " --title \"" + _("virt.qemu_title") + "\""
+                               " --menu \"" + _("virt.qemu_prompt") + " " +
                                std::to_string(running.size()) + "):\" 0 0 0 "
-                               "\"1\" \"✨ 创建新虚拟机\" "
-                               "\"2\" \"▶️  启动虚拟机\" "
-                               "\"3\" \"⏹️  停止虚拟机\" "
-                               "\"4\" \"📋 列出运行中的虚拟机\" "
-                               "\"5\" \"🗜️  压缩 QCOW2 磁盘\" "
-                               "\"0\" \"返回\"";
+                               "\"1\" \"" + _("virt.qemu_create") + "\" "
+                               "\"2\" \"" + _("virt.qemu_start") + "\" "
+                               "\"3\" \"" + _("virt.qemu_stop") + "\" "
+                               "\"4\" \"" + _("virt.qemu_list") + "\" "
+                               "\"5\" \"" + _("virt.qemu_compress") + "\" "
+                               "\"0\" \"" + _("menu.tui.back") + "\"";
 
             std::string choice = Executor::tui_select(menu);
             if (choice == "0" || choice.empty()) break;
@@ -215,29 +216,29 @@ namespace tmoe::domain {
             if (choice == "1") {
                 // 交互式创建向导
                 std::string name_cmd = cfg_.tui_bin +
-                                       " --title \"虚拟机名称\" --inputbox \"请输入虚拟机名称:\" 0 0 \"my-vm\"";
-                auto result = Executor::shell("echo \"$(" + name_cmd + " 2>&1 1>/dev/tty)\"");
+                                       " --title \"" + _("virt.qemu_name_title") + "\" --inputbox \"" + _("virt.qemu_name_input") + "\" 0 0 \"my-vm\"";
+                auto result = Executor::passthrough("echo \"$(" + name_cmd + " 2>&1 1>/dev/tty)\"");
                 std::string name = result.stdout_data;
                 name.erase(std::remove(name.begin(), name.end(), '\n'), name.end());
                 if (name.empty()) continue;
 
                 std::string disk_cmd = cfg_.tui_bin +
-                                       " --title \"磁盘大小\" --inputbox \"磁盘大小 (GB):\" 0 0 \"10\"";
-                result = Executor::shell("echo \"$(" + disk_cmd + " 2>&1 1>/dev/tty)\"");
+                                       " --title \"" + _("virt.qemu_disk_title") + "\" --inputbox \"" + _("virt.qemu_disk_input") + "\" 0 0 \"10\"";
+                result = Executor::passthrough("echo \"$(" + disk_cmd + " 2>&1 1>/dev/tty)\"");
                 int64_t disk_gb = 10;
                 try { disk_gb = std::stoll(result.stdout_data); } catch (...) {
                 }
 
                 std::string ram_cmd = cfg_.tui_bin +
-                                      " --title \"内存\" --inputbox \"内存大小 (MB):\" 0 0 \"2048\"";
-                result = Executor::shell("echo \"$(" + ram_cmd + " 2>&1 1>/dev/tty)\"");
+                                      " --title \"" + _("virt.qemu_ram_title") + "\" --inputbox \"" + _("virt.qemu_ram_input") + "\" 0 0 \"2048\"";
+                result = Executor::passthrough("echo \"$(" + ram_cmd + " 2>&1 1>/dev/tty)\"");
                 int ram = 2048;
                 try { ram = std::stoi(result.stdout_data); } catch (...) {
                 }
 
                 std::string cpu_cmd = cfg_.tui_bin +
-                                      " --title \"CPU\" --inputbox \"CPU 核心数:\" 0 0 \"2\"";
-                result = Executor::shell("echo \"$(" + cpu_cmd + " 2>&1 1>/dev/tty)\"");
+                                      " --title \"" + _("virt.qemu_cpu_title") + "\" --inputbox \"" + _("virt.qemu_cpu_input") + "\" 0 0 \"2\"";
+                result = Executor::passthrough("echo \"$(" + cpu_cmd + " 2>&1 1>/dev/tty)\"");
                 int cpu = 2;
                 try { cpu = std::stoi(result.stdout_data); } catch (...) {
                 }
@@ -258,11 +259,11 @@ namespace tmoe::domain {
                     continue;
                 }
                 std::string sub_menu = cfg_.tui_bin +
-                                       " --title \"选择虚拟机\" --menu \"请选择:\" 0 0 0 ";
+                                       " --title \"" + _("virt.qemu_select_title") + "\" --menu \"" + _("virt.qemu_select_prompt") + "\" 0 0 0 ";
                 for (size_t i = 0; i < vms.size(); ++i) {
                     sub_menu += "\"" + std::to_string(i + 1) + "\" \"" + vms[i] + "\" ";
                 }
-                sub_menu += "\"0\" \"返回\"";
+                sub_menu += "\"0\" \"" + _("menu.tui.back") + "\"";
                 std::string sub = Executor::tui_select(sub_menu);
                 if (sub != "0" && !sub.empty()) {
                     int idx = std::stoi(sub) - 1;
@@ -284,8 +285,8 @@ namespace tmoe::domain {
                 }
             } else if (choice == "5") {
                 std::string path_cmd = cfg_.tui_bin +
-                                       " --title \"磁盘路径\" --inputbox \"输入 QCOW2 文件路径:\" 0 0";
-                auto result = Executor::shell("echo \"$(" + path_cmd + " 2>&1 1>/dev/tty)\"");
+                                       " --title \"" + _("virt.qemu_disk_path_title") + "\" --inputbox \"" + _("virt.qemu_disk_path_input") + "\" 0 0";
+                auto result = Executor::passthrough("echo \"$(" + path_cmd + " 2>&1 1>/dev/tty)\"");
                 std::string path = result.stdout_data;
                 path.erase(std::remove(path.begin(), path.end(), '\n'), path.end());
                 if (!path.empty() && fs::exists(path)) {
@@ -377,7 +378,7 @@ namespace tmoe::domain {
                      "\" \"" + target->url + "\"";
         }
 
-        auto result = Executor::shell(dl_cmd);
+        auto result = Executor::passthrough(dl_cmd);
         if (result.ok() && fs::exists(iso_path)) {
             auto size_mb = fs::file_size(iso_path) / (1024 * 1024);
             Logger::ok("ISO 下载完成: " + iso_path.string() +
@@ -414,8 +415,8 @@ namespace tmoe::domain {
             auto isos = available_isos();
 
             std::string menu = cfg_.tui_bin +
-                               " --title \"⬇️  ISO / 镜像下载\""
-                               " --menu \"请选择要下载的系统镜像:\" 0 0 0 ";
+                               " --title \"" + _("virt.iso_title") + "\""
+                               " --menu \"" + _("virt.iso_prompt") + "\" 0 0 0 ";
 
             for (size_t i = 0; i < isos.size(); ++i) {
                 menu += "\"" + std::to_string(i + 1) + "\" \""
@@ -429,7 +430,7 @@ namespace tmoe::domain {
                         + "[模板] " + templates[i].second + "\" ";
             }
 
-            menu += "\"0\" \"返回\"";
+            menu += "\"0\" \"" + _("menu.tui.back") + "\"";
 
             std::string choice = Executor::tui_select(menu);
             if (choice == "0" || choice.empty()) break;
@@ -456,14 +457,14 @@ namespace tmoe::domain {
 
         if (is_debian() || is_ubuntu()) {
             // 添加 VirtualBox 软件源
-            Executor::shell(cfg_.update_command);
+            Executor::passthrough(cfg_.update_command);
 
             // 安装 VirtualBox
-            auto result = Executor::shell(cfg_.install_command +
+            auto result = Executor::passthrough(cfg_.install_command +
                                           " virtualbox virtualbox-qt virtualbox-ext-pack 2>/dev/null");
             if (!result.ok()) {
                 // 如果 ext-pack 导致冲突，只安装基础包
-                result = Executor::shell(cfg_.install_command + " virtualbox virtualbox-qt");
+                result = Executor::passthrough(cfg_.install_command + " virtualbox virtualbox-qt");
             }
 
             if (result.ok()) {
@@ -474,7 +475,7 @@ namespace tmoe::domain {
         }
 
         if (is_arch()) {
-            auto result = Executor::shell("pacman -S --noconfirm virtualbox virtualbox-host-modules-arch");
+            auto result = Executor::passthrough("pacman -S --noconfirm virtualbox virtualbox-host-modules-arch");
             if (result.ok()) {
                 Logger::ok("VirtualBox 已安装");
                 return true;
@@ -488,7 +489,7 @@ namespace tmoe::domain {
 
     bool VirtualizationManager::install_vbox_extension_pack() {
         Logger::step("安装 VirtualBox Extension Pack...");
-        auto result = Executor::shell(cfg_.install_command + " virtualbox-ext-pack");
+        auto result = Executor::passthrough(cfg_.install_command + " virtualbox-ext-pack");
         if (result.ok()) {
             Logger::ok("Extension Pack 已安装");
         }
@@ -513,21 +514,21 @@ namespace tmoe::domain {
 
         if (is_debian() || is_ubuntu()) {
             // 启用 32 位架构
-            Executor::shell("dpkg --add-architecture i386 2>/dev/null");
-            Executor::shell(cfg_.update_command);
+            Executor::passthrough("dpkg --add-architecture i386 2>/dev/null");
+            Executor::passthrough(cfg_.update_command);
 
             // 安装 WineHQ
-            auto result = Executor::shell(cfg_.install_command +
+            auto result = Executor::passthrough(cfg_.install_command +
                                           " wine wine32 wine64 2>/dev/null");
 
             if (!result.ok()) {
                 // 从 WineHQ 官方源安装
                 Executor::shell("mkdir -p /etc/apt/keyrings");
-                Executor::shell("wget -qO- https://dl.winehq.org/wine-builds/winehq.key | "
+                Executor::passthrough("wget -qO- https://dl.winehq.org/wine-builds/winehq.key | "
                     "gpg --dearmor -o /etc/apt/keyrings/winehq-archive-keyring.gpg 2>/dev/null");
-                Executor::shell(cfg_.update_command);
+                Executor::passthrough(cfg_.update_command);
 
-                result = Executor::shell(cfg_.install_command + " --install-recommends "
+                result = Executor::passthrough(cfg_.install_command + " --install-recommends "
                                          "winehq-" + std::string(branch) + " wine-" +
                                          std::string(branch) + " wine-" +
                                          std::string(branch) + "-amd64 wine-" +
@@ -542,7 +543,7 @@ namespace tmoe::domain {
         }
 
         if (is_arch()) {
-            auto result = Executor::shell("pacman -S --noconfirm wine");
+            auto result = Executor::passthrough("pacman -S --noconfirm wine");
             if (result.ok()) {
                 Logger::ok("Wine 已安装");
                 return true;
@@ -550,7 +551,7 @@ namespace tmoe::domain {
         }
 
         // 通用包管理方式
-        auto result = Executor::shell(cfg_.install_command + " wine 2>/dev/null");
+        auto result = Executor::passthrough(cfg_.install_command + " wine 2>/dev/null");
         if (result.ok()) {
             Logger::ok("Wine 已安装");
             return true;
@@ -562,12 +563,12 @@ namespace tmoe::domain {
 
     bool VirtualizationManager::install_winetricks() {
         Logger::step("安装 Winetricks...");
-        auto result = Executor::shell(cfg_.install_command + " winetricks");
+        auto result = Executor::passthrough(cfg_.install_command + " winetricks");
         if (result.ok()) {
             Logger::ok("Winetricks 已安装");
         } else {
             Logger::warn("Winetricks 安装可能失败，尝试手动下载...");
-            Executor::shell("wget -O /usr/local/bin/winetricks "
+            Executor::passthrough("wget -O /usr/local/bin/winetricks "
                 "https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks 2>/dev/null");
             Executor::shell("chmod +x /usr/local/bin/winetricks");
         }
@@ -578,12 +579,12 @@ namespace tmoe::domain {
         Logger::step("安装 DXVK (DirectX → Vulkan 转换层)...");
         Logger::info("DXVK 通常通过 Winetricks 安装:");
         Logger::info("  winetricks dxvk");
-        return Executor::shell("winetricks dxvk 2>/dev/null").ok();
+        return Executor::passthrough("winetricks dxvk 2>/dev/null").ok();
     }
 
     bool VirtualizationManager::install_playonlinux() {
         Logger::step("安装 PlayOnLinux...");
-        return Executor::shell(cfg_.install_command + " playonlinux").ok();
+        return Executor::passthrough(cfg_.install_command + " playonlinux").ok();
     }
 
     void VirtualizationManager::run_wine_menu() {
@@ -591,15 +592,15 @@ namespace tmoe::domain {
             auto branches = wine_branches();
 
             std::string menu = cfg_.tui_bin +
-                               " --title \"🍷 Wine (Windows API 兼容层)\""
-                               " --menu \"请选择操作:\" 0 0 0 "
-                               "\"1\" \"📥 安装 Wine (开发版 devel)\" "
-                               "\"2\" \"📥 安装 Wine (实验版 staging)\" "
-                               "\"3\" \"📥 安装 Wine (稳定版 stable)\" "
-                               "\"4\" \"🔧 安装 Winetricks\" "
-                               "\"5\" \"🎮 安装 DXVK (DirectX→Vulkan)\" "
-                               "\"6\" \"🖥️  安装 PlayOnLinux (GUI)\" "
-                               "\"0\" \"返回\"";
+                               " --title \"" + _("virt.wine_title") + "\""
+                               " --menu \"" + _("virt.wine_prompt") + "\" 0 0 0 "
+                               "\"1\" \"" + _("virt.wine_devel") + "\" "
+                               "\"2\" \"" + _("virt.wine_staging") + "\" "
+                               "\"3\" \"" + _("virt.wine_stable") + "\" "
+                               "\"4\" \"" + _("virt.wine_winetricks") + "\" "
+                               "\"5\" \"" + _("virt.wine_dxvk") + "\" "
+                               "\"6\" \"" + _("virt.wine_playonlinux") + "\" "
+                               "\"0\" \"" + _("menu.tui.back") + "\"";
 
             std::string choice = Executor::tui_select(menu);
             if (choice == "0" || choice.empty()) break;
@@ -621,12 +622,12 @@ namespace tmoe::domain {
 
     bool VirtualizationManager::install_virt_manager() {
         Logger::step("安装 virt-manager (GUI 虚拟化管理器)...");
-        auto result = Executor::shell(cfg_.install_command +
+        auto result = Executor::passthrough(cfg_.install_command +
                                       " virt-manager qemu-kvm libvirt-daemon-system");
         if (result.ok()) {
             Logger::ok("virt-manager 已安装");
-            Executor::shell("systemctl enable libvirtd 2>/dev/null");
-            Executor::shell("systemctl start libvirtd 2>/dev/null");
+            Executor::passthrough("systemctl enable libvirtd 2>/dev/null");
+            Executor::passthrough("systemctl start libvirtd 2>/dev/null");
             return true;
         }
         return false;

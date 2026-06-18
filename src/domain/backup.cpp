@@ -1,4 +1,5 @@
 #include "domain/backup.h"
+#include "core/i18n.h"
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -18,17 +19,17 @@ BackupManager::BackupManager(const TmoeConfig& cfg) : cfg_(cfg) {}
 void BackupManager::run_backup_menu() {
     while (true) {
         std::string menu = cfg_.tui_bin +
-            " --title \"📦 备份与恢复\" --menu \"请选择操作:\" 0 0 0 "
-            "\"1\" \"💾 备份 Linux 容器 (tar.zst/xz/gz)\" "
-            "\"2\" \"📥 恢复 Linux 容器\" "
-            "\"3\" \"🧹 清理容器垃圾 (多发行版)\" "
-            "\"4\" \"💿 备份至外置 SD/TF 卡\" "
-            "\"5\" \"📋 列出所有备份文件\" "
-            "\"6\" \"📊 容器空间占用排行 (Top 30)\" "
-            "\"7\" \"🕐 Timeshift 系统快照\" "
-            "\"8\" \"📱 Termux 宿主备份\" "
-            "\"9\" \"📂 查看备份目录大小\" "
-            "\"0\" \"返回上级菜单\"";
+            " --title " + _("backup.title") + " --menu " + _("backup.menu_prompt") + " 0 0 0 "
+            "\"1\" " + _("backup.backup_container") + " "
+            "\"2\" " + _("backup.restore_container") + " "
+            "\"3\" " + _("backup.clean_garbage") + " "
+            "\"4\" " + _("backup.backup_to_sd") + " "
+            "\"5\" " + _("backup.list_backups") + " "
+            "\"6\" " + _("backup.space_ranking") + " "
+            "\"7\" " + _("backup.timeshift") + " "
+            "\"8\" " + _("backup.termux_backup") + " "
+            "\"9\" " + _("backup.backup_dir_size") + " "
+            "\"0\" " + _("menu.tui.back_upper");
 
         std::string choice = Executor::tui_select(menu);
         if (choice == "0" || choice.empty()) break;
@@ -36,16 +37,16 @@ void BackupManager::run_backup_menu() {
         if (choice == "1") {
             // 备份容器：TUI 输入容器名和路径
             std::string name_cmd = cfg_.tui_bin +
-                " --title \"容器名\" --inputbox \"请输入容器名称 (如 debian):\" 0 0 \"debian\"";
-            auto result = Executor::shell("echo \"$(" + name_cmd + " 2>&1 1>/dev/tty)\"");
+                " --title " + _("backup.container_name_title") + " --inputbox " + _("backup.container_name_input") + " 0 0 \"debian\"";
+            auto result = Executor::passthrough("echo \"$(" + name_cmd + " 2>&1 1>/dev/tty)\"");
             std::string name = result.stdout_data;
             name.erase(std::remove(name.begin(), name.end(), '\n'), name.end());
             if (name.empty()) continue;
 
             std::string path_cmd = cfg_.tui_bin +
-                " --title \"Rootfs 路径\" --inputbox \"请输入容器 rootfs 路径:\" 0 0 \"" +
+                " --title " + _("backup.rootfs_path_title") + " --inputbox " + _("backup.rootfs_path_input") + " 0 0 \"" +
                 (cfg_.container_root / name).string() + "\"";
-            result = Executor::shell("echo \"$(" + path_cmd + " 2>&1 1>/dev/tty)\"");
+            result = Executor::passthrough("echo \"$(" + path_cmd + " 2>&1 1>/dev/tty)\"");
             std::string rootfs = result.stdout_data;
             rootfs.erase(std::remove(rootfs.begin(), rootfs.end(), '\n'), rootfs.end());
             if (rootfs.empty()) continue;
@@ -53,30 +54,30 @@ void BackupManager::run_backup_menu() {
             if (fs::exists(rootfs)) {
                 backup_container(name, rootfs);
             } else {
-                Logger::error("路径不存在: " + rootfs);
+                Logger::error("Path not found: " + rootfs);
             }
         } else if (choice == "2") {
             restore_container();
         } else if (choice == "3") {
             // 输入容器路径并清理垃圾
             std::string path_cmd = cfg_.tui_bin +
-                " --title \"容器路径\" --inputbox \"请输入容器 rootfs 路径:\" 0 0 \"" +
+                " --title " + _("backup.cleanup_path_title") + " --inputbox " + _("backup.cleanup_path_input") + " 0 0 \"" +
                 cfg_.container_root.string() + "\"";
-            auto result = Executor::shell("echo \"$(" + path_cmd + " 2>&1 1>/dev/tty)\"");
+            auto result = Executor::passthrough("echo \"$(" + path_cmd + " 2>&1 1>/dev/tty)\"");
             std::string rootfs = result.stdout_data;
             rootfs.erase(std::remove(rootfs.begin(), rootfs.end(), '\n'), rootfs.end());
             if (!rootfs.empty() && fs::exists(rootfs)) {
                 show_garbage_stats(rootfs);
-                if (Logger::confirm("是否执行清理?")) {
+                if (Logger::confirm(_("backup.confirm_cleanup"))) {
                     clean_container_garbage(rootfs);
-                    Logger::info("\n清理后磁盘空间:");
+                    Logger::info("\nDisk space after cleanup:");
                     show_garbage_stats(rootfs);
                 }
             }
         } else if (choice == "4") {
             std::string name_cmd = cfg_.tui_bin +
-                " --title \"容器名\" --inputbox \"请输入容器名称:\" 0 0 \"debian\"";
-            auto result = Executor::shell("echo \"$(" + name_cmd + " 2>&1 1>/dev/tty)\"");
+                " --title " + _("backup.container_name_title") + " --inputbox " + _("backup.container_name_input_simple") + " 0 0 \"debian\"";
+            auto result = Executor::passthrough("echo \"$(" + name_cmd + " 2>&1 1>/dev/tty)\"");
             std::string name = result.stdout_data;
             name.erase(std::remove(name.begin(), name.end(), '\n'), name.end());
             if (!name.empty()) {
@@ -85,9 +86,9 @@ void BackupManager::run_backup_menu() {
         } else if (choice == "5") {
             auto backups = list_backups_detailed();
             if (backups.empty()) {
-                Logger::info("未找到备份文件");
+                Logger::info("No backup files found");
             } else {
-                Logger::info("备份文件列表 (" + cfg_.backup_dir.string() + "):");
+                Logger::info("Backup file list (" + cfg_.backup_dir.string() + "):");
                 for (const auto& [name, size_mb, mtime] : backups) {
                     Logger::info("  📄 " + name + "  [" + std::to_string(size_mb) + " MB]  " + mtime);
                 }
@@ -95,9 +96,9 @@ void BackupManager::run_backup_menu() {
         } else if (choice == "6") {
             // 空间占用排行
             std::string path_cmd = cfg_.tui_bin +
-                " --title \"容器路径\" --inputbox \"请输入容器 rootfs 路径:\" 0 0 \"" +
+                " --title " + _("backup.cleanup_path_title") + " --inputbox " + _("backup.cleanup_path_input") + " 0 0 \"" +
                 cfg_.container_root.string() + "\"";
-            auto result = Executor::shell("echo \"$(" + path_cmd + " 2>&1 1>/dev/tty)\"");
+            auto result = Executor::passthrough("echo \"$(" + path_cmd + " 2>&1 1>/dev/tty)\"");
             std::string rootfs = result.stdout_data;
             rootfs.erase(std::remove(rootfs.begin(), rootfs.end(), '\n'), rootfs.end());
             if (!rootfs.empty() && fs::exists(rootfs)) {
@@ -106,28 +107,28 @@ void BackupManager::run_backup_menu() {
         } else if (choice == "7") {
             // Timeshift
             std::string ts_menu = cfg_.tui_bin +
-                " --title \"Timeshift 系统快照\" --menu \"Timeshift 操作:\" 0 0 0 "
-                "\"1\" \"📸 创建快照\" "
-                "\"2\" \"📥 安装 Timeshift\" "
-                "\"0\" \"返回\"";
+                " --title " + _("backup.timeshift_title") + " --menu " + _("backup.timeshift_prompt") + " 0 0 0 "
+                "\"1\" " + _("backup.timeshift_create") + " "
+                "\"2\" " + _("backup.timeshift_install") + " "
+                "\"0\" " + _("menu.tui.back");
             std::string ts_choice = Executor::tui_select(ts_menu);
             if (ts_choice == "1") run_timeshift_backup();
             else if (ts_choice == "2") install_timeshift();
         } else if (choice == "8") {
             // Termux 宿主备份
             if (!cfg_.is_termux) {
-                Logger::warn("此功能仅适用于 Termux 环境");
+                Logger::warn("This feature is only available in Termux environment");
             } else {
                 std::string tb_cmd = cfg_.tui_bin +
-                    " --title \"Termux 宿主备份\" --checklist \"选择备份内容:\" 0 0 0 "
-                    "\"home\" \"Termux Home 目录 (用户文件)\" ON "
-                    "\"usr\" \"Termux Prefix (/data/data/com.termux/files/usr)\" OFF";
-                auto result = Executor::shell(tb_cmd + " 2>&1");
+                    " --title " + _("backup.tb_backup_title") + " --checklist " + _("backup.tb_backup_prompt") + " 0 0 0 "
+                    "\"home\" " + _("backup.tb_home") + " ON "
+                    "\"usr\" " + _("backup.tb_usr") + " OFF";
+                auto result = Executor::passthrough(tb_cmd + " 2>&1");
                 bool backup_home = result.stderr_data.find("\"home\"") != std::string::npos;
                 bool backup_usr = result.stderr_data.find("\"usr\"") != std::string::npos;
 
                 if (!backup_home && !backup_usr) {
-                    Logger::warn("未选择任何备份内容");
+                    Logger::warn("No backup items selected");
                     continue;
                 }
 
@@ -141,27 +142,27 @@ void BackupManager::run_backup_menu() {
 
                 if (backup_home) {
                     std::string home_file = "termux-home-" + generate_filename("home", "", "") + ext;
-                    Logger::step("备份 Termux Home...");
+                    Logger::step("Backing up Termux Home...");
                     run_tar_backup_with_progress(termux_prefix + "/home",
                                                   (out_dir / home_file).string(), fmt);
                 }
                 if (backup_usr) {
                     std::vector<std::string> excludes = {termux_prefix + "/home/tmoe-linux/containers"};
                     std::string usr_file = "termux-usr-" + generate_filename("usr", "", "") + ext;
-                    Logger::step("备份 Termux Prefix...");
+                    Logger::step("Backing up Termux Prefix...");
                     run_tar_backup_with_progress(termux_prefix + "/usr",
                                                   (out_dir / usr_file).string(), fmt, excludes);
                 }
-                Logger::ok("Termux 备份完成: " + out_dir.string());
+                Logger::ok("Termux backup complete: " + out_dir.string());
             }
         } else if (choice == "9") {
             // 备份目录大小
             std::string backup_dir = cfg_.backup_dir.string();
             if (!fs::exists(backup_dir)) {
-                Logger::info("备份目录不存在: " + backup_dir);
+                Logger::info("Backup directory not found: " + backup_dir);
             } else {
                 auto result = Executor::shell("du -sh \"" + backup_dir + "\" 2>/dev/null");
-                Logger::info("备份目录大小: " + backup_dir);
+                Logger::info("Backup directory size: " + backup_dir);
                 Logger::info("  " + result.stdout_data);
             }
         }
@@ -175,31 +176,31 @@ void BackupManager::run_backup_menu() {
 
 bool BackupManager::backup_container(std::string_view container_name,
                                       std::string_view rootfs_path) {
-    Logger::step("备份容器: " + std::string(container_name));
+    Logger::step("Backing up container: " + std::string(container_name));
 
     // 检查 rootfs 路径是否存在
     if (!fs::exists(rootfs_path)) {
-        Logger::error("容器 rootfs 路径不存在: " + std::string(rootfs_path));
+        Logger::error("Container rootfs path not found: " + std::string(rootfs_path));
         return false;
     }
 
     // 检测是否为 chroot 容器
     bool is_chroot = is_chroot_container(rootfs_path);
     if (is_chroot) {
-        Logger::info("检测到 chroot 模式容器");
+        Logger::info("Detected chroot mode container");
     }
 
     // 检测桌面环境
     std::string desktop = detect_desktop_environment(rootfs_path);
     if (!desktop.empty()) {
-        Logger::info("检测到桌面环境: " + desktop);
+        Logger::info("Detected desktop environment: " + desktop);
     }
 
     // 提示是否先清理垃圾
-    bool do_cleanup = Logger::confirm("是否先清理容器垃圾再做备份 (推荐)?");
+    bool do_cleanup = Logger::confirm(_("backup.confirm_clean_before_backup"));
     if (do_cleanup) {
         show_garbage_stats(rootfs_path);
-        if (Logger::confirm("确认清理以上内容?")) {
+        if (Logger::confirm(_("backup.confirm_cleanup_items"))) {
             clean_container_garbage(rootfs_path);
         }
     }
@@ -226,7 +227,7 @@ bool BackupManager::backup_container(std::string_view container_name,
 
     fs::path output_path = cfg_.backup_dir / filename;
 
-    Logger::info("备份输出: " + output_path.string());
+    Logger::info("Backup output: " + output_path.string());
 
     // 排除路径
     std::vector<std::string> excludes;
@@ -247,9 +248,9 @@ bool BackupManager::backup_container(std::string_view container_name,
     // 使用 pv 显示进度
     bool use_progress = has_pv() && !is_chroot;
     if (use_progress) {
-        Logger::info("正在打包压缩（显示进度）...");
+        Logger::info("Packaging and compressing (showing progress)...");
     } else {
-        Logger::info("正在打包压缩，请稍候...");
+        Logger::info("Packaging and compressing, please wait...");
     }
 
     bool ok;
@@ -261,30 +262,30 @@ bool BackupManager::backup_container(std::string_view container_name,
 
     // 备份附加目标（追加到 tar）
     if (ok && !extra_targets.empty()) {
-        Logger::step("附加备份目标: tmoe 辅助文件/QEMU 库...");
+        Logger::step("Appending backup targets: tmoe auxiliary files/QEMU libs...");
         for (const auto& target : extra_targets) {
             if (fs::exists(target)) {
                 std::string append_cmd = get_tar_prefix() +
                     "tar --use-compress-program zstd -Prvf \"" +
                     output_path.string() + "\" \"" + target + "\" 2>/dev/null";
-                Executor::shell(append_cmd);
+                Executor::passthrough(append_cmd);
             }
         }
     }
 
     if (ok) {
         auto size_human = get_archive_size_human(output_path.string());
-        Logger::ok("备份完成: " + output_path.filename().string() + " (" + size_human + ")");
-        Logger::info("备份位置: " + output_path.string());
+        Logger::ok("Backup complete: " + output_path.filename().string() + " (" + size_human + ")");
+        Logger::info("Backup location: " + output_path.string());
     } else {
-        Logger::error("备份失败！");
+        Logger::error("Backup failed!");
     }
     return ok;
 }
 
 bool BackupManager::backup_to_external_storage(std::string_view container_name,
                                                  std::string_view rootfs_path) {
-    Logger::step("备份至外置 SD/TF 卡: " + std::string(container_name));
+    Logger::step("Backing up to external SD/TF card: " + std::string(container_name));
 
     // 检查外部存储
     std::vector<std::string> candidates = {
@@ -302,7 +303,7 @@ bool BackupManager::backup_to_external_storage(std::string_view container_name,
     }
 
     if (ext_storage.empty()) {
-        Logger::error("未找到外部存储设备 (SD/TF 卡)");
+        Logger::error("No external storage device found (SD/TF card)");
         return false;
     }
 
@@ -314,7 +315,7 @@ bool BackupManager::backup_to_external_storage(std::string_view container_name,
     ArchiveFormat fmt = tui_select_format();
     std::string desktop = detect_desktop_environment(rootfs_path);
 
-    bool do_cleanup = Logger::confirm("是否先清理容器垃圾?");
+    bool do_cleanup = Logger::confirm(_("backup.confirm_clean_first"));
     if (do_cleanup) clean_container_garbage(rootfs_path);
 
     std::string filename = generate_filename(std::string(container_name), "", desktop);
@@ -323,7 +324,7 @@ bool BackupManager::backup_to_external_storage(std::string_view container_name,
     else filename += ".tar.gz";
 
     fs::path output_path = ext_backup / filename;
-    Logger::info("备份输出: " + output_path.string());
+    Logger::info("Backup output: " + output_path.string());
 
     std::vector<std::string> excludes;
     std::string root(rootfs_path);
@@ -344,7 +345,7 @@ bool BackupManager::backup_to_external_storage(std::string_view container_name,
 
     if (ok) {
         auto size_human = get_archive_size_human(output_path.string());
-        Logger::ok("备份至外置存储完成: " + output_path.string() + " (" + size_human + ")");
+        Logger::ok("Backup to external storage complete: " + output_path.string() + " (" + size_human + ")");
     }
     return ok;
 }
@@ -354,7 +355,7 @@ bool BackupManager::backup_to_external_storage(std::string_view container_name,
 // ═══════════════════════════════════════════════════════════════
 
 bool BackupManager::clean_container_garbage(std::string_view rootfs_path) {
-    Logger::step("清理容器垃圾文件...");
+    Logger::step("Cleaning container garbage files...");
 
     std::string root(rootfs_path);
 
@@ -379,7 +380,7 @@ bool BackupManager::clean_container_garbage(std::string_view rootfs_path) {
             << root << "/var/mail/* "
             << root << "/var/crash/* "
             << " 2>/dev/null";
-    Executor::shell(sys_cmd.str());
+    Executor::passthrough(sys_cmd.str());
 
     // ── 4. 临时文件 ──
     std::ostringstream tmp_cmd;
@@ -388,12 +389,12 @@ bool BackupManager::clean_container_garbage(std::string_view rootfs_path) {
             << root << "/tmp/* "
             << root << "/var/tmp/* "
             << " 2>/dev/null";
-    Executor::shell(tmp_cmd.str());
+    Executor::passthrough(tmp_cmd.str());
 
     // ── 5. 用户级垃圾（VNC/ZSH/应用缓存） ──
     clean_user_garbage(rootfs_path);
 
-    Logger::ok("容器垃圾已清理");
+    Logger::ok("Container garbage cleaned");
     return true;
 }
 
@@ -403,48 +404,48 @@ bool BackupManager::clean_package_cache(std::string_view rootfs_path) {
 
     if (pkg_mgr == "apt") {
         // Debian/Ubuntu
-        Executor::shell("rm -rf " + root + "/var/cache/apt/archives/*.deb "
+        Executor::passthrough("rm -rf " + root + "/var/cache/apt/archives/*.deb "
                         + root + "/var/cache/apt/archives/partial/* "
                         + root + "/var/cache/apt/*.bin "
                         + root + "/var/lib/apt/lists/* "
                         + root + "/var/lib/apt/lists/partial/* "
                         + root + "/var/cache/man/* "
                         + " 2>/dev/null");
-        Logger::info("  已清理 apt 缓存");
+        Logger::info("  apt cache cleaned");
     } else if (pkg_mgr == "pacman") {
         // Arch/Manjaro
-        Executor::shell("rm -rf " + root + "/var/cache/pacman/pkg/* "
+        Executor::passthrough("rm -rf " + root + "/var/cache/pacman/pkg/* "
                         + " 2>/dev/null");
-        Logger::info("  已清理 pacman 缓存");
+        Logger::info("  pacman cache cleaned");
     } else if (pkg_mgr == "dnf" || pkg_mgr == "yum") {
         // Fedora/RHEL
-        Executor::shell("rm -rf " + root + "/var/cache/dnf/* "
+        Executor::passthrough("rm -rf " + root + "/var/cache/dnf/* "
                         + root + "/var/cache/yum/* "
                         + root + "/var/lib/dnf/yumdb/* "
                         + " 2>/dev/null");
-        Logger::info("  已清理 dnf/yum 缓存");
+        Logger::info("  dnf/yum cache cleaned");
     } else if (pkg_mgr == "apk") {
         // Alpine
-        Executor::shell("rm -rf " + root + "/var/cache/apk/* "
+        Executor::passthrough("rm -rf " + root + "/var/cache/apk/* "
                         + root + "/etc/apk/cache/* "
                         + " 2>/dev/null");
-        Logger::info("  已清理 apk 缓存");
+        Logger::info("  apk cache cleaned");
     } else if (pkg_mgr == "zypper") {
         // openSUSE
-        Executor::shell("rm -rf " + root + "/var/cache/zypp/packages/* "
+        Executor::passthrough("rm -rf " + root + "/var/cache/zypp/packages/* "
                         + " 2>/dev/null");
-        Logger::info("  已清理 zypper 缓存");
+        Logger::info("  zypper cache cleaned");
     } else if (pkg_mgr == "emerge") {
         // Gentoo
-        Executor::shell("rm -rf " + root + "/usr/portage/distfiles/* "
+        Executor::passthrough("rm -rf " + root + "/usr/portage/distfiles/* "
                         + root + "/var/cache/distfiles/* "
                         + " 2>/dev/null");
-        Logger::info("  已清理 emerge 缓存");
+        Logger::info("  emerge cache cleaned");
     } else if (pkg_mgr == "xbps") {
         // Void
-        Executor::shell("rm -rf " + root + "/var/cache/xbps/* "
+        Executor::passthrough("rm -rf " + root + "/var/cache/xbps/* "
                         + " 2>/dev/null");
-        Logger::info("  已清理 xbps 缓存");
+        Logger::info("  xbps cache cleaned");
     }
 
     return true;
@@ -455,8 +456,8 @@ bool BackupManager::clean_systemd_journal(std::string_view rootfs_path) {
     std::string journal_dir = root + "/var/log/journal";
 
     if (fs::exists(journal_dir)) {
-        Executor::shell("rm -rf \"" + journal_dir + "\"/* 2>/dev/null");
-        Logger::info("  已清理 systemd journal 日志");
+        Executor::passthrough("rm -rf \"" + journal_dir + "\"/* 2>/dev/null");
+        Logger::info("  systemd journal logs cleaned");
     }
     return true;
 }
@@ -546,8 +547,8 @@ bool BackupManager::clean_user_garbage(std::string_view rootfs_path) {
 
     cmd << "2>/dev/null";
 
-    Executor::shell(cmd.str());
-    Logger::info("  已清理 VNC/X11 授权/Shell 历史/应用缓存");
+    Executor::passthrough(cmd.str());
+    Logger::info("  VNC/X11 auth/Shell history/App cache cleaned");
 
     return true;
 }
@@ -557,7 +558,7 @@ void BackupManager::show_garbage_stats(std::string_view rootfs_path) {
 
     // 整体大小
     auto result = Executor::shell("du -sh \"" + root + "\" 2>/dev/null");
-    Logger::info("容器总大小: " + result.stdout_data);
+    Logger::info("Container total size: " + result.stdout_data);
 
     // Top 30 最大文件/目录
     std::string cmd =
@@ -571,24 +572,24 @@ void BackupManager::show_garbage_stats(std::string_view rootfs_path) {
         "xargs -0 du -sh 2>/dev/null | "
         "sort -rh | head -30";
 
-    auto top = Executor::shell(cmd);
+    auto top = Executor::passthrough(cmd);
     if (!top.stdout_data.empty() && top.stdout_data != "\n") {
-        Logger::info("\n📊 Top 30 占用最大文件:");
+        Logger::info("\n📊 Top 30 largest files/dirs:");
         Logger::info(top.stdout_data);
     }
 
     // 各分类缓存大小
     std::vector<std::pair<std::string, std::string>> cache_dirs = {
-        {"apt 缓存", root + "/var/cache/apt"},
-        {"pacman 缓存", root + "/var/cache/pacman"},
-        {"dnf 缓存", root + "/var/cache/dnf"},
+        {"apt cache", root + "/var/cache/apt"},
+        {"pacman cache", root + "/var/cache/pacman"},
+        {"dnf cache", root + "/var/cache/dnf"},
         {"systemd 日志", root + "/var/log/journal"},
         {"系统日志", root + "/var/log"},
         {"临时文件", root + "/tmp"},
-        {"用户缓存", root + "/root/.cache"},
+        {"user cache", root + "/root/.cache"},
     };
 
-    Logger::info("\n📊 分类缓存占用:");
+    Logger::info("\n📊 Cache usage by category:");
     for (const auto& [label, path] : cache_dirs) {
         if (fs::exists(path)) {
             auto r = Executor::shell("du -sh \"" + path + "\" 2>/dev/null | cut -f1");
@@ -606,7 +607,7 @@ void BackupManager::show_garbage_stats(std::string_view rootfs_path) {
 // ═══════════════════════════════════════════════════════════════
 
 bool BackupManager::restore_container(std::string_view archive_path) {
-    Logger::step("恢复容器...");
+    Logger::step("Restoring container...");
 
     RestoreMode mode = tui_select_restore_mode();
     std::string archive;
@@ -617,8 +618,8 @@ bool BackupManager::restore_container(std::string_view archive_path) {
             auto latest = detect_latest_backup();
             if (!latest.empty()) {
                 auto size_human = get_archive_size_human((cfg_.backup_dir / latest).string());
-                Logger::info("检测到最新备份: " + latest + " (" + size_human + ")");
-                if (Logger::confirm("使用此备份还原?")) {
+                Logger::info("Detected latest backup: " + latest + " (" + size_human + ")");
+                if (Logger::confirm(_("backup.confirm_restore_from_this"))) {
                     archive = (cfg_.backup_dir / latest).string();
                 } else {
                     archive = tui_select_file(cfg_.backup_dir.string());
@@ -638,7 +639,7 @@ bool BackupManager::restore_container(std::string_view archive_path) {
                 if (fs::exists(c)) { sd_backup = c; break; }
             }
             if (sd_backup.empty()) {
-                Logger::error("外置存储备份目录不存在");
+                Logger::error("External storage backup directory not found");
                 return false;
             }
             archive = tui_select_file(sd_backup);
@@ -646,8 +647,8 @@ bool BackupManager::restore_container(std::string_view archive_path) {
         }
         case RestoreMode::ManualPath: {
             std::string path_cmd = cfg_.tui_bin +
-                " --title \"选择文件\" --inputbox \"请输入备份文件完整路径:\" 0 0";
-            auto result = Executor::shell("echo \"$(" + path_cmd + " 2>&1 1>/dev/tty)\"");
+                " --title " + _("backup.select_file_manual_title") + " --inputbox " + _("backup.select_file_manual_input") + " 0 0";
+            auto result = Executor::passthrough("echo \"$(" + path_cmd + " 2>&1 1>/dev/tty)\"");
             archive = result.stdout_data;
             archive.erase(std::remove(archive.begin(), archive.end(), '\n'), archive.end());
             break;
@@ -663,7 +664,7 @@ bool BackupManager::restore_container(std::string_view archive_path) {
                 if (fs::exists(c)) { dl_path = c; break; }
             }
             if (dl_path.empty()) {
-                Logger::error("下载备份目录不存在");
+                Logger::error("Download backup directory not found");
                 return false;
             }
             archive = tui_select_file(dl_path);
@@ -682,35 +683,35 @@ bool BackupManager::restore_container(std::string_view archive_path) {
     }
 
     if (archive.empty()) {
-        Logger::warn("未选择备份文件");
+        Logger::warn("No backup file selected");
         return false;
     }
 
     if (!fs::exists(archive)) {
-        Logger::error("备份文件不存在: " + archive);
+        Logger::error("Backup file not found: " + archive);
         return false;
     }
 
     auto size_human = get_archive_size_human(archive);
-    Logger::info("备份文件: " + archive + " (" + size_human + ")");
+    Logger::info("Backup file: " + archive + " (" + size_human + ")");
 
     // 确认目标路径
     std::string target_cmd = cfg_.tui_bin +
-        " --title \"还原目标\" --inputbox \"请输入还原目标路径:\" 0 0 \"" +
+        " --title " + _("backup.restore_target_title") + " --inputbox " + _("backup.restore_target_input") + " 0 0 \"" +
         cfg_.container_root.string() + "\"";
-    auto result = Executor::shell("echo \"$(" + target_cmd + " 2>&1 1>/dev/tty)\"");
+    auto result = Executor::passthrough("echo \"$(" + target_cmd + " 2>&1 1>/dev/tty)\"");
     std::string target = result.stdout_data;
     target.erase(std::remove(target.begin(), target.end(), '\n'), target.end());
 
     if (target.empty()) {
-        Logger::error("未指定还原目标路径");
+        Logger::error("No restore target path specified");
         return false;
     }
 
     // 还原前警告
-    Logger::warn("⚠️ 还原将覆盖目标路径的内容！");
-    if (!Logger::confirm("确认继续还原?")) {
-        Logger::info("已取消");
+    Logger::warn("⚠️ Restore will overwrite target path content!");
+    if (!Logger::confirm(_("backup.confirm_restore"))) {
+        Logger::info("Cancelled");
         return false;
     }
 
@@ -729,23 +730,23 @@ bool BackupManager::restore_container(std::string_view archive_path) {
         std::string chroot_flag = home + "/.config/tmoe-linux/chroot_container";
         if (fs::exists(chroot_flag)) {
             fs::remove(chroot_flag);
-            Logger::info("  已清除旧的 chroot 容器标记");
+            Logger::info("  Old chroot container flag cleared");
         }
     }
 
     bool use_progress = has_pv() && !is_chroot_restore && mode != RestoreMode::Compat;
     if (use_progress) {
-        Logger::info("正在还原（显示进度）: " + archive + " → " + target);
+        Logger::info("Restoring (showing progress): " + archive + "  " + target);
     } else {
-        Logger::info("正在还原: " + archive + " → " + target);
+        Logger::info("Restoring: " + archive + "  " + target);
     }
 
     bool ok = uncompress_archive(archive, target, use_progress);
 
     if (ok) {
-        Logger::ok("还原完成！容器已恢复至: " + target);
+        Logger::ok("Restore complete! Container restored to: " + target);
     } else {
-        Logger::error("还原失败！请检查磁盘空间和备份文件完整性。");
+        Logger::error("Restore failed! Please check disk space and backup file integrity.");
     }
     return ok;
 }
@@ -801,15 +802,15 @@ bool BackupManager::uncompress_archive(std::string_view archive_path,
                 break;
             default:
                 // 不支持的格式 → 通用 tar 自动检测
-                Logger::warn("未知压缩格式，尝试 tar 自动检测解压...");
+                Logger::warn("Unknown compression format, trying tar auto-detect...");
                 tar_cmd = tar_prefix + "tar -Ppxf \"" + std::string(archive_path) +
                           "\" -C \"" + std::string(target_path) + "\"";
                 break;
         }
     }
 
-    Logger::debug("执行: " + tar_cmd);
-    return Executor::shell(tar_cmd).ok();
+    Logger::debug("Executing: " + tar_cmd);
+    return Executor::passthrough(tar_cmd).ok();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -936,7 +937,7 @@ std::vector<std::string> BackupManager::collect_extra_backup_targets(
 // ═══════════════════════════════════════════════════════════════
 
 bool BackupManager::install_timeshift() {
-    Logger::step("安装 Timeshift 系统快照工具...");
+    Logger::step("Installing Timeshift system snapshot tool...");
 
     std::string install_cmd;
 
@@ -952,46 +953,46 @@ bool BackupManager::install_timeshift() {
     } else if (Executor::has("zypper")) {
         install_cmd = "sudo zypper install -y timeshift";
     } else if (Executor::has("apk")) {
-        Logger::warn("Alpine Linux 需要从 edge 源安装 timeshift");
+        Logger::warn("Alpine Linux needs timeshift from edge repository");
         install_cmd = "sudo apk add timeshift";
     } else {
-        Logger::warn("无法检测到支持的包管理器，请手动安装 Timeshift。");
+        Logger::warn("No supported package manager detected. Please install Timeshift manually.");
         Logger::info("Debian/Ubuntu: sudo apt install timeshift");
         Logger::info("Arch/Manjaro: sudo pacman -S timeshift");
         Logger::info("Fedora:       sudo dnf install timeshift");
         return false;
     }
 
-    if (!Executor::shell(install_cmd).ok()) {
-        Logger::error("Timeshift 安装失败");
+    if (!Executor::passthrough(install_cmd).ok()) {
+        Logger::error("Timeshift installation failed");
         return false;
     }
 
-    Logger::ok("Timeshift 安装完成！");
+    Logger::ok("Timeshift installation complete!");
     return true;
 }
 
 bool BackupManager::run_timeshift_backup() {
     if (!Executor::has("timeshift")) {
-        Logger::warn("Timeshift 未安装。");
-        if (Logger::confirm("是否现在安装 Timeshift?")) {
+        Logger::warn("Timeshift is not installed.");
+        if (Logger::confirm(_("backup.confirm_install_timeshift"))) {
             if (!install_timeshift()) return false;
         } else {
             return false;
         }
     }
 
-    Logger::step("启动 Timeshift 系统快照...");
-    Logger::info("Timeshift 将打开图形界面，请在弹出的窗口中操作。");
-    Logger::info("支持 Btrfs 子卷快照和 rsync 增量备份两种模式。");
+    Logger::step("Starting Timeshift system snapshot...");
+    Logger::info("Timeshift will open a graphical interface. Please operate in the popup window.");
+    Logger::info("Supports Btrfs subvolume snapshots and rsync incremental backups.");
 
     if (cfg_.is_root) {
-        Executor::shell("timeshift-launcher &");
+        Executor::passthrough("timeshift-launcher &");
     } else {
-        Executor::shell("sudo timeshift-launcher &");
+        Executor::passthrough("sudo timeshift-launcher &");
     }
 
-    Logger::ok("Timeshift 已启动");
+    Logger::ok("Timeshift launched");
     return true;
 }
 
@@ -1001,14 +1002,14 @@ bool BackupManager::run_timeshift_backup() {
 
 bool BackupManager::prompt_backup_before_removal(std::string_view container_name,
                                                    std::string_view rootfs_path) {
-    Logger::warn("⚠️ 建议在移除前进行备份！");
-    Logger::warn("若因操作不当而导致数据丢失，开发者概不负责！");
+    Logger::warn("⚠️ Backup recommended before removal!");
+    Logger::warn("Developer not responsible for data loss due to improper operation!");
 
-    if (Logger::confirm("是否在移除前备份容器 \"" + std::string(container_name) + "\"?")) {
+    if (Logger::confirm(_("backup.confirm_backup_before_remove"))) {
         return backup_container(container_name, rootfs_path);
     }
 
-    if (!Logger::confirm("确定不移除前备份? (输入 NO 取消整个移除操作)")) {
+    if (!Logger::confirm(_("backup.confirm_proceed_without_backup"))) {
         return false;  // 用户取消移除
     }
 
@@ -1045,7 +1046,7 @@ bool BackupManager::run_tar_backup(std::string_view source_dir,
             cmd << tar_prefix << "tar -Ppzcvf \"" << output_file << "\"";
             break;
         default:
-            Logger::error("不支持的备份格式");
+            Logger::error("Unsupported backup format");
             return false;
     }
 
@@ -1063,8 +1064,8 @@ bool BackupManager::run_tar_backup(std::string_view source_dir,
         }
     }
 
-    Logger::debug("执行: " + cmd.str());
-    return Executor::shell(cmd.str()).ok();
+    Logger::debug("Executing: " + cmd.str());
+    return Executor::passthrough(cmd.str()).ok();
 }
 
 bool BackupManager::run_tar_backup_with_progress(std::string_view source_dir,
@@ -1108,16 +1109,16 @@ bool BackupManager::run_tar_backup_with_progress(std::string_view source_dir,
             return run_tar_backup(source_dir, output_file, format, excludes);
     }
 
-    Logger::debug("执行: " + cmd.str());
-    return Executor::shell(cmd.str()).ok();
+    Logger::debug("Executing: " + cmd.str());
+    return Executor::passthrough(cmd.str()).ok();
 }
 
 ArchiveFormat BackupManager::tui_select_format() {
     std::string menu = cfg_.tui_bin +
-        " --title \"压缩格式\" --menu \"请选择备份压缩格式:\" 0 0 0 "
-        "\"1\" \"zstd (推荐 — 速度快，压缩比好)\" "
-        "\"2\" \"xz (体积最小，但较慢)\" "
-        "\"3\" \"gzip (兼容性最好)\"";
+        " --title " + _("backup.format_title") + " --menu " + _("backup.format_prompt") + " 0 0 0 "
+        "\"1\" " + _("backup.format_zstd") + " "
+        "\"2\" " + _("backup.format_xz") + " "
+        "\"3\" " + _("backup.format_gzip");
 
     std::string choice = Executor::tui_select(menu);
     if (choice == "2") return ArchiveFormat::TarXz;
@@ -1127,12 +1128,12 @@ ArchiveFormat BackupManager::tui_select_format() {
 
 BackupManager::RestoreMode BackupManager::tui_select_restore_mode() {
     std::string menu = cfg_.tui_bin +
-        " --title \"恢复模式\" --menu \"请选择恢复方式:\" 0 0 0 "
-        "\"1\" \"📦 常规模式 (从默认备份路径恢复)\" "
-        "\"2\" \"💿 从外置 SD/TF 卡恢复\" "
-        "\"3\" \"📂 手动选择路径\" "
-        "\"4\" \"📥 从 Download/backup 恢复\" "
-        "\"5\" \"🔧 兼容模式 (直接解压到根目录，跳过 pv)\"";
+        " --title " + _("backup.restore_mode_title") + " --menu " + _("backup.restore_mode_prompt") + " 0 0 0 "
+        "\"1\" " + _("backup.restore_normal") + " "
+        "\"2\" " + _("backup.restore_sd") + " "
+        "\"3\" " + _("backup.restore_manual") + " "
+        "\"4\" " + _("backup.restore_download") + " "
+        "\"5\" " + _("backup.restore_compat");
 
     std::string choice = Executor::tui_select(menu);
     if (choice == "2") return RestoreMode::FromSD;
@@ -1145,8 +1146,8 @@ BackupManager::RestoreMode BackupManager::tui_select_restore_mode() {
 std::string BackupManager::tui_select_file(const std::string& base_dir) {
     // 使用 whiptail --fselect 选择文件
     std::string cmd = cfg_.tui_bin +
-        " --title \"选择备份文件\" --fselect \"" + base_dir + "/\" 0 0";
-    auto result = Executor::shell(cmd + " 2>&1");
+        " --title " + _("backup.select_file_title") + " --fselect \"" + base_dir + "/\" 0 0";
+    auto result = Executor::passthrough(cmd + " 2>&1");
     // fselect 输出到 stderr
     std::string selected = result.stderr_data.empty() ?
                            result.stdout_data : result.stderr_data;
@@ -1162,15 +1163,15 @@ std::vector<std::string> BackupManager::tui_multi_select_targets() {
 
 bool BackupManager::tui_confirm_cleanup(std::string_view rootfs_path) {
     std::string cmd = cfg_.tui_bin +
-        " --title \"垃圾清理确认\" --yesno \"将清理以下容器的垃圾文件:\\\\n\\\\n"
+        " --title " + _("backup.cleanup_confirm_title") + " --yesno \"将清理以下容器的垃圾文件:\\\\n\\\\n"
         "- 包管理器缓存 (apt/pacman/dnf/apk)\\\\n"
         "- systemd journal 日志\\\\n"
         "- VNC 密码 / Xauthority\\\\n"
         "- Shell 历史 (bash/zsh)\\\\n"
         "- 浏览器缓存\\\\n"
-        "- pip/npm/cargo/go 缓存\\\\n\\\\n"
+        "- pip/npm/cargo/go cache\\\\n\\\\n"
         "确认执行?\" 0 0";
-    return Executor::shell(cmd).ok();
+    return Executor::passthrough(cmd).ok();
 }
 
 bool BackupManager::is_chroot_container(std::string_view rootfs_path) const {

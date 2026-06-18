@@ -13,6 +13,22 @@ TmoeConfig TmoeConfig::detect() {
     cfg.kernel = "linux";
 #endif
 
+    // 检测 CPU 架构 (uname -m → 内部命名)
+    {
+        auto arch_result = Executor::shell("uname -m 2>/dev/null");
+        std::string machine = arch_result.stdout_data;
+        while (!machine.empty() && (machine.back() == '\n' || machine.back() == '\r'))
+            machine.pop_back();
+
+        if (machine == "x86_64" || machine == "amd64")      cfg.arch = "amd64";
+        else if (machine == "i686" || machine == "i386")     cfg.arch = "i386";
+        else if (machine == "aarch64" || machine == "arm64") cfg.arch = "arm64";
+        else if (machine == "armv7l" || machine == "armv8l" ||
+                 machine.find("armv") == 0)                  cfg.arch = "armhf";
+        // 其他架构保持 uname -m 原始值
+        else if (!machine.empty())                           cfg.arch = machine;
+    }
+
     // 检测 Termux (Android)
     const char* termux = std::getenv("TERMUX_VERSION");
     if (termux) {

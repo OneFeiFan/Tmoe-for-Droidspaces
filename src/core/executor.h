@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdio>
+#include <cstdlib>
 #include <array>
 #include <memory>
 #include <stdexcept>
@@ -60,6 +61,12 @@ namespace tmoe {
 
         /** 启动 whiptail 对话框并返回用户选中的标签。 */
         static std::string tui_select(std::string_view whiptail_args);
+
+        /** 直接透传终端给子进程（用于交互式命令）。
+         *  底层使用 system() —— 子进程完全继承 stdin/stdout/stderr。
+         *  适用于 dpkg-reconfigure、passwd、visudo 等需要终端交互的场景。
+         */
+        static ExecResult passthrough(std::string_view cmd);
 
         /** 通过 sudo/su 提升权限并替换当前进程。
          *  调用 execvp —— 永不返回。

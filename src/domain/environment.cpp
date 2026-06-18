@@ -1,8 +1,9 @@
 #include "environment.h"
+#include "core/i18n.h"
 
 namespace tmoe::domain {
     bool Environment::initialize() {
-        Logger::step("初始化 tmoes 工作环境");
+        Logger::step("Initializing tmoes work environment");
         cfg_.ensure_dirs();
         // TODO: 设置临时文件、清理残留状态
         return true;
@@ -14,7 +15,7 @@ namespace tmoe::domain {
             return true;
         }
 
-        Logger::step("检查宿主机系统级依赖...");
+        Logger::step("Checking host system dependencies...");
         std::string missing_pkgs = "";
 
         // 1. 检查 sudo (Alpine 除外)
@@ -39,34 +40,225 @@ namespace tmoe::domain {
         }
 
         if (!missing_pkgs.empty()) {
-            Logger::warn("缺失核心依赖，正在调用包管理器自动安装: " + missing_pkgs);
+            Logger::warn("Missing core dependencies, installing via package manager: " + missing_pkgs);
             Logger::info("Command: " + cfg_.install_command + missing_pkgs);
 
-            Executor::shell(cfg_.update_command);
+            Executor::passthrough(cfg_.update_command);
 
-            if (Executor::shell(cfg_.install_command + missing_pkgs).ok()) {
-                Logger::ok("依赖安装完成！");
+            if (Executor::passthrough(cfg_.install_command + missing_pkgs).ok()) {
+                Logger::ok("Dependencies installed successfully!");
             } else {
-                Logger::error("依赖自动安装失败！请尝试手动执行包管理器命令。");
+                Logger::error("Dependency installation failed! Please try running package manager commands manually.");
                 return false;
             }
         } else {
-            Logger::ok("基础依赖检查通过。");
+            Logger::ok("Basic dependency check passed.");
         }
+
+        // 4. 确保 locale 基础设施
+        if (cfg_.linux_distro == "debian") {
+            if (!Executor::has("locale-gen")) {
+                Logger::step("Installing locales package...");
+                Executor::passthrough(cfg_.install_command + " locales 2>/dev/null || true");
+            }
+        } else if (cfg_.linux_distro == "alpine") {
+            if (Executor::shell("apk info -e musl-locales 2>/dev/null").exit_code != 0) {
+                Logger::step("Installing musl-locales...");
+                Executor::passthrough(cfg_.install_command + " musl-locales 2>/dev/null || true");
+            }
+        }
+
+        // 4.5. dpkg 状态自愈 (仅 Debian 系)
+        if (cfg_.linux_distro == "debian") {
+            auto audit = Executor::shell("dpkg --audit 2>/dev/null");
+            if (!audit.stdout_data.empty() || audit.exit_code != 0) {
+                Logger::warn("Detected abnormal dpkg state (previous operation may have been interrupted)");
+                bool has_issue = false;
+
+                // 检查是否需要在 dpkg --configure -a
+                auto pending = Executor::shell(
+                    "ls /var/lib/dpkg/updates/tmp.* 2>/dev/null | head -1");
+                if (!pending.stdout_data.empty()) {
+                    has_issue = true;
+                    Logger::info("  Incomplete dpkg configuration found");
+                }
+
+                // 检查锁文件
+                if (fs::exists("/var/lib/dpkg/lock") || fs::exists("/var/lib/dpkg/lock-frontend")) {
+                    auto lock_owner = Executor::shell("fuser /var/lib/dpkg/lock 2>/dev/null");
+                    if (lock_owner.stdout_data.empty()) {
+                        has_issue = true;
+                        Logger::info("  Stale dpkg lock file found (no process holding it)");
+                    } else {
+                        Logger::info("  Another apt/dpkg process is running, skipping auto-repair");
+                    }
+                }
+
+                // 检查破损依赖
+                auto broken = Executor::shell("apt-get check 2>&1");
+                if (!broken.ok()) {
+                    has_issue = true;
+                    Logger::info("  Broken package dependencies found");
+                }
+
+                if (has_issue && Logger::confirm(_("env.confirm_repair_dpkg"))) {
+                    // 先清理残留锁文件（无进程持有时）
+                    Executor::shell("fuser /var/lib/dpkg/lock 2>/dev/null || "
+                                   "rm -f /var/lib/dpkg/lock /var/lib/dpkg/lock-frontend 2>/dev/null || true");
+                    // 修复 dpkg 配置
+                    Executor::passthrough("dpkg --configure -a 2>&1 || true");
+                    // 修复破损依赖
+                    Executor::passthrough("apt --fix-broken install -y 2>&1 || true");
+                    Logger::ok("dpkg state repair completed");
+                } else if (!has_issue) {
+                    Logger::info("dpkg anomaly is non-critical, skipping");
+                }
+            }
+        }
+
+        // 5. 安装 Noto 字体族（覆盖 CJK + 西里尔 + 拉丁全字符集）
+        if (cfg_.linux_distro != "openwrt") {
+            install_font_packages();
+            refresh_font_cache();
+        }
+
         return true;
     }
 
     bool Environment::set_locale(std::string_view loc) {
-        // TODO: 配置 LANG / LC_ALL 环境变量
+        std::string lang(loc);
+        // 剥离 .UTF-8 后缀
+        size_t dot = lang.find('.');
+        if (dot != std::string::npos) {
+            lang = lang.substr(0, dot);
+        }
+
+        std::string locale_str = lang + ".UTF-8";
+        bool locale_ok = is_locale_generated(lang);
+
+        if (!locale_ok) {
+            Logger::step("Generating locale: " + locale_str);
+
+            if (generate_locale_auto(lang)) {
+                locale_ok = true;
+                Logger::ok("Locale generated: " + locale_str);
+            } else {
+                Logger::warn("Auto-generation of locale failed: " + locale_str);
+
+                // Debian 系: 提供交互式 dpkg-reconfigure locales 回退
+                if (cfg_.linux_distro == "debian") {
+                    std::string prompt = cfg_.tui_bin +
+                                         " --title \"" + _("locale.config_title") + "\""
+                                         " --yesno \"" + _("locale.gen_failed_yesno") + "\" 0 0";
+                    auto choice = Executor::passthrough(prompt);
+                    if (choice.exit_code == 0) {
+                        generate_locale_debian_interactive();
+                        if (is_locale_generated(lang)) {
+                            locale_ok = true;
+                            Logger::ok("Locale generated: " + locale_str);
+                        }
+                    }
+                }
+
+                // 仍未成功 → 给出手动配置指引
+                if (!locale_ok) {
+                    Logger::warn("Locale configuration incomplete. Please manually configure and switch language again:");
+                    if (cfg_.linux_distro == "debian") {
+                        Logger::info("  sudo dpkg-reconfigure locales");
+                        Logger::info("  or: sudo locale-gen " + locale_str);
+                    } else if (cfg_.linux_distro == "arch" || cfg_.linux_distro == "gentoo") {
+                        Logger::info("  Edit /etc/locale.gen and uncomment " + locale_str);
+                        Logger::info("  Then run: sudo locale-gen");
+                    } else if (cfg_.linux_distro == "alpine") {
+                        Logger::info("  sudo apk add musl-locales");
+                    } else {
+                        Logger::info("  Please ensure the system has generated " + locale_str + " locale");
+                    }
+                }
+            }
+        }
+
+        // 字体覆盖检测与安装
+        if (!has_font_coverage(lang)) {
+            Logger::warn("No font coverage detected for language: " + std::string(lang));
+            if (install_font_packages()) {
+                Logger::ok("Font package installation complete");
+                refresh_font_cache();
+            } else {
+                Logger::warn("Font installation failed. Terminal may not display this language correctly.");
+                if (needs_cjk(lang)) {
+                    Logger::info("Please manually install CJK font packages (e.g., fonts-noto-cjk / noto-fonts-cjk)");
+                } else if (needs_cyrillic(lang)) {
+                    Logger::info("Please manually install Cyrillic-capable font packages (e.g., fonts-noto)");
+                }
+            }
+        }
+
+        // 设置环境变量
+#ifdef _WIN32
+        _putenv_s("LANG", locale_str.c_str());
+        _putenv_s("LC_ALL", locale_str.c_str());
+        _putenv_s("LANGUAGE", locale_str.c_str());
+#else
+        ::setenv("LANG", locale_str.c_str(), 1);
+        ::setenv("LC_ALL", locale_str.c_str(), 1);
+        ::setenv("LANGUAGE", locale_str.c_str(), 1);
+#endif
+
+        Logger::debug("LANG=" + locale_str);
         return true;
+    }
+
+    bool Environment::apply_system_locale(std::string_view loc) {
+        std::string lang(loc);
+        size_t dot = lang.find('.');
+        if (dot != std::string::npos) lang = lang.substr(0, dot);
+
+        std::string locale_str = lang + ".UTF-8";
+
+        // 方法1: localectl (systemd, 覆盖主流发行版)
+        if (Executor::has("localectl")) {
+            Logger::step("Persisting system locale via localectl...");
+            auto r = Executor::passthrough("localectl set-locale LANG=" + locale_str);
+            if (r.ok()) {
+                Logger::ok("System locale persisted as: " + locale_str);
+                return true;
+            }
+            Logger::warn("localectl failed, trying direct config file write...");
+        }
+
+        // 方法2: 直接写发行版配置文件
+        std::string conf_file;
+        if (cfg_.linux_distro == "debian") {
+            conf_file = "/etc/default/locale";
+        } else if (cfg_.linux_distro == "arch" || cfg_.linux_distro == "gentoo") {
+            conf_file = "/etc/locale.conf";
+        } else {
+            // 尝试 /etc/default/locale 和 /etc/locale.conf，哪个存在写哪个
+            if (fs::exists("/etc/default/locale"))       conf_file = "/etc/default/locale";
+            else if (fs::exists("/etc/locale.conf"))      conf_file = "/etc/locale.conf";
+            else                                          conf_file = "/etc/default/locale";
+        }
+
+        Logger::step("Writing system locale config: " + conf_file);
+        auto r = Executor::shell(
+            "echo 'LANG=" + locale_str + "' > " + conf_file + " && "
+            "echo 'LC_ALL=" + locale_str + "' >> " + conf_file);
+        if (r.ok()) {
+            Logger::ok("System locale written to " + conf_file + " (takes effect after reboot)");
+            return true;
+        }
+
+        Logger::error("Cannot write system locale config file: " + conf_file);
+        return false;
     }
 
     void Environment::open_uri(const std::string &uri) const {
         if (cfg_.is_termux) {
-            Logger::step("正在唤起 Android 意图 (Intent): " + uri);
+            Logger::step("Launching Android intent: " + uri);
             Executor::shell("am start -a android.intent.action.VIEW -d \"" + uri + "\" >/dev/null 2>&1");
         } else {
-            Logger::step("正在唤起宿主机默认程序: " + uri);
+            Logger::step("Launching host default program: " + uri);
             // 从 root 降权回真实用户以启动 UI 程序
             std::string sudo_user = std::getenv("SUDO_USER") ? std::getenv("SUDO_USER") : "";
             std::string cmd;
@@ -78,5 +270,133 @@ namespace tmoe::domain {
             // 将打开器放入后台，避免阻塞容器生命周期
             Executor::shell(cmd + " >/dev/null 2>&1 &");
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // locale 辅助方法
+    // ═══════════════════════════════════════════════════════════════
+
+    bool Environment::is_locale_generated(std::string_view lang) const {
+        std::string cmd = "locale -a 2>/dev/null | grep -qi '^" + std::string(lang) + "'";
+        return Executor::shell(cmd).ok();
+    }
+
+    bool Environment::generate_locale_auto(std::string_view lang) {
+        std::string locale_str = std::string(lang) + ".UTF-8";
+
+        if (cfg_.linux_distro == "debian") {
+            return Executor::shell("locale-gen " + locale_str + " 2>/dev/null").ok();
+        } else if (cfg_.linux_distro == "arch" || cfg_.linux_distro == "gentoo") {
+            return generate_locale_via_locale_gen(lang);
+        } else if (cfg_.linux_distro == "alpine") {
+            // musl libc: locale 内置于 libc，确保 musl-locales 已安装即可
+            return Executor::shell("apk info -e musl-locales 2>/dev/null").ok() ||
+                   Executor::passthrough(cfg_.install_command + " musl-locales 2>/dev/null").ok();
+        }
+        // openwrt / unknown: musl 或未知环境，设置 LANG 即可
+        return true;
+    }
+
+    bool Environment::generate_locale_debian_interactive() {
+        Logger::info("Starting interactive locale configuration...");
+        Logger::info("dpkg-reconfigure locales will take over the terminal. You will return to tmoes automatically when done.");
+        auto result = Executor::passthrough("dpkg-reconfigure locales");
+        return result.ok();
+    }
+
+    bool Environment::generate_locale_via_locale_gen(std::string_view lang) {
+        std::string locale_str = std::string(lang) + ".UTF-8";
+        // 取消 /etc/locale.gen 中对应行的注释
+        std::string sed_cmd = "sed -i 's/^#\\(" + locale_str + "\\)/\\1/' /etc/locale.gen 2>/dev/null";
+        Executor::shell(sed_cmd);
+        return Executor::shell("locale-gen 2>/dev/null").ok();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 字体辅助方法
+    // ═══════════════════════════════════════════════════════════════
+
+    bool Environment::has_font_coverage(std::string_view lang) const {
+        std::string fc_code = lang_to_fc_code(lang);
+        if (fc_code.empty()) return true; // 拉丁语言默认系统已覆盖
+
+        if (!Executor::has("fc-list")) return false;
+
+        auto result = Executor::shell(
+            "fc-list :lang=" + fc_code + " 2>/dev/null | head -1");
+        return result.ok() && !result.stdout_data.empty();
+    }
+
+    bool Environment::install_font_packages() {
+        Logger::step("Installing Noto font family (CJK + Cyrillic + Emoji)...");
+
+        if (cfg_.linux_distro == "openwrt") {
+            Logger::warn("OpenWRT: Skipping font installation, please configure terminal fonts manually");
+            return true;
+        }
+
+        bool ok = false;
+        if (cfg_.linux_distro == "debian") {
+            ok = Executor::passthrough(cfg_.install_command +
+                                 " fonts-noto-cjk fonts-noto 2>/dev/null").ok() ||
+                 Executor::passthrough(cfg_.install_command +
+                                 " fonts-noto-cjk 2>/dev/null").ok() ||
+                 Executor::passthrough(cfg_.install_command +
+                                 " wqy-microhei 2>/dev/null").ok();
+        } else if (cfg_.linux_distro == "arch") {
+            ok = Executor::passthrough(cfg_.install_command +
+                                 " noto-fonts-cjk noto-fonts 2>/dev/null").ok() ||
+                 Executor::passthrough(cfg_.install_command +
+                                 " noto-fonts-cjk 2>/dev/null").ok();
+        } else if (cfg_.linux_distro == "alpine") {
+            ok = Executor::passthrough(cfg_.install_command +
+                                 " font-noto-cjk font-noto 2>/dev/null").ok() ||
+                 Executor::passthrough(cfg_.install_command +
+                                 " font-noto-cjk 2>/dev/null").ok();
+        } else if (cfg_.linux_distro == "gentoo") {
+            ok = Executor::passthrough(
+                     "emerge --ask=n media-fonts/noto-cjk media-fonts/noto 2>/dev/null").ok() ||
+                 Executor::passthrough(
+                     "emerge --ask=n media-fonts/noto-cjk 2>/dev/null").ok();
+        } else {
+            // 未知发行版：尝试常见包管理器
+            ok = Executor::passthrough(
+                     "apt install -y fonts-noto-cjk fonts-noto 2>/dev/null").ok() ||
+                 Executor::passthrough(
+                     "pacman -Syu --noconfirm --needed noto-fonts-cjk noto-fonts 2>/dev/null").ok() ||
+                 Executor::passthrough(
+                     "apk add font-noto-cjk font-noto 2>/dev/null").ok();
+        }
+
+        if (ok) {
+            Logger::ok("Font package installation complete");
+        } else {
+            Logger::warn("Font package installation failed");
+        }
+        return ok;
+    }
+
+    void Environment::refresh_font_cache() const {
+        Executor::passthrough("fc-cache -fv 2>/dev/null || true");
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 语言—字形映射
+    // ═══════════════════════════════════════════════════════════════
+
+    std::string Environment::lang_to_fc_code(std::string_view lang) {
+        if (lang == "zh_CN") return "zh";
+        if (lang == "ja_JP") return "ja";
+        if (lang == "ko_KR") return "ko";
+        if (lang == "ru_RU") return "ru";
+        return ""; // 拉丁语言不需要特殊检测
+    }
+
+    bool Environment::needs_cjk(std::string_view lang) {
+        return lang == "zh_CN" || lang == "ja_JP" || lang == "ko_KR";
+    }
+
+    bool Environment::needs_cyrillic(std::string_view lang) {
+        return lang == "ru_RU";
     }
 } // namespace tmoe::domain
