@@ -1,10 +1,11 @@
 #include "installer.hpp"
+#include "core/i18n.h"
 
 namespace tmoe::domain {
     bool RootfsTarballInstaller::install(const Container &container) {
         const auto &cfg = container.get_cfg();
         std::string rootfs_path = container.rootfs_path();
-        Logger::step("正在准备容器目录: " + rootfs_path);
+        Logger::step(_f("container.preparing_dir", rootfs_path));
 
         // 1. 确保目标目录存在
         Executor::shell("mkdir -p " + rootfs_path);
@@ -15,15 +16,15 @@ namespace tmoe::domain {
         );
 
         if (!rootfs_opt) {
-            Logger::error("获取镜像地址失败：不支持的 发行版/版本/架构 组合");
+            Logger::error(_("container.unsupported_combo"));
             return false;
         }
 
         std::string tarball_url = rootfs_opt->download_url;
         std::string tar_file = "/tmp/tmoe_rootfs.tar.xz";
 
-        Logger::step("正在下载 Rootfs (请耐心等待)...");
-        Logger::info("下载地址: " + tarball_url);
+        Logger::step(_("container.downloading_rootfs"));
+        Logger::info(_f("container.download_url", tarball_url));
 
         // 3. 下载 rootfs 压缩包
         auto dl_cmd = CommandBuilder("curl")
@@ -33,12 +34,12 @@ namespace tmoe::domain {
                 .add_arg(tarball_url);
 
         if (!dl_cmd.execute().ok()) {
-            Logger::error("Rootfs 下载失败!");
+            Logger::error(_("container.download_failed"));
             return false;
         }
 
         // 4. 在 proot 沙箱中解压（Termux 下必须如此，否则会报 "operation not permitted"）
-        Logger::step("正在解压 Rootfs 到指定容器路径...");
+        Logger::step(_("container.extracting_rootfs"));
         auto extract_cmd = CommandBuilder("proot");
 
         extract_cmd.add_arg_if(cfg.is_termux, "--link2symlink")
@@ -51,11 +52,11 @@ namespace tmoe::domain {
                 .add_arg("--exclude=proc/*");
 
         if (!extract_cmd.execute().ok()) {
-            Logger::error("Rootfs 解压失败!");
+            Logger::error(_("container.extract_failed"));
             return false;
         }
 
-        Logger::ok("容器 " + container.name() + " (" + container.distro() + ") 安装完毕！");
+        Logger::ok(_f("container.install_complete", container.name(), container.distro()));
         Executor::shell("rm -f " + tar_file);
         return true;
     }

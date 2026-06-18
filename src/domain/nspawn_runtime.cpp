@@ -5,6 +5,7 @@
 #include <cstdlib>
 
 #include "container.h"
+#include "core/i18n.h"
 
 namespace fs = std::filesystem;
 
@@ -241,18 +242,18 @@ namespace tmoe::domain {
     // ── start/stop ──
 
     bool NspawnRuntime::start(const Container &container, const LaunchContext *ctx) {
-        Logger::step("正在准备 systemd-nspawn 容器: " + container.name());
+        Logger::step(_f("nspawn.preparing", container.name()));
 
         // 检查 systemd-nspawn 是否安装
         std::string nspawn_bin = detect_nspawn_bin();
         if (!Executor::shell("command -v " + nspawn_bin).ok()) {
-            Logger::error("未找到 systemd-nspawn，请先安装 systemd-container");
+            Logger::error(_("nspawn.not_found"));
             return false;
         }
 
         // 检查 dbus-uuidgen
         if (!Executor::shell("command -v dbus-uuidgen").ok()) {
-            Logger::warn("未找到 dbus-uuidgen，将跳过 --uuid 参数");
+            Logger::warn(_("nspawn.no_dbus_uuid"));
         }
 
         // 修复 root 密码
@@ -305,7 +306,7 @@ namespace tmoe::domain {
 
         // 生成启动命令
         std::string cmd = generate_launch_cmd(container, ctx);
-        Logger::step("Nspawn 启动命令: " + cmd);
+        Logger::step(_f("nspawn.launch_cmd", cmd));
 
         // 注：Bash 原版在此处执行 unset LD_PRELOAD，
         //    但 C++ 每次 Executor::shell 调用独立 shell 进程，无需 unset。
@@ -329,7 +330,7 @@ namespace tmoe::domain {
     }
 
     bool NspawnRuntime::stop(const Container &container) {
-        Logger::step("停止 systemd-nspawn 容器: " + container.name());
+        Logger::step(_f("nspawn.stopping", container.name()));
 
         // systemd-nspawn 容器可以用 machinectl 停止
         std::string cmd = "machinectl terminate " + container.name();

@@ -17,7 +17,7 @@ namespace tmoe::domain {
     bool TermuxManager::check_and_init_environment() {
         if (!cfg_.is_termux) return true;
 
-        Logger::step("检查 Termux 沙盒基础环境与依赖...");
+        Logger::step(_("termux.checking_env"));
         std::string missing_pkgs;
 
         // 核心依赖
@@ -33,17 +33,17 @@ namespace tmoe::domain {
         if (!Executor::has("unshare")) missing_pkgs += " " + map_binary_to_termux_pkg("unshare");
 
         // 可选依赖提示
-        if (!Executor::has("bat") && !Executor::has("batcat")) Logger::info("提示: 安装 bat 可增强文件预览体验 (apt install bat)");
-        if (!Executor::has("micro")) Logger::info("提示: 安装 micro 可替代 nano 编辑器 (apt install micro)");
+        if (!Executor::has("bat") && !Executor::has("batcat")) Logger::info(_("termux.hint_bat"));
+        if (!Executor::has("micro")) Logger::info(_("termux.hint_micro"));
 
         if (!missing_pkgs.empty()) {
-            Logger::warn("Termux 缺失核心运行依赖，正在自动补全:" + missing_pkgs);
+            Logger::warn(_("termux.missing_deps") + ": " + missing_pkgs);
             Executor::shell(cfg_.update_command);
             if (!Executor::shell(cfg_.install_command + missing_pkgs).ok()) {
-                Logger::error("Termux 依赖自动安装失败！请检查网络连接。");
+                Logger::error(_("termux.deps_install_failed"));
                 return false;
             }
-            Logger::ok("Termux 依赖安装完成！");
+            Logger::ok(_("termux.deps_install_ok"));
         }
 
         // openssl 旧版检测
@@ -63,28 +63,28 @@ namespace tmoe::domain {
     bool TermuxManager::setup_storage() {
         if (!cfg_.is_termux) return true;
 
-        Logger::step("检查 Termux 共享存储状态...");
+        Logger::step(_("termux.checking_storage"));
 
         // 检查 storage/shared 软链接是否已存在
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/data/data/com.termux/files/home";
         if (fs::exists(home + "/storage/shared")) {
-            Logger::info("共享存储已配置，跳过。");
+            Logger::info(_("termux.storage_already_set"));
             return true;
         }
 
-        Logger::warn("未检测到共享存储链接，正在调用 termux-setup-storage...");
+        Logger::warn(_("termux.storage_not_set"));
         if (!Executor::has("termux-setup-storage")) {
-            Logger::step("安装 termux-tools...");
+            Logger::step(_("termux.installing_tools"));
             Executor::shell("apt update && apt install -y termux-tools");
         }
 
         auto result = Executor::shell("termux-setup-storage");
         if (result.ok()) {
-            Logger::ok("Termux 共享存储设置完成！");
+            Logger::ok(_("termux.storage_setup_ok"));
             return true;
         }
 
-        Logger::error("termux-setup-storage 执行失败，请手动授权存储权限。");
+        Logger::error(_("termux.storage_setup_failed"));
         return false;
     }
 
@@ -94,15 +94,15 @@ namespace tmoe::domain {
 
     bool TermuxManager::install_x11_support() {
         if (!cfg_.is_termux) {
-            Logger::info("非 Termux 环境，跳过 X11 支持安装。");
+            Logger::info(_("termux.skip_x11"));
             return true;
         }
 
-        Logger::step("安装 Termux X11 支持 (x11-repo + TigerVNC)");
+        Logger::step(_("termux.installing_x11"));
 
         std::string desktop = select_desktop_environment();
         if (desktop.empty()) {
-            Logger::info("用户取消了桌面环境选择。");
+            Logger::info(_("termux.gui_cancelled"));
             return false;
         }
 
@@ -126,7 +126,7 @@ namespace tmoe::domain {
     }
 
     bool TermuxManager::install_termux_xfce() {
-        Logger::step("安装 Termux 原生 XFCE4 桌面环境...");
+        Logger::step(_("termux.installing_xfce4"));
 
         // 1. 安装 x11-repo
         Executor::shell("apt update");
@@ -142,13 +142,13 @@ namespace tmoe::domain {
         std::string resolution = select_vnc_resolution();
         create_startvnc_script(resolution, "xfce");
 
-        Logger::ok("XFCE4 桌面环境安装完成！使用 startvnc 启动。");
-        Logger::info("VNC 客户端连接: 127.0.0.1:5902");
+        Logger::ok(_("termux.xfce4_installed"));
+        Logger::info(_("termux.vnc_connect_info"));
         return true;
     }
 
     bool TermuxManager::install_termux_lxqt() {
-        Logger::step("安装 Termux 原生 LXQt 桌面环境...");
+        Logger::step(_("termux.installing_lxqt"));
 
         Executor::shell("apt update");
         Executor::shell("apt install -y x11-repo");
@@ -161,8 +161,8 @@ namespace tmoe::domain {
         std::string resolution = select_vnc_resolution();
         create_startvnc_script(resolution, "lxqt");
 
-        Logger::ok("LXQt 桌面环境安装完成！使用 startvnc 启动。");
-        Logger::info("VNC 客户端连接: 127.0.0.1:5902");
+        Logger::ok(_("termux.lxqt_installed"));
+        Logger::info(_("termux.vnc_connect_info"));
         return true;
     }
 
@@ -196,7 +196,7 @@ namespace tmoe::domain {
 
         std::ofstream ofs(script_path);
         if (!ofs.is_open()) {
-            Logger::error("无法创建 startvnc 脚本: " + script_path);
+            Logger::error(_f("termux.startvnc_create_failed", script_path));
             return;
         }
 
@@ -293,7 +293,7 @@ namespace tmoe::domain {
         // 运行 termux-fix-shebang
         run_termux_fix_shebang(script_path);
 
-        Logger::ok("startvnc 脚本已创建: " + script_path);
+        Logger::ok(_f("termux.startvnc_created", script_path));
     }
 
     bool TermuxManager::configure_termux_vnc() {
@@ -301,7 +301,7 @@ namespace tmoe::domain {
 
         std::string startvnc = "/data/data/com.termux/files/usr/bin/startvnc";
         if (!fs::exists(startvnc)) {
-            Logger::warn("未找到 startvnc 脚本，请先安装 GUI。");
+            Logger::warn(_("termux.startvnc_not_found"));
             return false;
         }
 
@@ -320,14 +320,14 @@ namespace tmoe::domain {
             if (new_resolution.empty()) return false;
             std::string sed_cmd = "sed -i -E 's@^(VNC_RESOLUTION=).*@\\1" + new_resolution + "@' " + startvnc;
             Executor::shell(sed_cmd);
-            Logger::ok("VNC 分辨率已更新为: " + new_resolution);
+            Logger::ok(_f("termux.vnc_resolution_updated", new_resolution));
         } else if (choice == "2") {
             edit_vnc_config_manually();
         } else if (choice == "3") {
             detect_and_show_lan_ip();
         } else if (choice == "4") {
             run_termux_fix_shebang(startvnc);
-            Logger::ok("startvnc 已运行 termux-fix-shebang。");
+            Logger::ok(_("termux.startvnc_fixed"));
         }
 
         return true;
@@ -340,11 +340,11 @@ namespace tmoe::domain {
                               "--yesno \"" + _("termux.remove_gui_confirm") + "\" 0 50";
 
         if (!Executor::shell(confirm).ok()) {
-            Logger::info("用户取消了 GUI 移除。");
+            Logger::info(_("termux.gui_remove_cancelled"));
             return false;
         }
 
-        Logger::step("正在移除 Termux GUI 包...");
+        Logger::step(_("termux.removing_gui"));
         Executor::shell("apt purge -y ^xfce tigervnc aterm xfce4-terminal 2>/dev/null; true");
         Executor::shell("apt purge -y lxqt qterminal 2>/dev/null; true");
         Executor::shell("apt purge -y x11-repo 2>/dev/null; true");
@@ -354,7 +354,7 @@ namespace tmoe::domain {
         std::string startvnc = "/data/data/com.termux/files/usr/bin/startvnc";
         if (fs::exists(startvnc)) fs::remove(startvnc);
 
-        Logger::ok("GUI 包已移除。");
+        Logger::ok(_("termux.gui_removed"));
         return true;
     }
 
@@ -420,16 +420,16 @@ namespace tmoe::domain {
 
     bool TermuxManager::backup_termux() {
         if (!cfg_.is_termux) {
-            Logger::info("非 Termux 环境，跳过备份。");
+            Logger::info(_("termux.skip_backup"));
             return true;
         }
 
-        Logger::step("备份 Termux");
+        Logger::step(_("termux.backup_title"));
 
         // 1. 选择备份目录
         std::string selected = select_backup_directories();
         if (selected.empty()) {
-            Logger::info("用户取消了备份目录选择。");
+            Logger::info(_("termux.backup_cancelled"));
             return false;
         }
 
@@ -462,24 +462,24 @@ namespace tmoe::domain {
         std::string tar_file;
         if (use_zstd) {
             tar_file = backup_dir + "/" + filename + "-" + timestamp + ".tar.zst";
-            Logger::step("正在使用 zstd 压缩备份...");
+            Logger::step(_("termux.backup_compressing_zstd"));
             Executor::shell("tar --use-compress-program zstd -Ppvcf " + tar_file +
                             " --exclude=" + tmoe_share + "/containers" + tar_targets);
         } else {
             tar_file = backup_dir + "/" + filename + "-" + timestamp + ".tar.xz";
-            Logger::step("正在使用 xz 压缩备份 (较慢)...");
+            Logger::step(_("termux.backup_compressing_xz"));
             Executor::shell("tar -PJpvcf " + tar_file +
                             " --exclude=" + tmoe_share + "/containers" + tar_targets);
         }
 
         if (fs::exists(tar_file)) {
             auto fsize = fs::file_size(tar_file);
-            Logger::ok("备份完成: " + tar_file + " (" +
-                       std::to_string(fsize / 1024 / 1024) + " MB)");
+            Logger::ok(_f("termux.backup_complete", tar_file,
+                       std::to_string(fsize / 1024 / 1024) + " MB)"));
             return true;
         }
 
-        Logger::error("备份失败！");
+        Logger::error(_("termux.backup_failed"));
         return false;
     }
 
@@ -499,16 +499,16 @@ namespace tmoe::domain {
     std::string TermuxManager::select_backup_file_manually() {
         std::string backup_dir = "/sdcard/Download/backup/termux";
         if (!fs::exists(backup_dir)) {
-            Logger::error("备份目录不存在: " + backup_dir);
+            Logger::error(_f("termux.backup_dir_not_found", backup_dir));
             return "";
         }
 
         // 列出所有备份文件
-        Logger::step("扫描备份文件...");
+        Logger::step(_("termux.scanning_backups"));
         std::string ls_result = Executor::shell("ls -1th " + backup_dir + "/*termux*bak.tar* 2>/dev/null").stdout_data;
 
         if (ls_result.empty()) {
-            Logger::error("未找到任何备份文件。");
+            Logger::error(_("termux.no_backup_found"));
             return "";
         }
 
@@ -548,11 +548,11 @@ namespace tmoe::domain {
 
     bool TermuxManager::restore_termux(std::string_view archive_path) {
         if (!cfg_.is_termux) {
-            Logger::info("非 Termux 环境，跳过还原。");
+            Logger::info(_("termux.skip_restore"));
             return true;
         }
 
-        Logger::step("还原 Termux");
+        Logger::step(_("termux.restore_title"));
 
         std::string restore_file;
         if (!archive_path.empty()) {
@@ -574,7 +574,7 @@ namespace tmoe::domain {
         }
 
         if (restore_file.empty()) {
-            Logger::info("用户取消了还原。");
+            Logger::info(_("termux.restore_cancelled"));
             return false;
         }
 
@@ -582,7 +582,7 @@ namespace tmoe::domain {
         std::string warn = cfg_.tui_bin + " --title \"" + _("termux.warning_title") + "\" "
                            "--yesno \"" + _("termux.restore_warning") + "\" 0 50";
         if (!Executor::shell(warn).ok()) {
-            Logger::info("用户取消了还原。");
+            Logger::info(_("termux.restore_cancelled"));
             return false;
         }
 
@@ -598,7 +598,7 @@ namespace tmoe::domain {
     }
 
     bool TermuxManager::uncompress_zst(const std::string &file) {
-        Logger::step("解压 zst 备份: " + file);
+        Logger::step(_f("termux.restore_extracting_zst", file));
 
         if (Executor::has("pv")) {
             Executor::shell("pv " + file + " | tar --use-compress-program zstd -Ppx");
@@ -606,12 +606,12 @@ namespace tmoe::domain {
             Executor::shell("tar --use-compress-program zstd -Ppxvf " + file);
         }
 
-        Logger::ok("Termux 还原完成！请重启 Termux 使更改生效。");
+        Logger::ok(_("termux.restore_complete"));
         return true;
     }
 
     bool TermuxManager::uncompress_xz(const std::string &file) {
-        Logger::step("解压 xz 备份: " + file);
+        Logger::step(_f("termux.restore_extracting_xz", file));
 
         if (Executor::has("pv")) {
             Executor::shell("pv " + file + " | tar -PpJx");
@@ -619,7 +619,7 @@ namespace tmoe::domain {
             Executor::shell("tar -PpJxvf " + file);
         }
 
-        Logger::ok("Termux 还原完成！请重启 Termux 使更改生效。");
+        Logger::ok(_("termux.restore_complete"));
         return true;
     }
 
@@ -628,7 +628,7 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
 
     bool TermuxManager::beautify_terminal() {
-        Logger::step("终端美化");
+        Logger::step(_("termux.beautify_title"));
 
         std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.beautify_title") + "\" "
                           "--menu \"" + _("termux.beautify_prompt") + "\" 0 50 0 "
@@ -642,15 +642,15 @@ namespace tmoe::domain {
 
         if (choice == "1") return configure_tmoe_zsh();
         if (choice == "2") {
-            Logger::step("安装 oh-my-zsh...");
+            Logger::step(_("termux.installing_ohmyzsh"));
             Executor::shell("apt install -y zsh git curl");
             Executor::shell(
                 "sh -c \"$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\" \"\" --unattended");
-            Logger::ok("oh-my-zsh 安装完成！");
+            Logger::ok(_("termux.ohmyzsh_installed"));
             return true;
         }
         if (choice == "3") {
-            Logger::step("安装 powerlevel10k...");
+            Logger::step(_("termux.installing_p10k"));
             std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/data/data/com.termux/files/home";
             std::string p10k_dir = home + "/.oh-my-zsh/custom/themes/powerlevel10k";
             if (!fs::exists(p10k_dir)) {
@@ -661,28 +661,28 @@ namespace tmoe::domain {
             if (fs::exists(zshrc)) {
                 Executor::shell("sed -i 's/^ZSH_THEME=.*/ZSH_THEME=\"powerlevel10k\\/powerlevel10k\"/' " + zshrc);
             }
-            Logger::ok("powerlevel10k 安装完成！重启终端生效。");
+            Logger::ok(_("termux.p10k_installed"));
             return true;
         }
         if (choice == "4") {
-            Logger::step("安装 colorls...");
+            Logger::step(_("termux.installing_colorls"));
             Executor::shell("apt install -y ruby");
             Executor::shell("gem install colorls");
-            Logger::ok("colorls 安装完成！");
+            Logger::ok(_("termux.colorls_installed"));
             return true;
         }
         return false;
     }
 
     bool TermuxManager::configure_tmoe_zsh() {
-        Logger::step("配置 tmoe-zsh 工具箱...");
+        Logger::step(_("termux.configuring_tmoe_zsh"));
 
         // 检测是否已配置
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/data/data/com.termux/files/home";
         std::string git_config = home + "/.config/tmoe-zsh/git/.git/config";
 
         if (fs::exists(git_config)) {
-            Logger::info("tmoe-zsh 已配置。如需重新配置请删除 ~/.config/tmoe-zsh 后重试。");
+            Logger::info(_("termux.tmoe_zsh_configured"));
             return true;
         }
 
@@ -690,7 +690,7 @@ namespace tmoe::domain {
         std::string confirm = cfg_.tui_bin + " --title \"" + _("termux.zsh_title") + "\" "
                               "--yesno \"" + _("termux.zsh_confirm") + "\" 0 50";
         if (!Executor::shell(confirm).ok()) {
-            Logger::info("用户取消了 tmoe-zsh 配置。");
+            Logger::info(_("termux.tmoe_zsh_cancelled"));
             return false;
         }
 
@@ -698,28 +698,28 @@ namespace tmoe::domain {
         std::string install_bin = "/data/data/com.termux/files/usr/local/bin/zsh-i";
         std::string url = "https://raw.githubusercontent.com/2cd/zsh/master/zsh.sh";
 
-        Logger::step("下载 tmoe-zsh 安装脚本...");
+        Logger::step(_("termux.downloading_tmoe_zsh"));
         Executor::shell("mkdir -p /data/data/com.termux/files/usr/local/bin");
         Executor::shell("curl -Lo " + install_bin + " " + url);
         Executor::shell("chmod 777 " + install_bin);
 
-        Logger::step("运行 tmoe-zsh 自动配置 (tmoe_container_auto_configure)...");
+        Logger::step(_("termux.running_tmoe_zsh_auto"));
         Executor::shell("bash " + install_bin + " --tmoe_container_auto_configure");
 
-        Logger::ok("tmoe-zsh 配置完成！支持主题切换: zsh-i --theme");
+        Logger::ok(_("termux.tmoe_zsh_complete"));
         return true;
     }
 
     bool TermuxManager::change_shell_to_zsh() {
         if (!Executor::has("zsh")) {
-            Logger::warn("zsh 未安装，正在自动安装...");
+            Logger::warn(_("termux.zsh_not_installed"));
             Executor::shell("apt install -y zsh");
         }
 
         // 检查当前 shell
         auto current = Executor::shell("echo $SHELL");
         if (current.stdout_data.find("zsh") != std::string::npos) {
-            Logger::info("当前已使用 zsh。");
+            Logger::info(_("termux.already_zsh"));
             return true;
         }
 
@@ -731,7 +731,7 @@ namespace tmoe::domain {
             Executor::shell("sed -E -i 's@(root:x:0:0:root:/root:/bin/)(ash|bash)@\\1zsh@' /etc/passwd");
         }
 
-        Logger::ok("默认 shell 已切换为 zsh。重启终端生效。");
+        Logger::ok(_("termux.shell_switched_zsh"));
         return true;
     }
 
@@ -741,7 +741,7 @@ namespace tmoe::domain {
 
     bool TermuxManager::switch_pkg_mirror(std::string_view mirror) {
         if (!cfg_.is_termux) {
-            Logger::info("非 Termux 环境，跳过镜像源切换。");
+            Logger::info(_("termux.skip_mirror"));
             return true;
         }
 
@@ -792,7 +792,7 @@ namespace tmoe::domain {
     }
 
     void TermuxManager::modify_termux_sources_list(const std::string &mirror_url) {
-        Logger::step("切换 Termux 镜像源: " + mirror_url);
+        Logger::step(_f("termux.switching_mirror", mirror_url));
 
         std::string prefix = std::getenv("PREFIX") ? std::getenv("PREFIX") : "/data/data/com.termux/files/usr";
         std::string apt_dir = prefix + "/etc/apt";
@@ -827,9 +827,9 @@ namespace tmoe::domain {
         }
 
         // 更新包列表
-        Logger::step("更新软件包数据库...");
+        Logger::step(_("termux.updating_pkg_db"));
         Executor::shell("apt update");
-        Logger::ok("Termux 镜像源切换完成！");
+        Logger::ok(_("termux.mirror_switch_ok"));
     }
 
     void TermuxManager::annotate_old_list(const std::string &file_path, const std::string &new_source_line) {
@@ -866,7 +866,7 @@ namespace tmoe::domain {
     void TermuxManager::manage_termux_repos() {
         if (!cfg_.is_termux) return;
 
-        Logger::step("Termux 仓库管理");
+        Logger::step(_("termux.repo_management"));
 
         std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.repo_title") + "\" "
                           "--menu \"" + _("termux.repo_prompt") + "\" 0 50 0 "
@@ -890,13 +890,13 @@ namespace tmoe::domain {
                              "--yes-button \"" + _("termux.btn_enable") + "\" --no-button \"" + _("termux.btn_disable") + "\"";
 
         if (Executor::shell(action).ok()) {
-            Logger::step("启用 " + repo + "-repo...");
+            Logger::step(_f("termux.enabling_repo", repo));
             Executor::shell("apt update");
             Executor::shell("apt install -y " + repo + "-repo");
             Executor::shell("apt update");
             Logger::ok(repo + "-repo 已启用。");
         } else {
-            Logger::step("禁用 " + repo + "-repo...");
+            Logger::step(_f("termux.disabling_repo", repo));
             Executor::shell("apt purge -y " + repo + "-repo 2>/dev/null; true");
             Executor::shell("apt update");
             Logger::ok(repo + "-repo 已禁用。");
@@ -906,11 +906,11 @@ namespace tmoe::domain {
     void TermuxManager::run_mirror_speed_test() {
         if (!cfg_.is_termux) return;
 
-        Logger::step("镜像站下载速度测试");
+        Logger::step(_("termux.speedtest_title"));
 
         // 确保 aria2c 可用
         if (!Executor::has("aria2c")) {
-            Logger::step("安装 aria2...");
+            Logger::step(_("termux.installing_aria2"));
             Executor::shell("apt install -y aria2");
         }
 
@@ -965,7 +965,7 @@ namespace tmoe::domain {
 
         // 清理
         fs::remove_all(temp_dir);
-        Logger::ok("测速完成！");
+        Logger::ok(_("termux.speedtest_complete"));
     }
 
     void TermuxManager::edit_sources_manually() {
@@ -978,14 +978,14 @@ namespace tmoe::domain {
         std::string prefix = std::getenv("PREFIX") ? std::getenv("PREFIX") : "/data/data/com.termux/files/usr";
         std::string sources = prefix + "/etc/apt/sources.list";
 
-        Logger::step("使用 " + editor + " 编辑 " + sources);
+        Logger::step(_f("termux.editing_sources", editor, sources));
         Executor::shell(editor + " " + sources);
     }
 
     void TermuxManager::clean_sources_list() {
         if (!cfg_.is_termux) return;
 
-        Logger::step("清理 sources.list 中的无效/重复行...");
+        Logger::step(_("termux.cleaning_sources"));
 
         std::string prefix = std::getenv("PREFIX") ? std::getenv("PREFIX") : "/data/data/com.termux/files/usr";
         std::string apt_dir = prefix + "/etc/apt";
@@ -1009,7 +1009,7 @@ namespace tmoe::domain {
             }
         }
 
-        Logger::ok("sources.list 已清理。");
+        Logger::ok(_("termux.sources_cleaned"));
     }
 
     void TermuxManager::restore_default_sources() {
@@ -1019,7 +1019,7 @@ namespace tmoe::domain {
                               "--yesno \"" + _("termux.restore_default_confirm") + "\" 0 50";
         if (!Executor::shell(confirm).ok()) return;
 
-        Logger::step("恢复 Termux 默认官方源...");
+        Logger::step(_("termux.restoring_default_sources"));
 
         std::string prefix = std::getenv("PREFIX") ? std::getenv("PREFIX") : "/data/data/com.termux/files/usr";
         std::string main_file = prefix + "/etc/apt/sources.list";
@@ -1048,7 +1048,7 @@ namespace tmoe::domain {
             }
         }
 
-        Logger::ok("已恢复默认官方源！");
+        Logger::ok(_("termux.restore_defaults_ok"));
         Executor::shell("apt update");
     }
 
@@ -1058,7 +1058,7 @@ namespace tmoe::domain {
 
     bool TermuxManager::fix_android_12_signal_9() {
         if (!cfg_.is_termux) {
-            Logger::info("非 Termux 环境，跳过 Signal 9 修复。");
+            Logger::info(_("termux.skip_signal9"));
             return true;
         }
 

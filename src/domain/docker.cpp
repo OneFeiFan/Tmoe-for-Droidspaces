@@ -144,14 +144,14 @@ void DockerManager::run_docker_menu() {
             install_qemu_user_static();
         } else if (choice == "9") {
             auto images = list_images();
-            Logger::info("=== Docker 镜像 ===");
+            Logger::info(_("docker.image_list_title"));
             for (const auto& img : images) {
-                Logger::info("  📦 " + img.full_name());
+                Logger::info(_f("docker.image_list_item", img.full_name()));
             }
             auto containers = list_containers(true);
-            Logger::info("=== Docker 容器 ===");
+            Logger::info(_("docker.container_list_title"));
             for (const auto& c : containers) {
-                Logger::info("  📦 " + c);
+                Logger::info(_f("docker.container_list_item", c));
             }
         }
         Logger::press_enter();
@@ -163,11 +163,11 @@ void DockerManager::run_docker_menu() {
 // ═══════════════════════════════════════════════════════════════
 
 bool DockerManager::install_docker_ce() {
-    Logger::step("安装 Docker CE...");
+    Logger::step(_("docker.installing_ce"));
 
     if (is_debian_family()) {
         if (!add_docker_debian_repo()) {
-            Logger::error("添加 Docker 软件源失败");
+            Logger::error(_("docker.repo_add_failed"));
             return false;
         }
         std::string install_cmd = cfg_.install_command;
@@ -196,25 +196,25 @@ bool DockerManager::install_docker_ce() {
         return Executor::passthrough("service docker start").ok();
     }
 
-    Logger::warn("当前发行版不在自动安装支持列表中，请手动安装 Docker");
+    Logger::warn(_("docker.unsupported_distro"));
     return false;
 }
 
 bool DockerManager::install_docker_io() {
-    Logger::step("安装 Docker.io...");
+    Logger::step(_("docker.installing_io"));
 
     if (is_debian_family()) {
         return Executor::passthrough(cfg_.install_command + " docker.io").ok();
     }
-    Logger::warn("Docker.io 仅在 Debian/Ubuntu 上可用，使用 Docker CE 替代");
+    Logger::warn(_("docker.io_debian_only"));
     return install_docker_ce();
 }
 
 bool DockerManager::install_portainer(int port) {
-    Logger::step("安装 Portainer Web 管理界面...");
+    Logger::step(_("docker.installing_portainer"));
 
     if (!is_docker_available()) {
-        Logger::error("请先安装 Docker");
+        Logger::error(_("docker.install_docker_first"));
         return false;
     }
 
@@ -225,8 +225,8 @@ bool DockerManager::install_portainer(int port) {
         << "portainer/portainer-ce:latest";
     auto result = Executor::passthrough(cmd.str());
     if (result.ok()) {
-        Logger::ok("Portainer 已启动！");
-        Logger::info("访问地址: http://localhost:" + std::to_string(port));
+        Logger::ok(_("docker.portainer_started"));
+        Logger::info(_f("docker.portainer_url", std::to_string(port)));
     }
     return result.ok();
 }
@@ -236,7 +236,7 @@ bool DockerManager::install_portainer(int port) {
 // ═══════════════════════════════════════════════════════════════
 
 bool DockerManager::pull_image(std::string_view image, std::string_view tag) {
-    Logger::step("拉取 Docker 镜像: " + std::string(image) + ":" + std::string(tag));
+    Logger::step(_f("docker.pulling_image", std::string(image), std::string(tag)));
     std::string full = std::string(image) + ":" + std::string(tag);
     return Executor::passthrough("docker pull " + full).ok();
 }
@@ -293,7 +293,7 @@ bool DockerManager::run_container(std::string_view image,
                                    std::string_view name,
                                    std::string_view mount_path,
                                    int host_port, int container_port) {
-    Logger::step("运行 Docker 容器: " + std::string(name));
+    Logger::step(_f("docker.running_container", std::string(name)));
 
     std::ostringstream cmd;
     cmd << "docker run -itd --name \"" << name << "\""
@@ -317,7 +317,7 @@ bool DockerManager::run_container(std::string_view image,
 
     auto result = Executor::passthrough(cmd.str());
     if (result.ok()) {
-        Logger::ok("容器已启动: " + std::string(name));
+        Logger::ok(_f("docker.container_started", std::string(name)));
     }
     return result.ok();
 }
@@ -325,7 +325,7 @@ bool DockerManager::run_container(std::string_view image,
 bool DockerManager::run_cross_arch_container(std::string_view image,
                                                std::string_view name,
                                                std::string_view arch) {
-    Logger::step("跨架构运行容器 (arch: " + std::string(arch) + ")");
+    Logger::step(_f("docker.cross_arch_run", std::string(arch)));
 
     // 确保 qemu-user-static 已注册
     install_qemu_user_static();
@@ -355,7 +355,7 @@ std::vector<std::string> DockerManager::list_containers(bool all) const {
 }
 
 bool DockerManager::remove_container(std::string_view name) {
-    Logger::step("移除 Docker 容器: " + std::string(name));
+    Logger::step(_f("docker.removing_container", std::string(name)));
     // 先停止再删除
     Executor::passthrough("docker stop \"" + std::string(name) + "\" 2>/dev/null");
     return Executor::passthrough("docker rm \"" + std::string(name) + "\"").ok();
@@ -367,7 +367,7 @@ bool DockerManager::remove_container(std::string_view name) {
 
 bool DockerManager::export_container(std::string_view name,
                                        std::string_view output_path) {
-    Logger::step("导出 Docker 容器: " + std::string(name));
+    Logger::step(_f("docker.exporting_container", std::string(name)));
 
     // 确保输出目录存在
     fs::path out(output_path);
@@ -380,8 +380,7 @@ bool DockerManager::export_container(std::string_view name,
     auto result = Executor::passthrough(cmd);
     if (result.ok()) {
         auto size_mb = fs::file_size(output_path) / (1024 * 1024);
-        Logger::ok("容器已导出: " + std::string(output_path) +
-                   " (" + std::to_string(size_mb) + " MB)");
+        Logger::ok(_f("docker.export_ok", std::string(output_path), std::to_string(size_mb)));
     }
     return result.ok();
 }
@@ -389,14 +388,14 @@ bool DockerManager::export_container(std::string_view name,
 bool DockerManager::import_image(std::string_view tar_path,
                                    std::string_view image_name,
                                    std::string_view tag) {
-    Logger::step("导入 Docker 镜像: " + std::string(image_name) + ":" + std::string(tag));
+    Logger::step(_f("docker.importing_image", std::string(image_name), std::string(tag)));
 
     std::string full_name = std::string(image_name) + ":" + std::string(tag);
     std::string cmd = "docker import - \"" + full_name +
                       "\" < \"" + std::string(tar_path) + "\"";
     auto result = Executor::passthrough(cmd);
     if (result.ok()) {
-        Logger::ok("镜像已导入: " + full_name);
+        Logger::ok(_f("docker.import_ok", full_name));
     }
     return result.ok();
 }
@@ -406,7 +405,7 @@ bool DockerManager::import_image(std::string_view tar_path,
 // ═══════════════════════════════════════════════════════════════
 
 bool DockerManager::configure_mirror() {
-    Logger::step("配置 Docker 镜像源...");
+    Logger::step(_("docker.configuring_mirror"));
 
     std::string menu = cfg_.tui_bin +
         " --title \"" + _("docker.mirror_title") + "\""
@@ -436,19 +435,19 @@ bool DockerManager::configure_mirror() {
     std::string content = "{\n  \"registry-mirrors\": [\"" + mirror_url + "\"]\n}\n";
     std::ofstream ofs(daemon_json);
     if (!ofs) {
-        Logger::error("无法写入 " + daemon_json.string());
+        Logger::error(_f("docker.write_daemon_failed", daemon_json.string()));
         return false;
     }
     ofs << content;
     ofs.close();
 
-    Logger::ok("Docker 镜像源已配置为: " + mirror_url);
-    Logger::info("请重启 Docker 服务使配置生效: systemctl restart docker");
+    Logger::ok(_f("docker.mirror_configured", mirror_url));
+    Logger::info(_("docker.restart_docker_hint"));
     return true;
 }
 
 bool DockerManager::add_user_to_docker_group() {
-    Logger::step("将当前用户添加到 docker 组...");
+    Logger::step(_("docker.adding_user_group"));
 
     std::string cur_user = "root";
     auto result = Executor::shell("whoami");
@@ -459,21 +458,21 @@ bool DockerManager::add_user_to_docker_group() {
     }
 
     if (cur_user == "root") {
-        Logger::info("当前为 root 用户，无需添加到 docker 组");
+        Logger::info(_("docker.root_no_group_needed"));
         return true;
     }
 
     Executor::shell("groupadd docker 2>/dev/null");
     bool ok = Executor::shell("usermod -aG docker " + cur_user).ok();
     if (ok) {
-        Logger::ok("用户 " + cur_user + " 已添加到 docker 组");
-        Logger::info("请重新登录使更改生效");
+        Logger::ok(_f("docker.user_added_to_group", cur_user));
+        Logger::info(_("docker.relogin_hint"));
     }
     return ok;
 }
 
 bool DockerManager::install_qemu_user_static() {
-    Logger::step("安装 qemu-user-static 跨架构支持...");
+    Logger::step(_("docker.installing_qemu"));
 
     // 方法 1: 通过包管理器安装
     if (is_debian_family() || is_redhat_family() || is_arch_family()) {
@@ -486,12 +485,12 @@ bool DockerManager::install_qemu_user_static() {
         auto result = Executor::passthrough(
             "docker run --rm --privileged multiarch/qemu-user-static:register --reset 2>/dev/null");
         if (result.ok()) {
-            Logger::ok("qemu-user-static 已注册 — 支持跨架构运行容器");
+            Logger::ok(_("docker.qemu_registered"));
             return true;
         }
     }
 
-    Logger::warn("qemu-user-static 注册可能未成功");
+    Logger::warn(_("docker.qemu_register_failed"));
     return false;
 }
 
@@ -545,7 +544,7 @@ bool DockerManager::is_alpine() const {
 }
 
 bool DockerManager::add_docker_debian_repo() {
-    Logger::step("添加 Docker Debian 软件源...");
+    Logger::step(_("docker.adding_debian_repo"));
 
     std::string release = detect_linux_release();
     if (release.empty()) release = "debian";
@@ -583,7 +582,7 @@ bool DockerManager::add_docker_debian_repo() {
     // 更新索引
     Executor::passthrough(cfg_.update_command);
 
-    Logger::ok("Docker 软件源已添加");
+    Logger::ok(_("docker.debian_repo_added"));
     return true;
 }
 

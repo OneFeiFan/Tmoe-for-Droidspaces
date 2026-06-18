@@ -1,4 +1,5 @@
 #include "executor.h"
+#include "i18n.h"
 
 
 namespace tmoe {
@@ -159,7 +160,7 @@ ExecResult Executor::passthrough(std::string_view cmd) {
     }
 
     if (has("sudo")) {
-        Logger::warn("This operation requires root privileges. Elevating via sudo...");
+        Logger::warn(_("exec.sudo_elevating"));
 
         std::vector<char*> exec_args;
         exec_args.push_back(const_cast<char*>("sudo"));
@@ -172,11 +173,11 @@ ExecResult Executor::passthrough(std::string_view cmd) {
 
         ::execvp("sudo", exec_args.data());
 
-        Logger::error("Failed to elevate privileges via sudo!");
+        Logger::error(_("exec.sudo_failed"));
         std::exit(1);
 
     } else if (has("su")) {
-        Logger::warn("sudo not found. Elevating via su. Please enter root password...");
+        Logger::warn(_("exec.su_elevating"));
 
         std::string cmd = argv[0];
         for (int i = 1; i < argc; ++i) {
@@ -192,14 +193,14 @@ ExecResult Executor::passthrough(std::string_view cmd) {
 
         ::execvp("su", exec_args.data());
 
-        Logger::error("Failed to elevate privileges via su!");
+        Logger::error(_("exec.su_failed"));
         std::exit(1);
     } else {
-        Logger::error("Root privileges required, but neither sudo nor su was found!");
+        Logger::error(_("exec.no_su_sudo"));
         std::exit(1);
     }
 #else
-    Logger::error("Current platform does not support automatic privilege elevation");
+    Logger::error(_("exec.no_auto_elevate"));
     std::exit(1);
 #endif
 }

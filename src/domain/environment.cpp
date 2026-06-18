@@ -3,7 +3,7 @@
 
 namespace tmoe::domain {
     bool Environment::initialize() {
-        Logger::step("Initializing tmoes work environment");
+        Logger::step(_("env.initializing"));
         cfg_.ensure_dirs();
         // TODO: 设置临时文件、清理残留状态
         return true;
@@ -15,7 +15,7 @@ namespace tmoe::domain {
             return true;
         }
 
-        Logger::step("Checking host system dependencies...");
+        Logger::step(_("env.checking_deps"));
         std::string missing_pkgs = "";
 
         // 1. 检查 sudo (Alpine 除外)
@@ -40,30 +40,30 @@ namespace tmoe::domain {
         }
 
         if (!missing_pkgs.empty()) {
-            Logger::warn("Missing core dependencies, installing via package manager: " + missing_pkgs);
-            Logger::info("Command: " + cfg_.install_command + missing_pkgs);
+            Logger::warn(_("env.missing_deps") + ": " + missing_pkgs);
+            Logger::info(_("env.install_cmd") + ": " + cfg_.install_command + missing_pkgs);
 
             Executor::passthrough(cfg_.update_command);
 
             if (Executor::passthrough(cfg_.install_command + missing_pkgs).ok()) {
-                Logger::ok("Dependencies installed successfully!");
+                Logger::ok(_("env.deps_ok"));
             } else {
-                Logger::error("Dependency installation failed! Please try running package manager commands manually.");
+                Logger::error(_("env.deps_failed"));
                 return false;
             }
         } else {
-            Logger::ok("Basic dependency check passed.");
+            Logger::ok(_("env.deps_passed"));
         }
 
         // 4. 确保 locale 基础设施
         if (cfg_.linux_distro == "debian") {
             if (!Executor::has("locale-gen")) {
-                Logger::step("Installing locales package...");
+                Logger::step(_("env.installing_locales"));
                 Executor::passthrough(cfg_.install_command + " locales 2>/dev/null || true");
             }
         } else if (cfg_.linux_distro == "alpine") {
             if (Executor::shell("apk info -e musl-locales 2>/dev/null").exit_code != 0) {
-                Logger::step("Installing musl-locales...");
+                Logger::step(_("env.installing_musl_locales"));
                 Executor::passthrough(cfg_.install_command + " musl-locales 2>/dev/null || true");
             }
         }
@@ -72,7 +72,7 @@ namespace tmoe::domain {
         if (cfg_.linux_distro == "debian") {
             auto audit = Executor::shell("dpkg --audit 2>/dev/null");
             if (!audit.stdout_data.empty() || audit.exit_code != 0) {
-                Logger::warn("Detected abnormal dpkg state (previous operation may have been interrupted)");
+                Logger::warn(_("env.dpkg_abnormal"));
                 bool has_issue = false;
 
                 // 检查是否需要在 dpkg --configure -a
@@ -80,7 +80,7 @@ namespace tmoe::domain {
                     "ls /var/lib/dpkg/updates/tmp.* 2>/dev/null | head -1");
                 if (!pending.stdout_data.empty()) {
                     has_issue = true;
-                    Logger::info("  Incomplete dpkg configuration found");
+                    Logger::info(_("env.dpkg_incomplete_config"));
                 }
 
                 // 检查锁文件
@@ -88,9 +88,9 @@ namespace tmoe::domain {
                     auto lock_owner = Executor::shell("fuser /var/lib/dpkg/lock 2>/dev/null");
                     if (lock_owner.stdout_data.empty()) {
                         has_issue = true;
-                        Logger::info("  Stale dpkg lock file found (no process holding it)");
+                        Logger::info(_("env.dpkg_stale_lock"));
                     } else {
-                        Logger::info("  Another apt/dpkg process is running, skipping auto-repair");
+                        Logger::info(_("env.dpkg_process_running"));
                     }
                 }
 
@@ -98,7 +98,7 @@ namespace tmoe::domain {
                 auto broken = Executor::shell("apt-get check 2>&1");
                 if (!broken.ok()) {
                     has_issue = true;
-                    Logger::info("  Broken package dependencies found");
+                    Logger::info(_("env.dpkg_broken_deps"));
                 }
 
                 if (has_issue && Logger::confirm(_("env.confirm_repair_dpkg"))) {
@@ -109,9 +109,9 @@ namespace tmoe::domain {
                     Executor::passthrough("dpkg --configure -a 2>&1 || true");
                     // 修复破损依赖
                     Executor::passthrough("apt --fix-broken install -y 2>&1 || true");
-                    Logger::ok("dpkg state repair completed");
+                    Logger::ok(_("env.dpkg_repair_ok"));
                 } else if (!has_issue) {
-                    Logger::info("dpkg anomaly is non-critical, skipping");
+                    Logger::info(_("env.dpkg_skip"));
                 }
             }
         }
@@ -137,13 +137,13 @@ namespace tmoe::domain {
         bool locale_ok = is_locale_generated(lang);
 
         if (!locale_ok) {
-            Logger::step("Generating locale: " + locale_str);
+            Logger::step(_f("env.locale_generating", locale_str));
 
             if (generate_locale_auto(lang)) {
                 locale_ok = true;
-                Logger::ok("Locale generated: " + locale_str);
+                Logger::ok(_f("env.locale_generated", locale_str));
             } else {
-                Logger::warn("Auto-generation of locale failed: " + locale_str);
+                Logger::warn(_f("env.locale_gen_failed", locale_str));
 
                 // Debian 系: 提供交互式 dpkg-reconfigure locales 回退
                 if (cfg_.linux_distro == "debian") {
@@ -155,14 +155,14 @@ namespace tmoe::domain {
                         generate_locale_debian_interactive();
                         if (is_locale_generated(lang)) {
                             locale_ok = true;
-                            Logger::ok("Locale generated: " + locale_str);
+                            Logger::ok(_f("env.locale_generated", locale_str));
                         }
                     }
                 }
 
                 // 仍未成功 → 给出手动配置指引
                 if (!locale_ok) {
-                    Logger::warn("Locale configuration incomplete. Please manually configure and switch language again:");
+                    Logger::warn(_("env.locale_incomplete"));
                     if (cfg_.linux_distro == "debian") {
                         Logger::info("  sudo dpkg-reconfigure locales");
                         Logger::info("  or: sudo locale-gen " + locale_str);
@@ -180,12 +180,12 @@ namespace tmoe::domain {
 
         // 字体覆盖检测与安装
         if (!has_font_coverage(lang)) {
-            Logger::warn("No font coverage detected for language: " + std::string(lang));
+            Logger::warn(_f("env.no_font_coverage", std::string(lang)));
             if (install_font_packages()) {
-                Logger::ok("Font package installation complete");
+                Logger::ok(_("env.font_install_ok"));
                 refresh_font_cache();
             } else {
-                Logger::warn("Font installation failed. Terminal may not display this language correctly.");
+                Logger::warn(_("env.font_install_failed"));
                 if (needs_cjk(lang)) {
                     Logger::info("Please manually install CJK font packages (e.g., fonts-noto-cjk / noto-fonts-cjk)");
                 } else if (needs_cyrillic(lang)) {
@@ -218,13 +218,13 @@ namespace tmoe::domain {
 
         // 方法1: localectl (systemd, 覆盖主流发行版)
         if (Executor::has("localectl")) {
-            Logger::step("Persisting system locale via localectl...");
+            Logger::step(_("env.locale_persisting"));
             auto r = Executor::passthrough("localectl set-locale LANG=" + locale_str);
             if (r.ok()) {
-                Logger::ok("System locale persisted as: " + locale_str);
+                Logger::ok(_f("env.locale_persist_ok", locale_str));
                 return true;
             }
-            Logger::warn("localectl failed, trying direct config file write...");
+            Logger::warn(_("env.localectl_failed"));
         }
 
         // 方法2: 直接写发行版配置文件
@@ -240,25 +240,25 @@ namespace tmoe::domain {
             else                                          conf_file = "/etc/default/locale";
         }
 
-        Logger::step("Writing system locale config: " + conf_file);
+        Logger::step(_f("env.locale_writing_config", conf_file));
         auto r = Executor::shell(
             "echo 'LANG=" + locale_str + "' > " + conf_file + " && "
             "echo 'LC_ALL=" + locale_str + "' >> " + conf_file);
         if (r.ok()) {
-            Logger::ok("System locale written to " + conf_file + " (takes effect after reboot)");
+            Logger::ok(_f("env.locale_written", conf_file));
             return true;
         }
 
-        Logger::error("Cannot write system locale config file: " + conf_file);
+        Logger::error(_f("env.locale_write_failed", conf_file));
         return false;
     }
 
     void Environment::open_uri(const std::string &uri) const {
         if (cfg_.is_termux) {
-            Logger::step("Launching Android intent: " + uri);
+            Logger::step(_f("env.launching_intent", uri));
             Executor::shell("am start -a android.intent.action.VIEW -d \"" + uri + "\" >/dev/null 2>&1");
         } else {
-            Logger::step("Launching host default program: " + uri);
+            Logger::step(_f("env.launching_program", uri));
             // 从 root 降权回真实用户以启动 UI 程序
             std::string sudo_user = std::getenv("SUDO_USER") ? std::getenv("SUDO_USER") : "";
             std::string cmd;
@@ -298,8 +298,8 @@ namespace tmoe::domain {
     }
 
     bool Environment::generate_locale_debian_interactive() {
-        Logger::info("Starting interactive locale configuration...");
-        Logger::info("dpkg-reconfigure locales will take over the terminal. You will return to tmoes automatically when done.");
+        Logger::info(_("env.dpkg_reconfigure_start"));
+        Logger::info(_("env.dpkg_reconfigure_info"));
         auto result = Executor::passthrough("dpkg-reconfigure locales");
         return result.ok();
     }
@@ -328,10 +328,10 @@ namespace tmoe::domain {
     }
 
     bool Environment::install_font_packages() {
-        Logger::step("Installing Noto font family (CJK + Cyrillic + Emoji)...");
+        Logger::step(_("env.installing_fonts"));
 
         if (cfg_.linux_distro == "openwrt") {
-            Logger::warn("OpenWRT: Skipping font installation, please configure terminal fonts manually");
+            Logger::warn(_("env.font_skip_openwrt"));
             return true;
         }
 
@@ -369,9 +369,9 @@ namespace tmoe::domain {
         }
 
         if (ok) {
-            Logger::ok("Font package installation complete");
+            Logger::ok(_("env.font_install_ok"));
         } else {
-            Logger::warn("Font package installation failed");
+            Logger::warn(_("env.font_install_failed"));
         }
         return ok;
     }

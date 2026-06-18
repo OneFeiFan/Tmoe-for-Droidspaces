@@ -1,6 +1,7 @@
 #include "domain/runtime.h"
 #include "core/executor.h"
 #include "core/logger.h"
+#include "core/i18n.h"
 #include <filesystem>
 #include <cstdlib>
 #include <unordered_map>
@@ -20,11 +21,11 @@ bool QemuUserRuntime::install() {
     // 此函数逻辑对应 Bash 版 install_qemu_user_static()
     // 简化版: 检查已有版本，需要时下载
     std::string ver_file = tmoe_linux_dir + "/lib/usr/bin/version.txt";
-    Logger::step("[QEMU-User] 检查 qemu-user-static 安装...");
+    Logger::step(_("qemu_user.checking"));
 
     // 构建完整 QEMU 架构列表
     // 对应 Bash 版: amd64→x86_64, arm64→aarch64, ppc64el→ppc64le
-    Logger::step("[QEMU-User] 如需完整下载功能，请通过包管理器安装 qemu-user-static");
+    Logger::step(_("qemu_user.install_hint"));
     Logger::info("Debian/Ubuntu: apt install qemu-user-static");
     Logger::info("Arch Linux: pacman -S qemu-user-static");
     Logger::info("Termux: pkg install qemu-user-{arch}");
@@ -47,15 +48,15 @@ bool QemuUserRuntime::install() {
     }
 
     if (found > 0) {
-        Logger::ok("[QEMU-User] 已安装 " + std::to_string(found) + " 个架构二进制文件");
+        Logger::ok(_f("qemu_user.installed_count", std::to_string(found)));
         return true;
     }
-    Logger::warn("[QEMU-User] 未检测到 qemu-user-static 二进制文件");
+    Logger::warn(_("qemu_user.not_detected"));
     return false;
 }
 
 bool QemuUserRuntime::remove() {
-    Logger::step("[QEMU-User] 移除 qemu-user-static...");
+    Logger::step(_("qemu_user.removing"));
     // 对应 Bash 版 remove_qemu_user_static(): 删除二进制文件和版本文件
     std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
     std::string tmoe_linux_dir = home + "/.local/share/tmoe-linux";
@@ -64,7 +65,7 @@ bool QemuUserRuntime::remove() {
     if (fs::exists(prefix)) {
         Executor::shell("rm -f " + prefix + "/qemu-*-static");
         Executor::shell("rm -f " + prefix + "/version.txt");
-        Logger::ok("[QEMU-User] 已移除");
+        Logger::ok(_("qemu_user.removed"));
     }
     return true;
 }

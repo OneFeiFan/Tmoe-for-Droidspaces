@@ -14,18 +14,7 @@
 
 /** 输出命令行使用帮助。 */
 static void print_usage() {
-    std::cout << R"(tmoes — GNU/Linux 容器管理工具 (现代化 C++17 版本)
-
-用法:
-  tmoes                       进入交互式 TUI 菜单
-  tmoes [mode] [args...]      依据位置状态机解析引导容器运行
-
-全局快捷命令选项:
-  --lang <zh_CN|en_US>       手动覆盖国际化显示语言
-  --quiet                    安静模式 (抑制 DEBUG 等输出)
-  --no-color                 禁用彩色终端输出效果
-  --help, -h                 查看此帮助
-)";
+    std::cout << _("cli.usage");
 }
 
 /** 程序入口。
@@ -117,8 +106,9 @@ int main(int argc, char *argv[]) {
 
     // 复刻原版 Bash 行为：位置参数过多时发出警告
     if (pos_args.size() >= 7) {
-        tmoe::Logger::error("ERROR, number of arguments exceeded.");
-        std::fprintf(stderr, "Please retype the commands: tmoe %s %s %s %s %s %s\n",
+        tmoe::Logger::error(_("cli.too_many_args"));
+        std::fprintf(stderr, "%s tmoe %s %s %s %s %s %s\n",
+                     _("cli.retype_hint").c_str(),
                      pos_args[0].data(), pos_args[1].data(), pos_args[2].data(),
                      pos_args[3].data(), pos_args[4].data(), pos_args[5].data());
     }

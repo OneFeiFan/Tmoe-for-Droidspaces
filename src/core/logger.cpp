@@ -1,4 +1,5 @@
 #include "core/logger.h"
+#include "core/i18n.h"
 #include <cstdio>
 #include <ctime>
 #include <sstream>
@@ -76,7 +77,7 @@ void Logger::step(std::string_view msg) {
 
 void Logger::press_enter() {
     if (quiet_mode) return;
-    std::fprintf(stderr, "%s[ENTER] 按回车继续...%s", ansi(INFO), RESET);
+    std::fprintf(stderr, "%s[ENTER] %s%s", ansi(INFO), RESET, _("misc.press_enter").c_str());
     std::fflush(stderr);
 #ifndef _WIN32
     tcflush(STDIN_FILENO, TCIFLUSH);

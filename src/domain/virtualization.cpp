@@ -32,8 +32,8 @@ namespace tmoe::domain {
             } else if (choice == "3") {
                 // Docker 管理委托给 DockerManager
                 // 这里输出提示引导到 Docker 菜单
-                Logger::info("Docker 管理请在主菜单选择对应选项");
-                Logger::info("或通过 CLI: tmoes docker");
+                Logger::info(_("virt.docker_hint"));
+                Logger::info(_("virt.docker_cli_hint"));
             } else if (choice == "4") {
                 install_virtualbox();
             } else if (choice == "5") {
@@ -73,14 +73,13 @@ namespace tmoe::domain {
 
         auto result = Executor::shell(cmd.str());
         if (result.ok()) {
-            Logger::ok("磁盘镜像已创建: " + disk_path.string() + " (" +
-                       std::to_string(size_gb) + " GB)");
+            Logger::ok(_f("virt.disk_created", disk_path.string(), std::to_string(size_gb)));
         }
         return result.ok();
     }
 
     bool VirtualizationManager::qemu_compress_disk(std::string_view disk_path) {
-        Logger::step("压缩 QCOW2 磁盘: " + std::string(disk_path));
+        Logger::step(_f("virt.disk_compressing", std::string(disk_path)));
 
         fs::path original(disk_path);
         fs::path compressed = original.parent_path() /
@@ -93,9 +92,8 @@ namespace tmoe::domain {
         if (result.ok()) {
             auto orig_size = fs::file_size(original) / (1024 * 1024);
             auto comp_size = fs::file_size(compressed) / (1024 * 1024);
-            Logger::ok("磁盘已压缩: " + std::to_string(orig_size) + " MB → " +
-                       std::to_string(comp_size) + " MB");
-            Logger::info("压缩后文件: " + compressed.string());
+            Logger::ok(_f("virt.disk_compressed", std::to_string(orig_size), std::to_string(comp_size)));
+            Logger::info(_f("virt.compressed_file", compressed.string()));
         }
         return result.ok();
     }
@@ -103,7 +101,7 @@ namespace tmoe::domain {
     bool VirtualizationManager::qemu_create(std::string_view name,
                                             int64_t disk_size_gb,
                                             int ram_mb, int cpu_cores) {
-        Logger::step("创建 QEMU 虚拟机: " + std::string(name));
+        Logger::step(_f("virt.qemu_creating", std::string(name)));
 
         ensure_vm_dir();
 
@@ -137,21 +135,21 @@ namespace tmoe::domain {
         // 设置可执行权限
         Executor::shell("chmod +x \"" + script_path.string() + "\"");
 
-        Logger::ok("虚拟机已创建: " + std::string(name));
-        Logger::info("启动脚本: " + script_path.string());
-        Logger::info("磁盘镜像: " + (vm_store_dir() / (std::string(name) + ".qcow2")).string());
+        Logger::ok(_f("virt.vm_created", std::string(name)));
+        Logger::info(_f("virt.start_script", script_path.string()));
+        Logger::info(_f("virt.disk_image", (vm_store_dir() / (std::string(name) + ".qcow2")).string()));
 
         return true;
     }
 
     bool VirtualizationManager::qemu_start(std::string_view name) {
-        Logger::step("启动 QEMU 虚拟机: " + std::string(name));
+        Logger::step(_f("virt.qemu_starting", std::string(name)));
 
         fs::path script = vm_store_dir() / (std::string(name) + "_start.sh");
         if (fs::exists(script)) {
             std::string cmd = "bash \"" + script.string() + "\" &";
             Executor::passthrough(cmd);
-            Logger::ok("虚拟机正在启动 (后台)...");
+            Logger::ok(_("virt.vm_starting_bg"));
             return true;
         }
 
@@ -164,21 +162,21 @@ namespace tmoe::domain {
                               "-vnc :1 -netdev user,id=net0 "
                               "-device virtio-net-pci,netdev=net0 &";
             Executor::passthrough(cmd);
-            Logger::ok("虚拟机正在启动 (后台)...");
-            Logger::info("VNC 地址: 127.0.0.1:5901");
+            Logger::ok(_("virt.vm_starting_bg"));
+            Logger::info(_("virt.vnc_address"));
             return true;
         }
 
-        Logger::error("未找到虚拟机 " + std::string(name) + "，请先使用 qemu_create 创建");
+        Logger::error(_f("virt.vm_not_found", std::string(name)));
         return false;
     }
 
     bool VirtualizationManager::qemu_stop(std::string_view name) {
-        Logger::step("停止 QEMU 虚拟机...");
+        Logger::step(_("virt.qemu_stopping"));
 
         // 通过 qemu monitor 或 kill 发送关机信号
         Executor::shell("pkill -f \"qemu-system.*" + std::string(name) + "\" 2>/dev/null");
-        Logger::ok("已发送停止信号");
+        Logger::ok(_("virt.stop_signal_sent"));
         return true;
     }
 
@@ -255,7 +253,7 @@ namespace tmoe::domain {
                     }
                 }
                 if (vms.empty()) {
-                    Logger::warn("未找到已创建的虚拟机");
+                    Logger::warn(_("virt.no_vms_found"));
                     continue;
                 }
                 std::string sub_menu = cfg_.tui_bin +
@@ -276,9 +274,9 @@ namespace tmoe::domain {
             } else if (choice == "4") {
                 auto list = qemu_list();
                 if (list.empty()) {
-                    Logger::info("当前无运行中的 QEMU 虚拟机");
+                    Logger::info(_("virt.no_running_vms"));
                 } else {
-                    Logger::info("运行中的虚拟机:");
+                    Logger::info(_("virt.running_vms"));
                     for (const auto &l: list) {
                         Logger::info("  " + l);
                     }
@@ -357,17 +355,17 @@ namespace tmoe::domain {
         }
 
         if (!target) {
-            Logger::error("不支持的 ISO: " + std::string(os_name));
+            Logger::error(_f("virt.unsupported_iso", std::string(os_name)));
             return false;
         }
 
         ensure_vm_dir();
         fs::path iso_path = vm_store_dir() / (std::string(os_name) + ".iso");
 
-        Logger::step("下载 " + std::string(os_name) + " ISO...");
-        Logger::info("来源: " + target->url);
-        Logger::info("保存至: " + iso_path.string());
-        Logger::info("(下载大型 ISO 可能需要较长时间)");
+        Logger::step(_f("virt.downloading_iso", std::string(os_name)));
+        Logger::info(_f("virt.iso_source", target->url));
+        Logger::info(_f("virt.iso_save_path", iso_path.string()));
+        Logger::info(_("virt.iso_download_hint"));
 
         // 使用 wget 或 curl 下载
         std::string dl_cmd = "wget -O \"" + iso_path.string() +
@@ -381,19 +379,18 @@ namespace tmoe::domain {
         auto result = Executor::passthrough(dl_cmd);
         if (result.ok() && fs::exists(iso_path)) {
             auto size_mb = fs::file_size(iso_path) / (1024 * 1024);
-            Logger::ok("ISO 下载完成: " + iso_path.string() +
-                       " (" + std::to_string(size_mb) + " MB)");
+            Logger::ok(_f("virt.iso_download_ok", iso_path.string(), std::to_string(size_mb)));
             return true;
         }
 
-        Logger::error("ISO 下载失败");
+        Logger::error(_("virt.iso_download_failed"));
         return false;
     }
 
     bool VirtualizationManager::download_disk_image(std::string_view template_name) {
-        Logger::step("下载预构建磁盘镜像: " + std::string(template_name));
-        Logger::info("预构建镜像下载目前需要手动从上游获取");
-        Logger::info("推荐使用 alpine-docker 模板快速开始");
+        Logger::step(_f("virt.downloading_template", std::string(template_name)));
+        Logger::info(_("virt.template_manual_hint"));
+        Logger::info(_("virt.template_recommend"));
 
         if (template_name == "alpine-docker") {
             ensure_vm_dir();
@@ -406,7 +403,7 @@ namespace tmoe::domain {
             return true;
         }
 
-        Logger::warn("预构建模板 " + std::string(template_name) + " 暂未实现自动下载");
+        Logger::warn(_f("virt.template_not_implemented", std::string(template_name)));
         return false;
     }
 
@@ -453,7 +450,7 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
 
     bool VirtualizationManager::install_virtualbox() {
-        Logger::step("安装 VirtualBox...");
+        Logger::step(_("virt.installing_vbox"));
 
         if (is_debian() || is_ubuntu()) {
             // 添加 VirtualBox 软件源
@@ -468,8 +465,8 @@ namespace tmoe::domain {
             }
 
             if (result.ok()) {
-                Logger::ok("VirtualBox 已安装");
-                Logger::info("加载内核模块: sudo modprobe vboxdrv");
+                Logger::ok(_("virt.vbox_installed"));
+                Logger::info(_("virt.vbox_modprobe_hint"));
                 return true;
             }
         }
@@ -477,21 +474,21 @@ namespace tmoe::domain {
         if (is_arch()) {
             auto result = Executor::passthrough("pacman -S --noconfirm virtualbox virtualbox-host-modules-arch");
             if (result.ok()) {
-                Logger::ok("VirtualBox 已安装");
+                Logger::ok(_("virt.vbox_installed"));
                 return true;
             }
         }
 
-        Logger::error("当前发行版不支持自动安装 VirtualBox");
-        Logger::info("请手动安装: https://www.virtualbox.org/wiki/Downloads");
+        Logger::error(_("virt.vbox_unsupported"));
+        Logger::info(_("virt.vbox_manual_hint"));
         return false;
     }
 
     bool VirtualizationManager::install_vbox_extension_pack() {
-        Logger::step("安装 VirtualBox Extension Pack...");
+        Logger::step(_("virt.installing_vbox_ext"));
         auto result = Executor::passthrough(cfg_.install_command + " virtualbox-ext-pack");
         if (result.ok()) {
-            Logger::ok("Extension Pack 已安装");
+            Logger::ok(_("virt.vbox_ext_installed"));
         }
         return result.ok();
     }
@@ -510,7 +507,7 @@ namespace tmoe::domain {
     }
 
     bool VirtualizationManager::install_wine(std::string_view branch) {
-        Logger::step("安装 Wine (" + std::string(branch) + ")...");
+        Logger::step(_f("virt.installing_wine", std::string(branch)));
 
         if (is_debian() || is_ubuntu()) {
             // 启用 32 位架构
@@ -536,8 +533,8 @@ namespace tmoe::domain {
             }
 
             if (result.ok()) {
-                Logger::ok("Wine (" + std::string(branch) + ") 已安装");
-                Logger::info("运行 winecfg 进行初始配置");
+                Logger::ok(_f("virt.wine_installed", std::string(branch)));
+                Logger::info(_("virt.wine_winecfg_hint"));
                 return true;
             }
         }
@@ -545,7 +542,7 @@ namespace tmoe::domain {
         if (is_arch()) {
             auto result = Executor::passthrough("pacman -S --noconfirm wine");
             if (result.ok()) {
-                Logger::ok("Wine 已安装");
+                Logger::ok(_("virt.wine_installed_simple"));
                 return true;
             }
         }
@@ -557,17 +554,17 @@ namespace tmoe::domain {
             return true;
         }
 
-        Logger::error("Wine 安装失败");
+        Logger::error(_("virt.wine_install_failed"));
         return false;
     }
 
     bool VirtualizationManager::install_winetricks() {
-        Logger::step("安装 Winetricks...");
+        Logger::step(_("virt.installing_winetricks"));
         auto result = Executor::passthrough(cfg_.install_command + " winetricks");
         if (result.ok()) {
-            Logger::ok("Winetricks 已安装");
+            Logger::ok(_("virt.winetricks_installed"));
         } else {
-            Logger::warn("Winetricks 安装可能失败，尝试手动下载...");
+            Logger::warn(_("virt.winetricks_fallback"));
             Executor::passthrough("wget -O /usr/local/bin/winetricks "
                 "https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks 2>/dev/null");
             Executor::shell("chmod +x /usr/local/bin/winetricks");
@@ -576,14 +573,13 @@ namespace tmoe::domain {
     }
 
     bool VirtualizationManager::install_dxvk() {
-        Logger::step("安装 DXVK (DirectX → Vulkan 转换层)...");
-        Logger::info("DXVK 通常通过 Winetricks 安装:");
-        Logger::info("  winetricks dxvk");
+        Logger::step(_("virt.installing_dxvk"));
+        Logger::info(_("virt.dxvk_hint"));
         return Executor::passthrough("winetricks dxvk 2>/dev/null").ok();
     }
 
     bool VirtualizationManager::install_playonlinux() {
-        Logger::step("安装 PlayOnLinux...");
+        Logger::step(_("virt.installing_pol"));
         return Executor::passthrough(cfg_.install_command + " playonlinux").ok();
     }
 
@@ -621,11 +617,11 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
 
     bool VirtualizationManager::install_virt_manager() {
-        Logger::step("安装 virt-manager (GUI 虚拟化管理器)...");
+        Logger::step(_("virt.installing_virt_manager"));
         auto result = Executor::passthrough(cfg_.install_command +
                                       " virt-manager qemu-kvm libvirt-daemon-system");
         if (result.ok()) {
-            Logger::ok("virt-manager 已安装");
+            Logger::ok(_("virt.virt_manager_installed"));
             Executor::passthrough("systemctl enable libvirtd 2>/dev/null");
             Executor::passthrough("systemctl start libvirtd 2>/dev/null");
             return true;

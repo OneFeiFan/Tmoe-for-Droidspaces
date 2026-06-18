@@ -13,6 +13,7 @@
 #include "core/executor.h"
 #include "core/logger.h"
 #include "core/config.h"
+#include "core/i18n.h"
 
 namespace fs = std::filesystem;
 
@@ -573,7 +574,7 @@ namespace tmoe::domain {
     // ── start/stop ──
 
     bool ChrootRuntime::start(const Container &container, const LaunchContext *ctx) {
-        Logger::step("Preparing Chroot container: " + container.name());
+        Logger::step(_f("chroot.preparing", container.name()));
 
         std::string rootfs = config_.rootfs_path.empty()
                                  ? container.rootfs_path()
@@ -614,7 +615,7 @@ namespace tmoe::domain {
 
         // 6. 生成并执行启动命令
         std::string cmd = generate_launch_cmd(container, ctx);
-        Logger::step("Chroot launch command: " + cmd);
+        Logger::step(_f("chroot.launch_cmd", cmd));
 
         // 注：Bash 原版在此处执行 unset LD_PRELOAD，
         //    但 C++ 每次 Executor::shell 调用独立 shell 进程，无需 unset。
@@ -623,7 +624,7 @@ namespace tmoe::domain {
     }
 
     bool ChrootRuntime::stop(const Container &container) {
-        Logger::step("Stopping Chroot container: " + container.name());
+        Logger::step(_f("chroot.stopping", container.name()));
 
         std::string rootfs = config_.rootfs_path.empty()
                                  ? container.rootfs_path()

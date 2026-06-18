@@ -205,7 +205,7 @@ namespace tmoe::domain {
         std::ostringstream oss;
         for (const auto &pkg: packages) oss << pkg << " ";
         std::string cmd = cfg_.install_command + " " + oss.str();
-        Logger::step("安装软件包: " + oss.str());
+        Logger::step(_f("gui.installing_pkgs", oss.str()));
         return Executor::passthrough(cmd).ok();
     }
 
@@ -224,7 +224,7 @@ namespace tmoe::domain {
         };
 
         if (!install_packages(pkgs)) {
-            Logger::warn("部分 VNC 组件安装失败，尝试继续...");
+            Logger::warn(_("gui.vnc.install_partial"));
         }
 
         // 检查 Xvnc 命令
@@ -233,19 +233,19 @@ namespace tmoe::domain {
 
     bool GUIManager::check_xvnc_command() {
         if (Executor::has("Xvnc")) {
-            Logger::ok("Xvnc 命令可用");
+            Logger::ok(_("gui.vnc.xvnc_ok"));
             return true;
         }
         if (Executor::has("Xtigervnc")) {
-            Logger::ok("Xtigervnc 命令可用");
+            Logger::ok(_("gui.vnc.xtigervnc_ok"));
             return true;
         }
         if (Executor::has("Xtightvnc")) {
-            Logger::ok("Xtightvnc 命令可用");
+            Logger::ok(_("gui.vnc.xtightvnc_ok"));
             return true;
         }
 
-        Logger::warn("未检测到 VNC 服务端，将自动安装...");
+        Logger::warn(_("gui.vnc.server_not_found"));
         return install_packages({"tigervnc-standalone-server"});
     }
 
@@ -269,13 +269,13 @@ namespace tmoe::domain {
             vnc_config_.server_bin = "tightvnc";
             vnc_config_.dep_server = "tightvncserver";
             vnc_config_.dep_viewer = "tigervnc-viewer";
-            Logger::info("已选择 TightVNC");
+            Logger::info(_("gui.vnc.selected_tight"));
         } else {
             vnc_config_.server = "tiger";
             vnc_config_.server_bin = "tigervnc";
             vnc_config_.dep_server = "tigervnc-standalone-server";
             vnc_config_.dep_viewer = "tigervnc-viewer";
-            Logger::info("已选择 TigerVNC");
+            Logger::info(_("gui.vnc.selected_tiger"));
         }
 
         return true;
@@ -303,7 +303,7 @@ namespace tmoe::domain {
                 passwd_to_use.pop_back();
 
             if (passwd_to_use.empty()) {
-                Logger::warn("密码为空，将使用无密码模式");
+                Logger::warn(_("gui.vnc.no_password"));
                 return true;
             }
         }
@@ -318,16 +318,16 @@ namespace tmoe::domain {
             if (cfg_.is_root) {
                 Executor::shell("chmod 600 " + vnc_config_.passwd_file.string() + " 2>/dev/null");
             }
-            Logger::ok("VNC 密码已设置 -> " + vnc_config_.passwd_file.string());
+            Logger::ok(_f("gui.vnc.password_set", vnc_config_.passwd_file.string()));
             return true;
         }
 
-        Logger::error("VNC 密码设置失败");
+        Logger::error(_("gui.vnc.password_failed"));
         return false;
     }
 
     bool GUIManager::configure_vnc_defaults() {
-        Logger::step("配置 TigerVNC 默认参数...");
+        Logger::step(_("gui.vnc.configuring_defaults"));
 
         fs::create_directories(vnc_config_.tigervnc_config.parent_path());
 
@@ -425,12 +425,12 @@ namespace tmoe::domain {
 
     bool GUIManager::configure_xstartup(std::string_view desktop) {
         // 对应 Bash: configure_vnc_xstartup()
-        Logger::step("配置 VNC Xsession — 桌面环境: " + std::string(desktop));
+        Logger::step(_f("gui.vnc.configuring_xsession", std::string(desktop)));
 
         // 1. 创建 Xsession
         std::string xsession_content = generate_xsession_content(desktop);
         if (!write_file(vnc_config_.xsession_file, xsession_content)) {
-            Logger::error("写入 Xsession 失败: " + vnc_config_.xsession_file.string());
+            Logger::error(_f("gui.vnc.xsession_write_failed", vnc_config_.xsession_file.string()));
             return false;
         }
         Executor::shell("chmod +x " + vnc_config_.xsession_file.string());
@@ -448,7 +448,7 @@ namespace tmoe::domain {
         // 3. 创建 ~/.vnc/xstartup
         std::string xstartup_content = generate_xstartup_content();
         if (!write_file(vnc_config_.xstartup_file, xstartup_content)) {
-            Logger::error("写入 xstartup 失败: " + vnc_config_.xstartup_file.string());
+            Logger::error(_f("gui.vnc.xstartup_write_failed", vnc_config_.xstartup_file.string()));
             return false;
         }
         Executor::shell("chmod +x " + vnc_config_.xstartup_file.string());
@@ -456,7 +456,7 @@ namespace tmoe::domain {
         // 4. 配置 tigervnc 默认配置
         configure_vnc_defaults();
 
-        Logger::ok("VNC Xsession 配置完成");
+        Logger::ok(_("gui.vnc.xsession_configured"));
         return true;
     }
 
@@ -547,19 +547,19 @@ namespace tmoe::domain {
 
         // 检查 Xvnc
         if (!check_xvnc_command()) {
-            Logger::error("VNC 服务端不可用");
+            Logger::error(_("gui.vnc.server_not_available"));
             return false;
         }
 
         // 确保 xstartup 存在
         if (!fs::exists(vnc_config_.xstartup_file)) {
-            Logger::warn("xstartup 不存在，创建默认配置...");
+            Logger::warn(_("gui.vnc.xstartup_missing"));
             configure_xstartup("xfce");
         }
 
         // 如果已经运行则提示
         if (is_vnc_running()) {
-            Logger::warn("VNC display :" + std::to_string(vnc_config_.display) + " 已在运行中");
+            Logger::warn(_f("gui.vnc.already_running", std::to_string(vnc_config_.display)));
             return true;
         }
 
@@ -579,14 +579,13 @@ namespace tmoe::domain {
             Logger::ok(_f("gui.vnc.started",
                           std::to_string(vnc_config_.rfb_port) + " (display :" +
                           std::to_string(vnc_config_.display) + ")"));
-            Logger::info("分辨率: " + std::to_string(vnc_config_.resolution_w) + "x" +
-                         std::to_string(vnc_config_.resolution_h));
-            Logger::info("连接地址: " + get_vnc_connection_uri());
+            Logger::info(_f("gui.vnc.resolution_info", std::to_string(vnc_config_.resolution_w) + "x" + std::to_string(vnc_config_.resolution_h)));
+            Logger::info(_f("gui.vnc.connection_address", get_vnc_connection_uri()));
 
             // 显示局域网地址
             std::string ips = get_local_ip_addresses();
             if (!ips.empty()) {
-                Logger::info("局域网地址: " + ips);
+                Logger::info(_f("gui.vnc.lan_address", ips));
             }
 
             // 写入 PID 文件
@@ -595,7 +594,7 @@ namespace tmoe::domain {
             return true;
         }
 
-        Logger::error("VNC 启动失败，查看日志: /tmp/tmoe_vnc_startup.log");
+        Logger::error(_("gui.vnc.start_failed"));
         return false;
     }
 
@@ -623,12 +622,12 @@ namespace tmoe::domain {
         // 5. 停止 websockify (noVNC)
         Executor::shell("pkill -f 'websockify.*:" + std::to_string(vnc_config_.rfb_port) + "' 2>/dev/null || true");
 
-        Logger::ok("VNC display :" + std::to_string(display) + " 已停止");
+        Logger::ok(_f("gui.vnc.stopped", std::to_string(display)));
         return true;
     }
 
     bool GUIManager::start_x11vnc(int display) {
-        Logger::step("启动 x11vnc 服务 (Xvfb)");
+        Logger::step(_("gui.x11vnc.starting"));
 
         int x11_display = (display > 0) ? display : 233;
 
@@ -646,25 +645,25 @@ namespace tmoe::domain {
         ExecResult result = Executor::passthrough(x11vnc_cmd);
 
         if (result.ok()) {
-            Logger::ok("x11vnc 已启动 — 端口 " + std::to_string(vnc_config_.rfb_port));
+            Logger::ok(_f("gui.x11vnc.started", std::to_string(vnc_config_.rfb_port)));
             return true;
         }
 
-        Logger::error("x11vnc 启动失败");
+        Logger::error(_("gui.x11vnc.start_failed"));
         return false;
     }
 
     bool GUIManager::stop_x11vnc() {
-        Logger::step("停止 x11vnc");
+        Logger::step(_("gui.x11vnc.stopping"));
         Executor::shell("pkill -f x11vnc 2>/dev/null || true");
         Executor::shell("pkill Xvfb 2>/dev/null || true");
         Executor::shell("rm -f /tmp/.X233-lock /tmp/.X11-unix/X233 2>/dev/null || true");
-        Logger::ok("x11vnc / Xvfb 已停止");
+        Logger::ok(_("gui.x11vnc.stopped"));
         return true;
     }
 
     bool GUIManager::kill_all_vnc() {
-        Logger::step("清理所有 VNC 进程...");
+        Logger::step(_("gui.vnc.killing_all"));
         Executor::shell("pkill Xtightvnc 2>/dev/null || true");
         Executor::shell("pkill Xtigervnc 2>/dev/null || true");
         Executor::shell("pkill Xvnc 2>/dev/null || true");
@@ -673,7 +672,7 @@ namespace tmoe::domain {
 
         // 清理所有锁文件
         Executor::shell("rm -f /tmp/.X*-lock /tmp/.X11-unix/X* 2>/dev/null || true");
-        Logger::ok("所有 VNC 进程已清理");
+        Logger::ok(_("gui.vnc.killed_all"));
         return true;
     }
 
@@ -721,14 +720,14 @@ namespace tmoe::domain {
 
         // 配置 VNC xstartup
         if (!configure_xstartup(desktop)) {
-            Logger::warn("xstartup 配置有部分问题，但桌面环境已安装");
+            Logger::warn(_("gui.desktop.xstartup_warn"));
         }
 
         Logger::ok(_f("gui.install.success", info.name));
 
         // 显示兼容性说明
         if (!info.compat_notes.empty()) {
-            Logger::info("兼容性说明: " + info.compat_notes);
+            Logger::info(_f("gui.desktop.compat_notes", info.compat_notes));
         }
 
         // 根据桌面类型推荐 VNC 服务端
@@ -737,7 +736,7 @@ namespace tmoe::domain {
 
         if (desktop_lower == "kde" || desktop_lower == "gnome" || desktop_lower == "cinnamon" ||
             desktop_lower == "dde" || desktop_lower == "ukui" || desktop_lower == "budgie") {
-            Logger::info("💡 强烈推荐使用 TigerVNC 以获得最佳兼容性");
+            Logger::info(_("gui.desktop.recommend_tiger"));
             vnc_config_.server = "tiger";
             vnc_config_.server_bin = "tigervnc";
         }
@@ -749,11 +748,11 @@ namespace tmoe::domain {
         const auto &registry = window_manager_registry();
         auto it = registry.find(std::string(wm));
         if (it == registry.end()) {
-            Logger::error("不支持的窗口管理器: " + std::string(wm));
+            Logger::error(_f("gui.wm.unsupported", std::string(wm)));
             return false;
         }
 
-        Logger::step("安装窗口管理器: " + std::string(wm));
+        Logger::step(_f("gui.wm.installing", std::string(wm)));
 
         std::vector<std::string> pkgs;
         std::istringstream iss(it->second);
@@ -777,11 +776,11 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
 
     bool GUIManager::install_novnc() {
-        Logger::step("安装 noVNC...");
+        Logger::step(_("gui.novnc.installing"));
 
         // 检查是否已安装
         if (fs::exists("/usr/share/novnc") || Executor::has("websockify")) {
-            Logger::ok("noVNC 已安装");
+            Logger::ok(_("gui.novnc.already_installed"));
             return true;
         }
 
@@ -793,7 +792,7 @@ namespace tmoe::domain {
 
         // 如果 apt 源没有 novnc，从 git 安装
         if (!fs::exists("/usr/share/novnc")) {
-            Logger::info("从 GitHub 克隆 noVNC...");
+            Logger::info(_("gui.novnc.cloning"));
             Executor::passthrough("git clone --depth=1 https://github.com/novnc/noVNC.git "
                 "/opt/novnc 2>/dev/null || true");
             if (fs::exists("/opt/novnc")) {
@@ -803,11 +802,11 @@ namespace tmoe::domain {
         }
 
         if (fs::exists("/usr/share/novnc") || fs::exists("/opt/novnc")) {
-            Logger::ok("noVNC 安装完成");
+            Logger::ok(_("gui.novnc.install_ok"));
             return true;
         }
 
-        Logger::error("noVNC 安装失败");
+        Logger::error(_("gui.novnc.install_failed"));
         return false;
     }
 
@@ -834,7 +833,7 @@ namespace tmoe::domain {
             try { novnc_port_ = std::stoi(choice); } catch (...) { novnc_port_ = 36080; }
         }
 
-        Logger::info("noVNC 端口设置为: " + std::to_string(novnc_port_));
+        Logger::info(_f("gui.novnc.port_set", std::to_string(novnc_port_)));
         return true;
     }
 
@@ -853,7 +852,7 @@ namespace tmoe::domain {
 
         // 确保 VNC 服务先启动
         if (!is_vnc_running()) {
-            Logger::info("VNC 未运行，正在启动...");
+            Logger::info(_("gui.novnc.vnc_not_running"));
             if (!start_vnc()) return false;
         }
 
@@ -867,7 +866,7 @@ namespace tmoe::domain {
         Executor::shell("sleep 2");
 
         Logger::ok(_f("gui.novnc.url", get_novnc_url()));
-        Logger::info("VNC 后端端口: " + std::to_string(vnc_config_.rfb_port));
+        Logger::info(_f("gui.novnc.vnc_backend_port", std::to_string(vnc_config_.rfb_port)));
         return true;
     }
 
@@ -880,11 +879,11 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
 
     bool GUIManager::install_xrdp() {
-        Logger::step("安装 XRDP...");
+        Logger::step(_("gui.xrdp.installing"));
 
         std::vector<std::string> pkgs = {"xrdp", "xorgxrdp"};
         if (!install_packages(pkgs)) {
-            Logger::error("XRDP 安装失败");
+            Logger::error(_("gui.xrdp.install_failed"));
             return false;
         }
 
@@ -909,7 +908,7 @@ namespace tmoe::domain {
         // 启动
         Executor::passthrough("service xrdp start 2>/dev/null || systemctl start xrdp 2>/dev/null || true");
 
-        Logger::ok("XRDP 安装完成，默认端口: 3389");
+        Logger::ok(_("gui.xrdp.install_ok"));
         return true;
     }
 
@@ -936,25 +935,25 @@ namespace tmoe::domain {
     }
 
     bool GUIManager::start_xrdp() {
-        Logger::step("启动 XRDP 服务...");
+        Logger::step(_("gui.xrdp.starting"));
         if (Executor::passthrough("service xrdp start 2>/dev/null || systemctl start xrdp 2>/dev/null").ok()) {
-            Logger::ok("XRDP 已启动 — 端口 3389");
+            Logger::ok(_("gui.xrdp.started"));
             return true;
         }
         // 备用: 直接启动 xrdp 守护进程
         if (Executor::passthrough("xrdp 2>/dev/null &").ok()) {
-            Logger::ok("XRDP 已启动 (直接模式)");
+            Logger::ok(_("gui.xrdp.started_direct"));
             return true;
         }
-        Logger::error("XRDP 启动失败");
+        Logger::error(_("gui.xrdp.start_failed"));
         return false;
     }
 
     bool GUIManager::stop_xrdp() {
-        Logger::step("停止 XRDP...");
+        Logger::step(_("gui.xrdp.stopping"));
         Executor::passthrough("service xrdp stop 2>/dev/null || systemctl stop xrdp 2>/dev/null || "
             "pkill xrdp 2>/dev/null || true");
-        Logger::ok("XRDP 已停止");
+        Logger::ok(_("gui.xrdp.stopped"));
         return true;
     }
 
@@ -963,8 +962,8 @@ namespace tmoe::domain {
         Executor::shell("sleep 1");
         bool ok = start_xrdp();
         if (ok) {
-            Logger::info("连接地址: rdp://127.0.0.1:3389");
-            Logger::info("WSL 用户请使用 Windows 远程桌面连接 localhost:3389");
+            Logger::info(_("gui.xrdp.connection_info"));
+            Logger::info(_("gui.xrdp.wsl_info"));
         }
         return ok;
     }
@@ -974,16 +973,16 @@ namespace tmoe::domain {
         std::string cmd = "sed -i 's/^port=.*/port=" + std::to_string(port) +
                           "/' /etc/xrdp/xrdp.ini 2>/dev/null";
         if (Executor::shell(cmd).ok()) {
-            Logger::ok("XRDP 端口已修改为: " + std::to_string(port));
-            Logger::info("需要重启 XRDP 使配置生效");
+            Logger::ok(_f("gui.xrdp.port_changed", std::to_string(port)));
+            Logger::info(_("gui.xrdp.restart_needed"));
             return true;
         }
-        Logger::error("修改 XRDP 端口失败");
+        Logger::error(_("gui.xrdp.port_failed"));
         return false;
     }
 
     bool GUIManager::remove_xrdp() {
-        Logger::step("卸载 XRDP...");
+        Logger::step(_("gui.xrdp.removing"));
         Executor::passthrough(cfg_.remove_command + " xrdp xorgxrdp 2>/dev/null || true");
         Logger::ok("XRDP 已卸载");
         return true;
@@ -1478,11 +1477,11 @@ namespace tmoe::domain {
             } else if (choice == "11") {
                 vnc_config_.compare_fb = !vnc_config_.compare_fb;
                 configure_vnc_defaults();
-                Logger::ok("CompareFB 已" + std::string(vnc_config_.compare_fb ? "启用" : "禁用"));
+                Logger::ok(vnc_config_.compare_fb ? _("gui.vnc.comparefb_enabled") : _("gui.vnc.comparefb_disabled"));
             } else if (choice == "12") {
                 vnc_config_.localhost_only = !vnc_config_.localhost_only;
                 configure_vnc_defaults();
-                Logger::ok("localhost 限制已" + std::string(vnc_config_.localhost_only ? "启用" : "禁用"));
+                Logger::ok(vnc_config_.localhost_only ? _("gui.vnc.localhost_enabled") : _("gui.vnc.localhost_disabled"));
             } else if (choice == "13") {
                 if (Logger::confirm(_("gui.confirm_kill_vnc"))) {
                     kill_all_vnc();
@@ -1686,7 +1685,7 @@ namespace tmoe::domain {
     }
 
     bool GUIManager::auto_install_gui(std::string_view desktop) {
-        Logger::info("自动安装 GUI 模式: " + std::string(desktop));
+        Logger::info(_f("gui.auto_install.mode", std::string(desktop)));
 
         // 1. 安装字体
         install_fonts();
@@ -1731,9 +1730,9 @@ namespace tmoe::domain {
         bool ok = start_vnc();
 
         if (ok) {
-            Logger::ok("🎉 GUI 自动安装完成！");
-            Logger::info("VNC 地址: " + get_vnc_connection_uri());
-            Logger::info("登录密码: tmoe123 (请及时修改)");
+            Logger::ok(_("gui.auto_install.complete"));
+            Logger::info(_f("gui.auto_install.vnc_address", get_vnc_connection_uri()));
+            Logger::info(_("gui.auto_install.password"));
         }
 
         return ok;

@@ -54,7 +54,7 @@ void BackupManager::run_backup_menu() {
             if (fs::exists(rootfs)) {
                 backup_container(name, rootfs);
             } else {
-                Logger::error("Path not found: " + rootfs);
+                Logger::error(_f("backup.path_not_found", rootfs));
             }
         } else if (choice == "2") {
             restore_container();
@@ -86,7 +86,7 @@ void BackupManager::run_backup_menu() {
         } else if (choice == "5") {
             auto backups = list_backups_detailed();
             if (backups.empty()) {
-                Logger::info("No backup files found");
+                Logger::info(_("backup.none_found"));
             } else {
                 Logger::info("Backup file list (" + cfg_.backup_dir.string() + "):");
                 for (const auto& [name, size_mb, mtime] : backups) {
@@ -176,7 +176,7 @@ void BackupManager::run_backup_menu() {
 
 bool BackupManager::backup_container(std::string_view container_name,
                                       std::string_view rootfs_path) {
-    Logger::step("Backing up container: " + std::string(container_name));
+    Logger::step(_f("backup.backing_up_container", std::string(container_name)));
 
     // 检查 rootfs 路径是否存在
     if (!fs::exists(rootfs_path)) {
@@ -275,10 +275,10 @@ bool BackupManager::backup_container(std::string_view container_name,
 
     if (ok) {
         auto size_human = get_archive_size_human(output_path.string());
-        Logger::ok("Backup complete: " + output_path.filename().string() + " (" + size_human + ")");
+        Logger::ok(_f("backup.complete", output_path.filename().string(), size_human));
         Logger::info("Backup location: " + output_path.string());
     } else {
-        Logger::error("Backup failed!");
+        Logger::error(_("backup.failed"));
     }
     return ok;
 }
@@ -355,7 +355,7 @@ bool BackupManager::backup_to_external_storage(std::string_view container_name,
 // ═══════════════════════════════════════════════════════════════
 
 bool BackupManager::clean_container_garbage(std::string_view rootfs_path) {
-    Logger::step("Cleaning container garbage files...");
+    Logger::step(_("backup.cleaning_garbage"));
 
     std::string root(rootfs_path);
 
@@ -394,7 +394,7 @@ bool BackupManager::clean_container_garbage(std::string_view rootfs_path) {
     // ── 5. 用户级垃圾（VNC/ZSH/应用缓存） ──
     clean_user_garbage(rootfs_path);
 
-    Logger::ok("Container garbage cleaned");
+    Logger::ok(_("backup.garbage_cleaned"));
     return true;
 }
 
@@ -607,7 +607,7 @@ void BackupManager::show_garbage_stats(std::string_view rootfs_path) {
 // ═══════════════════════════════════════════════════════════════
 
 bool BackupManager::restore_container(std::string_view archive_path) {
-    Logger::step("Restoring container...");
+    Logger::step(_("backup.restoring"));
 
     RestoreMode mode = tui_select_restore_mode();
     std::string archive;
@@ -744,9 +744,9 @@ bool BackupManager::restore_container(std::string_view archive_path) {
     bool ok = uncompress_archive(archive, target, use_progress);
 
     if (ok) {
-        Logger::ok("Restore complete! Container restored to: " + target);
+        Logger::ok(_f("backup.restore_complete", target));
     } else {
-        Logger::error("Restore failed! Please check disk space and backup file integrity.");
+        Logger::error(_("backup.restore_failed"));
     }
     return ok;
 }
@@ -937,7 +937,7 @@ std::vector<std::string> BackupManager::collect_extra_backup_targets(
 // ═══════════════════════════════════════════════════════════════
 
 bool BackupManager::install_timeshift() {
-    Logger::step("Installing Timeshift system snapshot tool...");
+    Logger::step(_("backup.timeshift_installing"));
 
     std::string install_cmd;
 
@@ -968,7 +968,7 @@ bool BackupManager::install_timeshift() {
         return false;
     }
 
-    Logger::ok("Timeshift installation complete!");
+    Logger::ok(_("backup.timeshift_install_ok"));
     return true;
 }
 

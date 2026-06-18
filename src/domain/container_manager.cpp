@@ -1,4 +1,5 @@
 #include "container_manager.h"
+#include "core/i18n.h"
 
 namespace fs = std::filesystem;
 
@@ -59,7 +60,7 @@ std::optional<Container> ContainerManager::find(std::string_view name) const {
 bool ContainerManager::remove(std::string_view name) const {
     fs::path target = cfg_.container_root / name;
     if (fs::exists(target)) {
-        Logger::step("正在销毁容器数据: " + std::string(name));
+        Logger::step(_f("container.destroying", std::string(name)));
         std::error_code ec;
         fs::remove_all(target, ec);
         return !ec;

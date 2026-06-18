@@ -37,10 +37,10 @@ std::string MirrorManager::detect_version_codename() const {
         if (r.ok() && !r.stdout_data.empty()) {
             auto s = r.stdout_data;
             while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
-            Logger::warn("VERSION_CODENAME 不可用，回退到检测到的版本名: " + s);
+            Logger::warn(_f("mirror.no_codename", s));
             return s;
         }
-        Logger::error("无法检测发行版版本号，回退到 sid");
+        Logger::error(_("mirror.cannot_detect_version"));
         return "sid";
     }
 
@@ -76,7 +76,7 @@ bool MirrorManager::ensure_backup() const {
     }
 
     if (backup_path.empty() || source_file.empty()) {
-        Logger::debug("当前发行版 " + cfg_.linux_distro + " 无备份路径配置，跳过备份");
+        Logger::debug(std::string(_("mirror.no_backup_config")) + " (" + cfg_.linux_distro + ")");
         return true;
     }
 
@@ -88,7 +88,7 @@ bool MirrorManager::ensure_backup() const {
 
     // RedHat: 打包整个 yum.repos.d 目录
     if (cfg_.linux_distro == "redhat") {
-        Logger::step("正在创建 RedHat yum.repos.d 备份...");
+        Logger::step(_("mirror.backing_up_redhat"));
         auto r = Executor::shell("mkdir -p \"$(dirname " + backup_path + ")\" && "
                                  "tar -Ppzcvf " + backup_path + " " + compat->source_dir);
         Logger::ok_or_fail(r.ok(), "备份 yum.repos.d");
@@ -96,7 +96,7 @@ bool MirrorManager::ensure_backup() const {
     }
 
     // 普通文件拷贝
-    Logger::step("正在备份原始软件源文件...");
+    Logger::step(_("mirror.backing_up"));
     auto r = Executor::shell("mkdir -p \"$(dirname " + backup_path + ")\" && "
                              "cp -pf " + source_file + " " + backup_path);
     Logger::ok_or_fail(r.ok(), "备份 " + source_file);
@@ -116,7 +116,7 @@ bool MirrorManager::ensure_backup() const {
 
 // ── 软件包数据库更新与升级 ──
 bool MirrorManager::run_update() const {
-    Logger::step("更新软件包数据库...");
+    Logger::step(_("mirror.updating"));
     if (cfg_.linux_distro == "debian" || cfg_.linux_distro == "ubuntu" || cfg_.linux_distro == "kali") {
         return Executor::passthrough("apt update").ok();
     }
@@ -147,10 +147,10 @@ bool MirrorManager::http_to_https_if_ca_available() const {
         return true;
     }
     if (!fs::exists("/usr/sbin/update-ca-certificates")) {
-        Logger::debug("未安装 ca-certificates，保持 http 源");
+        Logger::debug(std::string(_("mirror.no_ca_certs")));
         return true;
     }
-    Logger::step("检测到 ca-certificates，将 http 源替换为 https...");
+    Logger::step(_("mirror.ca_to_https"));
     Executor::shell("sed -i 's@http://@https://@g' /etc/apt/sources.list");
     Executor::shell("sed -i 's@https://security@http://security@g' /etc/apt/sources.list");
     return true;
@@ -189,7 +189,7 @@ bool MirrorManager::write_debian_sources(const MirrorEntry& mirror) {
     std::string codename = detect_version_codename();
     std::string url = mirror.url;
 
-    Logger::info("检测到 Debian " + codename + " 系统，正在切换到 " + mirror.name);
+    Logger::info(_f("mirror.switching_debian", codename, mirror.name));
 
     // 注释掉所有旧 deb 行
     Executor::shell("sed -i 's/^deb/# &/g' /etc/apt/sources.list");
@@ -230,14 +230,14 @@ bool MirrorManager::write_ubuntu_sources(const MirrorEntry& mirror) {
 
     // 兼容性检测: ftp.*.debian.org 等镜像只托管 Debian 包，不适用于 Ubuntu
     if (url.find(".debian.org") != std::string::npos) {
-        Logger::warn(mirror.name + " 是 Debian 专用镜像，不托管 Ubuntu 软件包！");
-        Logger::warn("建议改用多发行版镜像站（如清华 TUNA / 中科大 USTC / 阿里云）。");
+        Logger::warn(_f("mirror.debian_only_ubuntu", mirror.name));
+        Logger::warn(_("mirror.suggest_multi_distro_mirror"));
         if (!Logger::confirm(_("mirror.confirm_use_incompatible"))) {
             return false;
         }
     }
 
-    Logger::info("检测到 Ubuntu " + codename + " 系统，正在切换到 " + mirror.name);
+    Logger::info(_f("mirror.switching_ubuntu", codename, mirror.name));
 
     // 注释旧行 → 写入新模板
     Executor::shell("sed -i 's/^deb/# &/g' /etc/apt/sources.list");
@@ -251,7 +251,7 @@ bool MirrorManager::write_ubuntu_sources(const MirrorEntry& mirror) {
 
     // ARM: 自动切换到 ubuntu-ports
     if (cfg_.arch != "amd64" && cfg_.arch != "i386" && cfg_.arch != "x86_64") {
-        Logger::step("非 x86 架构，自动切换到 ubuntu-ports...");
+        Logger::step(_("mirror.switch_to_ubuntu_ports"));
         Executor::shell("sed -i 's:/ubuntu:/ubuntu-ports:g' /etc/apt/sources.list");
     }
 
@@ -263,14 +263,14 @@ bool MirrorManager::write_kali_sources(const MirrorEntry& mirror) {
 
     // 兼容性检测: ftp.*.debian.org 等镜像只托管 Debian 包，不适用于 Kali
     if (url.find(".debian.org") != std::string::npos) {
-        Logger::warn(mirror.name + " 是 Debian 专用镜像，不托管 Kali 软件包！");
-        Logger::warn("建议改用多发行版镜像站（如清华 TUNA / 中科大 USTC）。");
+        Logger::warn(_f("mirror.debian_only_kali", mirror.name));
+        Logger::warn(_("mirror.suggest_multi_distro_mirror_kali"));
         if (!Logger::confirm(_("mirror.confirm_use_incompatible"))) {
             return false;
         }
     }
 
-    Logger::info("检测到 Kali 系统，正在切换到 " + mirror.name);
+    Logger::info(_f("mirror.switching_kali", mirror.name));
 
     Executor::shell("sed -i 's/^deb/# &/g' /etc/apt/sources.list");
 
@@ -288,7 +288,7 @@ bool MirrorManager::write_kali_sources(const MirrorEntry& mirror) {
 
 bool MirrorManager::write_arch_sources(const MirrorEntry& mirror) {
     std::string url = mirror.url;
-    Logger::info("检测到 Arch Linux 系统，正在切换到 " + mirror.name);
+    Logger::info(_f("mirror.switching_arch", mirror.name));
 
     // 注释掉所有旧 Server 行
     Executor::shell("sed -i 's/^Server/#&/g' /etc/pacman.d/mirrorlist");
@@ -312,7 +312,7 @@ bool MirrorManager::write_alpine_sources(const MirrorEntry& mirror) {
     std::string version = detect_version_codename();
     std::string url = mirror.url;
 
-    Logger::info("检测到 Alpine " + version + " 系统，正在切换到 " + mirror.name);
+    Logger::info(_f("mirror.switching_alpine", version, mirror.name));
 
     // Alpine: 注释所有旧 http 行
     Executor::shell("cd /etc/apk/ && sed -i 's@^http@#&@g' repositories");
@@ -329,7 +329,7 @@ bool MirrorManager::write_alpine_sources(const MirrorEntry& mirror) {
 // ── Manjaro 源写入 ──
 bool MirrorManager::write_manjaro_sources(const MirrorEntry& mirror) {
     std::string url = mirror.url;
-    Logger::info("检测到 Manjaro 系统，正在切换到 " + mirror.name);
+    Logger::info(_f("mirror.switching_manjaro", mirror.name));
 
     // 注释所有旧 Server 行
     Executor::shell("sed -i 's/^Server/#&/g' /etc/pacman.d/mirrorlist");
@@ -353,14 +353,14 @@ bool MirrorManager::write_manjaro_sources(const MirrorEntry& mirror) {
 // ── RedHat/Fedora 源写入 ──
 bool MirrorManager::write_redhat_sources(const MirrorEntry& mirror) {
     std::string url = mirror.url;
-    Logger::info("检测到 RedHat/Fedora 系统，正在切换到 " + mirror.name);
+    Logger::info(_f("mirror.switching_redhat", mirror.name));
 
     // 备份整个 yum.repos.d 目录
     ensure_backup();
 
     int fedora_ver = detect_fedora_version();
     if (fedora_ver <= 0) {
-        Logger::error("无法检测 Fedora/RedHat 版本");
+        Logger::error(_("mirror.cannot_detect_fedora"));
         return false;
     }
 
@@ -371,7 +371,7 @@ bool MirrorManager::write_redhat_sources(const MirrorEntry& mirror) {
         fedora_31_repos(url);
         fedora_3x_repos(url);
     } else {
-        Logger::error("不支持 Fedora 29 及以下版本");
+        Logger::error(_("mirror.unsupported_fedora"));
         return false;
     }
 
@@ -447,18 +447,18 @@ void MirrorManager::fedora_3x_repos(const std::string& url) {
 // ── Solus 源写入 ──
 bool MirrorManager::write_solus_sources(const MirrorEntry& mirror) {
     std::string url = mirror.url;
-    Logger::info("检测到 Solus 系统，正在切换到 " + mirror.name);
+    Logger::info(_f("mirror.switching_solus", mirror.name));
 
     // Solus 使用 eopkg，先移除旧 mirror 再添加新的
     std::string repo_url = "https://" + url + "/solus/packages/shannon/eopkg-index.xml.xz";
 
-    Logger::step("移除旧 mirror 仓库...");
+    Logger::step(_("mirror.adding_solus_source"));
     Executor::shell("eopkg remove-repo mirror 2>/dev/null || true");
 
-    Logger::step("添加新镜像源: " + repo_url);
+    Logger::step(_("mirror.adding_solus_new"));
     auto r = Executor::shell("eopkg add-repo mirror " + repo_url);
     if (!r.ok()) {
-        Logger::error("添加 Solus 镜像源失败");
+        Logger::error(_("mirror.solus_add_failed"));
         return false;
     }
 
@@ -470,8 +470,8 @@ bool MirrorManager::write_solus_sources(const MirrorEntry& mirror) {
 
 // ── 下载速度测试 ──
 bool MirrorManager::run_download_speed_test() {
-    Logger::step("镜像站下载速度测试 (aria2c)");
-    Logger::warn("此操作可能消耗数十至上百兆流量！");
+    Logger::step(_("mirror.speedtest_header"));
+    Logger::warn(_("mirror.speedtest_warning"));
 
     if (!Logger::confirm(_("mirror.confirm_speed_test"))) {
         return false;
@@ -479,7 +479,7 @@ bool MirrorManager::run_download_speed_test() {
 
     // 检查 aria2c
     if (!Executor::has("aria2c")) {
-        Logger::step("安装 aria2...");
+        Logger::step(_("mirror.installing_aria2"));
         if (cfg_.linux_distro == "debian" || cfg_.linux_distro == "ubuntu" || cfg_.linux_distro == "kali")
             Executor::shell("apt install -y aria2 2>/dev/null || true");
         else if (cfg_.linux_distro == "arch")
@@ -489,7 +489,7 @@ bool MirrorManager::run_download_speed_test() {
     }
 
     if (!Executor::has("aria2c")) {
-        Logger::error("aria2c 不可用，跳过下载测速");
+        Logger::error(_("mirror.speedtest_no_aria2"));
         return false;
     }
 
@@ -521,12 +521,12 @@ bool MirrorManager::run_download_speed_test() {
     }
 
     if (targets.empty()) {
-        Logger::error("无可用的镜像站");
+        Logger::error(_("mirror.no_mirrors_available"));
         return false;
     }
 
-    Logger::info("测试文件: debian/ls-lR.gz (~数十MB)");
-    Logger::info("共 " + std::to_string(targets.size()) + " 个镜像站");
+    Logger::info(_("mirror.speedtest_test_file"));
+    Logger::info(_f("mirror.speedtest_mirror_count", std::to_string(targets.size())));
     Logger::info("---------------------------");
 
     struct SpeedResult {
@@ -539,7 +539,7 @@ bool MirrorManager::run_download_speed_test() {
         std::string test_url = "https://" + t.host + "/debian/ls-lR.gz";
         std::string tmpfile = "/tmp/.tmoe_speedtest_" + std::to_string(std::hash<std::string>{}(t.host));
 
-        Logger::info("  ⏳ " + t.name + " (" + t.host + ")");
+        Logger::info(_f("mirror.speedtest_checking", t.name, t.host));
         auto r = Executor::shell(
             "aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
             "--summary-interval=0 "
@@ -550,12 +550,12 @@ bool MirrorManager::run_download_speed_test() {
             while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
             if (!s.empty() && s != "N/A") {
                 speed_results.push_back({t.name, s});
-                Logger::info("    📥 " + s);
+                Logger::info(_f("mirror.speedtest_result", s));
             } else {
-                Logger::warn("    ⚠ 下载失败或速度不可测");
+                Logger::warn(_("mirror.speedtest_unstable"));
             }
         } else {
-            Logger::warn("    ⚠ 下载失败");
+            Logger::warn(_("mirror.speedtest_failed_single"));
         }
         Executor::shell("rm -f \"" + tmpfile + "\" 2>/dev/null || true");
     }
@@ -564,18 +564,18 @@ bool MirrorManager::run_download_speed_test() {
     Executor::shell("rm -f /tmp/.tmoe_speedtest_* 2>/dev/null || true");
 
     Logger::info("---------------------------");
-    Logger::ok("下载速度测试完成！");
-    Logger::info("提示: 下载速度快 ≠ 更新频率高，请自行选择。");
+    Logger::ok(_("mirror.speedtest_complete"));
+    Logger::info(_("mirror.speedtest_tip"));
     return true;
 }
 
 // ── Ping 延迟对比测试 ──
 bool MirrorManager::run_ping_latency_test() {
-    Logger::step("镜像站 Ping 延迟测试...");
+    Logger::step(_("mirror.ping_test_title"));
 
     auto mirrors = MirrorRegistry::instance().all();
     if (mirrors.empty()) {
-        Logger::error("镜像注册表为空");
+        Logger::error(_("mirror.ping_registry_empty"));
         return false;
     }
 
@@ -588,7 +588,7 @@ bool MirrorManager::run_ping_latency_test() {
     };
     std::vector<ResolvedTarget> resolved;
 
-    Logger::info("正在解析 DNS (" + std::to_string(mirrors.size()) + " 个镜像站)...");
+    Logger::info(_f("mirror.ping_resolving_dns", std::to_string(mirrors.size())));
     for (const auto& m : mirrors) {
         std::string host = m.url;
         auto pos = host.find("://");
@@ -600,18 +600,18 @@ bool MirrorManager::run_ping_latency_test() {
         if (!ip.empty()) {
             resolved.push_back({m.id, m.name, host, ip});
         } else {
-            Logger::warn("  DNS 解析失败: " + host + "，跳过");
+            Logger::warn(_f("mirror.ping_dns_failed_single", host));
         }
     }
 
     if (resolved.empty()) {
-        Logger::error("所有镜像站 DNS 均解析失败，无法测速");
+        Logger::error(_("mirror.ping_dns_all_failed"));
         return false;
     }
 
     // ═══ 第二步: 对已解析 IP 执行 ping（零 DNS 开销） ═══
-    Logger::info("正在 Ping 测试 (" + std::to_string(resolved.size()) + " 站, 每站 3 包)...");
-    Logger::info("──────────────────────────────────────────");
+    Logger::info(_f("mirror.ping_testing", std::to_string(resolved.size())));
+    Logger::info(_("mirror.ping_separator"));
 
     struct PingResult {
         std::string id;
@@ -631,18 +631,17 @@ bool MirrorManager::run_ping_latency_test() {
                 results.push_back({rt.id, rt.name, rt.host, avg});
                 // 按延迟着色显示
                 std::string color = (avg < 30) ? "🟢" : (avg < 80) ? "🟡" : "🔴";
-                Logger::info("  " + color + " " + rt.name + " (" + rt.host + "): " +
-                           std::to_string(avg).substr(0, 6) + " ms");
+                Logger::info("  " + color + " " + _f("mirror.ping_result_entry", rt.name, rt.host, std::to_string(avg).substr(0, 6)));
             } catch (...) {
-                Logger::warn("  ⚠ " + rt.name + ": ping 结果解析失败");
+                Logger::warn(_f("mirror.ping_result_parse_failed", rt.name));
             }
         } else {
-            Logger::warn("  ⚠ " + rt.name + " (" + rt.host + "): 无法 ping 通");
+            Logger::warn(_f("mirror.ping_unreachable", rt.name, rt.host));
         }
     }
 
     if (results.empty()) {
-        Logger::warn("所有镜像站均无法 ping 通");
+        Logger::warn(_("mirror.ping_all_failed"));
         return false;
     }
 
@@ -651,16 +650,14 @@ bool MirrorManager::run_ping_latency_test() {
               [](const PingResult& a, const PingResult& b) { return a.avg_ms < b.avg_ms; });
 
     Logger::info("───────────────��───────────────────────────");
-    Logger::info("📊 延迟排名 (低 → 高):");
+    Logger::info(_("mirror.ping_ranking"));
     for (size_t i = 0; i < results.size(); ++i) {
         std::string medal = (i == 0) ? "🥇" : (i == 1) ? "🥈" : (i == 2) ? "🥉" : "  ";
-        Logger::info("  " + medal + " " + std::to_string(i + 1) + ". " +
-                   results[i].name + " — " +
-                   std::to_string(results[i].avg_ms).substr(0, 6) + " ms");
+        Logger::info("  " + medal + " " + _f("mirror.ping_rank_entry", std::to_string(i + 1), results[i].name, std::to_string(results[i].avg_ms).substr(0, 6)));
     }
 
-    Logger::ok("Ping 测试完成！");
-    Logger::info("提示: 延迟低 ≠ 下载速度快，请结合下载测速综合选择。");
+    Logger::ok(_("mirror.ping_complete"));
+    Logger::info(_("mirror.ping_tip"));
     return true;
 }
 
@@ -684,7 +681,7 @@ bool MirrorManager::manage_extra_sources() {
             menu += "\"1\" \"" + _("mirror.extra_epel") + "\" ";
         }
     } else {
-        Logger::error("当前发行版 (" + distro + ") 不支持额外源管理");
+        Logger::error(_f("mirror.extra_unsupported", distro));
         return false;
     }
 
@@ -714,28 +711,28 @@ bool MirrorManager::add_kali_extra_source() {
     std::string keyring = "/usr/share/keyrings/kali-linux-archive-keyring.gpg";
 
     if (fs::exists(kali_list)) {
-        Logger::warn("检测到已存在 kali-linux.list，将移除后重新添加");
+        Logger::warn(_("mirror.kali_list_detected"));
         if (!Logger::confirm(_("mirror.confirm_remove_kali_reconfig"))) return false;
         Executor::shell("rm -fv " + kali_list + " " + keyring);
     }
 
-    Logger::step("安装 GnuPG...");
+    Logger::step(_("mirror.kali_install_gnupg"));
     Executor::shell("apt install -y gnupg 2>/dev/null || true");
 
-    Logger::step("下载 Kali 官方 archive-key...");
+    Logger::step(_("mirror.kali_downloading_key"));
     auto r = Executor::shell("curl -L https://archive.kali.org/archive-key.asc 2>/dev/null | "
                              "gpg --dearmor > /tmp/kali.gpg 2>/dev/null");
     if (!r.ok()) {
-        Logger::error("下载 Kali GPG 密钥失败");
+        Logger::error(_("mirror.kali_gpg_failed"));
         return false;
     }
 
     Executor::shell("install -o root -g root -m 644 /tmp/kali.gpg " + keyring);
 
-    Logger::step("写入 kali-linux.list...");
+    Logger::step(_("mirror.kali_writing_list"));
     std::ofstream ofs(kali_list);
     if (!ofs.is_open()) {
-        Logger::error("无法写入 " + kali_list);
+        Logger::error(_f("mirror.kali_write_failed", kali_list));
         return false;
     }
     ofs << "deb [signed-by=" + keyring + "] http://http.kali.org/kali/ kali-rolling main contrib non-free\n";
@@ -744,11 +741,11 @@ bool MirrorManager::add_kali_extra_source() {
     ofs << "# deb [signed-by=" + keyring + "] http://mirrors.bfsu.edu.cn/kali/ kali-last-snapshot main contrib non-free\n";
     ofs.close();
 
-    Logger::step("更新软件包数据库...");
+    Logger::step(_("mirror.updating"));
     Executor::shell("apt update");
     Executor::shell("apt install -y kali-menu 2>/dev/null || true");
 
-    Logger::ok("已成功将 Debian 源更换为 Kali 源！");
+    Logger::ok(_("mirror.kali_switch_ok"));
     return true;
 }
 
@@ -756,11 +753,11 @@ bool MirrorManager::add_kali_extra_source() {
 bool MirrorManager::add_archlinuxcn_source() {
     auto r = Executor::shell("grep -q 'archlinuxcn' /etc/pacman.conf");
     if (r.ok()) {
-        Logger::info("检测到已添加 archlinuxcn 源，跳过");
+        Logger::info(_("mirror.archlinuxcn_already_added"));
         return true;
     }
 
-    Logger::step("添加 archlinuxcn 源...");
+    Logger::step(_("mirror.archlinuxcn_adding"));
     Executor::shell(
         "cat >>/etc/pacman.conf <<-'TMOE_EOF'\n"
         "[archlinuxcn]\n"
@@ -768,11 +765,11 @@ bool MirrorManager::add_archlinuxcn_source() {
         "SigLevel = Never\n"
         "TMOE_EOF");
 
-    Logger::step("安装 keyring...");
+    Logger::step(_("mirror.archlinuxcn_installing_keyring"));
     Executor::shell("pacman -Syu --noconfirm archlinux-keyring 2>/dev/null || true");
     Executor::shell("pacman -Sy --noconfirm archlinuxcn-keyring 2>/dev/null || true");
 
-    Logger::step("安装 paru (AUR helper)...");
+    Logger::step(_("mirror.archlinuxcn_installing_paru"));
     if (!Executor::has("paru")) {
         Executor::shell("pacman -S --noconfirm paru 2>/dev/null || true");
     }
@@ -780,18 +777,18 @@ bool MirrorManager::add_archlinuxcn_source() {
         Executor::shell("pacman -S --noconfirm fakeroot 2>/dev/null || true");
     }
 
-    Logger::ok("archlinuxcn 源添加完成！");
+    Logger::ok(_("mirror.archlinuxcn_ok"));
     return true;
 }
 
 // ── EPEL 源 (RHEL/CentOS) ──
 bool MirrorManager::add_epel_source() {
-    Logger::step("安装 EPEL 源...");
+    Logger::step(_("mirror.epel_installing"));
     auto r = Executor::shell("yes | yum install -y epel-release 2>/dev/null || "
                              "yes | dnf install -y epel-release 2>/dev/null || true");
 
     if (!fs::exists("/etc/yum.repos.d/epel.repo")) {
-        Logger::error("EPEL 安装失败");
+        Logger::error(_("mirror.epel_failed"));
         return false;
     }
 
@@ -800,13 +797,13 @@ bool MirrorManager::add_epel_source() {
     Executor::shell("cp -pvf /etc/yum.repos.d/epel-testing.repo /etc/yum.repos.d/epel-testing.repo.backup 2>/dev/null || true");
 
     // 替换为 OpenTUNA 镜像
-    Logger::step("替换 EPEL 为 OpenTUNA 镜像...");
+    Logger::step(_("mirror.epel_replacing"));
     Executor::shell(
         "sed -E -e 's@^(metalink=)@#\\1@g' "
         "-e 's@^#(baseurl)=.*/pub/(epel)@\\1=https://opentuna.cn/\\2@g' "
         "-i /etc/yum.repos.d/epel.repo /etc/yum.repos.d/epel-testing.repo 2>/dev/null || true");
 
-    Logger::ok("EPEL 源配置完成！");
+    Logger::ok(_("mirror.epel_ok"));
     return true;
 }
 
@@ -814,11 +811,11 @@ bool MirrorManager::add_epel_source() {
 bool MirrorManager::add_rpmfusion_source() {
     int fv = detect_fedora_version();
     if (fv <= 0) {
-        Logger::error("无法检测 Fedora 版本");
+        Logger::error(_("mirror.rpmfusion_no_version"));
         return false;
     }
 
-    Logger::step("安装 RPMFusion 源 (Fedora " + std::to_string(fv) + ")...");
+    Logger::step(_f("mirror.rpmfusion_installing", std::to_string(fv)));
 
     std::string rpm_free = "https://mirrors.bfsu.edu.cn/rpmfusion/free/fedora/"
                            "rpmfusion-free-release-" + std::to_string(fv) + ".noarch.rpm";
@@ -839,53 +836,48 @@ bool MirrorManager::add_rpmfusion_source() {
         "      -i ${i}; "
         "done");
 
-    Logger::ok("RPMFusion 源配置完成！");
+    Logger::ok(_("mirror.rpmfusion_ok"));
     return true;
 }
 
 // ── 镜像源 FAQ ──
 void MirrorManager::show_mirror_faq() const {
-    Logger::info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    Logger::info("  镜像源 FAQ / 常见问题排查");
-    Logger::info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    Logger::info("");
-    Logger::info("🔧 三步排查法：");
-    Logger::info("");
-    Logger::info("  1️⃣  切换为 HTTP 源");
-    Logger::info("      在菜单选择「HTTP ⇄ HTTPS 协议切换」");
-    Logger::info("      切换为 HTTP，避免 HTTPS 证书问题");
+    Logger::info(_("mirror.faq_header"));
+    Logger::info(_("mirror.faq_step1_title"));
+    Logger::info(_("mirror.faq_step1_detail1"));
+    Logger::info(_("mirror.faq_step1_detail2"));
     Logger::info("");
     if (cfg_.linux_distro == "debian" || cfg_.linux_distro == "arch") {
-        Logger::info("  2️⃣  强制信任软件源");
-        Logger::info("      在菜单选择「强制信任软件源」");
+        Logger::info(_("mirror.faq_step2_title"));
+        Logger::info(_("mirror.faq_step2_detail1"));
         if (cfg_.linux_distro == "debian")
-            Logger::info("      此操作会在 /etc/apt/sources.list 中添加 [trusted=yes]");
+            Logger::info(_("mirror.faq_step2_debian"));
         else
-            Logger::info("      此操作会设置 SigLevel = Never");
+            Logger::info(_("mirror.faq_step2_arch"));
         Logger::info("");
     }
-    Logger::info("  3️⃣  更换为其他镜像源");
-    Logger::info("      不同镜像站的公钥状态可能不同");
-    Logger::info("      尝试商业镜像站或全球镜像站");
+    Logger::info(_("mirror.faq_step3_title"));
+    Logger::info(_("mirror.faq_step3_detail1"));
+    Logger::info(_("mirror.faq_step3_detail2"));
     Logger::info("");
-    Logger::info("💡 其他提示：");
-    Logger::info("  - 换源后请运行 apt update / pacman -Syy 刷新缓存");
-    Logger::info("  - 防火墙/代理可能阻止 HTTPS 连接");
-    Logger::info("  - 部分镜像站同步频率较低（每天1次）");
-    Logger::info("  - SSH 环境下可先尝试「还原默认官方源」");
-    Logger::info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    Logger::info(_("mirror.faq_tips_title"));
+    Logger::info(_("mirror.faq_tip1"));
+    Logger::info(_("mirror.faq_tip2"));
+    Logger::info(_("mirror.faq_tip3"));
+    Logger::info(_("mirror.faq_tip4"));
+    Logger::info(_("mirror.faq_footer"));
 }
 
 // ── 顶层 API: switch_to / auto_select / restore_official ──
 bool MirrorManager::switch_to(const std::string& mirror_id) {
     auto mirror_opt = MirrorRegistry::instance().find(mirror_id);
     if (!mirror_opt) {
-        Logger::error("未知的镜像源 ID: " + mirror_id);
+        Logger::error(_f("mirror.unknown_id", mirror_id));
         return false;
     }
 
     auto& mirror = *mirror_opt;
-    Logger::step("切换镜像源: " + mirror.name + " (" + mirror.url + ")");
+    Logger::step(_f("mirror.switch_to", mirror.name, mirror.url));
 
     // 备份原始源
     ensure_backup();
@@ -914,7 +906,7 @@ bool MirrorManager::switch_to(const std::string& mirror_id) {
     } else if (distro == "solus") {
         ok = write_solus_sources(mirror);
     } else {
-        Logger::error("不支持的发行版: " + distro + "，镜像源切换暂未实现");
+        Logger::error(_f("mirror.unsupported_distro", distro));
         return false;
     }
 
@@ -926,20 +918,20 @@ bool MirrorManager::switch_to(const std::string& mirror_id) {
     // 刷新软件包数据库
     bool update_ok = run_update();
     if (!update_ok) {
-        Logger::warn("apt update 失败 — 镜像源可能不可达或配置有误");
-        Logger::info("请尝试: 1) 切换 HTTP/HTTPS  2) 强制信任源  3) 更换其他镜像站");
+        Logger::warn(_("mirror.update_failed_hint"));
+        Logger::info(_("mirror.update_troubleshoot"));
     } else {
         run_dist_upgrade();
     }
 
     if (update_ok) {
-        Logger::ok("镜像源已切换完成！");
+        Logger::ok(_("mirror.switch_ok"));
     }
     return true;
 }
 
 bool MirrorManager::auto_select() {
-    Logger::step("自动选择最快镜像源（先解析DNS，再ping测速）...");
+    Logger::step(_("mirror.auto_select_start"));
 
     struct PingResult {
         std::string id;
@@ -954,7 +946,7 @@ bool MirrorManager::auto_select() {
     // ftp.*.debian.org / deb.debian.org 只托管 Debian 包，不适用于 Ubuntu/Kali
     std::vector<MirrorEntry> compatible_mirrors;
     bool needs_distro_filter = (cfg_.sub_distro == "ubuntu" || cfg_.sub_distro == "kali");
-    Logger::info("跳过 Debian 专用镜像 (" + cfg_.sub_distro + " 不兼容)");
+    Logger::info(_f("mirror.auto_select_skip_debian", cfg_.sub_distro));
     for (const auto& m : all_mirrors) {
         if (needs_distro_filter && m.url.find(".debian.org") != std::string::npos) {
             continue;
@@ -962,8 +954,7 @@ bool MirrorManager::auto_select() {
         compatible_mirrors.push_back(m);
     }
 
-    Logger::info("正在解析 DNS (" + std::to_string(compatible_mirrors.size()) +
-                 "/" + std::to_string(all_mirrors.size()) + " 个兼容镜像站)...");
+    Logger::info(_f("mirror.auto_select_resolving_dns", std::to_string(compatible_mirrors.size()), std::to_string(all_mirrors.size())));
 
     struct ResolvedMirror {
         std::string id;
@@ -978,12 +969,12 @@ bool MirrorManager::auto_select() {
             resolved.push_back({m.id, m.name, ip});
             // Logger::debug("  " + m.url + " → " + ip);
         } else {
-            Logger::warn("  DNS 解析失败: " + m.url + "，跳过");
+            Logger::warn(_f("mirror.auto_select_dns_failed_single", m.url));
         }
     }
 
     if (resolved.empty()) {
-        Logger::warn("所有镜像站 DNS 均解析失败，无法测速");
+        Logger::warn(_("mirror.auto_select_dns_failed"));
         return false;
     }
 
@@ -1000,15 +991,15 @@ bool MirrorManager::auto_select() {
                 Logger::info("  " + color + " " + rm.name + ": " +
                            std::to_string(avg).substr(0, 6) + " ms");
             } catch (...) {
-                Logger::warn("  ⚠ " + rm.name + ": ping 结果解析失败");
+                Logger::warn(_f("mirror.ping_result_parse_failed", rm.name));
             }
         } else {
-            Logger::warn("  ⚠ " + rm.name + ": 无法 ping 通");
+            Logger::warn(_f("mirror.ping_unreachable", rm.name, ""));
         }
     }
 
     if (results.empty()) {
-        Logger::warn("所有镜像站均无法 ping 通，保持当前源不变");
+        Logger::warn(_("mirror.auto_select_no_ping"));
         return false;
     }
 
@@ -1017,23 +1008,21 @@ bool MirrorManager::auto_select() {
               [](const PingResult& a, const PingResult& b) { return a.avg_ms < b.avg_ms; });
 
     Logger::info("───────────────��───────────────────────────");
-    Logger::info("📊 延迟排名 Top 5:");
+    Logger::info(_("mirror.auto_select_top5"));
     for (size_t i = 0; i < std::min(results.size(), size_t(5)); ++i) {
         std::string medal = (i == 0) ? "🥇" : (i == 1) ? "🥈" : (i == 2) ? "🥉" : "  ";
-        Logger::info("  " + medal + " " + std::to_string(i + 1) + ". " +
-                   results[i].name + " — " +
-                   std::to_string(results[i].avg_ms).substr(0, 6) + " ms");
+        Logger::info("  " + medal + " " + _f("mirror.ping_rank_entry", std::to_string(i + 1), results[i].name, std::to_string(results[i].avg_ms).substr(0, 6)));
     }
 
     auto& best = results[0];
-    Logger::ok("最快镜像站: " + best.name + " (" + std::to_string(best.avg_ms).substr(0, 6) + " ms)");
+    Logger::ok(_f("mirror.auto_select_best", best.name, std::to_string(best.avg_ms).substr(0, 6)));
     return switch_to(best.id);
 }
 
 bool MirrorManager::restore_official() {
     auto compat = MirrorRegistry::instance().compat_for(cfg_.linux_distro);
     if (!compat) {
-        Logger::error("当前发行版无备份路径配置");
+        Logger::error(_("mirror.no_backup_config_fatal"));
         return false;
     }
 
@@ -1043,11 +1032,11 @@ bool MirrorManager::restore_official() {
     }
 
     if (!fs::exists(backup_path)) {
-        Logger::error("备份文件不存在: " + backup_path + "，无法还原");
+        Logger::error(_f("mirror.restore_no_backup", backup_path));
         return false;
     }
 
-    Logger::step("正在从备份还原软件源...");
+    Logger::step(_("mirror.restoring_backup"));
 
     if (cfg_.linux_distro == "redhat") {
         Executor::shell("tar -Ppzxvf " + backup_path);
@@ -1074,7 +1063,7 @@ bool MirrorManager::restore_official() {
     }
 
     run_update();
-    Logger::ok("软件源已还原至备份状态");
+    Logger::ok(_("mirror.restore_complete"));
     return true;
 }
 
@@ -1097,7 +1086,7 @@ bool MirrorManager::edit_manually() {
     } else if (compat && !compat->source_file.empty()) {
         Executor::passthrough("nano " + compat->source_file);
     } else {
-        Logger::error("无法确定编辑目标文件");
+        Logger::error(_("mirror.edit_no_target"));
         return false;
     }
     return true;
@@ -1119,11 +1108,11 @@ bool MirrorManager::toggle_http_https(bool use_https) {
             Executor::shell("sed -i 's@https://@http://@g' " + compat->source_file);
         }
     } else {
-        Logger::error("无法确定源文件路径");
+        Logger::error(_("mirror.no_source_file"));
         return false;
     }
 
-    Logger::ok(use_https ? "已切换为 HTTPS 源" : "已切换为 HTTP 源");
+    Logger::ok(use_https ? _("mirror.switched_to_https") : _("mirror.switched_to_http"));
     run_update();
     return true;
 }
@@ -1131,11 +1120,11 @@ bool MirrorManager::toggle_http_https(bool use_https) {
 bool MirrorManager::clean_sources_list() {
     auto compat = MirrorRegistry::instance().compat_for(cfg_.linux_distro);
     if (!compat || compat->source_file.empty()) {
-        Logger::error("无法确定源文件路径");
+        Logger::error(_("mirror.no_source_file"));
         return false;
     }
 
-    Logger::step("正在清理注释行并去重...");
+    Logger::step(_("mirror.cleaning"));
 
     if (cfg_.linux_distro == "debian" || cfg_.linux_distro == "ubuntu" || cfg_.linux_distro == "kali") {
         Executor::shell("sed -i '/^#/d' " + compat->source_file);
@@ -1149,14 +1138,14 @@ bool MirrorManager::clean_sources_list() {
     Executor::shell("sort -u " + compat->source_file + " -o " + compat->source_file);
 
     run_update();
-    Logger::ok("清理完成，刷新软件包数据库");
+    Logger::ok(_("mirror.clean_complete"));
     return true;
 }
 
 bool MirrorManager::trust_sources(bool trust) {
     if (cfg_.linux_distro == "debian" || cfg_.linux_distro == "ubuntu" || cfg_.linux_distro == "kali") {
         if (trust) {
-            Logger::warn("强制信任软件源可能有安全风险！");
+            Logger::warn(_("mirror.trust_warning_detail"));
             Executor::shell("sed -i 's@^deb.*http@deb [trusted=yes] http@g' /etc/apt/sources.list");
         } else {
             Executor::shell("sed -i 's@^deb \\[trusted=yes\\] http@deb http@g' /etc/apt/sources.list");
@@ -1168,11 +1157,11 @@ bool MirrorManager::trust_sources(bool trust) {
             Executor::shell("sed -i 's@^SigLevel = Never@#SigLevel = Optional TrustAll@' /etc/pacman.conf");
         }
     } else {
-        Logger::error("当前发行版不支持强制信任操作");
+        Logger::error(_("mirror.trust_unsupported"));
         return false;
     }
 
-    Logger::ok(trust ? "已强制信任软件源" : "已取消强制信任");
+    Logger::ok(trust ? _("mirror.trust_enabled") : _("mirror.trust_disabled"));
     run_update();
     return true;
 }

@@ -1,4 +1,5 @@
 #include "domain/container.h"
+#include "core/i18n.h"
 #include "domain/runtime.h"
 
 namespace tmoe::domain {
@@ -34,7 +35,7 @@ namespace tmoe::domain {
                 break;
             }
             default:
-                throw std::invalid_argument("不支持的容器运行模式");
+                throw std::invalid_argument(_("container.unsupported_mode"));
         }
     }
 

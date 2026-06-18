@@ -1,6 +1,7 @@
 #include "domain/runtime.h"
 #include "core/executor.h"
 #include "core/logger.h"
+#include "core/i18n.h"
 #include <filesystem>
 #include <cstdlib>
 #include <regex>
@@ -386,15 +387,15 @@ namespace tmoe::domain {
             args.emplace_back(vnc_arg);
 
             if (cfg.vnc_startup_prompt) {
-                Logger::step("VNC 服务已启动");
-                Logger::step("本机 VNC 地址: localhost:" + std::to_string(cfg.vnc_port));
+                Logger::step(_("qemu.vnc_started"));
+                Logger::step(_f("qemu.vnc_local", std::to_string(cfg.vnc_port)));
                 if (!cfg.vnc_localhost) {
                     auto r = Executor::shell(
                         "ip -4 -br -c a | awk '{print $NF}' | cut -d '/' -f 1 | grep -v '127.0.0.1'");
                     if (r.ok() && !r.stdout_data.empty()) {
                         std::string ip = r.stdout_data;
                         ip.erase(std::remove(ip.begin(), ip.end(), '\n'), ip.end());
-                        Logger::step("局域网 VNC 地址: " + ip + ":" + std::to_string(cfg.vnc_port));
+                        Logger::step(_f("qemu.vnc_lan", ip + ":" + std::to_string(cfg.vnc_port)));
                     }
                 }
             }
@@ -411,8 +412,8 @@ namespace tmoe::domain {
             args.emplace_back(spice_arg);
 
             if (cfg.vnc_startup_prompt) {
-                Logger::step("SPICE 服务已启动");
-                Logger::step("本机 SPICE 地址: localhost:" + std::to_string(cfg.vnc_port));
+                Logger::step(_("qemu.spice_started"));
+                Logger::step(_f("qemu.spice_local", std::to_string(cfg.vnc_port)));
             }
         } else if (cfg.connection_type == "remote-x11") {
             std::string disp = cfg.remote_x11_addr;
@@ -608,21 +609,21 @@ namespace tmoe::domain {
     // ── start/stop ──
 
     bool QemuRuntime::start(const Container &container, const LaunchContext *ctx) {
-        Logger::step("正在启动 QEMU 虚拟机: " + container.name());
+        Logger::step(_f("qemu.starting", container.name()));
 
         // 检查 QEMU 二进制文件
         std::string qemu_bin = detect_qemu_bin();
         if (!fs::exists(qemu_bin)) {
-            Logger::error("未找到 QEMU 二进制文件: " + qemu_bin);
-            Logger::error("请安装 qemu-system-x86 或 qemu-system-i386");
+            Logger::error(_f("qemu.bin_not_found", qemu_bin));
+            Logger::error(_("qemu.install_hint"));
             return false;
         }
 
         // UEFI 固件检查
         if (config_.uefi_enabled) {
             if (!fs::exists(config_.uefi_code_pflash)) {
-                Logger::warn("未找到 UEFI 固件: " + config_.uefi_code_pflash);
-                Logger::warn("请安装 OVMF/EDK2 固件包");
+                Logger::warn(_f("qemu.uefi_not_found", config_.uefi_code_pflash));
+                Logger::warn(_("qemu.uefi_install_hint"));
             }
             // 创建 VARS 文件
             if (!config_.uefi_vars_pflash.empty() && !fs::exists(config_.uefi_vars_pflash)) {
@@ -636,7 +637,7 @@ namespace tmoe::domain {
         }
 
         std::string cmd = generate_launch_cmd(container, ctx);
-        Logger::step("QEMU 启动命令: " + cmd);
+        Logger::step(_f("qemu.launch_cmd", cmd));
 
         // 注：Bash 原版在此处执行 unset LD_PRELOAD，
         //    但 C++ 每次 Executor::shell 调用独立 shell 进程，无需 unset。
@@ -646,7 +647,7 @@ namespace tmoe::domain {
     }
 
     bool QemuRuntime::stop(const Container &container) {
-        Logger::step("停止 QEMU 虚拟机: " + container.name());
+        Logger::step(_f("qemu.stopping", container.name()));
         // QEMU 可以通过 monitor 停止，或直接 kill
         std::string cmd = "pkill -f 'qemu-system.*" + container.name() + "'";
         Executor::shell(cmd);

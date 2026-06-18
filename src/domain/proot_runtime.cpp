@@ -2,6 +2,7 @@
 #include "domain/container.h"
 #include "core/executor.h"
 #include "core/logger.h"
+#include "core/i18n.h"
 #include <filesystem>
 #include <algorithm>
 #include <cstdlib>
@@ -330,12 +331,12 @@ void ProotRuntime::apply_proot_args(const Container &container, std::vector<std:
 // ── start/stop ──
 bool ProotRuntime::start(const Container &container, const LaunchContext *ctx) {
     std::string cmd = generate_launch_cmd(container, ctx);
-    Logger::step("[PRoot] 启动容器: " + container.name());
+    Logger::step(_f("proot.starting", container.name()));
     return Executor::passthrough(cmd).ok();
 }
 
 bool ProotRuntime::stop(const Container &container) {
-    Logger::step("[PRoot] 终止容器: " + container.name());
+    Logger::step(_f("proot.stopping", container.name()));
     return Executor::shell("pkill -f 'proot.*" + container.rootfs_path() + "'").ok();
 }
 

@@ -1,4 +1,5 @@
 #include "software_center.h"
+#include "core/i18n.h"
 
 namespace tmoe::app {
     std::vector<std::string> SoftwareCenter::available() const {
@@ -10,13 +11,13 @@ namespace tmoe::app {
     }
 
     bool SoftwareCenter::install(std::string_view name) {
-        Logger::step("Installing: " + std::string(name));
+        Logger::step(_f("swcenter.installing", std::string(name)));
         // TODO: 在容器内运行 apt/pacman/pkg install
         return true;
     }
 
     bool SoftwareCenter::remove(std::string_view name) {
-        Logger::step("Uninstalling: " + std::string(name));
+        Logger::step(_f("swcenter.uninstalling", std::string(name)));
         // TODO: 在容器内执行 apt/pacman/pkg remove
         return true;
     }

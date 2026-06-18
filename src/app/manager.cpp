@@ -18,7 +18,7 @@ namespace tmoe::app {
         // 1. Proot 容器向导
         tui_routes_["1"] = [this]() {
             termux_->check_and_init_environment();
-            Logger::step("Entering Proot container wizard...");
+            Logger::step(_("container.entering_proot"));
             auto container = container_mgr_->create("debian_default", "debian", "sid");
 
             if (!container_mgr_->find("debian_default").has_value()) {
@@ -36,27 +36,27 @@ namespace tmoe::app {
                 Logger::error(_("error.no_root"));
                 return;
             }
-            Logger::step("Launching Chroot advanced mount module...");
+            Logger::step(_("container.launching_chroot"));
             // TODO: 实现 Chroot 容器启动逻辑
         };
 
         // 3. 移除/卸载容器
         tui_routes_["3"] = [this]() {
-            Logger::step("Entering removal/uninstall management module...");
+            Logger::step(_("container.entering_remove"));
             auto containers = container_mgr_->list_all();
             if (containers.empty()) {
-                Logger::warn("No containers currently installed!");
+                Logger::warn(_("container.none_installed"));
                 return;
             }
 
-            Logger::info("Installed containers:");
+            Logger::info(_("container.list_header"));
             for (const auto &c: containers) {
                 Logger::info(" - " + c.name() + " (" + c.distro() + ")");
             }
             // TODO: 扩展 whiptail 多选清单功能
             if (Logger::confirm(_("container.confirm_remove_default"))) {
                 container_mgr_->remove("default");
-                Logger::ok("Container residue cleaned successfully.");
+                Logger::ok(_("container.removed_ok"));
             }
         };
 
@@ -77,24 +77,24 @@ namespace tmoe::app {
 
         // 7. 通过 git pull 自更新
         tui_routes_["7"] = [this]() {
-            Logger::step("Fetching latest code update...");
+            Logger::step(_("update.fetching"));
             if (Executor::passthrough("git -C " + cfg_.work_dir.string() + " pull").ok()) {
-                Logger::ok("Update successful! Please restart tmoes.");
+                Logger::ok(_("update.success"));
             } else {
-                Logger::error("Update failed. Please check network or Git configuration.");
+                Logger::error(_("update.failed"));
             }
         };
 
         // 8. 常见问题
         tui_routes_["8"] = [this]() {
             Logger::info("=== FAQ ===");
-            Logger::info("Q: Android 12+ crash?\nA: Run menu 10 to fix signal 9 restriction.");
-            Logger::info("Q: No sound in container?\nA: Install pulseaudio and check environment variables.");
+            Logger::info(_("faq.android12"));
+            Logger::info(_("faq.no_sound"));
         };
 
         // 9. 反馈 Bug
         tui_routes_["9"] = [this]() {
-            Logger::info("To report bugs, please visit the GitHub repo and submit an issue:");
+            Logger::info(_("report.bug_info"));
             Logger::info("https://github.com/2-moe/tmoe-linux");
         };
 
@@ -175,7 +175,7 @@ namespace tmoe::app {
                 }
 
                 if (mirrors.empty()) {
-                    Logger::warn("No available mirrors in this category");
+                    Logger::warn(_("mirror.no_available"));
                     Logger::press_enter();
                     continue;
                 }
@@ -302,7 +302,7 @@ namespace tmoe::app {
                 it->second();
                 Logger::press_enter();
             } else {
-                Logger::warn("Upcoming new feature interaction item: " + choice);
+                Logger::warn(_("menu.unimplemented") + ": " + choice);
                 Logger::press_enter();
             }
         }
@@ -322,7 +322,7 @@ namespace tmoe::app {
 
         switch (ctx.mode) {
             case LaunchMode::Proot: {
-                Logger::info("Core container schedule: [Mode: PRoot] -> [Distro: " + ctx.distro_name + "]");
+                Logger::info(_f("container.schedule", "PRoot", ctx.distro_name));
 
                 std::string container_name = ctx.distro_name.empty() ? "default" : ctx.distro_name;
                 auto container = container_mgr_->create(container_name, ctx.distro_name, ctx.distro_code,
@@ -337,7 +337,7 @@ namespace tmoe::app {
                 }
 
                 if (!container.start(&ctx)) {
-                    Logger::error("Container terminated abnormally");
+                    Logger::error(_("container.terminated"));
                     return 1;
                 }
 
@@ -357,7 +357,7 @@ namespace tmoe::app {
             }
             case LaunchMode::ListContainers: {
                 auto list = container_mgr_->list_all();
-                Logger::info("Installed container list:");
+                Logger::info(_("container.list_title"));
                 for (const auto &c: list) {
                     std::fprintf(stderr, "  - %s [%s]\n", c.name().c_str(), c.rootfs_path().c_str());
                 }
@@ -365,11 +365,11 @@ namespace tmoe::app {
             }
             case LaunchMode::Chroot:
                 // TODO: 实现 Chroot 启动
-                Logger::warn("Chroot mode not yet implemented");
+                Logger::warn(_("misc.not_implemented"));
                 break;
             case LaunchMode::Nspawn:
                 // TODO: 实现 systemd-nspawn 启动
-                Logger::warn("systemd-nspawn mode not yet implemented");
+                Logger::warn(_("misc.not_implemented"));
                 break;
             case LaunchMode::ZshManager:
                 termux_->beautify_terminal();
@@ -379,7 +379,7 @@ namespace tmoe::app {
                 break;
             case LaunchMode::DebianInstall:
                 // TODO: 实现一键安装 Debian
-                Logger::warn("One-click Debian install not yet implemented");
+                Logger::warn(_("misc.not_implemented"));
                 break;
             case LaunchMode::ManagerMenu:
                 // TODO: 实现管理菜单跳转
@@ -391,7 +391,7 @@ namespace tmoe::app {
                 // TODO: 实现 Aria2 管理器
                 break;
             default:
-                Logger::warn("Route mode not fully implemented or undefined");
+                Logger::warn(_("misc.route_undefined"));
                 break;
         }
         return 0;
@@ -404,8 +404,8 @@ namespace tmoe::app {
         std::string marker = std::string(home) + "/.config/tmoe-linux/locale";
         if (fs::exists(marker)) return;  // 已选择过，跳过
 
-        Logger::info("First run detected — please choose your language");
-        Logger::info("First run detected — please choose your language");
+        Logger::info(_("locale.firstrun_detected"));
+        Logger::info(_("locale.firstrun_detected"));
 
         // 直接用英文简短提示，此时还没选择语言
         std::string menu = cfg_.tui_bin +
@@ -427,7 +427,7 @@ namespace tmoe::app {
         cfg_.locale = choice;
         environment_->set_locale(choice);
         if (save_locale_) save_locale_(choice);
-        Logger::ok("Language set to: " + choice);
+        Logger::ok(_f("locale.set_ok", choice));
         Logger::press_enter();
     }
 
@@ -470,7 +470,7 @@ namespace tmoe::app {
         environment_->set_locale(choice);
         // 持久化 tmoes 自身语言偏好 (下次启动自动加载)
         if (save_locale_) save_locale_(choice);
-        Logger::ok("Software language switched to: " + choice);
+        Logger::ok(_f("locale.switched_ok", choice));
 
         // 询问是否持久化为系统默认 locale
         {
