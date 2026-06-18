@@ -25,14 +25,161 @@ namespace tmoe::domain {
         virtual bool stop(const Container &container) = 0;
     };
 
-    /** PRoot 运行时策略。 */
+    /** PRoot 运行时策略（对应 old/share/container/proot/startup）。
+     *  完整的 PRoot 配置：二进制选择、loader、QEMU 集成、EXA 仿真、挂载系统。
+     */
     class ProotRuntime : public IContainerRuntime {
     public:
+        struct ProotConfig {
+            // ── 用户与工作目录 ──
+            std::string proot_user{"root"};
+            std::string home_dir{"default"};
+            std::string work_dir{"default"};
+
+            // ── 二进制与兼容性 ──
+            bool dot_net_6_compatible_mode{false};
+
+            std::string proot_bin{"default"}; // default|system|termux|32|compatibility|path
+            std::string proot_compatible_mode_bin{"${TMOE_LINUX_DIR}/lib/data/data/com.termux/files/usr/bin/proot"};
+            std::string proot_32_termux_bin{"${TMOE_LINUX_DIR}/lib32/data/data/com.termux/files/usr/bin/proot"};
+
+            bool share_proot_loader{false};
+            std::string proot_libexec_loader{"default"};
+            std::string proot_32_termux_loader{"${TMOE_LINUX_DIR}/lib32/data/data/com.termux/files/usr/libexec/proot/loader"};
+            std::string compatible_mode_loader{"${TMOE_LINUX_DIR}/lib/data/data/com.termux/files/usr/libexec/proot/loader"};
+
+            std::string ld_lib_path{"default"};
+            std::string proot_32_termux_ld_lib_path{"${TMOE_LINUX_DIR}/lib32/data/data/com.termux/files/usr/lib"};
+            std::string compatible_mode_ld_lib_path{"${TMOE_LINUX_DIR}/lib/data/data/com.termux/files/usr/lib"};
+
+            // ── proot 行为标志 ──
+            bool kill_on_exit{true};
+            bool proot_sysvipc{true};
+            bool proot_l{true};
+            bool proot_h{false};
+            bool proot_p{false};
+            bool fake_kernel{false};
+            std::string kernel_release{"5.10.105-3-cloud-"};
+            bool link_to_symlink{true};
+            bool proot_debug{false};
+            int verbose_level{2};
+            bool old_android_version_compatibility_mode{false};
+
+            // ── QEMU 集成 ──
+            std::string host_distro; // "Android" | "linux"
+            std::string host_arch;
+            std::string container_distro;
+            std::string container_name;
+            std::string container_arch{"amd64"};
+            std::string qemu_arch{"default"};
+            bool skip_qemu_detection{false};
+            bool qemu_user_static{true};
+            bool qemu_32_enabled{false};
+            std::string qemu_user_static_path{"${TMOE_LINUX_DIR}/lib/usr/bin"};
+            std::string qemu_user_static_32_path{"${TMOE_LINUX_DIR}/lib32/usr/bin"};
+            std::string qemu_user_bin{"default"};
+
+            // ── EXA 仿真 ──
+            bool exa_enabled{false};
+            std::string exa_path{"${TMOE_LINUX_DIR}/lib32/usr/bin"};
+            std::string exa_prefix; // 运行时用 rootfs 填充
+            std::string vfs_hacks{"tlsasws,tsi,spd"};
+            std::string socket_path_suffix;
+            std::string vpaths_list{"/dev/null"};
+            std::string vfs_kind{"guest-first"};
+
+            // ── 挂载开关 ──
+            std::string mount_sd; // 空=从配置文件读取
+            std::string sd_dir_0{"/storage/self/primary/Download"};
+            std::string sd_dir_1{"/sdcard/Download"};
+            std::string sd_dir_2{"/storage/emulated/0/Download"};
+            std::string sd_dir_3{"${HOME}/sd/Download"};
+            std::string sd_dir_4{"${HOME}/Downloads"};
+            std::string sd_dir_5{"${HOME}/Download"};
+            std::string sd_mount_point{"/media/sd"};
+
+            std::string mount_termux;
+            std::string termux_dir{"/data/data/com.termux/files"};
+            std::string termux_mount_point{"/media/termux"};
+
+            std::string mount_tf;
+            std::string tf_card_link{"${HOME}/storage/external-1"};
+            std::string tf_mount_point{"/media/tf"};
+
+            std::string mount_storage;
+            std::string storage_dir{"/storage"};
+            std::string storage_mount_point{"/storage"};
+
+            bool mount_gitstatus{true};
+            std::string gitstatus_dir;
+            std::string gitstatus_mount_point{"/root/.cache/gitstatus"};
+
+            bool mount_tmp{false};
+            std::string tmp_source_dir;
+            std::string tmp_mount_point{"/tmp"};
+
+            bool mount_system{true};
+            std::string system_dir{"/system"};
+
+            bool mount_apex{true};
+            std::string apex_dir{"/apex"};
+
+            bool mount_sys{false};
+            std::string sys_dir{"/sys"};
+
+            bool mount_dev{true};
+            std::string dev_dir{"/dev"};
+            bool mount_shm_to_tmp{true};
+            bool mount_urandom_to_random{true};
+            bool mount_dev_fd{true};
+            bool mount_dev_stdin{true};
+            bool mount_dev_stdout{true};
+            bool mount_dev_stderr{true};
+            bool mount_dev_tty{true};
+
+            bool mount_proc{true};
+            std::string proc_dir{"/proc"};
+            bool fake_proot_proc{true};
+
+            bool mount_cap_last_cap{true};
+            std::string cap_last_cap_source{"/dev/null"};
+            std::string cap_last_cap_mount_point{"/proc/sys/kernel/cap_last_cap"};
+
+            // ── 自定义挂载（最多12个）──
+            struct CustomMount {
+                bool enabled{false};
+                std::string source;
+                std::string dest;
+            };
+            CustomMount custom_mounts[12];
+
+            // ── Shell ──
+            std::vector<std::string> default_login_shells{"/bin/zsh", "/bin/fish", "/bin/bash", "/bin/ash", "/bin/su"};
+            std::string login_shell_arg{"-l"};
+
+            // ── 环境与配置 ──
+            bool load_env_file{true};
+            std::string container_env_file;
+            bool load_proot_conf{true};
+            std::string proot_conf_file;
+
+            std::string tmoe_locale_file;
+            std::string default_shell_conf;
+            std::string proc_fd_path{"/proc/self/fd"};
+            std::string host_name_file;
+        };
+
+        ProotRuntime() = default;
+        explicit ProotRuntime(const ProotConfig &cfg) : config_(cfg) {}
+
         std::string generate_launch_cmd(const Container &container, const LaunchContext *ctx = nullptr) const override;
-
         bool start(const Container &container, const LaunchContext *ctx = nullptr) override;
-
         bool stop(const Container &container) override;
+
+    private:
+        ProotConfig config_;
+        std::string resolve_qemu_arch() const;
+        void apply_proot_args(const Container &container, std::vector<std::string> &args) const;
     };
 
     /** Chroot 运行时策略（对应 old/share/container/chroot/startup）。
@@ -42,13 +189,21 @@ namespace tmoe::domain {
     public:
         /** Chroot 配置结构体（对应 Bash 脚本变量） */
         struct ChrootConfig {
-            std::string chroot_bin{"system"}; // system|termux|busybox|toybox|path
+            std::string chroot_bin{"system"}; // system|termux|busybox|toybox|termux-busybox|path
             std::string mount_bin{"system"}; // mount 二进制选择
             std::string unshare_bin{"termux"}; // unshare 二进制选择
             std::string rootfs_path;
             std::string chroot_user{"root"};
             std::string home_dir{"default"};
             bool old_android_compat{false};
+
+            // ── 配置文件加载 ──
+            bool load_chroot_conf{true};
+            std::string chroot_conf_file;
+            bool load_env_file{true};
+            std::string container_env_file;
+            std::string tmoe_locale_file;
+            std::string default_shell_conf;
 
             // 挂载开关
             bool mount_itself{true};
@@ -58,7 +213,8 @@ namespace tmoe::domain {
             bool mount_dev_pts{true};
             bool mount_dev_shm{true};
             bool fix_dev_link{true};
-            bool mount_gitstatus{false}; // 挂载 etc/gitstatus
+            bool mount_gitstatus{false};
+            std::string gitstatus_dir;
             bool mount_tmp{false};
             std::string tmp_source_dir{"/tmp"};
             std::string tmp_mount_point{"/tmp"};
@@ -68,13 +224,24 @@ namespace tmoe::domain {
             std::string sd_dir_0{"/data/media/0/Download"};
             std::string sd_dir_1{"/storage/self/primary/Download"};
             std::string sd_dir_2{"/sdcard/Download"};
-            std::string sd_dir_3{"/mnt/sdcard/Download"};
-            std::string sd_dir_4{"/storage/emulated/0/Download"};
+            std::string sd_dir_3{"${HOME}/sd/Download"};
+            std::string sd_dir_4{"${HOME}/Downloads"};
+            std::string sd_dir_5{"${HOME}/Download"};
             std::string sd_mount_point{"/media/sd"};
 
             std::string mount_termux; // 空=从配置文件读取
             std::string termux_dir{"/data/data/com.termux/files/home"};
             std::string termux_mount_point{"/media/termux"};
+
+            // TF 卡挂载
+            std::string mount_tf;
+            std::string tf_card_link{"${HOME}/storage/external-1"};
+            std::string tf_mount_point{"/media/tf"};
+
+            // 挂载配置文件路径
+            std::string sd_conf_file;
+            std::string termux_conf_file;
+            std::string tf_conf_file;
 
             // 自定义挂载点（最多10个）
             struct CustomMount {
@@ -83,7 +250,6 @@ namespace tmoe::domain {
                 std::string dest;
                 bool readonly{false};
             };
-
             CustomMount custom_mounts[10];
 
             // unshare 配置
@@ -100,12 +266,11 @@ namespace tmoe::domain {
             std::vector<std::string> default_login_shells{"/bin/zsh", "/bin/fish", "/bin/bash", "/bin/ash", "/bin/su"};
             std::string login_shell_arg{"-l"};
 
-            // 环境文件
-            bool load_env_file{true};
-            std::string container_env_file;
-
             // /proc/self/fd 路径（用于 /dev/fd 等符号链接）
             std::string proc_fd_path{"/proc/self/fd"};
+
+            // host 检查
+            std::string host_distro; // "Android" | "linux"
         };
 
         ChrootRuntime() = default;
@@ -158,11 +323,13 @@ namespace tmoe::domain {
 
             // SD 挂载
             std::string mount_sd; // 空=从配置文件读取
+            std::string sd_conf_file;
             std::string sd_dir_0{"/media/sd/Download"};
             std::string sd_dir_1{"${HOME}/sd/Download"};
             std::string sd_dir_2{"/mnt/sdcard/Download"};
             std::string sd_dir_3{"/storage/emulated/0/Download"};
             std::string sd_dir_4{"/sdcard/Download"};
+            std::string sd_dir_5{"${HOME}/Download"};
             std::string sd_mount_point{"/media/sd"};
             bool mount_docker_dir{false};
             std::string docker_mount_point{"/media/docker"};
@@ -338,5 +505,30 @@ namespace tmoe::domain {
     };
 
     // 待办: class DockerRuntime : public IContainerRuntime { ... };
+
+    /** QEMU 用户模式运行时（对应 old/share/container/qemu/qemu-user）。
+     *  qemu-user-static 管理：安装/升级/卸载/架构检测/Proot 集成。
+     */
+    class QemuUserRuntime {
+    public:
+        struct QemuUserConfig {
+            std::string qemu_user_prefix{"${TMOE_LINUX_DIR}/lib/usr/bin"};
+            std::string qemu_user_32_prefix{"${TMOE_LINUX_DIR}/lib32/usr/bin"};
+            std::string target_arch{"x86_64"};
+            bool qemu_32_enabled{false};
+            bool qemu_user_static{true};
+        };
+
+        QemuUserRuntime() = default;
+        explicit QemuUserRuntime(const QemuUserConfig &cfg) : config_(cfg) {}
+
+        bool install();
+        bool remove();
+        bool check_version(std::string &version_out) const;
+        std::string detect_qemu_bin(const std::string &container_arch, const std::string &host_arch) const;
+
+    private:
+        QemuUserConfig config_;
+    };
 } // namespace tmoe::domain
 #endif //RUNTIME_H

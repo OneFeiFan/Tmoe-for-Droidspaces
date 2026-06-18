@@ -55,6 +55,9 @@ namespace tmoe::app {
         /** 镜像源管理子菜单。 */
         void run_mirror_menu();
 
+        /** 语言/区域切换菜单（支持全部 7 种语言）。 */
+        void run_locale_menu();
+
         /** 渲染 whiptail 菜单并返回用户选择的标签。 */
         std::string render_and_get_choice();
     };

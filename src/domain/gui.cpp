@@ -17,6 +17,8 @@ namespace tmoe::domain {
         pixel_depth = 24;
         zlib_level = 0;
         always_shared = true;
+        compare_fb = true;
+        localhost_only = false;
         pulse_port = 4713;
 
         update_port();
@@ -28,6 +30,25 @@ namespace tmoe::domain {
         passwd_file = vnc_home_dir / "passwd";
         xsession_file = "/etc/X11/xinit/Xsession";
         tigervnc_config = "/etc/tigervnc/vncserver-config-tmoe";
+        vnc_pid_file = vnc_home_dir / "vnc.pid";
+        x_pid_file = vnc_home_dir / "x.pid";
+
+        // 从 os-release 读取桌面名称
+        std::ifstream osr("/etc/os-release");
+        if (osr.is_open()) {
+            std::string line;
+            while (std::getline(osr, line)) {
+                if (line.rfind("PRETTY_NAME=", 0) == 0) {
+                    auto s = line.find('"', 13);
+                    auto e = line.rfind('"');
+                    if (s != std::string::npos && e != std::string::npos && e > s) {
+                        desktop_name = "tmoe-linux (" + line.substr(s + 1, e - s - 1) + ")";
+                    }
+                    break;
+                }
+            }
+        }
+        if (desktop_name.empty()) desktop_name = "tmoe-linux";
 
         // 默认依赖 (Debian 系)
         dep_viewer = "tigervnc-viewer";
@@ -80,7 +101,7 @@ namespace tmoe::domain {
         return reg;
     }
 
-    /** 50+ 常用窗口管理器注册表。 */
+    /** 70+ 常用窗口管理器注册表。 */
     const std::map<std::string, std::string> &GUIManager::window_manager_registry() {
         static const std::map<std::string, std::string> reg = {
             {"openbox", "openbox obconf obmenu"},
@@ -113,6 +134,15 @@ namespace tmoe::domain {
             {"compiz", "compiz compiz-core"},
             {"mutter", "mutter"},
             {"kwin", "kwin-x11"},
+            {"9wm", "9wm"}, {"aewm", "aewm"}, {"aewm++", "aewm++"},
+            {"clfswm", "clfswm"}, {"ctwm", "ctwm"}, {"evilwm", "evilwm"},
+            {"flwm", "flwm"}, {"lwm", "lwm"}, {"marco", "marco"},
+            {"metacity", "metacity"}, {"miwm", "miwm"}, {"muffin", "muffin"},
+            {"mwm", "mwm"}, {"oroborus", "oroborus"}, {"sapphire", "sapphire"},
+            {"sawfish", "sawfish"}, {"subtl", "subtle"}, {"sugar", "sucrose"},
+            {"tinywm", "tinywm"}, {"ukwm", "ukwm"}, {"vdesk", "vdesk"},
+            {"vtwm", "vtwm"}, {"w9wm", "w9wm"}, {"wm2", "wm2"},
+            {"xfwm4", "xfwm4"}, {"exwm", "exwm"},
         };
         return reg;
     }
@@ -299,20 +329,20 @@ namespace tmoe::domain {
     }
 
     bool GUIManager::configure_vnc_defaults() {
-        // 对应 Bash: configure_xvnc()
         Logger::step("配置 TigerVNC 默认参数...");
 
         fs::create_directories(vnc_config_.tigervnc_config.parent_path());
 
         std::ostringstream config;
-        int w = vnc_config_.resolution_w;
-        int h = vnc_config_.resolution_h;
-        config << "securitytypes=vncauth,tlsvnc\n"
-                << "geometry=" << w << "x" << h << "\n"
-                << "desktop=tmoe-linux\n"
+        config << "# tmoe-linux TigerVNC config — 自动生成\n"
+                << "securitytypes=vncauth,tlsvnc\n"
+                << "geometry=" << vnc_config_.resolution_w << "x" << vnc_config_.resolution_h << "\n"
+                << "desktop=" << vnc_config_.desktop_name << "\n"
                 << "depth=" << vnc_config_.pixel_depth << "\n"
                 << "ZlibLevel=" << vnc_config_.zlib_level << "\n"
-                << "localhost=no\n";
+                << "localhost=" << (vnc_config_.localhost_only ? "yes" : "no") << "\n"
+                << "CompareFB=" << (vnc_config_.compare_fb ? "1" : "0") << "\n"
+                << "deferglyphs=16\n";
 
         return write_file(vnc_config_.tigervnc_config, config.str());
     }
@@ -372,7 +402,11 @@ namespace tmoe::domain {
                 << "unset DBUS_SESSION_BUS_ADDRESS\n\n"
                 << "# 修复部分应用需要的环境变量\n"
                 << "export XDG_SESSION_TYPE=x11\n"
-                << "export DESKTOP_SESSION=tmoe_linux\n\n"
+                << "export XDG_CURRENT_DESKTOP=XFCE\n"
+                << "export XDG_RUNTIME_DIR=/tmp/runtime-${USER:-root}\n"
+                << "export DESKTOP_SESSION=tmoe_linux\n"
+                << "[ -d \"$XDG_RUNTIME_DIR\" ] || mkdir -p \"$XDG_RUNTIME_DIR\" 2>/dev/null\n"
+                << "[ -w \"$XDG_RUNTIME_DIR\" ] || chmod 700 \"$XDG_RUNTIME_DIR\" 2>/dev/null\n\n"
                 << "# 启动 fcitx 输入法\n"
                 << "if command -v fcitx >/dev/null 2>&1; then\n"
                 << "    fcitx-autostart >/dev/null 2>&1 &\n"
@@ -550,6 +584,16 @@ namespace tmoe::domain {
             Logger::info("分辨率: " + std::to_string(vnc_config_.resolution_w) + "x" +
                          std::to_string(vnc_config_.resolution_h));
             Logger::info("连接地址: " + get_vnc_connection_uri());
+
+            // 显示局域网地址
+            std::string ips = get_local_ip_addresses();
+            if (!ips.empty()) {
+                Logger::info("局域网地址: " + ips);
+            }
+
+            // 写入 PID 文件
+            write_vnc_pid_file(vnc_config_.display);
+
             return true;
         }
 
@@ -562,18 +606,24 @@ namespace tmoe::domain {
 
         if (display <= 0) display = vnc_config_.display;
 
-        // 使用 vncserver -kill 清理 (TigerVNC)
+        // 1. 使用 vncserver -kill 清理 (TigerVNC)
         std::string cmd = "vncserver -kill :" + std::to_string(display) + " 2>/dev/null";
         Executor::shell(cmd);
 
-        // 备用: pkill
+        // 2. 基于 PID 文件精确停止
+        remove_vnc_pid_file(display);
+
+        // 3. 备用: pkill
         Executor::shell("pkill -f 'Xvnc.*:" + std::to_string(display) + "' 2>/dev/null || true");
         Executor::shell("pkill -f 'Xtigervnc.*:" + std::to_string(display) + "' 2>/dev/null || true");
         Executor::shell("pkill -f 'Xtightvnc.*:" + std::to_string(display) + "' 2>/dev/null || true");
 
-        // 清理锁文件
+        // 4. 清理锁文件
         Executor::shell("rm -f /tmp/.X" + std::to_string(display) + "-lock 2>/dev/null");
         Executor::shell("rm -f /tmp/.X11-unix/X" + std::to_string(display) + " 2>/dev/null");
+
+        // 5. 停止 websockify (noVNC)
+        Executor::shell("pkill -f 'websockify.*:" + std::to_string(vnc_config_.rfb_port) + "' 2>/dev/null || true");
 
         Logger::ok("VNC display :" + std::to_string(display) + " 已停止");
         return true;
@@ -866,17 +916,22 @@ namespace tmoe::domain {
     bool GUIManager::configure_xrdp_session(std::string_view desktop) {
         DesktopInfo info = get_desktop_info(desktop);
 
-        std::string wm_content = "#!/bin/sh\n"
-                                 "# tmoe-linux XRDP startwm — 自动生成\n\n"
-                                 "if command -v " + info.session_cmd1 + " >/dev/null 2>&1; then\n"
-                                 "    exec " + info.session_cmd1 + "\n"
-                                 "elif command -v " + info.session_cmd2 + " >/dev/null 2>&1; then\n"
-                                 "    exec " + info.session_cmd2 + "\n"
-                                 "else\n"
-                                 "    exec xterm\n"
-                                 "fi\n";
+        std::ostringstream wm;
+        wm << "#!/bin/sh\n"
+                << "# tmoe-linux XRDP startwm — 自动生成\n\n"
+                << "# PulseAudio 桥接\n"
+                << "if [ -z \"$PULSE_SERVER\" ] && [ -n \"$XRDP_PULSE_SINK\" ]; then\n"
+                << "    export PULSE_SERVER=$XRDP_PULSE_SINK\n"
+                << "fi\n\n"
+                << "if command -v " << info.session_cmd1 << " >/dev/null 2>&1; then\n"
+                << "    exec " << info.session_cmd1 << "\n"
+                << "elif command -v " << info.session_cmd2 << " >/dev/null 2>&1; then\n"
+                << "    exec " << info.session_cmd2 << "\n"
+                << "else\n"
+                << "    exec xterm\n"
+                << "fi\n";
 
-        return write_file("/etc/xrdp/startwm.sh", wm_content) &&
+        return write_file("/etc/xrdp/startwm.sh", wm.str()) &&
                Executor::shell("chmod +x /etc/xrdp/startwm.sh").ok();
     }
 
@@ -1258,6 +1313,11 @@ namespace tmoe::domain {
                                    "\"7\" \"XSDL/VcXsrv (WSL X Server)\" "
                                    "\"8\" \"修改 VNC 配置 (密码/分辨率/端口...)\" "
                                    "\"9\" \"桌面美化 (主题/图标/壁纸)\" "
+                                   "\"A\" \"安装中文字体 + Iosevka 编程字体\" "
+                                   "\"B\" \"安装 fcitx 中文输入法\" "
+                                   "\"C\" \"安装 Chromium 浏览器\" "
+                                   "\"D\" \"部署启动脚本 (startvnc/stopvnc)\" "
+                                   "\"E\" \"修复 VNC 权限\" "
                                    "\"0\" \"返回上级菜单\"";
 
             std::string choice = Executor::tui_select(menu_cmd);
@@ -1298,6 +1358,22 @@ namespace tmoe::domain {
                 run_vnc_config_menu();
             } else if (choice == "9") {
                 run_beautification_menu();
+            } else if (choice == "A") {
+                install_fonts();
+                install_iosevka_font();
+                Logger::press_enter();
+            } else if (choice == "B") {
+                install_fcitx();
+                Logger::press_enter();
+            } else if (choice == "C") {
+                install_chromium();
+                Logger::press_enter();
+            } else if (choice == "D") {
+                deploy_startup_scripts();
+                Logger::press_enter();
+            } else if (choice == "E") {
+                fix_vnc_permissions();
+                Logger::press_enter();
             }
         }
     }
@@ -1318,7 +1394,13 @@ namespace tmoe::domain {
                                    "\"6\" \"Zlib 压缩级别 (当前: " + std::to_string(vnc_config_.zlib_level) + ")\" "
                                    "\"7\" \"PulseAudio 音频配置\" "
                                    "\"8\" \"修复 dbus-launch\" "
-                                   "\"9\" \"清理所有 VNC 进程\" "
+                                   "\"9\" \"显示 D-Bus 状态\" "
+                                   "\"10\" \"停止 D-Bus 守护进程\" "
+                                   "\"11\" \"CompareFB (帧缓冲对比: " +
+                                   std::string(vnc_config_.compare_fb ? "ON" : "OFF") + ")\" "
+                                   "\"12\" \"本地连接限制 (localhost: " +
+                                   std::string(vnc_config_.localhost_only ? "ON" : "OFF") + ")\" "
+                                   "\"13\" \"清理所有 VNC 进程\" "
                                    "\"0\" \"返回\"";
 
             std::string choice = Executor::tui_select(menu_cmd);
@@ -1381,6 +1463,20 @@ namespace tmoe::domain {
             } else if (choice == "8") {
                 fix_vnc_dbus();
             } else if (choice == "9") {
+                show_dbus_status();
+            } else if (choice == "10") {
+                if (Logger::confirm("确认停止 D-Bus 守护进程？(可能影响桌面环境)")) {
+                    stop_dbus_daemon();
+                }
+            } else if (choice == "11") {
+                vnc_config_.compare_fb = !vnc_config_.compare_fb;
+                configure_vnc_defaults();
+                Logger::ok("CompareFB 已" + std::string(vnc_config_.compare_fb ? "启用" : "禁用"));
+            } else if (choice == "12") {
+                vnc_config_.localhost_only = !vnc_config_.localhost_only;
+                configure_vnc_defaults();
+                Logger::ok("localhost 限制已" + std::string(vnc_config_.localhost_only ? "启用" : "禁用"));
+            } else if (choice == "13") {
                 if (Logger::confirm("确认终止所有 VNC 进程？")) {
                     kill_all_vnc();
                 }
@@ -1508,9 +1604,13 @@ namespace tmoe::domain {
                                    " --title \"🎨 桌面美化\" --menu \"请选择:\" 0 0 0 "
                                    "\"1\" \"安装 GTK 主题\" "
                                    "\"2\" \"安装图标主题\" "
-                                   "\"3\" \"设置壁纸\" "
+                                   "\"3\" \"下载/设置壁纸\" "
                                    "\"4\" \"安装 Plank dock\" "
-                                   "\"5\" \"安装 Compiz 特效\" "
+                                   "\"5\" \"安装 Compiz 窗口特效\" "
+                                   "\"6\" \"安装 Conky 系统监控\" "
+                                   "\"7\" \"安装鼠标指针主题\" "
+                                   "\"8\" \"部署 XFCE4 面板配置\" "
+                                   "\"9\" \"安装 Iosevka 编程字体\" "
                                    "\"0\" \"返回\"";
 
             std::string choice = Executor::tui_select(menu_cmd);
@@ -1534,15 +1634,37 @@ namespace tmoe::domain {
                                         "\"breeze\" \"Breeze\" "
                                         "\"elementary\" \"elementary Xfce\" "
                                         "\"tango\" \"Tango 经典\" "
-                                        "\"moka\" \"Moka + Faba\"";
+                                        "\"moka\" \"Moka + Faba\""
+                                        "\"faenza\" \"Faenza\"";
                 std::string i = Executor::tui_select(icon_menu);
                 if (!i.empty() && i != "0") install_icon_theme(i);
             } else if (choice == "3") {
-                set_wallpaper("");
+                std::string wp_menu = cfg_.tui_bin +
+                                      " --title \"壁纸\" --menu \"选择壁纸源:\" 0 0 0 "
+                                      "\"gnome\" \"GNOME 壁纸包\" "
+                                      "\"xfce\" \"XFCE 官方壁纸\" "
+                                      "\"mate\" \"Ubuntu MATE 壁纸包\" "
+                                      "\"deepin\" \"Deepin 壁纸包\" "
+                                      "\"kde\" \"KDE 壁纸包\"";
+                std::string wp = Executor::tui_select(wp_menu);
+                if (!wp.empty() && wp != "0") download_wallpaper(wp);
             } else if (choice == "4") {
                 install_dock();
             } else if (choice == "5") {
-                install_packages({"compiz", "compiz-core", "compiz-plugins"});
+                install_compiz();
+            } else if (choice == "6") {
+                install_conky();
+            } else if (choice == "7") {
+                std::string cursor_menu = cfg_.tui_bin +
+                                          " --title \"鼠标指针\" --menu \"选择:\" 0 0 0 "
+                                          "\"breeze\" \"Breeze 指针\" "
+                                          "\"chameleon\" \"Chameleon 多彩\"";
+                std::string c = Executor::tui_select(cursor_menu);
+                if (!c.empty() && c != "0") install_cursor_theme(c);
+            } else if (choice == "8") {
+                deploy_xfce_panel_config();
+            } else if (choice == "9") {
+                install_iosevka_font();
             }
             Logger::press_enter();
         }
@@ -1551,18 +1673,55 @@ namespace tmoe::domain {
     bool GUIManager::auto_install_gui(std::string_view desktop) {
         Logger::info("自动安装 GUI 模式: " + std::string(desktop));
 
-        if (!install_vnc_server()) return false;
-        if (!install_desktop(desktop)) return false;
-        if (!configure_vnc_password("tmoe123")) return false;
+        // 1. 安装字体
+        install_fonts();
 
-        // 根据桌面推荐服务端
+        // 2. 安装 VNC 服务端
+        if (!install_vnc_server()) {
+            Logger::error("VNC 服务端安装失败");
+            return false;
+        }
+
+        // 3. 安装桌面环境
+        if (!install_desktop(desktop)) {
+            Logger::error("桌面环境安装失败");
+            return false;
+        }
+
+        // 4. 配置 VNC 密码
+        if (!configure_vnc_password("tmoe123")) {
+            Logger::warn("VNC 密码设置失败，使用无密码模式");
+        }
+
+        // 5. 根据桌面推荐服务端
         std::string d(desktop);
         std::transform(d.begin(), d.end(), d.begin(), ::tolower);
         if (d == "kde" || d == "gnome" || d == "cinnamon" || d == "dde") {
             vnc_config_.server = "tiger";
         }
 
-        return start_vnc();
+        // 6. HiDPI 自动适配
+        detect_and_configure_hidpi(desktop);
+
+        // 7. 安装输入法
+        install_fcitx();
+
+        // 8. 修复权限
+        fix_vnc_permissions();
+
+        // 9. 部署启动脚本
+        deploy_startup_scripts();
+
+        // 10. 启动 VNC
+        bool ok = start_vnc();
+
+        if (ok) {
+            Logger::ok("🎉 GUI 自动安装完成！");
+            Logger::info("VNC 地址: " + get_vnc_connection_uri());
+            Logger::info("登录密码: tmoe123 (请及时修改)");
+        }
+
+        return ok;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1595,4 +1754,561 @@ namespace tmoe::domain {
     std::string GUIManager::get_vnc_connection_uri() const {
         return "vnc://127.0.0.1:" + std::to_string(vnc_config_.rfb_port);
     }
+
+    std::string GUIManager::get_local_ip_addresses() const {
+        std::ostringstream ips;
+        // IPv4
+        auto v4 = Executor::shell("ip -4 addr show scope global | grep inet | awk '{print $2}' | cut -d/ -f1 2>/dev/null");
+        if (v4.ok() && !v4.stdout_data.empty()) {
+            std::string data = v4.stdout_data;
+            std::istringstream iss(data);
+            std::string line;
+            while (std::getline(iss, line)) {
+                while (!line.empty() && (line.back() == '\r' || line.back() == '\n' || line.back() == ' ')) line.pop_back();
+                while (!line.empty() && (line.front() == ' ')) line.erase(0, 1);
+                if (!line.empty()) ips << "vnc://" << line << ":" << vnc_config_.rfb_port << "  ";
+            }
+        }
+        if (ips.str().empty()) {
+            auto v4_host = Executor::shell("hostname -I 2>/dev/null | awk '{for(i=1;i<=NF;i++){if($i ~ /^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$/ && $i != \"127.0.0.1\"){print $i;exit}}}'");
+            if (v4_host.ok() && !v4_host.stdout_data.empty()) {
+                std::string ip = v4_host.stdout_data;
+                while (!ip.empty() && (ip.back() == '\r' || ip.back() == '\n' || ip.back() == ' ')) ip.pop_back();
+                if (!ip.empty()) ips << "vnc://" << ip << ":" << vnc_config_.rfb_port;
+            }
+        }
+        return ips.str();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // VNC PID 管理
+    // ═══════════════════════════════════════════════════════════════
+
+    void GUIManager::write_vnc_pid_file(int display) const {
+        std::ostringstream cmd;
+        cmd << "pgrep -f 'X(vnc|tigervnc|tightvnc).*:" << display << "' | head -1 > "
+                << vnc_config_.vnc_pid_file.string() << " 2>/dev/null";
+        Executor::shell(cmd.str());
+        // 也写入 x.pid (TigerVNC 兼容)
+        Executor::shell("pgrep -f 'X(tigervnc|tightvnc).*:" + std::to_string(display) + "' | head -1 > "
+                + vnc_config_.x_pid_file.string() + " 2>/dev/null || true");
+    }
+
+    void GUIManager::remove_vnc_pid_file(int display) const {
+        // 基于 PID 文件杀进程
+        if (fs::exists(vnc_config_.vnc_pid_file)) {
+            auto pid_data = read_file(vnc_config_.vnc_pid_file);
+            if (!pid_data.empty()) {
+                std::string mypid = pid_data;
+                while (!mypid.empty() && (mypid.back() == '\n' || mypid.back() == '\r')) mypid.pop_back();
+                if (!mypid.empty())
+                    Executor::shell("kill " + mypid + " 2>/dev/null || true");
+            }
+            fs::remove(vnc_config_.vnc_pid_file);
+        }
+        if (fs::exists(vnc_config_.x_pid_file)) {
+            auto pid_data = read_file(vnc_config_.x_pid_file);
+            if (!pid_data.empty()) {
+                std::string mypid = pid_data;
+                while (!mypid.empty() && (mypid.back() == '\n' || mypid.back() == '\r')) mypid.pop_back();
+                if (!mypid.empty())
+                    Executor::shell("kill " + mypid + " 2>/dev/null || true");
+            }
+            fs::remove(vnc_config_.x_pid_file);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 字体管理
+    // ═══════════════════════════════════════════════════════════════
+
+    bool GUIManager::install_fonts() {
+        Logger::step(_("gui.font.install"));
+
+        // 检测发行版并安装对应字体包
+        bool has_apt = Executor::has("apt-get");
+        bool has_pacman = Executor::has("pacman");
+
+        if (has_apt) {
+            Logger::info("安装中文字体 (fonts-noto-cjk)...");
+            Executor::shell(cfg_.install_command +
+                " fonts-noto-cjk fonts-noto-color-emoji 2>/dev/null || true");
+        } else if (has_pacman) {
+            Logger::info("安装中文字体 (noto-fonts-cjk)...");
+            Executor::shell(cfg_.install_command +
+                " noto-fonts-cjk noto-fonts-emoji 2>/dev/null || true");
+        } else {
+            // 通用尝试
+            Executor::shell(cfg_.install_command +
+                " fonts-noto-cjk 2>/dev/null || "
+                + cfg_.install_command + " wqy-microhei 2>/dev/null || true");
+        }
+
+        // 刷新字体缓存
+        Executor::shell("fc-cache -fv 2>/dev/null || true");
+        Logger::ok(_("gui.font.install_ok"));
+        return true;
+    }
+
+    bool GUIManager::install_iosevka_font() {
+        Logger::step("安装 Iosevka 编程字体...");
+
+        // 检查是否已安装
+        auto check = Executor::shell("fc-list | grep -qi iosevka && echo 'yes'");
+        if (check.stdout_data.find("yes") != std::string::npos) {
+            Logger::ok("Iosevka 字体已安装");
+            return true;
+        }
+
+        // 先尝试包管理器
+        if (Executor::shell(cfg_.install_command + " fonts-iosevka 2>/dev/null").ok()) {
+            Logger::ok("Iosevka 字体安装完成");
+            return true;
+        }
+
+        // 备用: 从 GitHub 下载
+        const char *iosevka_url = "https://github.com/be5invis/Iosevka/releases/download/v28.1.0/"
+                                  "PkgTTF-Iosevka-28.1.0.zip";
+
+        std::string font_dir = "/usr/local/share/fonts/iosevka";
+        Executor::shell("mkdir -p " + font_dir);
+
+        Logger::info("从 GitHub 下载 Iosevka...");
+        std::string dl_cmd = "cd /tmp && (wget -q --timeout=30 '" + std::string(iosevka_url) +
+                             "' -O iosevka.zip 2>/dev/null || "
+                             "curl -sL '" + std::string(iosevka_url) + "' -o iosevka.zip 2>/dev/null)"
+                             " && unzip -o iosevka.zip -d " + font_dir +
+                             " 2>/dev/null && rm -f iosevka.zip";
+
+        if (Executor::shell(dl_cmd).ok()) {
+            Executor::shell("fc-cache -fv 2>/dev/null || true");
+            Logger::ok("Iosevka 字体安装完成 -> " + font_dir);
+            return true;
+        }
+
+        Logger::warn("Iosevka 下载失败，请手动安装: apt install fonts-iosevka");
+        return false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // HiDPI 检测与配置
+    // ═══════════════════════════════════════════════════════════════
+
+    bool GUIManager::detect_and_configure_hidpi(std::string_view desktop) {
+        if (!cfg_.is_termux) return false;
+
+        int w = 0, h = 0;
+        if (!detect_android_resolution(w, h)) return false;
+
+        // 检测 HiDPI: 高度 >= 2340 或宽度 >= 1440 且 DPI 高
+        int original_w = 0, original_h = 0;
+        auto result = Executor::shell("wm size 2>/dev/null | grep -oP '[0-9]+x[0-9]+'");
+        if (result.ok()) {
+            auto xpos = result.stdout_data.find('x');
+            if (xpos != std::string::npos) {
+                original_w = std::stoi(result.stdout_data.substr(0, xpos));
+                original_h = std::stoi(result.stdout_data.substr(xpos + 1));
+            }
+        }
+
+        int max_dim = std::max(original_w, original_h);
+        if (max_dim >= 2340) {
+            Logger::info("检测到 HiDPI 屏幕 (" + std::to_string(max_dim) + "px), 自动设置缩放...");
+
+            // 设置 XFCE 窗口缩放
+            Executor::shell("xfconf-query -c xsettings -p /Gdk/WindowScalingFactor -s 2 2>/dev/null || true");
+            Executor::shell("xfconf-query -c xfwm4 -p /general/theme -s Default-xhdpi 2>/dev/null || true");
+
+            vnc_config_.resolution_w = (max_dim > 1440) ? 1920 : 1440;
+            vnc_config_.resolution_h = (max_dim > 1440) ? 1080 : std::min(original_h * 720 / std::max(original_w, 1), 810);
+
+            Logger::info("VNC 分辨率自动调整为: " +
+                         std::to_string(vnc_config_.resolution_w) + "x" +
+                         std::to_string(vnc_config_.resolution_h));
+        }
+
+        return true;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 输入法与浏览器
+    // ═══════════════════════════════════════════════════════════════
+
+    bool GUIManager::install_fcitx() {
+        Logger::step("安装 fcitx 中文输入法...");
+
+        // fcitx + 拼音 + 配置工具
+        std::vector<std::string> pkgs = {
+            "fcitx", "fcitx-pinyin", "fcitx-config-gtk", "fcitx-frontend-gtk2",
+            "fcitx-frontend-gtk3", "fcitx-frontend-qt5"
+        };
+
+        if (!install_packages(pkgs)) {
+            Logger::warn("部分 fcitx 组件安装失败");
+        }
+
+        // 配置环境变量
+        std::string home = std::getenv("HOME") ? std::string(std::getenv("HOME")) : "/root";
+        std::string bashrc = home + "/.bashrc";
+        std::string env_block =
+            "\n# tmoe fcitx (已自动配置)\n"
+            "export GTK_IM_MODULE=fcitx\n"
+            "export QT_IM_MODULE=fcitx\n"
+            "export XMODIFIERS=@im=fcitx\n"
+            "export DefaultIMModule=fcitx\n";
+        append_file(fs::path(bashrc), env_block);
+
+        // 创建 fcitx 自启动
+        std::string autostart_dir = home + "/.config/autostart";
+        Executor::shell("mkdir -p " + autostart_dir);
+        std::string fcitx_desktop = autostart_dir + "/fcitx.desktop";
+        std::string desktop_content =
+            "[Desktop Entry]\n"
+            "Type=Application\n"
+            "Name=Fcitx\n"
+            "Exec=fcitx-autostart\n"
+            "X-GNOME-Autostart-enabled=true\n";
+        write_file(fs::path(fcitx_desktop), desktop_content);
+
+        Logger::ok("fcitx 中文输入法安装完成，重新登录后生效");
+        return true;
+    }
+
+    bool GUIManager::install_chromium() {
+        Logger::step("安装 Chromium 浏览器...");
+
+        if (Executor::has("chromium") || Executor::has("chromium-browser")) {
+            Logger::ok("Chromium 已安装");
+            return true;
+        }
+
+        // 尝试多种方式安装
+        if (Executor::shell(cfg_.install_command + " chromium-browser 2>/dev/null").ok()) {
+            Logger::ok("Chromium 安装完成");
+            return true;
+        }
+        if (Executor::shell(cfg_.install_command + " chromium 2>/dev/null").ok()) {
+            Logger::ok("Chromium 安装完成");
+            return true;
+        }
+        if (Executor::shell(cfg_.install_command + " google-chrome-stable 2>/dev/null").ok()) {
+            Logger::ok("Chrome 安装完成 (备选)");
+            return true;
+        }
+
+        Logger::warn("Chromium 安装失败，请手动安装");
+        return false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 权限与文件管理
+    // ═══════════════════════════════════════════════════════════════
+
+    bool GUIManager::fix_vnc_permissions() {
+        Logger::step("修复 VNC 目录权限...");
+        Executor::shell("chown -R $(id -un):$(id -gn) " +
+            vnc_config_.vnc_home_dir.string() + " 2>/dev/null || true");
+        Executor::shell("chmod -R 700 " +
+            vnc_config_.vnc_home_dir.string() + " 2>/dev/null || true");
+        if (fs::exists(vnc_config_.passwd_file))
+            Executor::shell("chmod 600 " + vnc_config_.passwd_file.string() + " 2>/dev/null || true");
+        Logger::ok("VNC 权限已修复");
+        return true;
+    }
+
+    bool GUIManager::deploy_startup_scripts() {
+        Logger::step("部署启动脚本到 /usr/local/bin...");
+
+        // startvnc 脚本
+        std::string startvnc =
+            "#!/bin/bash\n# tmoe-linux startvnc — 自动生成\n"
+            "tmoe gui startvnc\n";
+        write_file("/usr/local/bin/startvnc", startvnc);
+        Executor::shell("chmod +x /usr/local/bin/startvnc");
+
+        // startxsdl 脚本
+        std::string startxsdl =
+            "#!/bin/bash\n# tmoe-linux startxsdl — 自动生成\n"
+            "tmoe gui xsdl\n";
+        write_file("/usr/local/bin/startxsdl", startxsdl);
+        Executor::shell("chmod +x /usr/local/bin/startxsdl");
+
+        // stopvnc 脚本
+        std::string stopvnc =
+            "#!/bin/bash\n# tmoe-linux stopvnc — 自动生成\n"
+            "tmoe gui stop\n";
+        write_file("/usr/local/bin/stopvnc", stopvnc);
+        Executor::shell("chmod +x /usr/local/bin/stopvnc");
+
+        Logger::ok("启动脚本已部署: startvnc, startxsdl, stopvnc");
+        return true;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // noVNC 增强
+    // ═══════════════════════════════════════════════════════════════
+
+    bool GUIManager::stop_novnc() {
+        Logger::step("停止 noVNC...");
+        Executor::shell("pkill -f websockify 2>/dev/null || true");
+        Logger::ok("noVNC websockify 已停止");
+        return true;
+    }
+
+    bool GUIManager::remove_novnc() {
+        Logger::step("卸载 noVNC...");
+        stop_novnc();
+        // 清理 pip3 安装的包
+        Executor::shell("pip3 uninstall -y websockify numpy 2>/dev/null || true");
+        // 清理目录
+        Executor::shell("rm -rf /opt/novnc /usr/share/novnc 2>/dev/null || true");
+        Executor::shell(cfg_.remove_command + " novnc websockify 2>/dev/null || true");
+        Logger::ok("noVNC 已卸载");
+        return true;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // D-Bus 增强
+    // ═══════════════════════════════════════════════════════════════
+
+    bool GUIManager::stop_dbus_daemon() {
+        Logger::debug("停止 D-Bus 守护进程...");
+
+        // 从 PID 文件精确停止
+        if (fs::exists("/run/dbus/pid")) {
+            auto pid_data = read_file("/run/dbus/pid");
+            if (!pid_data.empty()) {
+                Executor::shell("kill " + pid_data + " 2>/dev/null || true");
+            }
+            fs::remove("/run/dbus/pid");
+        }
+        if (fs::exists("/var/run/dbus/pid")) {
+            auto pid_data = read_file("/var/run/dbus/pid");
+            if (!pid_data.empty()) {
+                Executor::shell("kill " + pid_data + " 2>/dev/null || true");
+            }
+            fs::remove("/var/run/dbus/pid");
+        }
+
+        // 标准停止
+        Executor::shell("service dbus stop 2>/dev/null || systemctl stop dbus 2>/dev/null || "
+            "pkill dbus-daemon 2>/dev/null || true");
+        Executor::shell("pkill dbus-launch 2>/dev/null || true");
+
+        Logger::ok("D-Bus 守护进程已停止");
+        return true;
+    }
+
+    void GUIManager::show_dbus_status() const {
+        if (fs::exists("/run/dbus/pid") || fs::exists("/var/run/dbus/pid")) {
+            Logger::info("D-Bus 守护进程: 运行中 ✓");
+        } else {
+            auto result = Executor::shell("pgrep dbus-daemon 2>/dev/null");
+            if (result.ok() && !result.stdout_data.empty()) {
+                Logger::info("D-Bus 守护进程: 运行中 ✓ (PID: " + result.stdout_data + ")");
+            } else {
+                Logger::info("D-Bus 守护进程: 未运行 ✗");
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 桌面美化扩展
+    // ═══════════════════════════════════════════════════════════════
+
+    bool GUIManager::download_wallpaper(std::string_view source) {
+        Logger::step("下载壁纸: " + std::string(source));
+
+        std::string wallpaper_dir = "/usr/share/backgrounds/tmoe";
+        Executor::shell("mkdir -p " + wallpaper_dir);
+
+        std::string url;
+        std::string filename;
+        std::string src_lower(source);
+        std::transform(src_lower.begin(), src_lower.end(), src_lower.begin(), ::tolower);
+
+        if (src_lower == "debian" || src_lower == "gnome") {
+            install_packages({"gnome-backgrounds"});
+            Logger::ok("GNOME 壁纸包已安装");
+            return true;
+        } else if (src_lower == "xfce" || src_lower == "xubuntu") {
+            url = "https://gitlab.xfce.org/artwork/xfce4-artwork/-/raw/master/backgrounds/xfce-stripes.png";
+            filename = "xfce-stripes.png";
+        } else if (src_lower == "mate" || src_lower == "ubuntu-mate") {
+            install_packages({"ubuntu-mate-wallpapers"});
+            Logger::ok("Ubuntu MATE 壁纸包已安装");
+            return true;
+        } else if (src_lower == "deepin") {
+            install_packages({"deepin-wallpapers"});
+            Logger::ok("Deepin 壁纸包已安装");
+            return true;
+        } else if (src_lower == "kde") {
+            install_packages({"plasma-workspace-wallpapers"});
+            Logger::ok("KDE 壁纸包已安装");
+            return true;
+        } else {
+            Logger::info("未知壁纸源: " + std::string(source) + "，跳过下载");
+            return false;
+        }
+
+        if (!url.empty()) {
+            Executor::shell("wget -q '" + url + "' -O " + wallpaper_dir + "/" + filename +
+                " 2>/dev/null || curl -sL '" + url + "' -o " + wallpaper_dir + "/" + filename + " 2>/dev/null");
+            set_wallpaper(wallpaper_dir + "/" + filename);
+        }
+
+        Logger::ok("壁纸下载完成");
+        return true;
+    }
+
+    bool GUIManager::install_conky() {
+        Logger::step("安装 Conky 系统监控...");
+        if (!install_packages({"conky", "conky-all"})) {
+            Logger::warn("Conky 安装失败");
+            return false;
+        }
+
+        // 写入基础 conky 配置
+        std::string home = std::getenv("HOME") ? std::string(std::getenv("HOME")) : "/root";
+        std::string conky_dir = home + "/.config/conky";
+        Executor::shell("mkdir -p " + conky_dir);
+
+        std::string conky_conf =
+            "conky.config = {\n"
+            "    alignment = 'top_right',\n"
+            "    background = false,\n"
+            "    double_buffer = true,\n"
+            "    font = 'Iosevka:size=10',\n"
+            "    gap_x = 12, gap_y = 48,\n"
+            "    own_window = true,\n"
+            "    own_window_type = 'desktop',\n"
+            "    own_window_transparent = true,\n"
+            "    own_window_argb_visual = true,\n"
+            "    update_interval = 1.0,\n"
+            "    use_xft = true,\n"
+            "};\n\n"
+            "conky.text = [[\n"
+            "${color #00ff00}Host: ${color white}$nodename\n"
+            "${color #00ff00}Kernel: ${color white}$kernel\n"
+            "${color #00ff00}Uptime: ${color white}$uptime\n\n"
+            "${color #ff6600}CPU: ${color white}${cpu}%\n"
+            "${cpugraph 20 200}\n"
+            "${color #ff6600}RAM: ${color white}$mem/$memmax\n"
+            "${color #ff6600}Disk: ${color white}${fs_used /}/${fs_size /}\n"
+            "${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}\n"
+            "]];\n";
+        write_file(fs::path(conky_dir + "/conky.conf"), conky_conf);
+
+        // 创建 autostart
+        std::string autostart = home + "/.config/autostart/conky.desktop";
+        std::string desktop_entry =
+            "[Desktop Entry]\n"
+            "Type=Application\n"
+            "Name=Conky\n"
+            "Exec=conky -c " + conky_dir + "/conky.conf\n"
+            "X-GNOME-Autostart-enabled=true\n";
+        write_file(fs::path(autostart), desktop_entry);
+
+        Logger::ok("Conky 安装完成");
+        return true;
+    }
+
+    bool GUIManager::install_compiz() {
+        Logger::step("安装 Compiz 窗口特效...");
+        std::vector<std::string> pkgs = {
+            "compiz", "compiz-core", "compiz-plugins",
+            "compiz-plugins-default", "compiz-plugins-extra",
+            "emerald", "emerald-themes", "compizconfig-settings-manager"
+        };
+
+        if (!install_packages(pkgs)) {
+            Logger::warn("部分 Compiz 组件安装失败，尝试核心包...");
+            install_packages({"compiz", "compiz-core", "compiz-plugins"});
+        }
+
+        Logger::ok("Compiz 安装完成");
+        Logger::info("使用 emerald --replace 启用 Emerald 窗口装饰器");
+        Logger::info("使用 ccsm 配置 Compiz 特效");
+        return true;
+    }
+
+    bool GUIManager::install_cursor_theme(std::string_view theme) {
+        Logger::step("安装鼠标指针主题: " + std::string(theme));
+
+        std::string name_lower(theme);
+        std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), ::tolower);
+
+        std::string pkg_name;
+        if (name_lower.find("breeze") != std::string::npos) pkg_name = "breeze-cursor-theme";
+        else if (name_lower.find("chameleon") != std::string::npos) pkg_name = "chameleon-cursor-theme";
+        else pkg_name = std::string(theme) + "-cursor-theme";
+
+        if (!Executor::shell(cfg_.install_command + " " + pkg_name + " 2>/dev/null || true").ok()) {
+            Logger::warn("鼠标指针安装可能失败，请手动检查");
+            return false;
+        }
+
+        Logger::ok("鼠标指针主题安装完成");
+        return true;
+    }
+
+    bool GUIManager::deploy_xfce_panel_config() {
+        // 仅在 XFCE 环境下部署
+        Logger::step("部署 XFCE4 面板配置...");
+
+        std::string home = std::getenv("HOME") ? std::string(std::getenv("HOME")) : "/root";
+        fs::path panel_dir = fs::path(home) / ".config" / "xfce4" / "xfconf" / "xfce-perchannel-xml";
+        Executor::shell("mkdir -p " + panel_dir.string());
+
+        std::string panel_xml = generate_xfce_panel_xml();
+        return write_file(panel_dir / "xfce4-panel.xml", panel_xml);
+    }
+
+    std::string GUIManager::generate_xfce_panel_xml() const {
+        return R"(<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-panel" version="1.0">
+  <property name="configver" type="int" value="2"/>
+  <property name="panels" type="array">
+    <value type="int" value="1"/>
+    <property name="panel-1" type="empty">
+      <property name="position" type="string" value="p=8;x=0;y=0"/>
+      <property name="length" type="uint" value="100"/>
+      <property name="position-locked" type="bool" value="true"/>
+      <property name="size" type="uint" value="38"/>
+      <property name="plugin-ids" type="array">
+        <value type="int" value="1"/>
+        <value type="int" value="2"/>
+        <value type="int" value="3"/>
+        <value type="int" value="4"/>
+        <value type="int" value="5"/>
+        <value type="int" value="6"/>
+        <value type="int" value="7"/>
+        <value type="int" value="8"/>
+        <value type="int" value="9"/>
+      </property>
+    </property>
+  </property>
+  <property name="plugins" type="empty">
+    <property name="plugin-1" type="string" value="applicationsmenu"/>
+    <property name="plugin-2" type="string" value="tasklist"/>
+    <property name="plugin-3" type="string" value="separator"/>
+    <property name="plugin-4" type="string" value="clock">
+      <property name="digital-layout" type="uint" value="2"/>
+      <property name="mode" type="uint" value="2"/>
+    </property>
+    <property name="plugin-5" type="string" value="separator"/>
+    <property name="plugin-6" type="string" value="systray"/>
+    <property name="plugin-7" type="string" value="pulseaudio"/>
+    <property name="plugin-8" type="string" value="notification-plugin"/>
+    <property name="plugin-9" type="string" value="actions"/>
+  </property>
+</channel>
+)";
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 美化菜单扩展
+    // ═══════════════════════════════════════════════════════════════
+
+    // run_beautification_menu 被扩展以包含新选项
 } // namespace tmoe::domain

@@ -59,11 +59,9 @@ namespace tmoe::app {
             }
         };
 
-        // 4. 语言区域重置
+        // 4. 语言区域切换（支持 zh_CN / en_US / ja_JP / de_DE / fr_FR / ko_KR / ru_RU）
         tui_routes_["4"] = [this]() {
-            Logger::step("正在重置终端 Locale 语言环境...");
-            environment_->set_locale(cfg_.locale);
-            Logger::ok("语言环境已重置为: " + cfg_.locale);
+            run_locale_menu();
         };
 
         // 5. Termux 额外选项
@@ -377,5 +375,51 @@ namespace tmoe::app {
                 break;
         }
         return 0;
+    }
+
+    /** 语言/区域切换菜单（支持全部 7 种语言包）。 */
+    void Manager::run_locale_menu() {
+        // 支持的语言列表: {lang_code, 显示名称, 本地名称}
+        struct LangEntry {
+            std::string code;
+            std::string label;
+        };
+        static const std::vector<LangEntry> LANGS = {
+            {"zh_CN", "1  简体中文 (Chinese Simplified)"},
+            {"en_US", "2  English (United States)"},
+            {"ja_JP", "3  日本語 (Japanese)"},
+            {"de_DE", "4  Deutsch (German)"},
+            {"fr_FR", "5  Français (French)"},
+            {"ko_KR", "6  한국어 (Korean)"},
+            {"ru_RU", "7  Русский (Russian)"},
+        };
+
+        // 构建 whiptail 菜单
+        std::string cur = std::string(I18n::current_lang());
+        std::string menu_cmd = cfg_.tui_bin +
+                               " --title \"Language / 言語 / Sprache / 언어 / Язык\"" +
+                               " --menu \"Current: " + cur + "  |  Select interface language:\" 0 0 0 ";
+        for (const auto &e: LANGS) {
+            std::string mark = (e.code == cur) ? " ✓" : "";
+            menu_cmd += "\"" + e.code + "\" \"" + e.label + mark + "\" ";
+        }
+        menu_cmd += "\"back\" \"↩ 返回 / Back\"";
+
+        std::string choice = Executor::tui_select(menu_cmd);
+        if (choice.empty() || choice == "back") return;
+
+        // 检查是否是合法代码
+        bool valid = false;
+        for (const auto &e: LANGS) {
+            if (e.code == choice) { valid = true; break; }
+        }
+        if (!valid) return;
+
+        // 切换语言
+        I18n::init(choice);
+        cfg_.locale = choice;
+        environment_->set_locale(choice);
+        Logger::ok("Language switched to: " + choice);
+        Logger::press_enter();
     }
 } // namespace tmoe::app

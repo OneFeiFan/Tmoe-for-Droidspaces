@@ -26,11 +26,16 @@ namespace tmoe::domain {
         int resolution_h = 720; // 分辨率高度
         int pixel_depth = 24; // 像素深度 (16/24)
         int zlib_level = 0; // Zlib 压缩级别 (0-9)
+        bool compare_fb = true; // TigerVNC CompareFB (仅传输变化的帧)
 
         // ── 安全 ──
         std::string password; // VNC 密码 (6-8 位)
         fs::path passwd_file; // 密码文件路径 (~/.vnc/passwd)
         bool always_shared = true; // 总是共享连接
+        bool localhost_only = false; // 仅本地连接
+
+        // ── 桌面信息 ──
+        std::string desktop_name; // VNC 桌面名称 (从 /etc/os-release 读取)
 
         // ── PulseAudio ──
         std::string pulse_server; // PULSE_SERVER 地址
@@ -45,6 +50,11 @@ namespace tmoe::domain {
         fs::path xstartup_file; // ~/.vnc/xstartup
         fs::path xsession_file; // /etc/X11/xinit/Xsession
         fs::path tigervnc_config; // /etc/tigervnc/vncserver-config-tmoe
+        fs::path vnc_pid_file; // ~/.vnc/vnc.pid (TigerVNC)
+        fs::path x_pid_file; // ~/.vnc/x.pid (X 进程 PID)
+
+        // ── 日志 ──
+        std::string vnc_log_file = "/tmp/tmoe_vnc_startup.log";
 
         // ── 依赖包名 (按发行版不同) ──
         std::string dep_viewer; // tigervnc-viewer
@@ -147,11 +157,55 @@ namespace tmoe::domain {
         /** 列出所有支持的桌面环境。 */
         std::vector<DesktopInfo> list_desktops() const;
 
-        /** 安装窗口管理器 (openbox, icewm, i3, awesome, xmonad 等 50+)。 */
+        /** 安装窗口管理器 (openbox, icewm, i3, awesome, xmonad 等 70+)。 */
         bool install_window_manager(std::string_view wm);
 
         /** 列出所有支持的窗口管理器。 */
         std::vector<std::string> list_window_managers() const;
+
+        // ═══════════════════════════════════════════════
+        // 字体管理
+        // ═══════════════════════════════════════════════
+
+        /** 安装中文字体 (noto-cjk) + emoji 字体。 */
+        bool install_fonts();
+
+        /** 下载安装 Iosevka 编程字体。 */
+        bool install_iosevka_font();
+
+        // ═══════════════════════════════════════════════
+        // HiDPI 检测与配置
+        // ═══════════════════════════════════════════════
+
+        /** 检测终端是否启用 HiDPI 并自动设置 WindowScalingFactor。 */
+        bool detect_and_configure_hidpi(std::string_view desktop);
+
+        // ═══════════════════════════════════════════════
+        // 输入法与浏览器
+        // ═══════════════════════════════════════════════
+
+        /** 安装 fcitx 中文拼音输入法。 */
+        bool install_fcitx();
+
+        /** 安装 Chromium 浏览器。 */
+        bool install_chromium();
+
+        // ═══════════════════════════════════════════════
+        // 权限与文件管理
+        // ═══════════════════════════════════════════════
+
+        /** 修复 ~/.vnc 目录权限。 */
+        bool fix_vnc_permissions();
+
+        /** 部署 startvnc/startxsdl 启动脚本到 /usr/local/bin。 */
+        bool deploy_startup_scripts();
+
+        // ═══════════════════════════════════════════════
+        // 网络与地址显示
+        // ═══════════════════════════════════════════════
+
+        /** 获取本机所有 IPv4/IPv6 地址。 */
+        std::string get_local_ip_addresses() const;
 
         // ═══════════════════════════════════════════════
         // noVNC (HTML5 VNC 客户端)
@@ -167,6 +221,12 @@ namespace tmoe::domain {
          *  @param port  noVNC HTTP 端口，-1 使用默认 36080
          */
         bool start_novnc(int port = -1);
+
+        /** 停止 noVNC websockify 并卸载。 */
+        bool stop_novnc();
+
+        /** 卸载 noVNC (pip3 + rm)。 */
+        bool remove_novnc();
 
         /** 获取 noVNC 访问 URL。 */
         std::string get_novnc_url() const;
@@ -222,6 +282,12 @@ namespace tmoe::domain {
         /** 修复 VNC dbus-launch 问题。 */
         bool fix_vnc_dbus();
 
+        /** 停止 D-Bus 守护进程。 */
+        bool stop_dbus_daemon();
+
+        /** 显示 D-Bus 守护进程状态。 */
+        void show_dbus_status() const;
+
         // ═══════════════════════════════════════════════
         // 桌面美化
         // ═══════════════════════════════════════════════
@@ -238,8 +304,23 @@ namespace tmoe::domain {
         /** 设置桌面壁纸。 */
         bool set_wallpaper(std::string_view path);
 
+        /** 下载壁纸 (支持多种 DE 官方壁纸)。 */
+        bool download_wallpaper(std::string_view source);
+
         /** 安装 dock 栏 (plank)。 */
         bool install_dock();
+
+        /** 安装 Conky 系统监控。 */
+        bool install_conky();
+
+        /** 安装 Compiz 窗口特效。 */
+        bool install_compiz();
+
+        /** 安装鼠标指针主题。 */
+        bool install_cursor_theme(std::string_view theme);
+
+        /** 部署 XFCE4 面板配置文件。 */
+        bool deploy_xfce_panel_config();
 
         // ═══════════════════════════════════════════════
         // PulseAudio 音频桥接
@@ -312,6 +393,13 @@ namespace tmoe::domain {
         std::string generate_xsession_content(std::string_view desktop) const;
 
         std::string generate_xstartup_content() const;
+
+        std::string generate_xfce_panel_xml() const;
+
+        // ── VNC PID 管理 ──
+        void write_vnc_pid_file(int display) const;
+
+        void remove_vnc_pid_file(int display) const;
 
         // ── 环境检测 ──
         bool detect_android_resolution(int &width, int &height) const;

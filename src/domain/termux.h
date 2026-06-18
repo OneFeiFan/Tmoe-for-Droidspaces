@@ -86,6 +86,22 @@ namespace tmoe::domain {
         /** 将默认登录 shell 改为 zsh。 */
         bool change_shell_to_zsh();
 
+        /** 配置 PulseAudio TCP 原生协议 (auth-ip-acl)。 */
+        bool configure_pulseaudio_tcp();
+
+        /** 设置 PulseAudio 空闲超时 (exit-idle-time)。 */
+        bool configure_pulseaudio_idle_timeout();
+
+        /** 切换局域网音频访问 (192.168.0.0/16;172.16.0.0/12)。 */
+        bool toggle_lan_audio();
+
+        // ═══════════════════════════════════════════════
+        // 自更新
+        // ═══════════════════════════════════════════════
+
+        /** Git 拉取自更新 + fix-shebang。 */
+        bool self_update();
+
         // ═══════════════════════════════════════════════
         // 软件包镜像源
         // ═══════════════════════════════════════════════
@@ -107,6 +123,21 @@ namespace tmoe::domain {
 
         /** 恢复 Termux 默认官方源。 */
         void restore_default_sources();
+
+        /** 旧版 Termux 镜像格式支持 (pre-2021)。 */
+        void use_old_mirror_format(const std::string &mirror_url);
+
+        /** 检测 Android 版本并限制旧版换源。 */
+        bool check_android_version_for_mirror();
+
+        /** 备份 sources.list + sources.list.d 为 tar.xz。 */
+        void backup_sources_list();
+
+        /** Alpine Linux 镜像切换。 */
+        void switch_alpine_mirror();
+
+        /** GNU/Linux 后备镜像处理。 */
+        void linux_mirror_fallback();
 
         // ═══════════════════════════════════════════════
         // 磁盘空间
@@ -180,5 +211,64 @@ namespace tmoe::domain {
         std::string select_vnc_resolution();
 
         std::string select_desktop_environment();
+
+        /** 自动启动 RealVNC 查看器 (am start)。 */
+        void auto_start_vnc_viewer();
+
+        /** 自动启动文件管理器 (thunar/pcmanfm-qt)。 */
+        void auto_start_file_manager_in_vnc();
+
+        /** 检测并显示局域网 VNC IP 地址。 */
+        std::string detect_and_show_lan_ip();
+
+        /** 为桌面环境配置终端模拟器。 */
+        std::string configure_terminal_emulator_for_de(const std::string &desktop_env);
+
+        /** 使用 nano 手动编辑 startvnc 脚本。 */
+        void edit_vnc_config_manually();
+
+        /** 运行 termux-fix-shebang。 */
+        void run_termux_fix_shebang(const std::string &file_path);
+
+        /** GNU/Linux GUI 委托安装。 */
+        void linux_gui_fallback();
+
+        // Signal 9 增强
+        /** 运行 ADB 命令并返回输出。 */
+        std::string run_adb_cmd(const std::string &cmd);
+
+        /** 设置三星 ADB 兼容模式。 */
+        bool set_samsung_adb_comp_mode();
+
+        /** ADB 配对 + 连接双阶段流程。 */
+        bool adb_pair_and_connect_flow();
+
+        /** 可配置 ADB 服务器端口选择。 */
+        bool select_adb_port();
+
+        /** 基于 dumpsys 验证 Signal 9 修复。 */
+        bool verify_signal9_fix();
+
+        /** 统计 adb 设备数量。 */
+        int count_adb_devices();
+
+        // 备份增强
+        /** 调用 umount 脚本卸载挂载点。 */
+        void unmount_before_backup();
+
+        /** Timeshift 系统备份选项。 */
+        void timeshift_backup_option();
+
+        // OpenSSL 旧版修复
+        /** 检测并安装 openssl-1.1 旧版兼容。 */
+        void check_openssl_legacy();
+
+        // 二进制到包的映射
+        /** 将命令行工具名称映射到 Termux 包名。 */
+        std::string map_binary_to_termux_pkg(const std::string &binary);
+
+        // 备用 X11 会话
+        /** 获取备用桌面会话 (如 XFCE → XFCE 4.18 回退)。 */
+        std::string get_fallback_xsession(const std::string &desktop_env);
     };
 } // namespace tmoe::domain

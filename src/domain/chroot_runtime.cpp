@@ -77,6 +77,11 @@ namespace tmoe::domain {
 
     std::string ChrootRuntime::detect_chroot_bin() const {
         const auto &c = config_;
+        // 旧 Android 兼容模式：强制用 termux chroot
+        if (c.old_android_compat) {
+            const char *prefix = std::getenv("PREFIX");
+            return std::string(prefix ? prefix : "") + "/bin/chroot";
+        }
         if (c.chroot_bin == "system" || c.chroot_bin == "default" || c.chroot_bin.empty()) {
             return "chroot";
         } else if (c.chroot_bin == "termux" || c.chroot_bin == "prefix") {
@@ -235,6 +240,7 @@ namespace tmoe::domain {
                 config_.sd_dir_2.c_str(),
                 config_.sd_dir_3.c_str(),
                 config_.sd_dir_4.c_str(),
+                config_.sd_dir_5.c_str(),
                 nullptr
             };
 
@@ -260,6 +266,29 @@ namespace tmoe::domain {
                     std::string cmd = prefix;
                     if (!cmd.empty()) cmd += " ";
                     cmd += mount_bin + " -o bind " + config_.termux_dir + " " + target;
+                    Executor::shell(cmd);
+                }
+            }
+        }
+
+        // 7. TF 卡挂载（对应 Bash 的 MOUNT_TF 部分）
+        if (config_.mount_tf.empty() || config_.mount_tf == "true") {
+            std::string tf_link = config_.tf_card_link;
+            // 展开 ${HOME}
+            const char *home = std::getenv("HOME");
+            if (home) {
+                std::string home_str(home);
+                size_t pos = tf_link.find("${HOME}");
+                if (pos != std::string::npos) tf_link.replace(pos, 7, home_str);
+            }
+            if (fs::is_symlink(tf_link)) {
+                auto resolved = fs::read_symlink(tf_link);
+                if (fs::exists(resolved)) {
+                    std::string target = rootfs + config_.tf_mount_point;
+                    mkdirp_as_root(config_.tf_mount_point, prefix);
+                    std::string cmd = prefix;
+                    if (!cmd.empty()) cmd += " ";
+                    cmd += mount_bin + " -o bind " + resolved.string() + " " + target;
                     Executor::shell(cmd);
                 }
             }
@@ -461,13 +490,30 @@ namespace tmoe::domain {
         args.emplace_back("HOME=" + home_dir);
         args.emplace_back("USER=" + config_.chroot_user);
 
-        // PATH
-        if (config_.chroot_user == "root" || config_.chroot_user.empty()) {
-            args.emplace_back(
-                "PATH=/usr/local/sbin:/usr/local/bin:/bin:/usr/bin:/sbin:/usr/sbin:/usr/games:/usr/local/games");
-        } else {
-            args.emplace_back("PATH=/usr/local/bin:/bin:/usr/bin:/usr/games:/usr/local/games");
+        // PATH（含 CONTAINER_BIN_PATH 前缀，对应 Bash 版）
+        std::string container_bin_path;
+        if (config_.load_env_file && !config_.container_env_file.empty() && fs::exists(config_.container_env_file)) {
+            std::ifstream ef(config_.container_env_file);
+            std::string line;
+            while (std::getline(ef, line)) {
+                if (line.rfind("CONTAINER_BIN_PATH=", 0) == 0) {
+                    container_bin_path = line.substr(19);
+                    if (!container_bin_path.empty() && container_bin_path.back() == '\r')
+                        container_bin_path.pop_back();
+                    break;
+                }
+            }
         }
+        std::string base_path;
+        if (config_.chroot_user == "root" || config_.chroot_user.empty()) {
+            base_path = "/usr/local/sbin:/usr/local/bin:/bin:/usr/bin:/sbin:/usr/sbin:/usr/games:/usr/local/games";
+        } else {
+            base_path = "/usr/local/bin:/bin:/usr/bin:/usr/games:/usr/local/games";
+        }
+        if (!container_bin_path.empty())
+            args.emplace_back("PATH=" + container_bin_path + ":" + base_path);
+        else
+            args.emplace_back("PATH=" + base_path);
 
         // 加载容器环境文件（对应 Bash 的 LOAD_ENV_FILE / CONTAINER_ENV_FILE）
         if (config_.load_env_file && !config_.container_env_file.empty()) {
@@ -533,9 +579,17 @@ namespace tmoe::domain {
                                  ? container.rootfs_path()
                                  : config_.rootfs_path;
 
-        // 1. 注：Bash 原版 startup 脚本不在运行时修改 shadow 文件
-        //    Chroot 容器的 root 密码应在构建 rootfs 时设定。
-        //    此处不做任何密码修改操作。
+        // 1. 写 chroot.conf（标记启动模式，对应 Bash 版 SYSTEMD_NSPAWN 标志）
+        {
+            std::string conf_dir_path = rootfs + "/usr/local/etc/tmoe-linux/config";
+            std::string conf_path = conf_dir_path + "/chroot.conf";
+            Executor::shell("mkdir -p " + conf_dir_path);
+            std::ofstream cf(conf_path);
+            if (cf.is_open()) {
+                cf << "CHROOT_ENABLED=true\n";
+                cf << "SYSTEMD_NSPAWN=false\n";
+            }
+        }
 
         // 2. 设置 hostname（对应 Bash 版：写 /etc/hostname）
         std::string machine_name = container.name();
@@ -613,6 +667,17 @@ namespace tmoe::domain {
         // 卸载 Termux 目录
         if (!config_.termux_mount_point.empty()) {
             std::string target = rootfs + config_.termux_mount_point;
+            if (is_mounted(target)) {
+                std::string cmd = prefix;
+                if (!cmd.empty()) cmd += " ";
+                cmd += "umount -lf " + target + " 2>/dev/null || true";
+                Executor::shell(cmd);
+            }
+        }
+
+        // 卸载 TF 卡
+        if (!config_.tf_mount_point.empty()) {
+            std::string target = rootfs + config_.tf_mount_point;
             if (is_mounted(target)) {
                 std::string cmd = prefix;
                 if (!cmd.empty()) cmd += " ";
