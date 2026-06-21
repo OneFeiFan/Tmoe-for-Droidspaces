@@ -29,11 +29,6 @@ namespace tmoe::domain {
                 runtime_ = std::make_unique<NspawnRuntime>(cfg_);
                 break;
             }
-            case ContainerMode::Qemu: {
-                QemuRuntime::QemuConfig cfg_;
-                runtime_ = std::make_unique<QemuRuntime>(cfg_);
-                break;
-            }
             default:
                 throw std::invalid_argument(_("container.unsupported_mode"));
         }
@@ -54,5 +49,4 @@ namespace tmoe::domain {
         RootfsTarballInstaller installer;
         return installer.install(*this);
     }
-
 } // namespace tmoe::domain

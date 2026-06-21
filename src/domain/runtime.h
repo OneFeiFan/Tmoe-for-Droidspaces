@@ -26,7 +26,7 @@ namespace tmoe::domain {
     };
 
     /** PRoot 运行时策略（对应 old/share/container/proot/startup）。
-     *  完整的 PRoot 配置：二进制选择、loader、QEMU 集成、EXA 仿真、挂载系统。
+     *  完整的 PRoot 配置：二进制选择、loader、EXA 仿真、挂载系统。
      */
     class ProotRuntime : public IContainerRuntime {
     public:
@@ -45,8 +45,12 @@ namespace tmoe::domain {
 
             bool share_proot_loader{false};
             std::string proot_libexec_loader{"default"};
-            std::string proot_32_termux_loader{"${TMOE_LINUX_DIR}/lib32/data/data/com.termux/files/usr/libexec/proot/loader"};
-            std::string compatible_mode_loader{"${TMOE_LINUX_DIR}/lib/data/data/com.termux/files/usr/libexec/proot/loader"};
+            std::string proot_32_termux_loader{
+                "${TMOE_LINUX_DIR}/lib32/data/data/com.termux/files/usr/libexec/proot/loader"
+            };
+            std::string compatible_mode_loader{
+                "${TMOE_LINUX_DIR}/lib/data/data/com.termux/files/usr/libexec/proot/loader"
+            };
 
             std::string ld_lib_path{"default"};
             std::string proot_32_termux_ld_lib_path{"${TMOE_LINUX_DIR}/lib32/data/data/com.termux/files/usr/lib"};
@@ -65,19 +69,11 @@ namespace tmoe::domain {
             int verbose_level{2};
             bool old_android_version_compatibility_mode{false};
 
-            // ── QEMU 集成 ──
             std::string host_distro; // "Android" | "linux"
             std::string host_arch;
             std::string container_distro;
             std::string container_name;
             std::string container_arch{"amd64"};
-            std::string qemu_arch{"default"};
-            bool skip_qemu_detection{false};
-            bool qemu_user_static{true};
-            bool qemu_32_enabled{false};
-            std::string qemu_user_static_path{"${TMOE_LINUX_DIR}/lib/usr/bin"};
-            std::string qemu_user_static_32_path{"${TMOE_LINUX_DIR}/lib32/usr/bin"};
-            std::string qemu_user_bin{"default"};
 
             // ── EXA 仿真 ──
             bool exa_enabled{false};
@@ -151,6 +147,7 @@ namespace tmoe::domain {
                 std::string source;
                 std::string dest;
             };
+
             CustomMount custom_mounts[12];
 
             // ── Shell ──
@@ -170,15 +167,19 @@ namespace tmoe::domain {
         };
 
         ProotRuntime() = default;
-        explicit ProotRuntime(const ProotConfig &cfg) : config_(cfg) {}
+
+        explicit ProotRuntime(const ProotConfig &cfg) : config_(cfg) {
+        }
 
         std::string generate_launch_cmd(const Container &container, const LaunchContext *ctx = nullptr) const override;
+
         bool start(const Container &container, const LaunchContext *ctx = nullptr) override;
+
         bool stop(const Container &container) override;
 
     private:
         ProotConfig config_;
-        std::string resolve_qemu_arch() const;
+
         void apply_proot_args(const Container &container, std::vector<std::string> &args) const;
     };
 
@@ -250,6 +251,7 @@ namespace tmoe::domain {
                 std::string dest;
                 bool readonly{false};
             };
+
             CustomMount custom_mounts[10];
 
             // unshare 配置
@@ -371,164 +373,6 @@ namespace tmoe::domain {
                                std::vector<std::string> &args) const;
     };
 
-    /** QEMU 虚拟机运行时策略（对应 old/tools/virtualization/qemu/startqemu）。
-     *  完整 QEMU 虚拟机配置：机器类型、CPU、内存、存储、网络、GPU、VNC/SPICE。
-     */
-    class QemuRuntime : public IContainerRuntime {
-    public:
-        struct QemuConfig {
-            // 机器属性
-            std::string machine_accel{"kvm:tcg"};
-            bool enable_kvm{true};
-            std::string machine_type{"q35"}; // q35|pc
-            std::string qemu_name{"tmoe-qemu"};
-            std::string rtc_base{"localtime"};
-            bool uefi_enabled{false};
-            std::string uefi_code_pflash{"/usr/share/OVMF/OVMF_CODE.fd"};
-            std::string uefi_vars_pflash;
-
-            // CPU
-            std::string cpu_model{"max"};
-            std::string cpu_id_flags{"hle=off,rtm=off"};
-
-            // SMP
-            int cpus{2};
-            int sockets{2};
-            int cores{1};
-            int threads{1};
-
-            // 内存
-            std::string memory_allocation{"auto"}; // auto|num
-            int memory_size{1024}; // MB
-            int max_memory{4096}; // MB
-            int memory_reduced{256}; // MB
-
-            // 引导
-            std::string boot_order{"cd"};
-            bool boot_menu{true};
-            bool custom_kernel{false};
-            std::string kernel_file;
-            std::string initrd_file;
-            std::string kernel_append;
-
-            // 存储设备（对应 Bash 版变量）
-            struct StorageDevice {
-                bool enabled{false};
-                std::string format{"qcow2"};
-                std::string path;
-                std::string bootindex;
-            };
-
-            StorageDevice virtio_disk[2];
-            StorageDevice sata_disk[2];
-            StorageDevice usb_disk[2];
-            StorageDevice floppy_disk[2];
-            StorageDevice cdrom_disk[2];
-
-            // VirtIO 9p 共享
-            bool virtio_9p_enabled{true};
-            std::string virtio_9p_path;
-
-            // 声卡
-            bool sound_card_enabled{true};
-            std::string sound_card{"intel-hda"}; // intel-hda|AC97|ES1370
-            bool sound_card_02_enabled{true};
-            std::string sound_card_02{"AC97"};
-            std::string audio_addr{"127.0.0.1:4713"};
-            bool wayland_remote_pulse{false};
-
-            // 网卡
-            struct NetDevice {
-                bool enabled{true};
-                std::string model{"virtio-net-pci"}; // virtio-net-pci|e1000|rtl8139
-                std::string mac;
-                bool tcp_fwd_enabled{true};
-                std::string tcp_fwd; // "host_port:guest_port,..."
-                bool udp_fwd_enabled{false};
-                std::string udp_fwd;
-            };
-
-            NetDevice net_devices[3];
-
-            // GPU
-            std::string gpu_model{"qxl-vga"}; // qxl-vga|virtio-vga|VGA|bochs-display
-            bool virtio_3d_accel{false};
-            std::string gpu_ram_size{"67108864"};
-            std::string gpu_vram_size{"67108864"};
-            int gpu_vgamem_mb{16};
-
-            // 远程桌面
-            std::string connection_type{"vnc"}; // vnc|spice|x11|remote-x11
-            std::string remote_x11_addr{"127.0.0.1:0"};
-            int vnc_port{5905};
-            bool vnc_localhost{false};
-            bool vnc_startup_prompt{true};
-            bool vnc_password{false};
-
-            // QEMU 二进制
-            std::string qemu_bin_path{"/usr/bin"};
-            std::string qemu_bin_arch{"x86_64"}; // x86_64|i386
-        };
-
-        QemuRuntime() = default;
-
-        explicit QemuRuntime(const QemuConfig &cfg) : config_(cfg) {
-        }
-
-        std::string generate_launch_cmd(const Container &container, const LaunchContext *ctx = nullptr) const override;
-
-        bool start(const Container &container, const LaunchContext *ctx = nullptr) override;
-
-        bool stop(const Container &container) override;
-
-    private:
-        QemuConfig config_;
-
-        std::string detect_qemu_bin() const;
-
-        void build_qemu_args(const QemuConfig &cfg, const Container &container, const LaunchContext *ctx,
-                             std::vector<std::string> &args) const;
-
-        void apply_memory_config(const QemuConfig &cfg, std::vector<std::string> &args) const;
-
-        void apply_storage_config(const QemuConfig &cfg, std::vector<std::string> &args) const;
-
-        void apply_network_config(const QemuConfig &cfg, std::vector<std::string> &args) const;
-
-        void apply_gpu_config(const QemuConfig &cfg, std::vector<std::string> &args) const;
-
-        void apply_sound_config(const QemuConfig &cfg, std::vector<std::string> &args) const;
-
-        void apply_vnc_config(const QemuConfig &cfg, std::vector<std::string> &args) const;
-
-        static int get_auto_memory_size(int reduced, int max_mem);
-    };
-
     // 待办: class DockerRuntime : public IContainerRuntime { ... };
-
-    /** QEMU 用户模式运行时（对应 old/share/container/qemu/qemu-user）。
-     *  qemu-user-static 管理：安装/升级/卸载/架构检测/Proot 集成。
-     */
-    class QemuUserRuntime {
-    public:
-        struct QemuUserConfig {
-            std::string qemu_user_prefix{"${TMOE_LINUX_DIR}/lib/usr/bin"};
-            std::string qemu_user_32_prefix{"${TMOE_LINUX_DIR}/lib32/usr/bin"};
-            std::string target_arch{"x86_64"};
-            bool qemu_32_enabled{false};
-            bool qemu_user_static{true};
-        };
-
-        QemuUserRuntime() = default;
-        explicit QemuUserRuntime(const QemuUserConfig &cfg) : config_(cfg) {}
-
-        bool install();
-        bool remove();
-        bool check_version(std::string &version_out) const;
-        std::string detect_qemu_bin(const std::string &container_arch, const std::string &host_arch) const;
-
-    private:
-        QemuUserConfig config_;
-    };
 } // namespace tmoe::domain
 #endif //RUNTIME_H

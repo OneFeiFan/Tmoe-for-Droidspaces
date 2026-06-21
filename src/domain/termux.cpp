@@ -242,7 +242,8 @@ namespace tmoe::domain {
         ofs << "sleep 2\n\n";
 
         ofs << "# Auto-start RealVNC viewer on Android\n";
-        ofs << "am start -n com.realvnc.viewer.android/com.realvnc.viewer.android.app.ConnectionChooserActivity 2>/dev/null\n\n";
+        ofs <<
+                "am start -n com.realvnc.viewer.android/com.realvnc.viewer.android.app.ConnectionChooserActivity 2>/dev/null\n\n";
 
         ofs << "# Auto-start file manager\n";
         ofs << "for fm in thunar pcmanfm-qt nautilus dolphin; do\n";
@@ -306,12 +307,12 @@ namespace tmoe::domain {
         }
 
         std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.vnc_conf_title") + "\" "
-            "--menu \"" + _("termux.vnc_conf_prompt") + "\" 0 50 0 "
-            "\"1\" \"" + _("termux.vnc_conf_resolution") + "\" "
-            "\"2\" \"" + _("termux.vnc_conf_edit") + "\" "
-            "\"3\" \"" + _("termux.vnc_conf_lan") + "\" "
-            "\"4\" \"" + _("termux.vnc_conf_fix") + "\" "
-            "\"0\" \"" + _("menu.tui.back") + "\"";
+                          "--menu \"" + _("termux.vnc_conf_prompt") + "\" 0 50 0 "
+                          "\"1\" \"" + _("termux.vnc_conf_resolution") + "\" "
+                          "\"2\" \"" + _("termux.vnc_conf_edit") + "\" "
+                          "\"3\" \"" + _("termux.vnc_conf_lan") + "\" "
+                          "\"4\" \"" + _("termux.vnc_conf_fix") + "\" "
+                          "\"0\" \"" + _("menu.tui.back") + "\"";
 
         auto choice = Executor::tui_select(cmd);
 
@@ -443,7 +444,8 @@ namespace tmoe::domain {
         // 3. 选择压缩类型
         std::string compress_cmd = cfg_.tui_bin + " --title \"" + _("termux.compress_title") + "\" "
                                    "--yesno \"" + _("termux.compress_yesno") + "\" 0 50 "
-                                   "--yes-button \"" + _("termux.compress_zstd") + "\" --no-button \"" + _("termux.compress_xz") + "\"";
+                                   "--yes-button \"" + _("termux.compress_zstd") + "\" --no-button \"" + _(
+                                       "termux.compress_xz") + "\"";
 
         bool use_zstd = Executor::shell(compress_cmd).ok();
 
@@ -475,7 +477,7 @@ namespace tmoe::domain {
         if (fs::exists(tar_file)) {
             auto fsize = fs::file_size(tar_file);
             Logger::ok(_f("termux.backup_complete", tar_file,
-                       std::to_string(fsize / 1024 / 1024) + " MB)"));
+                          std::to_string(fsize / 1024 / 1024) + " MB)"));
             return true;
         }
 
@@ -710,6 +712,49 @@ namespace tmoe::domain {
         return true;
     }
 
+    bool TermuxManager::start_tmoe_zsh() {
+        // 对应 original bash: start_tmoe_zsh_manager() in old/tools/app/center
+        // 启动外部 tmoe-zsh TUI 管理脚本 (https://github.com/2cd/zsh)
+        const std::string zsh_tool_url = "https://raw.githubusercontent.com/2cd/zsh/master/zsh.sh";
+        const char* home_env = std::getenv("HOME");
+        std::string home = home_env ? home_env : "/root";
+        std::string local_zsh_script = home + "/.config/tmoe-zsh/git/zsh.sh";
+
+        // 优先级1: 已安装的 zsh-i 命令
+        if (Executor::has("zsh-i")) {
+            Logger::step("启动 tmoe-zsh 管理工具 (zsh-i)...");
+            Executor::passthrough("zsh-i");
+            return true;
+        }
+
+        // 优先级2: 本地已缓存的脚本
+        if (fs::exists(local_zsh_script)) {
+            Logger::step("启动 tmoe-zsh 管理工具 (本地脚本)...");
+            Executor::passthrough("bash " + local_zsh_script);
+            return true;
+        }
+
+        // 优先级3: 从 GitHub 下载并运行
+        const char* sudo_user = std::getenv("SUDO_USER");
+        bool is_root_home = (home == "/root");
+        bool needs_su = is_root_home && sudo_user && !cfg_.is_termux;
+
+        if (needs_su) {
+            Logger::step("以用户 " + std::string(sudo_user) + " 身份启动 tmoe-zsh...");
+            Executor::shell("curl -Lo /tmp/.zsh-i.sh " + zsh_tool_url);
+            Executor::shell("chmod a+rx /tmp/.zsh-i.sh");
+            Executor::passthrough("su - " + std::string(sudo_user) + " -c 'bash /tmp/.zsh-i.sh'");
+        } else {
+            Logger::step("正在启动 tmoe-zsh 管理工具...");
+            Executor::passthrough(
+                "bash -c \"$(curl -LfsS " + zsh_tool_url + ")\""
+            );
+        }
+
+        Logger::ok("tmoe-zsh 管理工具已退出");
+        return true;
+    }
+
     bool TermuxManager::change_shell_to_zsh() {
         if (!Executor::has("zsh")) {
             Logger::warn(_("termux.zsh_not_installed"));
@@ -887,7 +932,8 @@ namespace tmoe::domain {
         std::string repo = repos[idx];
         std::string action = cfg_.tui_bin + " --title \"" + _f("termux.repo_toggle_title", repo) + "\" "
                              "--yesno \"" + _f("termux.repo_toggle_confirm", repo) + "\" 0 50 "
-                             "--yes-button \"" + _("termux.btn_enable") + "\" --no-button \"" + _("termux.btn_disable") + "\"";
+                             "--yes-button \"" + _("termux.btn_enable") + "\" --no-button \"" + _("termux.btn_disable")
+                             + "\"";
 
         if (Executor::shell(action).ok()) {
             Logger::step(_f("termux.enabling_repo", repo));
@@ -1066,7 +1112,7 @@ namespace tmoe::domain {
 
         // 扩展菜单
         std::string ask = cfg_.tui_bin + " --title \"" + _("termux.signal9_detect_title") + "\" "
-            "--yesno \"" + _("termux.signal9_detect_yesno") + "\" 0 50";
+                          "--yesno \"" + _("termux.signal9_detect_yesno") + "\" 0 50";
         if (!Executor::shell(ask).ok()) {
             Logger::info("未遇到 Signal 9 问题，跳过修复。");
             return true;
@@ -1074,14 +1120,14 @@ namespace tmoe::domain {
 
         // 增强菜单
         std::string fix_menu = cfg_.tui_bin + " --title \"" + _("termux.signal9_fix_title") + "\" "
-            "--menu \"" + _("termux.signal9_fix_prompt") + "\" 0 50 0 "
-            "\"1\" \"" + _("termux.signal9_adb_fix") + "\" "
-            "\"2\" \"" + _("termux.signal9_samsung") + "\" "
-            "\"3\" \"" + _("termux.signal9_adb_pair") + "\" "
-            "\"4\" \"" + _("termux.signal9_adb_port") + "\" "
-            "\"5\" \"" + _("termux.signal9_verify") + "\" "
-            "\"6\" \"" + _("termux.signal9_manual") + "\" "
-            "\"0\" \"" + _("menu.tui.back") + "\"";
+                               "--menu \"" + _("termux.signal9_fix_prompt") + "\" 0 50 0 "
+                               "\"1\" \"" + _("termux.signal9_adb_fix") + "\" "
+                               "\"2\" \"" + _("termux.signal9_samsung") + "\" "
+                               "\"3\" \"" + _("termux.signal9_adb_pair") + "\" "
+                               "\"4\" \"" + _("termux.signal9_adb_port") + "\" "
+                               "\"5\" \"" + _("termux.signal9_verify") + "\" "
+                               "\"6\" \"" + _("termux.signal9_manual") + "\" "
+                               "\"0\" \"" + _("menu.tui.back") + "\"";
 
         auto choice = Executor::tui_select(fix_menu);
 
@@ -1128,7 +1174,7 @@ namespace tmoe::domain {
         if (is_samsung_device()) {
             Logger::warn("检测到三星设备，建议启用兼容模式。");
             std::string samsung_ask = cfg_.tui_bin + " --title \"" + _("termux.samsung_title") + "\" "
-                "--yesno \"" + _("termux.samsung_yesno") + "\" 0 50";
+                                      "--yesno \"" + _("termux.samsung_yesno") + "\" 0 50";
             if (Executor::shell(samsung_ask).ok()) {
                 set_samsung_adb_comp_mode();
             }
@@ -1168,7 +1214,8 @@ namespace tmoe::domain {
             Logger::info("请确认设备状态为 \"device\" (非 unauthorized)。");
         } else {
             Logger::info("手动修复命令：");
-            Logger::info("adb shell \"/system/bin/device_config put activity_manager max_phantom_processes 2147483647\"");
+            Logger::info(
+                "adb shell \"/system/bin/device_config put activity_manager max_phantom_processes 2147483647\"");
             Logger::info("adb shell \"/system/bin/settings put global settings_enable_monitor_phantom_procs false\"");
             return true;
         }
@@ -1208,7 +1255,8 @@ namespace tmoe::domain {
         }
 
         // 修复前验证（如果可行）
-        auto before = Executor::shell(adb_prefix + " shell dumpsys activity settings 2>/dev/null | grep max_phantom_processes");
+        auto before = Executor::shell(
+            adb_prefix + " shell dumpsys activity settings 2>/dev/null | grep max_phantom_processes");
         if (before.ok() && !before.stdout_data.empty()) {
             Logger::info("修复前状态: " + before.stdout_data);
         }
@@ -1232,7 +1280,8 @@ namespace tmoe::domain {
             " shell \"/system/bin/device_config set_sync_disabled_for_tests persistent\" 2>/dev/null; true");
 
         // 修复后验证
-        auto after = Executor::shell(adb_prefix + " shell dumpsys activity settings 2>/dev/null | grep max_phantom_processes");
+        auto after = Executor::shell(
+            adb_prefix + " shell dumpsys activity settings 2>/dev/null | grep max_phantom_processes");
         if (after.ok() && !after.stdout_data.empty()) {
             Logger::ok("修复后状态: " + after.stdout_data);
         } else {
@@ -1509,17 +1558,16 @@ namespace tmoe::domain {
             else if (choice == "9") setup_storage();
             else if (choice == "A" || choice == "a") {
                 std::string pa_cmd = cfg_.tui_bin + " --title \"" + _("termux.pulseaudio_title") + "\" "
-                    "--menu \"" + _("termux.pulseaudio_prompt") + "\" 0 50 0 "
-                    "\"1\" \"" + _("termux.pa_tcp_local") + "\" "
-                    "\"2\" \"" + _("termux.pa_lan_toggle") + "\" "
-                    "\"3\" \"" + _("termux.pa_idle_timeout") + "\" "
-                    "\"0\" \"" + _("menu.tui.back") + "\"";
+                                     "--menu \"" + _("termux.pulseaudio_prompt") + "\" 0 50 0 "
+                                     "\"1\" \"" + _("termux.pa_tcp_local") + "\" "
+                                     "\"2\" \"" + _("termux.pa_lan_toggle") + "\" "
+                                     "\"3\" \"" + _("termux.pa_idle_timeout") + "\" "
+                                     "\"0\" \"" + _("menu.tui.back") + "\"";
                 auto pa_choice = Executor::tui_select(pa_cmd);
                 if (pa_choice == "1") configure_pulseaudio_tcp();
                 else if (pa_choice == "2") toggle_lan_audio();
                 else if (pa_choice == "3") configure_pulseaudio_idle_timeout();
-            }
-            else if (choice == "B" || choice == "b") self_update();
+            } else if (choice == "B" || choice == "b") self_update();
             else if (choice == "0" || choice.empty()) return 0;
         }
     }
@@ -1559,7 +1607,8 @@ namespace tmoe::domain {
 
         // 清理旧配置并添加新配置
         Executor::shell("sed -i '/auth-ip-acl/d;/module-native-protocol-tcp/d' " + pa_conf);
-        Executor::shell("echo 'load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1' >> " + pa_conf);
+        Executor::shell(
+            "echo 'load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1' >> " + pa_conf);
 
         Logger::ok("PulseAudio TCP 本地音频配置完成！(auth-ip-acl=127.0.0.1 auth-anonymous=1)");
         return true;
@@ -1616,11 +1665,14 @@ namespace tmoe::domain {
 
         if (lan_enabled) {
             // 禁用局域网, 仅限 localhost
-            Executor::shell("echo 'load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=0' >> " + pa_conf);
+            Executor::shell(
+                "echo 'load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=0' >> " + pa_conf);
             Logger::ok("局域网音频已禁用，仅允许 localhost 访问。");
         } else {
             // 启用局域网
-            Executor::shell("echo 'load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1;192.168.0.0/16;172.16.0.0/12 auth-anonymous=1' >> " + pa_conf);
+            Executor::shell(
+                "echo 'load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1;192.168.0.0/16;172.16.0.0/12 auth-anonymous=1' >> "
+                + pa_conf);
             Logger::ok("局域网音频已启用！(允许 192.168.0.0/16 + 172.16.0.0/12)");
         }
 
@@ -1744,7 +1796,8 @@ namespace tmoe::domain {
                 Logger::error("旧版 Android 的 Termux 可能无法正常使用新镜像格式。");
                 std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.android_version_title") + "\" "
                                   "--yesno \"" + _f("termux.android_version_yesno", version) + "\" 10 50 "
-                                  "--yes-button \"" + _("termux.android_use_old") + "\" --no-button \"" + _("termux.btn_cancel") + "\"";
+                                  "--yes-button \"" + _("termux.android_use_old") + "\" --no-button \"" + _(
+                                      "termux.btn_cancel") + "\"";
 
                 if (Executor::shell(cmd).ok()) {
                     use_old_mirror_format("https://mirrors.tuna.tsinghua.edu.cn/termux");
@@ -1803,7 +1856,8 @@ namespace tmoe::domain {
         if (choice == "1") {
             // 备份原文件
             Executor::shell("cp " + apk_repos + " " + apk_repos + ".bak 2>/dev/null");
-            Executor::shell("sed -i 's|http[s]*://[^/]*/alpine|https://mirrors.tuna.tsinghua.edu.cn/alpine|g' " + apk_repos);
+            Executor::shell(
+                "sed -i 's|http[s]*://[^/]*/alpine|https://mirrors.tuna.tsinghua.edu.cn/alpine|g' " + apk_repos);
             Logger::ok("Alpine 镜像已切换至清华大学 TUNA。");
         } else if (choice == "2") {
             Executor::shell("sed -i 's|http[s]*://[^/]*/alpine|https://dl-cdn.alpinelinux.org/alpine|g' " + apk_repos);
@@ -1825,11 +1879,11 @@ namespace tmoe::domain {
         // Debian/Ubuntu
         if (fs::exists("/etc/apt/sources.list")) {
             std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.linux_mirror_title") + "\" "
-                "--menu \"" + _("termux.linux_mirror_prompt") + "\" 0 50 0 "
-                "\"1\" \"" + _("termux.linux_mirror_tuna") + "\" "
-                "\"2\" \"" + _("termux.linux_mirror_restore") + "\" "
-                "\"3\" \"" + _("termux.linux_mirror_backup") + "\" "
-                "\"0\" \"" + _("menu.tui.back") + "\"";
+                              "--menu \"" + _("termux.linux_mirror_prompt") + "\" 0 50 0 "
+                              "\"1\" \"" + _("termux.linux_mirror_tuna") + "\" "
+                              "\"2\" \"" + _("termux.linux_mirror_restore") + "\" "
+                              "\"3\" \"" + _("termux.linux_mirror_backup") + "\" "
+                              "\"0\" \"" + _("menu.tui.back") + "\"";
 
             auto choice = Executor::tui_select(cmd);
 
@@ -1845,7 +1899,8 @@ namespace tmoe::domain {
                     Logger::warn("未找到备份文件，无法恢复。");
                 }
             } else if (choice == "3") {
-                Executor::shell("tar -PJcvf /tmp/sources-list_deb_bak.tar.xz /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null");
+                Executor::shell(
+                    "tar -PJcvf /tmp/sources-list_deb_bak.tar.xz /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null");
                 Logger::ok("sources.list 备份完成: /tmp/sources-list_deb_bak.tar.xz");
             }
         }
@@ -1906,7 +1961,7 @@ namespace tmoe::domain {
         Logger::step("ADB 无线调试配对与连接 (Android 11+)...");
 
         std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.adb_wireless_title") + "\" "
-            "--inputbox \"" + _("termux.adb_wireless_input") + R"(" 0 50 "")";
+                          "--inputbox \"" + _("termux.adb_wireless_input") + R"(" 0 50 "")";
 
         std::string addr = Executor::tui_select(cmd);
         if (addr.empty()) {
@@ -1916,7 +1971,7 @@ namespace tmoe::domain {
 
         // 阶段 1: 配对
         std::string pair_cmd = cfg_.tui_bin + " --title \"" + _("termux.adb_pair_title") + "\" "
-            "--inputbox \"" + _f("termux.adb_pair_input", addr) + R"(" 0 50 "")";
+                               "--inputbox \"" + _f("termux.adb_pair_input", addr) + R"(" 0 50 "")";
 
         std::string pair_code = Executor::tui_select(pair_cmd);
 
@@ -1931,7 +1986,7 @@ namespace tmoe::domain {
 
         // 阶段 2: 连接 (地址可能不同)
         std::string connect_cmd = cfg_.tui_bin + " --title \"" + _("termux.adb_connect2_title") + "\" "
-            "--inputbox \"" + _f("termux.adb_connect2_input", addr) + "\" 0 50 \"" + addr + "\"";
+                                  "--inputbox \"" + _f("termux.adb_connect2_input", addr) + "\" 0 50 \"" + addr + "\"";
 
         std::string connect_addr = Executor::tui_select(connect_cmd);
         if (connect_addr.empty()) {
@@ -1956,7 +2011,7 @@ namespace tmoe::domain {
         Logger::step("配置 ADB 服务端端口...");
 
         std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.adb_port_title") + "\" "
-            "--inputbox \"" + _("termux.adb_port_input") + "\" 0 50 \"5037\"";
+                          "--inputbox \"" + _("termux.adb_port_input") + "\" 0 50 \"5037\"";
 
         std::string port_str = Executor::tui_select(cmd);
         if (port_str.empty()) return false;
@@ -2026,7 +2081,8 @@ namespace tmoe::domain {
         }
 
         // 使用 dumpsys 验证
-        auto result = Executor::shell(adb_target + " dumpsys activity settings 2>/dev/null | grep max_phantom_processes");
+        auto result = Executor::shell(
+            adb_target + " dumpsys activity settings 2>/dev/null | grep max_phantom_processes");
         std::string output = result.stdout_data;
         while (!output.empty() && (output.back() == '\n' || output.back() == '\r')) output.pop_back();
 
@@ -2179,11 +2235,11 @@ namespace tmoe::domain {
         }
 
         std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.timeshift_title") + "\" "
-            "--menu \"" + _("termux.timeshift_prompt") + "\" 0 50 0 "
-            "\"1\" \"" + _("termux.timeshift_install") + "\" "
-            "\"2\" \"" + _("termux.timeshift_create") + "\" "
-            "\"3\" \"" + _("termux.timeshift_restore") + "\" "
-            "\"0\" \"" + _("menu.tui.back") + "\"";
+                          "--menu \"" + _("termux.timeshift_prompt") + "\" 0 50 0 "
+                          "\"1\" \"" + _("termux.timeshift_install") + "\" "
+                          "\"2\" \"" + _("termux.timeshift_create") + "\" "
+                          "\"3\" \"" + _("termux.timeshift_restore") + "\" "
+                          "\"0\" \"" + _("menu.tui.back") + "\"";
 
         auto choice = Executor::tui_select(cmd);
 

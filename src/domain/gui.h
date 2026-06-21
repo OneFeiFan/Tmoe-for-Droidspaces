@@ -3,6 +3,8 @@
 #include "core/executor.h"
 #include "core/logger.h"
 #include "core/command_builder.hpp"
+#include "gui_config/templates.h"
+#include "gui_config/registries.h"
 #include <string>
 #include <vector>
 #include <map>
@@ -72,14 +74,18 @@ namespace tmoe::domain {
      *  对应 Bash 中各 install_xxx_desktop() 函数的 REMOTE_DESKTOP_SESSION_01/02 变量。
      */
     struct DesktopInfo {
-        std::string id; // xfce/lxde/mate/kde/cinnamon/gnome/dde/ukui/budgie/cutefish/lxqt
+        std::string id; // xfce/lxde/mate/kde/cinnamon/gnome/dde/ukui/budgie/cutefish/lxqt/openbox/i3/...
         std::string name; // 显示名称
+        std::string emoji; // TUI 前缀 emoji (匹配旧 Bash 样式)
         std::string session_cmd1; // 第一候选会话命令 (如 xfce4-session)
         std::string session_cmd2; // 第二候选会话命令 (如 startxfce4)
-        std::string display_manager; // 推荐的显示管理器 (lightdm/sddm/gdm)
+        std::string display_manager; // 推荐的显示管理器 (lightdm/sddm/gdm)，WM 留空
         bool requires_root = false; // 是否需要 root 权限
-        std::string pkg_group; // apt 包组名 (如 xfce4 xfce4-goodies)
+        bool is_window_manager = false; // true=WM(窗口管理器), false=DE(完整桌面)
+        std::string pkg_group; // 默认包名 (如 xfce4 xfce4-goodies)
         std::string compat_notes; // 兼容性说明
+        // 发行版特定的包名覆盖: key=distro_family(debian/arch/redhat/void/gentoo/suse/alpine)
+        std::map<std::string, std::string> distro_pkgs;
     };
 
     /** GUI / VNC 桌面环境管理。
@@ -186,9 +192,6 @@ namespace tmoe::domain {
 
         /** 安装 fcitx 中文拼音输入法。 */
         bool install_fcitx();
-
-        /** 安装 Chromium 浏览器。 */
-        bool install_chromium();
 
         // ═══════════════════════════════════════════════
         // 权限与文件管理
@@ -370,48 +373,537 @@ namespace tmoe::domain {
         VncConfig &vnc_config() { return vnc_config_; }
         const VncConfig &vnc_config() const { return vnc_config_; }
 
+        // ═══════════════════════════════════════════════
+        // CLI 标志处理
+        // ═══════════════════════════════════════════════
+
+        /** 处理来自 CLI 的 GUI 子命令标志。 */
+        bool handle_gui_cli_flag(std::string_view flag);
+
+        void set_auto_install_mode(bool v) { auto_install_mode_ = v; }
+        bool is_auto_install() const { return auto_install_mode_; }
+
     private:
         const TmoeConfig &cfg_;
         VncConfig vnc_config_;
         int novnc_port_ = 36080;
+        bool auto_install_mode_ = false;
+        bool auto_install_fcitx4_ = false;
+        bool auto_install_electron_ = false;
+        bool auto_install_vscode_ = false;
+        bool auto_install_chromium_ = true;
+        bool auto_install_kali_ = false;
+        std::string kali_tools_ = "kali-linux-arm";
 
-        // ── 内部辅助 ──
+        // ═══════════════════════════════════════════════
+        // 文件 I/O 辅助
+        // ═══════════════════════════════════════════════
+
         bool write_file(const fs::path &path, std::string_view content) const;
 
         bool append_file(const fs::path &path, std::string_view content) const;
 
         std::string read_file(const fs::path &path) const;
 
-        // ── VNC 命令构建 ──
-        std::string build_vnc_start_command(int display, int width, int height) const;
+        // ═══════════════════════════════════════════════
+        // 包管理辅助
+        // ═══════════════════════════════════════════════
 
-        std::string build_x11vnc_command(int display) const;
+        bool install_packages(const std::vector<std::string> &packages) const;
+
+        // ═══════════════════════════════════════════════
+        // 桌面/窗口管理器注册表
+        // ═══════════════════════════════════════════════
+
+        const std::vector<DesktopInfo> &desktop_registry() const;
+
+        const std::map<std::string, std::string> &window_manager_registry() const;
+
+        // ═══════════════════════════════════════════════
+        // VNC 安装子步骤
+        // ═══════════════════════════════════════════════
+
+        void tiger_vnc_variable();
+
+        void tight_vnc_variable();
+
+        void debian_remove_vnc_server();
+
+        void debian_install_vnc_server();
+
+        std::string grep_tiger_vnc_deb_file(const std::string &latest_deb_repo,
+                                            const std::string &grep_name_01,
+                                            const std::string &grep_name_02);
+
+        void ubuntu_install_tiger_vnc_server();
+
+        void case_debian_distro_and_install_vnc();
+
+        void which_vnc_server_do_you_prefer();
+
+        void modify_to_xfwm4_breeze_theme();
+
+        void create_the_which_script();
+
+        void check_the_which_command();
+
+        void if_container_is_arm();
+
+        void auto_select_keyboard_layout();
+
+        void fix_mlocate();
+
+        // ═══════════════════════════════════════════════
+        // VNC 首次配置
+        // ═══════════════════════════════════════════════
+
+        void first_configure_vnc(std::string_view desktop);
+
+        // ═══════════════════════════════════════════════
+        // VNC 命令构建
+        // ═══════════════════════════════════════════════
+
+        std::string build_vnc_start_command(int display, int width, int height) const;
 
         std::string build_xvfb_command(int display, int width, int height) const;
 
-        // ── 配置生成 ──
+        std::string build_x11vnc_command(int display) const;
+
+        // ═══════════════════════════════════════════════
+        // 配置内容生成
+        // ═══════════════════════════════════════════════
+
         std::string generate_xsession_content(std::string_view desktop) const;
 
         std::string generate_xstartup_content() const;
 
-        std::string generate_xfce_panel_xml() const;
+        std::string generate_xfce_panel_xml();
 
-        // ── VNC PID 管理 ──
+        std::string generate_xfce_desktop_xml();
+
+        std::string generate_xfce_terminal_rc();
+
+        std::string generate_budgie_desktop_builtin();
+
+        std::string generate_gnome_flashback_metacity();
+
+        std::string generate_gnome_session_classic();
+
+        std::string generate_gnome_session_ubuntu();
+
+        std::string generate_gnome_shell_x11();
+
+        std::string generate_update_icon_caches_script();
+
+        std::string generate_polkit_colord_conf();
+
+        std::string generate_polkit_colord_pkla();
+
+        // ═══════════════════════════════════════════════
+        // VNC PID 管理
+        // ═══════════════════════════════════════════════
+
         void write_vnc_pid_file(int display) const;
 
         void remove_vnc_pid_file(int display) const;
 
-        // ── 环境检测 ──
+        // ═══════════════════════════════════════════════
+        // 环境检测
+        // ═══════════════════════════════════════════════
+
         bool detect_android_resolution(int &width, int &height) const;
 
         void detect_wsl_environment();
 
-        // ── 包管理辅助 ──
-        bool install_packages(const std::vector<std::string> &packages) const;
+        // ═══════════════════════════════════════════════
+        // 桌面安装前置/后置处理
+        // ═══════════════════════════════════════════════
 
-        // ── 桌面环境注册表 ──
-        static const std::vector<DesktopInfo> &desktop_registry();
+        void preconfigure_gui_dependencies();
 
-        static const std::map<std::string, std::string> &window_manager_registry();
+        void will_be_installed_for_you(std::string_view desktop_session);
+
+        void select_kali_tools();
+
+        void post_desktop_install_prompts();
+
+        void plasma_wayland_env();
+
+        void post_install_desktop_config(std::string_view desktop);
+
+        // ═══════════════════════════════════════════════
+        // TUI 子菜单 (桌面/窗口管理器相关)
+        // ═══════════════════════════════════════════════
+
+        void run_rootless_de_menu();
+
+        void run_rootful_de_menu();
+
+        void after_desktop_install_hint();
+
+        void run_wm_menu();
+
+        void run_dm_menu();
+
+        // ═══════════════════════════════════════════════
+        // TUI 子菜单 (远程桌面配置相关)
+        // ═══════════════════════════════════════════════
+
+        void run_x11vnc_config_menu();
+
+        void run_novnc_config_menu();
+
+        void run_xsdl_config_menu();
+
+        void run_xrdp_menu();
+
+        void configure_remote_desktop_environment(std::string_view context);
+
+        void configure_xrdp_desktop();
+
+        void configure_x11vnc_remote_desktop_session();
+
+        void configure_xrdp_remote_desktop_session(const std::string &session_cmd);
+
+        // ═══════════════════════════════════════════════
+        // x11vnc 配置修改子步骤
+        // ═══════════════════════════════════════════════
+
+        void modify_x11vnc_pulse_server();
+
+        void modify_x11vnc_resolution();
+
+        void modify_x11vnc_port();
+
+        // ═══════════════════════════════════════════════
+        // Docker 自动安装辅助
+        // ═══════════════════════════════════════════════
+
+        void docker_auto_install_gui_env(std::string_view /*desktop*/);
+
+        // ═══════════════════════════════════════════════
+        // 字体下载辅助
+        // ═══════════════════════════════════════════════
+
+        void download_iosevka_ttf_font_ext();
+
+        // ═══════════════════════════════════════════════
+        // GNOME / Budgie 桌面会话配置
+        // ═══════════════════════════════════════════════
+
+        void set_gnome_common_env();
+
+        void ln_s_gnome_flashback_metacity();
+
+        void set_gnome_desktop_deps();
+
+        void get_ubuntu_desktop_language_pack();
+
+        void set_budgie_desktop_session(const std::string &session_type);
+
+        // ═══════════════════════════════════════════════
+        // XFCE4 终端配色方案
+        // ═══════════════════════════════════════════════
+
+        void touch_xfce4_terminal_rc_ext();
+
+        void xfce4_color_scheme();
+
+        // ═══════════════════════════════════════════════
+        // 启动脚本配置
+        // ═══════════════════════════════════════════════
+
+        void configure_startvnc();
+
+        void configure_startxsdl();
+
+        // ═══════════════════════════════════════════════
+        // 权限修复
+        // ═══════════════════════════════════════════════
+
+        void fix_non_root_permissions();
+
+        // ═══════════════════════════════════════════════
+        // 主题管理子步骤
+        // ═══════════════════════════════════════════════
+
+        void configure_theme_menu();
+
+        void xfce_theme_parsing();
+
+        void local_theme_installer();
+
+        void check_theme_url(std::string &url);
+
+        void tmoe_theme_installer(const std::string &file_path, bool is_icon);
+
+        // ═══════════════════════════════════════════════
+        // 特定主题下载/安装
+        // ═══════════════════════════════════════════════
+
+        void install_kali_undercover();
+
+        void download_macos_mojave_theme();
+
+        void download_macos_bigsur_theme();
+
+        void install_breeze_theme_ext();
+
+        void install_arc_gtk_theme_ext();
+
+        void install_moka_theme_ext();
+
+        void install_numix_theme_ext();
+
+        // ═══════════════════════════════════════════════
+        // 图标主题辅助
+        // ═══════════════════════════════════════════════
+
+        void set_default_xfce_icon_theme(const std::string &icon_name);
+
+        void create_update_icon_caches();
+
+        void check_update_icon_caches_sh();
+
+        // ═══════════════════════════════════════════════
+        // Kali 主题
+        // ═══════════════════════════════════════════════
+
+        void git_clone_kali_themes_common();
+
+        void download_kali_themes_common();
+
+        void download_kali_theme();
+
+        // ═══════════════════════════════════════════════
+        // 鼠标指针主题
+        // ═══════════════════════════════════════════════
+
+        void download_arch_breeze_adapta_cursor_theme();
+
+        void configure_mouse_cursor();
+
+        void download_chameleon_cursor_theme();
+
+        // ═══════════════════════════════════════════════
+        // 图标主题下载菜单与单项下载
+        // ═══════════════════════════════════════════════
+
+        void download_icon_themes_menu();
+
+        void download_win10x_theme();
+
+        void download_candy_icon_theme();
+
+        void download_paper_icon_theme();
+
+        void download_papirus_icon_theme();
+
+        void download_raspbian_pixel_icon_theme();
+
+        void download_uos_icon_theme();
+
+        // ═══════════════════════════════════════════════
+        // WSL 组件下载 / 预览
+        // ═══════════════════════════════════════════════
+
+        void download_wsl_components();
+
+        void catimg_preview_lxde_mate_xfce();
+
+        // ═══════════════════════════════════════════════
+        // x11vnc 辅助
+        // ═══════════════════════════════════════════════
+
+        void x11vnc_warning();
+
+        void x11vnc_onekey();
+
+        void remove_x11vnc_ext();
+
+        void x11vnc_doc();
+
+        void x11vnc_process_readme();
+
+        // ═══════════════════════════════════════════════
+        // VNC 配置修改
+        // ═══════════════════════════════════════════════
+
+        void check_vnc_resolution();
+
+        void modify_vnc_conf();
+
+        // ═══════════════════════════════════════════════
+        // XRDP 辅助
+        // ═══════════════════════════════════════════════
+
+        void xrdp_onekey();
+
+        void check_xrdp_status();
+
+        void xrdp_pulse_server();
+
+        void xrdp_systemd();
+
+        void xrdp_reset();
+
+        void xrdp_restart();
+
+        void xrdp_port();
+
+        // ═══════════════════════════════════════════════
+        // 桌面环境警告/提示
+        // ═══════════════════════════════════════════════
+
+        void xfce_warning();
+
+        void kde_warning();
+
+        void gnome3_warning();
+
+        void cinnamon_warning();
+
+        void deepin_desktop_warning();
+
+        void dde_warning();
+
+        void arch_linux_mate_warning();
+
+        void tmoe_desktop_warning();
+
+        // ═══════════════════════════════════════════════
+        // 其他提示/FAQ
+        // ═══════════════════════════════════════════════
+
+        void print_gnome_ascii();
+
+        void tips_of_tiger_vnc_server();
+
+        void tmoe_desktop_faq();
+
+        void do_you_want_to_configure_novnc();
+
+        // ═══════════════════════════════════════════════
+        // Deepin / DDE / Ubuntu DDE 辅助
+        // ═══════════════════════════════════════════════
+
+        void ubuntu_dde_distro_code(std::string &target_code);
+
+        void deepin_desktop_debian();
+
+        void ubuntu_dde_or_dde_extras(std::string &dep_01);
+
+        void fix_dde_dpkg_error_ext();
+
+        // ═══════════════════════════════════════════════
+        // 壁纸设置辅助
+        // ═══════════════════════════════════════════════
+
+        void modify_the_default_xfce_wallpaper();
+
+        void modify_xfce_vnc0_wallpaper(const std::string &path);
+
+        void xfce_papirus_icon_theme_ext();
+
+        void debian_xfce_wallpaper();
+
+        void debian_download_mint_wallpaper();
+
+        void debian_download_ubuntu_mate_wallpaper_ext();
+
+        void debian_download_xubuntu_xenial_wallpaper_ext();
+
+        void set_linuxmint_wallpaper_vars(const std::string &mint_code,
+                                          std::string &out_name, std::string &out_path);
+
+        // ═══════════════════════════════════════════════
+        // 壁纸下载菜单与工具
+        // ═══════════════════════════════════════════════
+
+        std::string pick_random_wallpaper_pack();
+
+        void download_wallpapers_menu();
+
+        void ubuntu_wallpapers_and_photos_menu();
+
+        void ubuntu_gnome_wallpapers_menu();
+
+        void xubuntu_wallpapers_menu();
+
+        void linux_mint_backgrounds_menu();
+
+        // ═══════════════════════════════════════════════
+        // 各发行版/DE 壁纸下载
+        // ═══════════════════════════════════════════════
+
+        void download_ubuntu_wallpaper(const std::string &ubuntu_code);
+
+        void download_xubuntu_wallpaper(const std::string &code_name, const std::string & /*folder_name*/);
+
+        void download_mint_backgrounds(const std::string &mint_code);
+
+        void download_deepin_wallpaper();
+
+        void download_elementary_wallpaper();
+
+        void download_manjaro_wallpaper();
+
+        void download_debian_gnome_wallpaper();
+
+        void download_arch_wallpaper();
+
+        void download_arch_xfce_artwork();
+
+        void download_raspbian_pixel_wallpaper();
+
+        void download_ubuntu_mate_wallpaper();
+
+        void download_ubuntu_kylin_wallpaper();
+
+        void link_to_debian_wallpaper();
+
+        void download_manjaro_pkg(const std::string &theme_name,
+                                  const std::string &url,
+                                  const std::string &url_02,
+                                  const std::string & /*wallpaper_name*/,
+                                  const std::string & /*custom_name*/);
+
+        // ═══════════════════════════════════════════════
+        // FVWM 安装
+        // ═══════════════════════════════════════════════
+
+        void install_fvwm_ext();
+
+        // ═══════════════════════════════════════════════
+        // 显示管理器 systemctl 操作
+        // ═══════════════════════════════════════════════
+
+        void tmoe_display_manager_systemctl(const std::string &dm_pkg, const std::string &dm_service);
+
+        // ═══════════════════════════════════════════════
+        // 杂项辅助
+        // ═══════════════════════════════════════════════
+
+        void check_zstd();
+
+        void random_neko();
+
+        void download_and_cat_icon_img(const std::string &url, const std::string &filename);
+
+        void check_tmoe_linux_desktop_link();
+
+        void install_gui();
+
+        // ═══════════════════════════════════════════════
+        // Plasma / VNC 最终配置辅助
+        // ═══════════════════════════════════════════════
+
+        void choose_plasma_wayland_or_x11();
+
+        void set_vnc_passwd();
+
+        void choose_vnc_port_5902_or_5903();
+
+        void fix_vnc_dbus_launch();
     };
 } // namespace tmoe::domain

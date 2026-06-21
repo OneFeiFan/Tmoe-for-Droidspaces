@@ -16,68 +16,18 @@ namespace tmoe::domain {
         }
 
         Logger::step(_("env.checking_deps"));
-        std::string missing_pkgs = "";
 
-        // 1. 检查 sudo (Alpine 除外)
-        if (!Executor::has("sudo") && cfg_.linux_distro != "alpine") {
-            missing_pkgs += (cfg_.linux_distro == "gentoo") ? " app-admin/sudo" : " sudo";
-        }
-
-        // 2. 检查 TUI 核心组件: dialog / whiptail (dialog 优先，CJK 宽度处理更好)
-        if (!Executor::has("dialog") && !Executor::has("whiptail")) {
-            if (cfg_.linux_distro == "arch" || cfg_.linux_distro == "gentoo") {
-                missing_pkgs += (cfg_.linux_distro == "gentoo") ? " dev-util/dialog" : " dialog";
-            } else if (cfg_.linux_distro == "openwrt") {
-                missing_pkgs += " dialog whiptail";
-            } else {
-                missing_pkgs += " dialog";
-            }
-        }
-
-        // 3. 检查网络工具
-        if (!Executor::has("curl") && !Executor::has("wget")) {
-            missing_pkgs += " curl wget";
-        }
-
-        if (!missing_pkgs.empty()) {
-            Logger::warn(_("env.missing_deps") + ": " + missing_pkgs);
-            Logger::info(_("env.install_cmd") + ": " + cfg_.install_command + missing_pkgs);
-
-            Executor::passthrough(cfg_.update_command);
-
-            if (Executor::passthrough(cfg_.install_command + missing_pkgs).ok()) {
-                Logger::ok(_("env.deps_ok"));
-            } else {
-                Logger::error(_("env.deps_failed"));
-                return false;
-            }
-        } else {
-            Logger::ok(_("env.deps_passed"));
-        }
-
-        // 4. 确保 locale 基础设施
-        if (cfg_.linux_distro == "debian") {
-            if (!Executor::has("locale-gen")) {
-                Logger::step(_("env.installing_locales"));
-                Executor::passthrough(cfg_.install_command + " locales 2>/dev/null || true");
-            }
-        } else if (cfg_.linux_distro == "alpine") {
-            if (Executor::shell("apk info -e musl-locales 2>/dev/null").exit_code != 0) {
-                Logger::step(_("env.installing_musl_locales"));
-                Executor::passthrough(cfg_.install_command + " musl-locales 2>/dev/null || true");
-            }
-        }
-
-        // 4.5. dpkg 状态自愈 (仅 Debian 系)
-        if (cfg_.linux_distro == "debian") {
+        // =================================================================
+        // 阶段 1: 包管理器健康检查与自愈 (前置执行，防止后续 install 崩溃)
+        // =================================================================
+        if (cfg_.linux_distro == "debian" || cfg_.linux_distro == "ubuntu") {
             auto audit = Executor::shell("dpkg --audit 2>/dev/null");
             if (!audit.stdout_data.empty() || audit.exit_code != 0) {
                 Logger::warn(_("env.dpkg_abnormal"));
                 bool has_issue = false;
 
                 // 检查是否需要在 dpkg --configure -a
-                auto pending = Executor::shell(
-                    "ls /var/lib/dpkg/updates/tmp.* 2>/dev/null | head -1");
+                auto pending = Executor::shell("ls /var/lib/dpkg/updates/tmp.* 2>/dev/null | head -1");
                 if (!pending.stdout_data.empty()) {
                     has_issue = true;
                     Logger::info(_("env.dpkg_incomplete_config"));
@@ -102,9 +52,10 @@ namespace tmoe::domain {
                 }
 
                 if (has_issue && Logger::confirm(_("env.confirm_repair_dpkg"))) {
+                    Logger::step("正在尝试自动修复包管理器状态...");
                     // 先清理残留锁文件（无进程持有时）
                     Executor::shell("fuser /var/lib/dpkg/lock 2>/dev/null || "
-                                   "rm -f /var/lib/dpkg/lock /var/lib/dpkg/lock-frontend 2>/dev/null || true");
+                        "rm -f /var/lib/dpkg/lock /var/lib/dpkg/lock-frontend 2>/dev/null || true");
                     // 修复 dpkg 配置
                     Executor::passthrough("dpkg --configure -a 2>&1 || true");
                     // 修复破损依赖
@@ -116,7 +67,92 @@ namespace tmoe::domain {
             }
         }
 
-        // 5. 安装 Noto 字体族（覆盖 CJK + 西里尔 + 拉丁全字符集）
+        // =================================================================
+        // 阶段 2: 核心依赖收集
+        // =================================================================
+        std::string missing_pkgs = "";
+
+        // 1. 检查 sudo (Alpine 除外)
+        if (!Executor::has("sudo") && cfg_.linux_distro != "alpine") {
+            missing_pkgs += (cfg_.linux_distro == "gentoo") ? " app-admin/sudo" : " sudo";
+        }
+
+        // 2. 检查 TUI 核心组件
+        if (!Executor::has("dialog") && !Executor::has("whiptail")) {
+            if (cfg_.linux_distro == "arch" || cfg_.linux_distro == "gentoo") {
+                missing_pkgs += (cfg_.linux_distro == "gentoo") ? " dev-util/dialog" : " dialog";
+            } else if (cfg_.linux_distro == "openwrt") {
+                missing_pkgs += " dialog whiptail";
+            } else {
+                missing_pkgs += " dialog";
+            }
+        }
+
+        // 3. 检查网络工具 (解耦 curl 和 wget，由于核心 API 强依赖 curl，必须单独核验)
+        if (!Executor::has("curl")) {
+            missing_pkgs += (cfg_.linux_distro == "gentoo") ? " net-misc/curl" : " curl";
+        }
+        if (!Executor::has("wget")) {
+            missing_pkgs += (cfg_.linux_distro == "gentoo") ? " net-misc/wget" : " wget";
+        }
+
+        // 4. 检查扩展工具 (下载/解压/加密/Git/JSON解析)
+        if (!Executor::has("aria2c")) {
+            missing_pkgs += (cfg_.linux_distro == "gentoo") ? " app-misc/aria2" : " aria2";
+        }
+        if (!Executor::has("zstd")) {
+            missing_pkgs += (cfg_.linux_distro == "gentoo") ? " app-arch/zstd" : " zstd";
+        }
+        if (!Executor::has("gpg")) {
+            missing_pkgs += (cfg_.linux_distro == "gentoo") ? " app-crypt/gnupg" : " gnupg";
+        }
+        if (!Executor::has("git")) {
+            missing_pkgs += (cfg_.linux_distro == "gentoo") ? " dev-vcs/git" : " git";
+        }
+        if (!Executor::has("jq")) {
+            missing_pkgs += (cfg_.linux_distro == "gentoo") ? " app-misc/jq" : " jq";
+        }
+
+        if (!Executor::has("pv")) {
+            missing_pkgs += (cfg_.linux_distro == "gentoo") ? " sys-apps/pv" : " pv";
+        }
+
+        // =================================================================
+        // 阶段 3: 执行统一安装
+        // =================================================================
+        if (!missing_pkgs.empty()) {
+            Logger::warn(_("env.missing_deps") + ": " + missing_pkgs);
+            Logger::info(_("env.install_cmd") + ": " + cfg_.install_command + missing_pkgs);
+
+            // 刷新源并安装
+            Executor::passthrough(cfg_.update_command);
+            if (Executor::passthrough(cfg_.install_command + missing_pkgs).ok()) {
+                Logger::ok(_("env.deps_ok"));
+            } else {
+                Logger::error(_("env.deps_failed"));
+                // 阻断前给出确切的排查提示
+                Logger::info("请检查您的网络连接或软件源配置。");
+                return false;
+            }
+        } else {
+            Logger::ok(_("env.deps_passed"));
+        }
+
+        // =================================================================
+        // 阶段 4: 基础设施配置 (Locale / 字体)
+        // =================================================================
+        if (cfg_.linux_distro == "debian" || cfg_.linux_distro == "ubuntu") {
+            if (!Executor::has("locale-gen")) {
+                Logger::step(_("env.installing_locales"));
+                Executor::passthrough(cfg_.install_command + " locales 2>/dev/null || true");
+            }
+        } else if (cfg_.linux_distro == "alpine") {
+            if (Executor::shell("apk info -e musl-locales 2>/dev/null").exit_code != 0) {
+                Logger::step(_("env.installing_musl_locales"));
+                Executor::passthrough(cfg_.install_command + " musl-locales 2>/dev/null || true");
+            }
+        }
+
         if (cfg_.linux_distro != "openwrt") {
             install_font_packages();
             refresh_font_cache();
@@ -235,9 +271,9 @@ namespace tmoe::domain {
             conf_file = "/etc/locale.conf";
         } else {
             // 尝试 /etc/default/locale 和 /etc/locale.conf，哪个存在写哪个
-            if (fs::exists("/etc/default/locale"))       conf_file = "/etc/default/locale";
-            else if (fs::exists("/etc/locale.conf"))      conf_file = "/etc/locale.conf";
-            else                                          conf_file = "/etc/default/locale";
+            if (fs::exists("/etc/default/locale")) conf_file = "/etc/default/locale";
+            else if (fs::exists("/etc/locale.conf")) conf_file = "/etc/locale.conf";
+            else conf_file = "/etc/default/locale";
         }
 
         Logger::step(_f("env.locale_writing_config", conf_file));
@@ -338,21 +374,21 @@ namespace tmoe::domain {
         bool ok = false;
         if (cfg_.linux_distro == "debian") {
             ok = Executor::passthrough(cfg_.install_command +
-                                 " fonts-noto-cjk fonts-noto 2>/dev/null").ok() ||
+                                       " fonts-noto-cjk fonts-noto 2>/dev/null").ok() ||
                  Executor::passthrough(cfg_.install_command +
-                                 " fonts-noto-cjk 2>/dev/null").ok() ||
+                                       " fonts-noto-cjk 2>/dev/null").ok() ||
                  Executor::passthrough(cfg_.install_command +
-                                 " wqy-microhei 2>/dev/null").ok();
+                                       " wqy-microhei 2>/dev/null").ok();
         } else if (cfg_.linux_distro == "arch") {
             ok = Executor::passthrough(cfg_.install_command +
-                                 " noto-fonts-cjk noto-fonts 2>/dev/null").ok() ||
+                                       " noto-fonts-cjk noto-fonts 2>/dev/null").ok() ||
                  Executor::passthrough(cfg_.install_command +
-                                 " noto-fonts-cjk 2>/dev/null").ok();
+                                       " noto-fonts-cjk 2>/dev/null").ok();
         } else if (cfg_.linux_distro == "alpine") {
             ok = Executor::passthrough(cfg_.install_command +
-                                 " font-noto-cjk font-noto 2>/dev/null").ok() ||
+                                       " font-noto-cjk font-noto 2>/dev/null").ok() ||
                  Executor::passthrough(cfg_.install_command +
-                                 " font-noto-cjk 2>/dev/null").ok();
+                                       " font-noto-cjk 2>/dev/null").ok();
         } else if (cfg_.linux_distro == "gentoo") {
             ok = Executor::passthrough(
                      "emerge --ask=n media-fonts/noto-cjk media-fonts/noto 2>/dev/null").ok() ||
@@ -394,7 +430,7 @@ namespace tmoe::domain {
     }
 
     bool Environment::needs_cyrillic(std::string_view lang) {
-        (void)lang;
+        (void) lang;
         return false; // 当前仅支持中/英文，无需西里尔字形
     }
 } // namespace tmoe::domain

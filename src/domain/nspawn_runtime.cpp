@@ -23,7 +23,7 @@ namespace tmoe::domain {
         return config_.nspawn_bin;
     }
 
-    // ── Args builder (对应 Bash 的 run_tmoe_qemu_command 中 nspawn 部分) ──
+    // ── Args builder ──
 
     void NspawnRuntime::build_nspawn_args(const Container &container, const LaunchContext *ctx,
                                           std::vector<std::string> &args) const {

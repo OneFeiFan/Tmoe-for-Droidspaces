@@ -20,6 +20,7 @@ namespace tmoe {
         ManagerMenu,      // 管理菜单跳转
         ToolMenu,         // 工具菜单跳转
         MirrorManager,    // 镜像源管理 (-m / --mirror)
+        GuiManager,       // GUI 图形界面管理 (对应旧 Bash gui_main)
         Help              // 帮助/用法提示
     };
 
@@ -47,6 +48,7 @@ namespace tmoe {
         std::string temporary_script_file_02;
         std::string temporary_script_file_03;
 
+        std::string gui_flag;       // GUI CLI 标志 (--auto-install-gui-xfce 等)
         std::string raw_parameters; // 原始参数字符串 (Bash $*)
     };
 

@@ -83,6 +83,9 @@ namespace tmoe::domain {
         /** 配置 tmoe-zsh (zinit + 主题 + 插件)。 */
         bool configure_tmoe_zsh();
 
+        /** 启动 tmoe-zsh 管理工具 (外部 TUI 脚本)。 */
+        bool start_tmoe_zsh();
+
         /** 将默认登录 shell 改为 zsh。 */
         bool change_shell_to_zsh();
 

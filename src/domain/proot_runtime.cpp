@@ -34,35 +34,6 @@ static std::string resolve_var(const std::string &s, const std::string &home,
     return r;
 }
 
-// ── QEMU 架构检测 ──
-std::string ProotRuntime::resolve_qemu_arch() const {
-    const auto &c = config_;
-    if (c.qemu_arch != "default") return c.qemu_arch;
-
-    // 同一架构则无需 QEMU
-    if (c.host_arch == c.container_arch) return "";
-
-    // 容器架构 → QEMU 架构映射
-    const std::unordered_map<std::string, std::string> arch_map = {
-        {"amd64", "x86_64"}, {"i386", "i386"},     {"arm64", "aarch64"},
-        {"armhf", "arm"},    {"armel", "armeb"},    {"mipsel", "mipsel"},
-        {"mips64el", "mips64el"}, {"ppc64el", "ppc64le"}, {"s390x", "s390x"},
-        {"riscv64", "riscv64"}
-    };
-
-    auto it = arch_map.find(c.container_arch);
-    if (it == arch_map.end()) return "";
-
-    std::string qemu_arch = it->second;
-
-    // 特例：i386/armhf 在相同位宽宿主机上不需要 QEMU
-    if (c.container_arch == "i386" && (c.host_arch == "amd64" || c.host_arch == "i386")) return "";
-    if (c.container_arch == "armhf" && (c.host_arch == "arm64" || c.host_arch == "armhf")) return "";
-    if (c.container_arch == "armel" && (c.host_arch == "arm64" || c.host_arch == "armhf" || c.host_arch == "armel")) return "";
-
-    return qemu_arch;
-}
-
 // ── 生成启动命令 ──
 std::string ProotRuntime::generate_launch_cmd(const Container &container, const LaunchContext *ctx) const {
     std::vector<std::string> args;
@@ -195,21 +166,6 @@ void ProotRuntime::apply_proot_args(const Container &container, std::vector<std:
 
     // ── rootfs ──
     args.emplace_back("--rootfs=" + rootfs);
-
-    // ── QEMU 集成 ──
-    std::string qemu_arch = resolve_qemu_arch();
-    if (!qemu_arch.empty() && !c.skip_qemu_detection) {
-        std::string qemu_path = c.qemu_32_enabled ? rv(c.qemu_user_static_32_path) : rv(c.qemu_user_static_path);
-        std::string qemu_bin;
-        if (c.qemu_user_bin != "default" && !c.qemu_user_bin.empty())
-            qemu_bin = c.qemu_user_bin;
-        else if (c.qemu_user_static)
-            qemu_bin = qemu_path + "/qemu-" + qemu_arch + "-static";
-        else
-            qemu_bin = "qemu-" + qemu_arch;
-
-        args.emplace_back("--qemu=" + qemu_bin);
-    }
 
     // ── 行为标志 ──
     if (c.kill_on_exit)

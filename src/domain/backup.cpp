@@ -38,17 +38,13 @@ void BackupManager::run_backup_menu() {
             // 备份容器：TUI 输入容器名和路径
             std::string name_cmd = cfg_.tui_bin +
                 " --title " + _("backup.container_name_title") + " --inputbox " + _("backup.container_name_input") + " 0 0 \"debian\"";
-            auto result = Executor::passthrough("echo \"$(" + name_cmd + " 2>&1 1>/dev/tty)\"");
-            std::string name = result.stdout_data;
-            name.erase(std::remove(name.begin(), name.end(), '\n'), name.end());
+            std::string name = Executor::tui_select(name_cmd);
             if (name.empty()) continue;
 
             std::string path_cmd = cfg_.tui_bin +
                 " --title " + _("backup.rootfs_path_title") + " --inputbox " + _("backup.rootfs_path_input") + " 0 0 \"" +
                 (cfg_.container_root / name).string() + "\"";
-            result = Executor::passthrough("echo \"$(" + path_cmd + " 2>&1 1>/dev/tty)\"");
-            std::string rootfs = result.stdout_data;
-            rootfs.erase(std::remove(rootfs.begin(), rootfs.end(), '\n'), rootfs.end());
+            std::string rootfs = Executor::tui_select(path_cmd);
             if (rootfs.empty()) continue;
 
             if (fs::exists(rootfs)) {
@@ -63,9 +59,7 @@ void BackupManager::run_backup_menu() {
             std::string path_cmd = cfg_.tui_bin +
                 " --title " + _("backup.cleanup_path_title") + " --inputbox " + _("backup.cleanup_path_input") + " 0 0 \"" +
                 cfg_.container_root.string() + "\"";
-            auto result = Executor::passthrough("echo \"$(" + path_cmd + " 2>&1 1>/dev/tty)\"");
-            std::string rootfs = result.stdout_data;
-            rootfs.erase(std::remove(rootfs.begin(), rootfs.end(), '\n'), rootfs.end());
+            std::string rootfs = Executor::tui_select(path_cmd);
             if (!rootfs.empty() && fs::exists(rootfs)) {
                 show_garbage_stats(rootfs);
                 if (Logger::confirm(_("backup.confirm_cleanup"))) {
@@ -77,9 +71,7 @@ void BackupManager::run_backup_menu() {
         } else if (choice == "4") {
             std::string name_cmd = cfg_.tui_bin +
                 " --title " + _("backup.container_name_title") + " --inputbox " + _("backup.container_name_input_simple") + " 0 0 \"debian\"";
-            auto result = Executor::passthrough("echo \"$(" + name_cmd + " 2>&1 1>/dev/tty)\"");
-            std::string name = result.stdout_data;
-            name.erase(std::remove(name.begin(), name.end(), '\n'), name.end());
+            std::string name = Executor::tui_select(name_cmd);
             if (!name.empty()) {
                 backup_to_external_storage(name, (cfg_.container_root / name).string());
             }
@@ -98,9 +90,7 @@ void BackupManager::run_backup_menu() {
             std::string path_cmd = cfg_.tui_bin +
                 " --title " + _("backup.cleanup_path_title") + " --inputbox " + _("backup.cleanup_path_input") + " 0 0 \"" +
                 cfg_.container_root.string() + "\"";
-            auto result = Executor::passthrough("echo \"$(" + path_cmd + " 2>&1 1>/dev/tty)\"");
-            std::string rootfs = result.stdout_data;
-            rootfs.erase(std::remove(rootfs.begin(), rootfs.end(), '\n'), rootfs.end());
+            std::string rootfs = Executor::tui_select(path_cmd);
             if (!rootfs.empty() && fs::exists(rootfs)) {
                 show_garbage_stats(rootfs);
             }
@@ -123,9 +113,10 @@ void BackupManager::run_backup_menu() {
                     " --title " + _("backup.tb_backup_title") + " --checklist " + _("backup.tb_backup_prompt") + " 0 0 0 "
                     "\"home\" " + _("backup.tb_home") + " ON "
                     "\"usr\" " + _("backup.tb_usr") + " OFF";
-                auto result = Executor::passthrough(tb_cmd + " 2>&1");
-                bool backup_home = result.stderr_data.find("\"home\"") != std::string::npos;
-                bool backup_usr = result.stderr_data.find("\"usr\"") != std::string::npos;
+                // tui_select 通过 3>&1 1>&2 2>&3 交换捕获 whiptail 的 stderr(checklist选项) 输出
+                std::string checklist_result = Executor::tui_select(tb_cmd);
+                bool backup_home = checklist_result.find("\"home\"") != std::string::npos;
+                bool backup_usr = checklist_result.find("\"usr\"") != std::string::npos;
 
                 if (!backup_home && !backup_usr) {
                     Logger::warn("No backup items selected");
@@ -262,7 +253,7 @@ bool BackupManager::backup_container(std::string_view container_name,
 
     // 备份附加目标（追加到 tar）
     if (ok && !extra_targets.empty()) {
-        Logger::step("Appending backup targets: tmoe auxiliary files/QEMU libs...");
+        Logger::step("Appending backup targets: tmoe auxiliary files...");
         for (const auto& target : extra_targets) {
             if (fs::exists(target)) {
                 std::string append_cmd = get_tar_prefix() +
@@ -572,7 +563,7 @@ void BackupManager::show_garbage_stats(std::string_view rootfs_path) {
         "xargs -0 du -sh 2>/dev/null | "
         "sort -rh | head -30";
 
-    auto top = Executor::passthrough(cmd);
+    auto top = Executor::shell(cmd);
     if (!top.stdout_data.empty() && top.stdout_data != "\n") {
         Logger::info("\n📊 Top 30 largest files/dirs:");
         Logger::info(top.stdout_data);
@@ -648,9 +639,7 @@ bool BackupManager::restore_container(std::string_view archive_path) {
         case RestoreMode::ManualPath: {
             std::string path_cmd = cfg_.tui_bin +
                 " --title " + _("backup.select_file_manual_title") + " --inputbox " + _("backup.select_file_manual_input") + " 0 0";
-            auto result = Executor::passthrough("echo \"$(" + path_cmd + " 2>&1 1>/dev/tty)\"");
-            archive = result.stdout_data;
-            archive.erase(std::remove(archive.begin(), archive.end(), '\n'), archive.end());
+            archive = Executor::tui_select(path_cmd);
             break;
         }
         case RestoreMode::FromDownload: {
@@ -699,9 +688,7 @@ bool BackupManager::restore_container(std::string_view archive_path) {
     std::string target_cmd = cfg_.tui_bin +
         " --title " + _("backup.restore_target_title") + " --inputbox " + _("backup.restore_target_input") + " 0 0 \"" +
         cfg_.container_root.string() + "\"";
-    auto result = Executor::passthrough("echo \"$(" + target_cmd + " 2>&1 1>/dev/tty)\"");
-    std::string target = result.stdout_data;
-    target.erase(std::remove(target.begin(), target.end(), '\n'), target.end());
+    std::string target = Executor::tui_select(target_cmd);
 
     if (target.empty()) {
         Logger::error("No restore target path specified");
@@ -919,15 +906,6 @@ std::vector<std::string> BackupManager::collect_extra_backup_targets(
     // ── 容器菜单脚本 ──
     std::string menu_script = home + "/容器选择菜单.sh";
     if (fs::exists(menu_script)) targets.push_back(menu_script);
-
-    // ── QEMU 用户态库（跨架构模拟必需） ──
-    std::vector<std::string> qemu_libs = {
-        home + "/tmoe-linux/lib",
-        home + "/tmoe-linux/lib32",
-    };
-    for (const auto& lib_dir : qemu_libs) {
-        if (fs::exists(lib_dir)) targets.push_back(lib_dir);
-    }
 
     return targets;
 }
@@ -1147,13 +1125,8 @@ std::string BackupManager::tui_select_file(const std::string& base_dir) {
     // 使用 whiptail --fselect 选择文件
     std::string cmd = cfg_.tui_bin +
         " --title " + _("backup.select_file_title") + " --fselect \"" + base_dir + "/\" 0 0";
-    auto result = Executor::passthrough(cmd + " 2>&1");
-    // fselect 输出到 stderr
-    std::string selected = result.stderr_data.empty() ?
-                           result.stdout_data : result.stderr_data;
-    selected.erase(std::remove(selected.begin(), selected.end(), '\n'), selected.end());
-    selected.erase(std::remove(selected.begin(), selected.end(), '\r'), selected.end());
-    return selected;
+    // tui_select 通过 3>&1 1>&2 2>&3 交换捕获 whiptail 的 stderr(fselect路径) 输出
+    return Executor::tui_select(cmd);
 }
 
 std::vector<std::string> BackupManager::tui_multi_select_targets() {

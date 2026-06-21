@@ -26,7 +26,7 @@ static void print_usage() {
  */
 /** 读取持久化的 locale 偏好 (若存在)。 */
 static std::string load_saved_locale() {
-    const char* home = std::getenv("HOME");
+    const char *home = std::getenv("HOME");
     if (!home) return "";
     std::string path = std::string(home) + "/.config/tmoe-linux/locale";
     std::ifstream f(path);
@@ -41,9 +41,9 @@ static std::string load_saved_locale() {
 
 /** 持久化 locale 偏好到文件。 */
 static void save_locale_pref(std::string_view lang) {
-    const char* home = std::getenv("HOME");
+    const char *home = std::getenv("HOME");
     if (!home) return;
-    std::string dir  = std::string(home) + "/.config/tmoe-linux";
+    std::string dir = std::string(home) + "/.config/tmoe-linux";
     std::string path = dir + "/locale";
     fs::create_directories(dir);
     std::ofstream f(path);
@@ -52,7 +52,7 @@ static void save_locale_pref(std::string_view lang) {
 
 int main(int argc, char *argv[]) {
     std::vector<std::string_view> pos_args;
-    std::string lang = "en_US";  // 默认英文
+    std::string lang = "en_US"; // 默认英文
     bool lang_from_cli = false;
 
     // 阶段1: 剥离全局标志；剩余 token → 位置参数

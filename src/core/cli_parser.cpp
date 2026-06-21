@@ -66,6 +66,14 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
     } else if (arg1 == "t" || arg1 == "tool") {
         ctx.mode = LaunchMode::ToolMenu;
         return ctx;
+    } else if (arg1.rfind("--auto-install-gui-", 0) == 0 ||
+               arg1 == "--install-gui" || arg1 == "install-gui" ||
+               arg1 == "-b" || arg1 == "-c" || arg1 == "-x" ||
+               arg1 == "--vncpasswd" || arg1 == "--choose-vnc-port" ||
+               arg1 == "--fix-dbus" || arg1 == "gui") {
+        ctx.mode = LaunchMode::GuiManager;
+        ctx.gui_flag = arg1;
+        return ctx;
     } else {
         ctx.mode = LaunchMode::Help;
         return ctx;

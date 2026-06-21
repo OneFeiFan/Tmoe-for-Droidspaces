@@ -11,8 +11,14 @@ namespace tmoe::app {
         backup_mgr_ = std::make_unique<domain::BackupManager>(cfg_);
         docker_mgr_ = std::make_unique<domain::DockerManager>(cfg_);
         virt_mgr_ = std::make_unique<domain::VirtualizationManager>(cfg_);
+        virt_mgr_->set_docker_callback([this]() { docker_mgr_->run_docker_menu(); });
         config_mgr_ = std::make_unique<domain::ConfigManager>(cfg_);
         software_center_ = std::make_unique<domain::SoftwareCenter>(cfg_);
+        software_center_->set_browser_cb([this]() { browser_->run_browser_menu(); });
+        software_center_->set_dev_cb([this]() { dev_tools_->run_dev_tools_menu(); });
+        software_center_->set_office_cb([this]() { office_->run_office_menu(); });
+        software_center_->set_download_cb([this]() { download_tools_->run_download_menu(); });
+        software_center_->set_zsh_cb([this]() { termux_->start_tmoe_zsh(); });
         terminal_app_ = std::make_unique<domain::TerminalAppManager>(cfg_);
         office_ = std::make_unique<domain::OfficeManager>(cfg_);
         education_ = std::make_unique<domain::EducationManager>(cfg_);
@@ -127,44 +133,44 @@ namespace tmoe::app {
             run_mirror_menu();
         };
 
-        // 12. GUI/VNC 远程桌面管理
+        // 12. 桌面环境安装
         tui_routes_["12"] = [this]() {
-            gui_->run_gui_menu();
+            gui_->run_desktop_install_menu();
         };
 
-        // 13. 备份/恢复
+        // 13. 远程桌面配置 (VNC/x11vnc/XSDL/noVNC/XRDP)
         tui_routes_["13"] = [this]() {
+            gui_->run_remote_desktop_menu();
+        };
+
+        // 14. 主题美化 (字体/主题/图标/壁纸/光标)
+        tui_routes_["14"] = [this]() {
+            gui_->run_beautification_menu();
+        };
+
+        // 15. 备份/恢复
+        tui_routes_["15"] = [this]() {
             backup_mgr_->run_backup_menu();
         };
 
-        // 14. Docker 容器管理
-        tui_routes_["14"] = [this]() {
-            docker_mgr_->run_docker_menu();
-        };
-
-        // 15. 虚拟化管理 (QEMU/VBox/Wine)
-        tui_routes_["15"] = [this]() {
+        // 16. 虚拟化管理 (ISO/Wine/Docker)
+        tui_routes_["16"] = [this]() {
             virt_mgr_->run_virt_menu();
         };
 
-        // 16. 容器配置管理 (DNS/时区/Locale/Fortune/共享目录/密码/主机名)
-        tui_routes_["16"] = [this]() {
+        // 17. 容器配置管理 (DNS/时区/Locale/Fortune/共享目录/密码/主机名)
+        tui_routes_["17"] = [this]() {
             config_mgr_->run_config_menu();
         };
 
-        // 17. 软件中心 (社交/游戏/媒体/文档/文件共享/清理)
-        tui_routes_["17"] = [this]() {
+        // 18. 软件中心 (社交/游戏/媒体/文档/文件共享/清理)
+        tui_routes_["18"] = [this]() {
             software_center_->run_software_center_menu();
         };
 
-        // 18. 终端模拟器应用
-        tui_routes_["18"] = [this]() {
-            terminal_app_->run_terminal_menu();
-        };
-
-        // 19. 办公套件 (LibreOffice/WPS/永中/FreeOffice)
+        // 19. 终端模拟器应用
         tui_routes_["19"] = [this]() {
-            office_->run_office_menu();
+            terminal_app_->run_terminal_menu();
         };
 
         // 20. 教育学习 (数学/化学/物理/英语/考试)
@@ -177,24 +183,9 @@ namespace tmoe::app {
             input_method_->run_input_method_menu();
         };
 
-        // 22. 浏览器 (Firefox/Chromium/Edge/Falkon/…)
+        // 22. Beta/实验功能 (绘图/R语言/文件管理/多媒体/Deepin)
         tui_routes_["22"] = [this]() {
-            browser_->run_browser_menu();
-        };
-
-        // 23. Beta/实验功能 (绘图/R语言/文件管理/多媒体/Deepin)
-        tui_routes_["23"] = [this]() {
             beta_features_->run_beta_menu();
-        };
-
-        // 24. 开发工具安装 (构建工具/编辑器/语言/数据库/Web/网络/Shell/监控)
-        tui_routes_["24"] = [this]() {
-            dev_tools_->run_dev_tools_menu();
-        };
-
-        // 25. 下载工具 (Aria2/迅雷/视频下载/爬虫)
-        tui_routes_["25"] = [this]() {
-            download_tools_->run_download_menu();
         };
     }
 
@@ -250,7 +241,8 @@ namespace tmoe::app {
                 }
 
                 // 构建 whiptail menu 字符串
-                std::string sub_menu = cfg_.tui_bin + " --title \"" + _("mirror.select_mirror_title") + "\" --menu \"" + _("mirror.select_mirror_prompt") + "\" 0 0 0 ";
+                std::string sub_menu = cfg_.tui_bin + " --title \"" + _("mirror.select_mirror_title") + "\" --menu \"" +
+                                       _("mirror.select_mirror_prompt") + "\" 0 0 0 ";
                 for (size_t i = 0; i < mirrors.size(); ++i) {
                     sub_menu += "\"" + std::to_string(i + 1) + "\" \""
                             + mirrors[i].name + " (" + mirrors[i].url + ")\" ";
@@ -278,7 +270,9 @@ namespace tmoe::app {
                 Logger::press_enter();
             } else if (choice == "7") {
                 std::string toggle_cmd = cfg_.tui_bin +
-                                         " --title \"" + _("mirror.protocol_title") + "\" --yes-button \"" + _("mirror.btn_switch_https") + "\" --no-button \"" + _("mirror.btn_switch_http") + "\""
+                                         " --title \"" + _("mirror.protocol_title") + "\" --yes-button \"" +
+                                         _("mirror.btn_switch_https") + "\" --no-button \"" + _(
+                                             "mirror.btn_switch_http") + "\""
                                          " --yesno \"" + _("mirror.select_protocol") + "\" 0 0";
                 auto result = Executor::passthrough(toggle_cmd);
                 bool use_https = result.exit_code == 0;
@@ -291,7 +285,8 @@ namespace tmoe::app {
                 Logger::press_enter();
             } else if (choice == "9") {
                 std::string trust_cmd = cfg_.tui_bin +
-                                        " --title \"" + _("mirror.trust_title") + "\" --yes-button \"" + _("mirror.btn_trust") + "\" --no-button \"" + _("mirror.btn_untrust") + "\""
+                                        " --title \"" + _("mirror.trust_title") + "\" --yes-button \"" +
+                                        _("mirror.btn_trust") + "\" --no-button \"" + _("mirror.btn_untrust") + "\""
                                         " --yesno \"" + _("mirror.trust_warning") + "\" 0 0";
                 auto result = Executor::passthrough(trust_cmd);
                 bool trust = result.exit_code == 0;
@@ -331,20 +326,17 @@ namespace tmoe::app {
                 "\"9\" \"" + _("menu.tui.report") + "\" "
                 "\"10\" \"" + _("menu.tui.fix_signal9") + "\" "
                 "\"11\" \"" + _("menu.tui.mirrors") + "\" "
-                "\"12\" \"" + _("menu.tui.gui") + "\" "
-                "\"13\" \"" + _("menu.tui.backup") + "\" "
-                "\"14\" \"" + _("menu.tui.docker") + "\" "
-                "\"15\" \"" + _("menu.tui.virt") + "\" "
-                "\"16\" \"" + _("menu.tui.config") + "\" "
-                "\"17\" \"" + _("menu.tui.software_center") + "\" "
-                "\"18\" \"" + _("menu.tui.terminal_app") + "\" "
-                "\"19\" \"" + _("menu.tui.office") + "\" "
+                "\"12\" \"" + _("menu.tui.gui_de") + "\" "
+                "\"13\" \"" + _("menu.tui.gui_remote") + "\" "
+                "\"14\" \"" + _("menu.tui.gui_beautify") + "\" "
+                "\"15\" \"" + _("menu.tui.backup") + "\" "
+                "\"16\" \"" + _("menu.tui.virt") + "\" "
+                "\"17\" \"" + _("menu.tui.config") + "\" "
+                "\"18\" \"" + _("menu.tui.software_center") + "\" "
+                "\"19\" \"" + _("menu.tui.terminal_app") + "\" "
                 "\"20\" \"" + _("menu.tui.education") + "\" "
                 "\"21\" \"" + _("menu.tui.input_method") + "\" "
-                "\"22\" \"" + _("menu.tui.browser") + "\" "
-                "\"23\" \"" + _("menu.tui.beta") + "\" "
-                "\"24\" \"" + _("menu.tui.dev_tools") + "\" "
-                "\"25\" \"" + _("menu.tui.download_tools") + "\" "
+                "\"22\" \"" + _("menu.tui.beta") + "\" "
                 "\"0\" \"" + _("menu.tui.exit") + "\"";
 
         return Executor::tui_select(menu_cmd);
@@ -475,6 +467,10 @@ namespace tmoe::app {
             case LaunchMode::Aria2Manager:
                 return download_tools_->run_download_menu(), 0;
 
+            case LaunchMode::GuiManager:
+                gui_->handle_gui_cli_flag(ctx.gui_flag);
+                return 0;
+
             case LaunchMode::Help:
             case LaunchMode::Interactive:
             default:
@@ -484,7 +480,7 @@ namespace tmoe::app {
     }
 
     int Manager::launch_container(const LaunchContext &ctx, domain::ContainerMode mode,
-                                   const std::string &mode_label, bool needs_root) {
+                                  const std::string &mode_label, bool needs_root) {
         if (needs_root && !cfg_.is_root) {
             Logger::error(_("error.no_root"));
             return 1;
@@ -529,20 +525,20 @@ namespace tmoe::app {
 
     /** 首次启动语言选择。仅在未持久化过语言偏好时触发。 */
     void Manager::first_run_locale_setup() {
-        const char* home = std::getenv("HOME");
+        const char *home = std::getenv("HOME");
         if (!home) return;
         std::string marker = std::string(home) + "/.config/tmoe-linux/locale";
-        if (fs::exists(marker)) return;  // 已选择过，跳过
+        if (fs::exists(marker)) return; // 已选择过，跳过
 
         Logger::info(_("locale.firstrun_detected"));
         Logger::info(_("locale.firstrun_detected"));
 
         // 直接用英文简短提示，此时还没选择语言
         std::string menu = cfg_.tui_bin +
-            " --title \"" + _("locale.firstrun_title") + "\""
-            " --menu \"" + _("locale.firstrun_prompt") + "\" 0 0 0 "
-            "\"en_US\" \"" + _("locale.firstrun.en") + "\" "
-            "\"zh_CN\" \"" + _("locale.firstrun.zh") + "\" ";
+                           " --title \"" + _("locale.firstrun_title") + "\""
+                           " --menu \"" + _("locale.firstrun_prompt") + "\" 0 0 0 "
+                           "\"en_US\" \"" + _("locale.firstrun.en") + "\" "
+                           "\"zh_CN\" \"" + _("locale.firstrun.zh") + "\" ";
 
         std::string choice = Executor::tui_select(menu);
         if (choice.empty()) return;
@@ -577,7 +573,8 @@ namespace tmoe::app {
         std::string cur = std::string(I18n::current_lang());
         std::string menu_cmd = cfg_.tui_bin +
                                " --title \"" + _("locale.title") + "\"" +
-                               " --menu \"" + _("locale.menu_prompt") + cur + "  |  Select interface language:\" 0 0 0 ";
+                               " --menu \"" + _("locale.menu_prompt") + cur +
+                               "  |  Select interface language:\" 0 0 0 ";
         for (const auto &e: LANGS) {
             std::string mark = (e.code == cur) ? " ✓" : "";
             menu_cmd += "\"" + e.code + "\" \"" + e.label + mark + "\" ";
@@ -590,7 +587,10 @@ namespace tmoe::app {
         // 检查是否是合法代码
         bool valid = false;
         for (const auto &e: LANGS) {
-            if (e.code == choice) { valid = true; break; }
+            if (e.code == choice) {
+                valid = true;
+                break;
+            }
         }
         if (!valid) return;
 
@@ -605,10 +605,10 @@ namespace tmoe::app {
         // 询问是否持久化为系统默认 locale
         {
             std::string prompt = cfg_.tui_bin +
-                " --title \"" + _("locale.system_title") + "\""
-                " --yesno \"" + _("locale.system_yesno") + choice + "。\\n\\n"
-                "是否同时将此语言设为系统默认 locale？\\n"
-                "(写入 /etc/default/locale 或 /etc/locale.conf，重启后生效)\" 0 0";
+                                 " --title \"" + _("locale.system_title") + "\""
+                                 " --yesno \"" + _("locale.system_yesno") + choice + "。\\n\\n"
+                                 "是否同时将此语言设为系统默认 locale？\\n"
+                                 "(写入 /etc/default/locale 或 /etc/locale.conf，重启后生效)\" 0 0";
             auto result = Executor::passthrough(prompt);
             if (result.exit_code == 0) {
                 environment_->apply_system_locale(choice);

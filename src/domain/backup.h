@@ -94,7 +94,7 @@ public:
     /** 获取备份文件的人类可读大小。 */
     static std::string get_archive_size_human(std::string_view path);
 
-    /** 收集额外备份目标（tmoe脚本/QEMU库/配置）。 */
+    /** 收集额外备份目标（tmoe脚本/配置）。 */
     std::vector<std::string> collect_extra_backup_targets(std::string_view container_name);
 
     /** 运行 Timeshift 系统快照。 */
