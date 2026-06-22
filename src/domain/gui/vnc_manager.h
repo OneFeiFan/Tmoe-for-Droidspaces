@@ -10,7 +10,7 @@
 #include "core/logger.h"
 #include "core/i18n.h"
 #include "core/command_builder.hpp"
-#include "package_manager.h"
+#include "../package_manager.h"
 
 #include <algorithm>
 #include <ctime>
@@ -155,7 +155,7 @@ namespace tmoe::domain {
         // 安装辅助（被 GUIManager 调用）
         void check_the_which_command();
 
-        void if_container_is_arm();
+        bool is_arm_container() const;
 
         void auto_select_keyboard_layout();
 

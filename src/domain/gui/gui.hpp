@@ -3,23 +3,36 @@
 #include "core/executor.h"
 #include "core/logger.h"
 #include "core/command_builder.hpp"
-#include "gui_config/templates.h"
-#include "gui_config/registries.h"
+#include "../gui_config/templates.h"
+#include "../gui_config/registries.h"
 #include "vnc_manager.h"
 #include "desktop_manager.h"
+#include "remote_desktop_manager.h"
 #include <string>
 #include <vector>
 #include <map>
 #include <filesystem>
-#include <memory>
+#include "vnc_manager.h"
+#include "core/system_helper.h"
+#include "core/logger.h"
+#include "core/executor.h"
+#include "core/config.h"
+#include "core/i18n.h"
+#include "../gui_config/templates.h"
+#include "../gui_config/registries.h"
+#include "../package_manager.h"
+
+#include <algorithm>
+#include <ctime>
+#include <cstdlib>
+#include <fstream>
+#include <sstream>
+#include <filesystem>
+#include <system_error>
 
 namespace fs = std::filesystem;
 
 namespace tmoe::domain {
-    /** GUI / VNC 桌面环境管理。
-     *  VNC 核心功能已委托给 VncManager。
-     *  桌面环境安装/配置已委托给 DesktopManager。
-     */
     class GUIManager {
     public:
         explicit GUIManager(const TmoeConfig &cfg);
@@ -29,40 +42,6 @@ namespace tmoe::domain {
         // ═══════════════════════════════════════════════
 
         std::string get_local_ip_addresses() const;
-
-        // ═══════════════════════════════════════════════
-        // noVNC (HTML5 VNC 客户端)
-        // ═══════════════════════════════════════════════
-
-        bool install_novnc();
-
-        bool configure_novnc();
-
-        bool start_novnc(int port = -1);
-
-        bool stop_novnc();
-
-        bool remove_novnc();
-
-        std::string get_novnc_url() const;
-
-        // ═══════════════════════════════════════════════
-        // XRDP (RDP 协议远程桌面)
-        // ═══════════════════════════════════════════════
-
-        bool install_xrdp();
-
-        bool configure_xrdp_session(std::string_view desktop);
-
-        bool start_xrdp();
-
-        bool stop_xrdp();
-
-        bool restart_xrdp();
-
-        bool set_xrdp_port(int port);
-
-        bool remove_xrdp();
 
         // ═══════════════════════════════════════════════
         // XSDL / VcXsrv / WSL
@@ -144,8 +123,8 @@ namespace tmoe::domain {
 
         bool handle_gui_cli_flag(std::string_view flag);
 
-        void set_auto_install_mode(bool v) { desktop_manager_.set_auto_install_mode(v); }
-        bool is_auto_install() const { return desktop_manager_.is_auto_install_mode(); }
+        void set_auto_install_mode(bool v) { auto_install_mode_ = v; }
+        bool is_auto_install() const { return auto_install_mode_; }
 
         // ═══════════════════════════════════════════════
         // 组件访问
@@ -155,12 +134,15 @@ namespace tmoe::domain {
         const VncManager &vnc_manager() const { return vnc_manager_; }
         DesktopManager &desktop_manager() { return desktop_manager_; }
         const DesktopManager &desktop_manager() const { return desktop_manager_; }
+        RemoteDesktopManager &remote_desktop_manager() { return remote_desktop_manager_; }
+        const RemoteDesktopManager &remote_desktop_manager() const { return remote_desktop_manager_; }
 
     private:
         const TmoeConfig &cfg_;
         VncManager vnc_manager_;
         DesktopManager desktop_manager_;
-        int novnc_port_ = 36080;
+        RemoteDesktopManager remote_desktop_manager_;
+        bool auto_install_mode_ = false;
 
         // ═══════════════════════════════════════════════
         // VNC 首次配置
@@ -173,10 +155,6 @@ namespace tmoe::domain {
         // ═══════════════════════════════════════════════
 
         std::string generate_xfce_panel_xml();
-
-        std::string generate_polkit_colord_conf();
-
-        std::string generate_polkit_colord_pkla();
 
         // ═══════════════════════════════════════════════
         // 桌面安装辅助 (仍在 GUIManager)
@@ -198,21 +176,7 @@ namespace tmoe::domain {
 
         void run_dm_menu();
 
-        void run_x11vnc_config_menu();
-
-        void run_novnc_config_menu();
-
         void run_xsdl_config_menu();
-
-        void run_xrdp_menu();
-
-        void configure_remote_desktop_environment(std::string_view context);
-
-        void configure_xrdp_desktop();
-
-        void configure_x11vnc_remote_desktop_session();
-
-        void configure_xrdp_remote_desktop_session(const std::string &session_cmd);
 
         // ═══════════════════════════════════════════════
         // 主题管理子步骤
@@ -251,44 +215,6 @@ namespace tmoe::domain {
         void download_wsl_components();
 
         void catimg_preview_lxde_mate_xfce();
-
-        // ═══════════════════════════════════════════════
-        // x11vnc 辅助 (留在 GUIManager)
-        // ═══════════════════════════════════════════════
-
-        void x11vnc_warning();
-
-        void x11vnc_onekey();
-
-        void remove_x11vnc_ext();
-
-        void x11vnc_doc();
-
-        void x11vnc_process_readme();
-
-        // ═══════════════════════════════════════════════
-        // XRDP 辅助
-        // ═══════════════════════════════════════════════
-
-        void xrdp_onekey();
-
-        void check_xrdp_status();
-
-        void xrdp_pulse_server();
-
-        void xrdp_systemd();
-
-        void xrdp_reset();
-
-        void xrdp_restart();
-
-        void xrdp_port();
-
-        // ═══════════════════════════════════════════════
-        // 其他提示/FAQ
-        // ═══════════════════════════════════════════════
-
-        void do_you_want_to_configure_novnc();
 
         // ═══════════════════════════════════════════════
         // 壁纸设置辅助
@@ -334,6 +260,8 @@ namespace tmoe::domain {
         // 其他辅助
         // ═══════════════════════════════════════════════
 
+        void ensure_tmoe_symlink();
+
         void configure_mouse_cursor();
 
         void download_chameleon_cursor_theme();
@@ -347,7 +275,7 @@ namespace tmoe::domain {
         void check_tmoe_linux_desktop_link();
 
         // ═══════════════════════════════════════════════
-        // Plasma / VNC 最终配置辅助
+        // VNC 最终配置辅助 (CLI 标志处理)
         // ═══════════════════════════════════════════════
 
         void set_vnc_passwd();

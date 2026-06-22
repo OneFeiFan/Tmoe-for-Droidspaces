@@ -55,6 +55,9 @@ namespace tmoe::domain {
         /** 安装 eatmydata (仅 Debian 需要) */
         static bool ensure_eatmydata();
 
+        /** 将 DistroFamily 映射为字符串键 (用于 gui_config 查询等) */
+        static std::string family_key(DistroFamily family);
+
     private:
         static std::string build_install_cmd(const std::vector<std::string> &pkgs,
                                              const Commands &cmd);

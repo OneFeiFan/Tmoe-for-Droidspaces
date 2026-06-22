@@ -378,7 +378,7 @@ namespace tmoe::domain {
         }
     }
 
-    void VncManager::if_container_is_arm() {
+    bool VncManager::is_arm_container() const {
         auto arch_res = Executor::shell("dpkg --print-architecture 2>/dev/null || uname -m");
         std::string arch = arch_res.ok() ? arch_res.stdout_data : "";
         while (!arch.empty() && (arch.back() == '\n' || arch.back() == '\r')) arch.pop_back();
@@ -387,14 +387,11 @@ namespace tmoe::domain {
         if (family == DistroFamily::Unknown) family = PackageManager::detect_distro_family();
 
         if (family == DistroFamily::RedHat) {
-            if (arch.rfind("arm", 0) != 0) {
-                // install_novnc();  // handled by GUIManager
-            }
-        } else {
-            if (arch != "armhf" && arch != "armel") {
-                // install_novnc();
-            }
+            // arm* on RedHat → skip noVNC
+            return (arch.rfind("arm", 0) == 0);
         }
+        // On other distros: armhf or armel → skip noVNC
+        return (arch == "armhf" || arch == "armel");
     }
 
     void VncManager::auto_select_keyboard_layout() {
@@ -420,13 +417,13 @@ namespace tmoe::domain {
         if (!ver_check.ok() || ver_check.stdout_data.find("old") == std::string::npos) return;
 
         Logger::info("Fixing mlocate postinst (old Ubuntu version)...");
-        std::string postinst_src = "/usr/local/etc/tmoe-linux/git/share/old-version/tools/gui/config/mlocate.postinst";
         std::string postinst_dst = "/var/lib/dpkg/info/mlocate.postinst";
-        if (fs::exists(postinst_src)) {
-            run_shell_command("cp -f " + postinst_src + " " + postinst_dst + " 2>/dev/null || true");
+        if (fs::exists(postinst_dst)) {
+            // 内联修复: 在 set -e 后插入 exit 0，防止旧版 Ubuntu 下 dpkg 中断
+            run_shell_command("sed -i 's@set -e@set -e\\nexit 0@' " + postinst_dst + " 2>/dev/null || true");
             Logger::ok("mlocate postinst fixed");
         } else {
-            run_shell_command("sed -i 's@set -e@set -e\\nexit 0@' " + postinst_dst + " 2>/dev/null || true");
+            Logger::debug("mlocate postinst not found, skipping fix");
         }
     }
 
@@ -609,8 +606,11 @@ namespace tmoe::domain {
                 << "start_session() {\n"
                 << "    set_session_env\n"
                 << "    open_terminal\n"
-                << "    echo \"Starting desktop session: $REMOTE_DESKTOP_SESSION\"\n"
-                << "    exec dbus-launch --exit-with-session $REMOTE_DESKTOP_SESSION \"$@\"\n"
+                << "    echo \"Starting desktop session: $REMOTE_DESKTOP_SESSION\"\n";
+        bool is_proot = cfg_.is_termux || cfg_.linux_distro == "Android";
+        script << "    exec dbus-launch"
+                << (is_proot ? "" : " --exit-with-session")
+                << " $REMOTE_DESKTOP_SESSION \"$@\"\n"
                 << "}\n\n"
                 << "start_session\n";
         return script.str();
@@ -940,8 +940,9 @@ namespace tmoe::domain {
             std::istringstream iss(data);
             std::string line;
             while (std::getline(iss, line)) {
-                while (!line.empty() && (line.back() == '\r' || line.back() == '\n' || line.back() == ' ')) line.
-                        pop_back();
+                while (!line.empty() && (line.back() == '\r' || line.back() == '\n' || line.back() == ' '))
+                    line.
+                            pop_back();
                 while (!line.empty() && (line.front() == ' ')) line.erase(0, 1);
                 if (!line.empty()) ips << "vnc://" << line << ":" << vnc_config_.rfb_port << "  ";
             }
@@ -1135,8 +1136,11 @@ namespace tmoe::domain {
         run_shell_command("mkdir -p /run/dbus /var/lib/dbus 2>/dev/null");
         if (run_shell_command("dbus-daemon --system --fork 2>/dev/null")) return true;
 
-        Logger::debug("Using dbus-launch for session dbus");
-        return run_shell_command("dbus-launch --exit-with-session 2>/dev/null &");
+        bool is_proot = cfg_.is_termux || cfg_.linux_distro == "Android";
+        Logger::debug("Using dbus-launch for session dbus" + std::string(is_proot ? " (proot mode)" : ""));
+        return run_shell_command(is_proot
+            ? "dbus-launch 2>/dev/null &"
+            : "dbus-launch --exit-with-session 2>/dev/null &");
     }
 
     bool VncManager::fix_vnc_dbus() {
@@ -1205,8 +1209,18 @@ namespace tmoe::domain {
     void VncManager::configure_startxsdl() {
         // deploy_startup_scripts already includes startxsdl
         if (cfg_.is_wsl) {
-            run_shell_command("cp -af /usr/local/etc/tmoe-linux/git/share/old-version/tools/gui/wslg "
-                "/usr/local/bin/wslg 2>/dev/null || true");
+            // 原生生成 wslg thin wrapper (替代旧版 old-version 拷贝)
+            const char *tmoe_bin = "/usr/local/bin/tmoe";
+            write_file_content("/usr/local/bin/wslg",
+                "#!/bin/bash\n"
+                "# tmoe-linux wslg — native thin wrapper\n"
+                "TMOE_BIN=\"" + std::string(tmoe_bin) + "\"\n"
+                "[ -x \"$TMOE_BIN\" ] && exec \"$TMOE_BIN\" gui --start-wslg \"$@\"\n"
+                "# Fallback: direct Xwayland for WSLg\n"
+                "unset WAYLAND_DISPLAY\n"
+                "Xwayland :${1:-2} -noreset &\n"
+                "echo 'WSLg Xwayland started on :${1:-2}'\n");
+            run_shell_command("chmod a+rx /usr/local/bin/wslg 2>/dev/null || true");
         }
         if (cfg_.sub_distro == "centos") {
             run_shell_command("sed -i -E 's@(AUTO_START_DBUS=).*@\\1false@' "

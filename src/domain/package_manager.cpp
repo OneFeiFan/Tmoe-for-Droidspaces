@@ -163,6 +163,20 @@ namespace tmoe::domain {
         return Executor::passthrough("apt install -y -f eatmydata").ok();
     }
 
+    std::string PackageManager::family_key(DistroFamily family) {
+        switch (family) {
+            case DistroFamily::Debian: return "debian";
+            case DistroFamily::Arch: return "arch";
+            case DistroFamily::RedHat: return "redhat";
+            case DistroFamily::Void_: return "void";
+            case DistroFamily::Gentoo: return "gentoo";
+            case DistroFamily::Suse: return "suse";
+            case DistroFamily::Alpine: return "alpine";
+            case DistroFamily::Solus: return "solus";
+            default: return "";
+        }
+    }
+
     std::string PackageManager::build_install_cmd(const std::vector<std::string> &pkgs,
                                                   const Commands &cmd) {
         std::string result = cmd.install;

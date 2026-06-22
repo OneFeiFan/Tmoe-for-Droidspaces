@@ -1,42 +1,52 @@
-#include "gui.h"
-#include "vnc_manager.h"
-#include "core/system_helper.h"
-#include "gui_config/templates.h"
-#include "gui_config/registries.h"
-#include "core/i18n.h"
-#include <algorithm>
-#include <ctime>
-#include <cstdlib>
-#include <fstream>
-#include <sstream>
+#include "gui.hpp"
 
-#include "package_manager.h"
+namespace fs = std::filesystem;
 
 namespace tmoe::domain {
+    namespace {
+        // 提取当前发行版家族的通用辅助函数
+        DistroFamily get_family(const TmoeConfig &cfg) {
+            auto family = infer_family_from_config(cfg.linux_distro);
+            if (family == DistroFamily::Unknown)
+                family = PackageManager::detect_distro_family();
+            return family;
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // 构造 / 析构
     // ═══════════════════════════════════════════════════════════════
 
-    GUIManager::GUIManager(const TmoeConfig &cfg) : cfg_(cfg), vnc_manager_(cfg), desktop_manager_(cfg, vnc_manager_) {
+    GUIManager::GUIManager(const TmoeConfig &cfg)
+        : cfg_(cfg),
+          vnc_manager_(cfg),
+          desktop_manager_(cfg, vnc_manager_),
+          remote_desktop_manager_(cfg, vnc_manager_, desktop_manager_) {
     }
 
     void GUIManager::first_configure_vnc(std::string_view desktop) {
-        // 对应旧 Bash first_configure_startvnc(): VNC 服务端选择 + 密码 + 端口 + HiDPI
-        auto family = infer_family_from_config(cfg_.linux_distro);
-        if (family == DistroFamily::Unknown)
-            family = PackageManager::detect_distro_family();
+        auto family = get_family(cfg_);
 
         // 0.5. 卸载 udisks2 (对应旧 Bash remove_udisk_and_gvfs)
         if (cfg_.is_termux && family == DistroFamily::Debian) {
-            auto os_rel = Executor::shell(
-                "grep -Eq 'Focal Fossa|focal|bionic|Bionic Beaver|Eoan Ermine|buster|stretch|jessie|Deepin 20|Uos 20' /etc/os-release && echo 'yes'");
-            if (os_rel.ok() && os_rel.stdout_data.find("yes") != std::string::npos) {
+            auto os_rel_content = SystemHelper::read_file("/etc/os-release");
+            bool is_old_distro = os_rel_content.find("Focal Fossa") != std::string::npos ||
+                                 os_rel_content.find("focal") != std::string::npos ||
+                                 os_rel_content.find("bionic") != std::string::npos ||
+                                 os_rel_content.find("Bionic Beaver") != std::string::npos ||
+                                 os_rel_content.find("Eoan Ermine") != std::string::npos ||
+                                 os_rel_content.find("buster") != std::string::npos ||
+                                 os_rel_content.find("stretch") != std::string::npos ||
+                                 os_rel_content.find("jessie") != std::string::npos ||
+                                 os_rel_content.find("Deepin 20") != std::string::npos ||
+                                 os_rel_content.find("Uos 20") != std::string::npos;
+            if (is_old_distro) {
                 Logger::info("检测到您处于proot容器环境下，即将为您卸载udisk2和gvfs");
                 Executor::passthrough("apt purge -y --allow-change-held-packages ^udisks2 ^gvfs 2>/dev/null || true");
             }
         }
 
-        // dpkg 修复 (对应旧 Bash first_configure_startvnc start 处 dpkg --configure -a)
+        // dpkg 修复
         if (Executor::has("apt-get")) {
             Executor::passthrough("dpkg --configure -a 2>/dev/null || true");
         }
@@ -46,14 +56,12 @@ namespace tmoe::domain {
         Executor::shell(
             "chmod a+rx -v /usr/local/bin/startvnc /usr/local/bin/stopvnc /usr/local/bin/startxsdl 2>/dev/null || true");
 
-        // 5a. Debian: 安装 VNC 服务端
+        // 5a. 安装 VNC 服务端字体依赖
         if (family == DistroFamily::Debian) {
-            // 安装 fonts-noto-color-emoji (老版中有意重复两次以确保安装)
-            Executor::passthrough("apt install -y fonts-noto-color-emoji 2>/dev/null || "
-                "apt install -y fonts-noto-color-emoji 2>/dev/null || true");
+            PackageManager::install("fonts-noto-color-emoji", family);
         }
 
-        // 5b. 选择 VNC 服务端 (Tiger vs Tight)
+        // 5b. 选择 VNC 服务端
         std::string d(desktop);
         std::transform(d.begin(), d.end(), d.begin(), ::tolower);
         bool recommend_tiger = (d == "kde" || d == "gnome" || d == "cinnamon" ||
@@ -83,13 +91,14 @@ namespace tmoe::domain {
 
         vnc_manager_.modify_to_xfwm4_breeze_theme();
 
-        // 5c. 设置 VNC 密码 (对应旧 Bash set_vnc_passwd: 交互式输入)
-        auto passwd_check = Executor::shell("[ -s " + vnc_manager_.config().passwd_file.string() + " ] && echo 'yes'");
-        if (!passwd_check.ok() || passwd_check.stdout_data.find("yes") == std::string::npos) {
-            vnc_manager_.configure_vnc_password(); // 空参数 = 交互式输入，不用硬编码密码
+        // 5c. 设置 VNC 密码
+        bool passwd_exists = fs::exists(vnc_manager_.config().passwd_file) &&
+                             fs::file_size(vnc_manager_.config().passwd_file) > 0;
+        if (!passwd_exists) {
+            vnc_manager_.configure_vnc_password();
         }
 
-        // 5d. 选择 VNC 端口 (auto mode: 默认5902，跳过提示)
+        // 5d. 选择 VNC 端口
         if (desktop_manager_.is_auto_install_mode()) {
             vnc_manager_.config().display = 2;
             vnc_manager_.config().update_port();
@@ -106,7 +115,7 @@ namespace tmoe::domain {
             }
         }
 
-        // 5e. HiDPI 检测 (auto mode: 默认1440x720)
+        // 5e. HiDPI 检测
         if (desktop_manager_.is_auto_install_mode()) {
             vnc_manager_.config().resolution_w = 1440;
             vnc_manager_.config().resolution_h = 720;
@@ -116,7 +125,7 @@ namespace tmoe::domain {
 
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
 
-        // ── 对应旧 Bash lines 5478-5504: Neko ASCII art ──
+        // Neko ASCII art
         Logger::info("               .::::..");
         Logger::info("    ::::rrr7QQJi::i:iirijQBBBQB.");
         Logger::info("    BBQBBBQBP. ......:::..1BBBB");
@@ -141,7 +150,7 @@ namespace tmoe::domain {
         Logger::info("  jBBdD. :. ........:r... YB  Bi");
         Logger::info("     :7j1.                 :  :");
 
-        // ── 对应旧 Bash lines 5507-5569: 完整分辨率检测 ──
+        // 完整分辨率检测
         std::string wm_size_path = "/usr/local/etc/tmoe-linux/wm_size.txt";
         std::string wm_size_home = home + "/.tmoe-linux/wm_size.txt";
         std::string res;
@@ -154,7 +163,6 @@ namespace tmoe::domain {
                 try {
                     int _w = std::stoi(content.substr(0, xpos));
                     int _h = std::stoi(content.substr(xpos + 1));
-                    // 旧 Bash: awk -F 'x' '{print $2,$1}' -> 宽<高交换
                     int _swapped_w = (_w < _h) ? _h : _w;
                     int _swapped_h = (_w < _h) ? _w : _h;
                     res = std::to_string(_swapped_w) + "x" + std::to_string(_swapped_h);
@@ -164,7 +172,7 @@ namespace tmoe::domain {
             }
         }
 
-        // ── 对应旧 Bash tmoe_gui_dpi_02: 分辨率同步到所有配置文件 ──
+        // 分辨率同步到所有配置文件
         if (!res.empty() && vnc_manager_.config().resolution_w > 0 && vnc_manager_.config().resolution_h > 0) {
             std::string res_str = std::to_string(vnc_manager_.config().resolution_w) + "x" + std::to_string(
                                       vnc_manager_.config().resolution_h);
@@ -178,28 +186,29 @@ namespace tmoe::domain {
                 "@' /usr/local/bin/startx11vnc 2>/dev/null || true");
         }
 
-        // 5f. 权限修复: 非 root 用户 chown .vnc/.Xauthority 等
+        // 5f. 权限修复
         if (home != "/root") {
             Executor::passthrough("chown -R $(id -un):$(id -gn) " + home +
                                   "/.vnc " + home + "/.Xauthority " + home + "/.ICEauthority "
                                   + home + "/.cache " + home + "/.dbus " + home + "/.local 2>/dev/null || true");
         }
 
-        // 写回配置
         vnc_manager_.configure_vnc_defaults();
 
-        // 6. 创建 ~/startvnc 符号链接 (旧 Bash line 5576)
+        // 6. 创建 ~/startvnc 符号链接
         if (!fs::exists(home + "/startvnc"))
             Executor::shell("ln -sf /usr/local/bin/startvnc " + home + "/startvnc 2>/dev/null || true");
-        // 复制 .vnc 到 /root (旧 Bash lines 5620-5623)
+
+        // 复制 .vnc 到 /root
         if (home != "/root") {
-            Executor::shell("cp -rpf " + home + "/.vnc /root/ 2>/dev/null || true");
+            std::error_code ec;
+            fs::copy(home + "/.vnc", "/root/.vnc", fs::copy_options::recursive | fs::copy_options::overwrite_existing,
+                     ec);
             Executor::shell("chown -R 0:0 /root/.vnc 2>/dev/null || true");
         }
 
-        // 7. WSL 环境: 自动检测宿主机 IP 并设置 DISPLAY/PULSE_SERVER (旧 Bash lines 5624-5649)
+        // 7. WSL 环境网络处理
         if (cfg_.is_wsl) {
-            // 显示防火墙 + 高DPI图片提示
             Logger::info(_("gui.wsl_win10_xserver"));
             Logger::info(_("gui.wsl_firewall_hint"));
             Logger::info(_("gui.wsl_hidpi_hint"));
@@ -208,7 +217,6 @@ namespace tmoe::domain {
             std::string ver = wsl_ver.ok() ? wsl_ver.stdout_data : "";
             while (!ver.empty() && (ver.back() == '\n' || ver.back() == '\r')) ver.pop_back();
             if (ver == "microsoft") {
-                // WSL2
                 auto wsl_r = Executor::shell("ip route list table 0 2>/dev/null | head -1 | "
                     "awk -F 'default via ' '{print $2}' | awk '{print $1}'");
                 std::string wsl_ip = wsl_r.ok() ? wsl_r.stdout_data : "";
@@ -219,17 +227,14 @@ namespace tmoe::domain {
                     Logger::info(std::string(_("gui.wsl_ip_modified")) + wsl_ip);
                 }
             } else {
-                // WSL1
                 Logger::info(_("gui.wsl1_detected"));
                 Executor::shell("export DISPLAY=127.0.0.1:0 2>/dev/null || true");
             }
             Logger::info(_("gui.wsl_wslg_hint"));
         }
 
-        // 使用说明 (对应旧 Bash first_configure_startvnc 末尾输出)
         Logger::info("------------------------");
-        Logger::info("一：");
-        Logger::info("关于音频服务无法自动启动的说明：");
+        Logger::info("一：关于音频服务无法自动启动的说明：");
         Logger::info("若发现启动vnc后无法连接到音频服务，请新建termux会话并输pulseaudio --start。");
         Logger::info("若您的音频服务端为Android系统，请在图形界面启动完成后输pulseaudio -D来启动音频服务后台进程。");
         Logger::info("若您的音频服务端为windows10系统，则请手动打开C:\\Users\\Public\\Downloads\\pulseaudio\\pulseaudio.bat。");
@@ -249,389 +254,24 @@ namespace tmoe::domain {
         Logger::info("tightvnc+tigervnc & x window配置完成,将为您配置x11vnc");
         Logger::info("------------------------");
 
-        // ── 对应旧 Bash 末尾 三：x11vnc (gui:5698-5704) ──
         Logger::info(std::string(_("gui.section_three")) + "：");
         vnc_manager_.check_xvnc_command();
-        // x11vnc_warning 包含确认提示; 对应旧 Bash 在 x11vnc_warning 内部的 do_you_want_to_continue
-        x11vnc_warning();
+        remote_desktop_manager_.x11vnc_warning();
         auto x11vnc_confirm = Executor::passthrough(cfg_.tui_bin +
                                                     " --yesno \"" + std::string(_("gui.confirm_x11vnc")) + "\" 0 0");
         if (x11vnc_confirm.exit_code == 0) {
-            configure_x11vnc_remote_desktop_session();
+            remote_desktop_manager_.configure_x11vnc_remote_desktop_session();
         }
         Logger::info("------------------------");
 
-        // ── 对应旧 Bash 末尾 四：novnc (gui:5705-5714) ──
         Logger::info(std::string(_("gui.section_four")) + "：");
         Logger::info("注：配置完本工具所支持的所有VNC,将解锁成就*^^*");
-        do_you_want_to_configure_novnc();
+        remote_desktop_manager_.do_you_want_to_configure_novnc();
     }
-
-    bool GUIManager::install_novnc() {
-        Logger::step(_("gui.novnc.installing"));
-
-        // 检查是否已安装
-        if (fs::exists("/usr/share/novnc") || Executor::has("websockify")) {
-            Logger::ok(_("gui.novnc.already_installed"));
-            return true;
-        }
-
-        // 安装依赖
-        std::vector<std::string> pkgs = {"novnc", "websockify", "python3-numpy", "python3-websockify"};
-        for (const auto &pkg: pkgs) {
-            Executor::passthrough(cfg_.install_command + " " + pkg + " 2>/dev/null || true");
-        }
-
-        // 如果 apt 源没有 novnc，从 git 安装
-        if (!fs::exists("/usr/share/novnc")) {
-            Logger::info(_("gui.novnc.cloning"));
-            Executor::passthrough("git clone --depth=1 https://github.com/novnc/noVNC.git "
-                "/opt/novnc 2>/dev/null || true");
-            if (fs::exists("/opt/novnc")) {
-                // 创建符号链接
-                Executor::shell("ln -sf /opt/novnc /usr/share/novnc 2>/dev/null || true");
-            }
-        }
-
-        if (fs::exists("/usr/share/novnc") || fs::exists("/opt/novnc")) {
-            Logger::ok(_("gui.novnc.install_ok"));
-            return true;
-        }
-
-        Logger::error(_("gui.novnc.install_failed"));
-        return false;
-    }
-
-    bool GUIManager::configure_novnc() {
-        Logger::step(_("gui.novnc.config"));
-
-        // 选择端口
-        std::string port_cmd = cfg_.tui_bin +
-                               " --title \"" + std::string(_("gui.novnc_port_title")) +
-                               "\" --menu \"" + std::string(_("gui.novnc_port_prompt")) + "\" 0 0 0 "
-                               "\"36080\" \"" + std::string(_("gui.novnc_port_36080")) + "\" "
-                               "\"36081\" \"" + std::string(_("gui.novnc_port_36081")) + "\" "
-                               "\"6080\" \"" + std::string(_("gui.novnc_port_6080")) + "\" "
-                               "\"custom\" \"" + std::string(_("gui.novnc_port_custom")) + "\"";
-
-        std::string choice = Executor::tui_select(port_cmd);
-        if (choice == "custom") {
-            std::string input_cmd = cfg_.tui_bin +
-                                    " --title \"" + std::string(_("gui.novnc_custom_port_title")) +
-                                    "\" --inputbox \"" + std::string(_("gui.novnc_custom_port_input")) +
-                                    "\" 10 40 \"36080\"";
-            std::string port_str = Executor::tui_select(input_cmd);
-            try { novnc_port_ = std::stoi(port_str); } catch (...) { novnc_port_ = 36080; }
-        } else if (!choice.empty()) {
-            try { novnc_port_ = std::stoi(choice); } catch (...) { novnc_port_ = 36080; }
-        }
-
-        Logger::info(_f("gui.novnc.port_set", std::to_string(novnc_port_)));
-        return true;
-    }
-
-    bool GUIManager::start_novnc(int port) {
-        if (port > 0) novnc_port_ = port;
-
-        Logger::step(_("gui.novnc.start"));
-
-        // 确保 noVNC 已安装
-        if (!fs::exists("/usr/share/novnc") && !fs::exists("/opt/novnc")) {
-            if (!install_novnc()) return false;
-        }
-
-        // 确定 noVNC 目录
-        std::string novnc_dir = fs::exists("/usr/share/novnc") ? "/usr/share/novnc" : "/opt/novnc";
-
-        // 确保 VNC 服务先启动
-        if (!vnc_manager_.is_vnc_running()) {
-            Logger::info(_("gui.novnc.vnc_not_running"));
-            if (!vnc_manager_.start_vnc()) return false;
-        }
-
-        // 启动 websockify 代理
-        std::ostringstream cmd;
-        cmd << "websockify --web=" << novnc_dir << " "
-                << novnc_port_ << " localhost:" << vnc_manager_.config().rfb_port
-                << " > /tmp/tmoe_novnc.log 2>&1 &";
-
-        Executor::passthrough(cmd.str());
-        Executor::shell("sleep 2");
-
-        Logger::ok(_f("gui.novnc.url", get_novnc_url()));
-        Logger::info(_f("gui.novnc.vnc_backend_port", std::to_string(vnc_manager_.config().rfb_port)));
-        return true;
-    }
-
-    std::string GUIManager::get_novnc_url() const {
-        return "http://localhost:" + std::to_string(novnc_port_) + "/vnc.html";
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // XRDP
-    // ═══════════════════════════════════════════════════════════════
-
-    bool GUIManager::install_xrdp() {
-        Logger::step(_("gui.xrdp.installing"));
-
-        std::vector<std::string> pkgs = {"xrdp", "xorgxrdp"};
-        if (!SystemHelper::install_packages(pkgs, cfg_.install_command)) {
-            Logger::error(_("gui.xrdp.install_failed"));
-            return false;
-        }
-
-        // 修复 xrdp 证书权限: key.pem 默认 640 root:ssl-cert，
-        // xrdp 用户必须在 ssl-cert 组中才能读取，否则报 Permission denied
-        Executor::shell(
-            "if getent group ssl-cert >/dev/null 2>&1; then "
-            "  usermod -a -G ssl-cert xrdp 2>/dev/null || true; "
-            "fi; "
-            // 确保 /etc/xrdp 目录权限正确
-            "chown -R root:ssl-cert /etc/xrdp/ 2>/dev/null || true; "
-            "chmod 640 /etc/xrdp/key.pem 2>/dev/null || true; "
-            "chmod 644 /etc/xrdp/cert.pem 2>/dev/null || true");
-        // 旧 Bash: chroot/proot 下 xrdp 需要 aid_inet 组才能联网
-        if (cfg_.is_termux || cfg_.linux_distro == "Android") {
-            Executor::shell("usermod -a -G aid_inet xrdp 2>/dev/null || true");
-        }
-
-        // 配置 polkit 规则 (允许远程连接)
-        std::string polkit_rule =
-                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-                "<!DOCTYPE policyconfig PUBLIC \"-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN\"\n"
-                "\"http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd\">\n"
-                "<policyconfig>\n"
-                "  <action id=\"org.freedesktop.policykit.pkexec.run-xrdp-sesman\">\n"
-                "    <description>Run XRDP session manager</description>\n"
-                "    <allow_any>yes</allow_any>\n"
-                "    <allow_inactive>yes</allow_inactive>\n"
-                "    <allow_active>yes</allow_active>\n"
-                "  </action>\n"
-                "</policyconfig>\n";
-        SystemHelper::write_file("/usr/share/polkit-1/actions/xrdp-sesman.policy", polkit_rule);
-
-        // 写入 WSL 兼容的 xrdp.ini (必须先于 startwm.sh，因为后者内部 restart 需要完整 ini)
-        set_xrdp_port(3389);
-
-        // 配置 startwm.sh
-        configure_xrdp_session("xfce");
-
-        // 启动
-        Executor::passthrough("service xrdp start 2>/dev/null || systemctl start xrdp 2>/dev/null || true");
-
-        Logger::ok(_("gui.xrdp.install_ok"));
-        return true;
-    }
-
-    bool GUIManager::configure_xrdp_session(std::string_view desktop) {
-        // 对应旧 Bash xrdp_onekey (5053-5120) + configure_xrdp_remote_desktop_session (4998-5023)
-        // 不覆盖发行版自带的 startwm.sh，而是在其基础上修改
-        Executor::shell("mkdir -p /etc/xrdp 2>/dev/null");
-
-        // 如果发行版未提供 startwm.sh，生成包含标准环境初始化的模板.
-        // 必须保留 /etc/profile 等加载逻辑，否则 PATH/LANG 等变量缺失。
-        if (!fs::exists("/etc/xrdp/startwm.sh")) {
-            SystemHelper::write_file("/etc/xrdp/startwm.sh",
-                                     "#!/bin/sh\n"
-                                     "# tmoe-linux xrdp startwm\n\n"
-                                     "if test -r /etc/profile; then\n"
-                                     "    . /etc/profile\n"
-                                     "fi\n\n"
-                                     "test -x /etc/X11/Xsession && exec /etc/X11/Xsession\n"
-                                     "exec /etc/X11/xinit/Xsession\n");
-            Executor::shell("chmod +x /etc/xrdp/startwm.sh 2>/dev/null || true");
-        }
-
-        // 注入 WSL/WSLg/GPU 环境修复 (只在尚不存在时插入，避免重复追加)
-        // 注意: 这些 sed 按顺序执行，行号插入前面的语句会影响后续插入位置.
-        // 用 grep 先检查再插入，保证幂等。
-        auto ensure_line = [](const std::string &pattern, const std::string &line, int at_line) {
-            std::string cmd =
-                    "if ! grep -q '" + pattern + "' /etc/xrdp/startwm.sh 2>/dev/null; then "
-                    "  sed -i '" + std::to_string(at_line) + "i\\" + line +
-                    "' /etc/xrdp/startwm.sh 2>/dev/null || true; "
-                    "fi";
-            Executor::shell(cmd);
-        };
-
-        ensure_line("unset WAYLAND_DISPLAY",
-                    "unset WAYLAND_DISPLAY", 2);
-        ensure_line("unset XDG_RUNTIME_DIR",
-                    "unset XDG_RUNTIME_DIR", 3);
-        ensure_line("LIBGL_ALWAYS_SOFTWARE",
-                    "export LIBGL_ALWAYS_SOFTWARE=1", 4);
-        ensure_line("GALLIUM_DRIVER",
-                    "export GALLIUM_DRIVER=llvmpipe", 5);
-        ensure_line("^export PULSE_SERVER",
-                    "export PULSE_SERVER=127.0.0.1", 6);
-
-        // xrdp_onekey 风格: 替换默认 Xsession 路径为 xinit 版本
-        Executor::shell(
-            "sed -i 's@exec /etc/X11/Xsession@exec /etc/X11/xinit/Xsession@g;"
-            "s:exec /bin/sh /etc/X11/Xsession:exec /etc/X11/xinit/Xsession:g' "
-            "/etc/xrdp/startwm.sh 2>/dev/null || true");
-
-        // 委托给 configure_xrdp_remote_desktop_session 设置具体桌面会话
-        // (对应旧 Bash: cd /etc/xrdp; sed /Xsession/d; cat >> startwm; sed dbus-launch)
-        // 注意: 需要传会话命令（如 xfce4-session），而非桌面名称（如 xfce）
-        DesktopInfo info = desktop_manager_.get_desktop_info(desktop);
-        std::string session_cmd = Executor::has(info.session_cmd1)
-                                      ? std::string(info.session_cmd1)
-                                      : std::string(info.session_cmd2);
-        configure_xrdp_remote_desktop_session(session_cmd);
-        return true;
-    }
-
-    bool GUIManager::start_xrdp() {
-        Logger::step(_("gui.xrdp.starting"));
-        if (Executor::passthrough("service xrdp start 2>/dev/null || systemctl start xrdp 2>/dev/null").ok()) {
-            Logger::ok(_("gui.xrdp.started"));
-            return true;
-        }
-        // 备用: 直接启动 xrdp 守护进程
-        if (Executor::passthrough("xrdp 2>/dev/null &").ok()) {
-            Logger::ok(_("gui.xrdp.started_direct"));
-            return true;
-        }
-        Logger::error(_("gui.xrdp.start_failed"));
-        return false;
-    }
-
-    bool GUIManager::stop_xrdp() {
-        Logger::step(_("gui.xrdp.stopping"));
-        Executor::passthrough("service xrdp stop 2>/dev/null || systemctl stop xrdp 2>/dev/null || "
-            "pkill xrdp 2>/dev/null || true");
-        Logger::ok(_("gui.xrdp.stopped"));
-        return true;
-    }
-
-    bool GUIManager::restart_xrdp() {
-        stop_xrdp();
-        Executor::shell("sleep 1");
-        bool ok = start_xrdp();
-        if (ok) {
-            Logger::info(_("gui.xrdp.connection_info"));
-            Logger::info(_("gui.xrdp.wsl_info"));
-        }
-        return ok;
-    }
-
-    bool GUIManager::set_xrdp_port(int port) {
-        // xrdp 守护进程以 xrdp 用户运行，必须确保它能读取 /etc/xrdp/
-        Executor::shell(
-            "mkdir -p /etc/xrdp 2>/dev/null; "
-            // 确保目录和文件对 xrdp 用户可读
-            "chmod 755 /etc/xrdp 2>/dev/null || true; "
-            // 确保 xrdp 用户存在 (proot/容器里 postinst 可能没创建)
-            "id xrdp >/dev/null 2>&1 || useradd -r -s /usr/sbin/nologin xrdp 2>/dev/null || true");
-
-        std::string port_str = std::to_string(port);
-
-        // ── 始终写入用户验证通过的完整 xrdp.ini 模板 ──
-        // 不再用 sed 修补包默认配置：默认配置在不同发行版/proot 下有差异，
-        // 且段落级 port (如 [Xorg] port=-1) 各发行版默认值不尽相同，
-        // 直接写完整模板最可靠。
-        SystemHelper::write_file("/etc/xrdp/xrdp.ini",
-                                 "[Globals]\n"
-                                 "address=0.0.0.0\n"
-                                 "ini_version=1\n"
-                                 "fork=true\n"
-                                 "port=tcp://0.0.0.0:" + port_str + "\n"
-                                 "use_vsock=false\n"
-                                 "tcp_nodelay=true\n"
-                                 "tcp_keepalive=true\n"
-                                 "security_layer=rdp\n"
-                                 "crypt_level=none\n"
-                                 "certificate=\n"
-                                 "key_file=\n"
-                                 "ssl_protocols=TLSv1.2, TLSv1.3\n"
-                                 "autorun=\n"
-                                 "allow_channels=true\n"
-                                 "allow_multimon=true\n"
-                                 "bitmap_cache=true\n"
-                                 "bitmap_compression=true\n"
-                                 "bulk_compression=true\n"
-                                 "max_bpp=32\n"
-                                 "new_cursors=true\n"
-                                 "use_fastpath=both\n"
-                                 "\n"
-                                 "[Logging]\n"
-                                 "LogFile=xrdp.log\n"
-                                 "LogLevel=INFO\n"
-                                 "EnableSyslog=true\n"
-                                 "\n"
-                                 "[Channels]\n"
-                                 "rdpdr=true\n"
-                                 "rdpsnd=true\n"
-                                 "drdynvc=true\n"
-                                 "cliprdr=true\n"
-                                 "rail=true\n"
-                                 "xrdpvr=true\n"
-                                 "tcutils=true\n"
-                                 "\n"
-                                 "[Xorg]\n"
-                                 "name=Xorg\n"
-                                 "lib=libxup.so\n"
-                                 "username=ask\n"
-                                 "password=ask\n"
-                                 "ip=127.0.0.1\n"
-                                 "port=-1\n"
-                                 "code=20\n"
-                                 "\n"
-                                 "[Xvnc]\n"
-                                 "name=Xvnc\n"
-                                 "lib=libvnc.so\n"
-                                 "username=ask\n"
-                                 "password=ask\n"
-                                 "ip=127.0.0.1\n"
-                                 "port=-1\n"
-                                 "\n"
-                                 "[vnc-any]\n"
-                                 "name=vnc-any\n"
-                                 "lib=libvnc.so\n"
-                                 "ip=ask\n"
-                                 "port=5900\n"
-                                 "username=na\n"
-                                 "password=ask\n"
-                                 "\n"
-                                 "[neutrinordp-any]\n"
-                                 "name=neutrinordp-any\n"
-                                 "lib=libxrdpneutrinordp.so\n"
-                                 "ip=ask\n"
-                                 "port=3389\n"
-                                 "username=ask\n"
-                                 "password=ask\n");
-        Executor::shell("chmod 644 /etc/xrdp/xrdp.ini 2>/dev/null || true");
-
-        // 验证 xrdp 用户能否读取配置
-        auto readable = Executor::shell(
-            "sudo -u xrdp cat /etc/xrdp/xrdp.ini >/dev/null 2>&1 && echo 'ok' || "
-            "cat /etc/xrdp/xrdp.ini >/dev/null 2>&1 && echo 'ok_root' || echo 'fail'");
-        if (readable.stdout_data.find("ok") == std::string::npos) {
-            Logger::warn("xrdp 守护进程可能无法读取配置! 检查权限: ls -la /etc/xrdp/");
-            Logger::debug("可读性检测: " + readable.stdout_data);
-        }
-
-        Logger::ok(_f("gui.xrdp.port_changed", port_str));
-        Logger::info(_("gui.xrdp.restart_needed"));
-        return true;
-    }
-
-    bool GUIManager::remove_xrdp() {
-        Logger::step(_("gui.xrdp.removing"));
-        Executor::passthrough(cfg_.remove_command + " xrdp xorgxrdp 2>/dev/null || true");
-        Logger::ok("XRDP 已卸载");
-        return true;
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // XSDL / VcXsrv / WSL
-    // ═══════════════════════════════════════════════════════════════
 
     bool GUIManager::configure_xsdl() {
         Logger::step("配置 XSDL 连接...");
 
-        // 设置 DISPLAY 变量
         std::string display_cmd = cfg_.tui_bin +
                                   " --title \"" + std::string(_("gui.xsdl_config_title")) +
                                   "\" --menu \"" + std::string(_("gui.xsdl_config_prompt")) + "\" 0 0 0 "
@@ -647,10 +287,8 @@ namespace tmoe::domain {
                                     "\" --inputbox \"" + std::string(_("gui.xsdl_custom_input")) +
                                     "\" 10 40 \"127.0.0.1:0\"";
             display = Executor::tui_select(input_cmd);
-            // tui_select 已去除尾部换行
         }
 
-        // DISPLAY should be set via C++ setenv instead of a standalone subshell export
         Logger::ok("XSDL DISPLAY 设置为: " + display);
         return true;
     }
@@ -662,19 +300,16 @@ namespace tmoe::domain {
             vnc_manager_.detect_wsl_environment();
         }
 
-        // 设置 DISPLAY
         std::string display = cfg_.is_wsl ? (vnc_manager_.config().windows_ip + ":0") : "127.0.0.1:0";
         std::string env = "export DISPLAY=" + display + " "
                           "export PULSE_SERVER=tcp:" + display.substr(0, display.find(':')) + ":" +
                           std::to_string(vnc_manager_.config().pulse_port);
 
-        // WSL 下启动 VcXsrv
         if (cfg_.is_wsl) {
             Logger::info("检测到 WSL 环境，请在 Windows 上启动 VcXsrv");
             Logger::info("DISPLAY=" + display);
         }
 
-        // 尝试启动桌面会话
         std::string cmd = env + " xfce4-session 2>/dev/null || " + env + " startxfce4 2>/dev/null || "
                           + env + " openbox 2>/dev/null &";
         Executor::passthrough(cmd);
@@ -696,7 +331,6 @@ namespace tmoe::domain {
         std::string pulse_server = "tcp:" + vnc_manager_.config().windows_ip + ":" +
                                    std::to_string(vnc_manager_.config().pulse_port);
 
-        // 写入 ~/.bashrc 或配置文件
         std::string bashrc = std::getenv("HOME")
                                  ? std::string(std::getenv("HOME")) + "/.bashrc"
                                  : "/root/.bashrc";
@@ -710,7 +344,6 @@ namespace tmoe::domain {
     }
 
     bool GUIManager::start_wslg(int display_port) {
-        // 对应旧 Bash tools/gui/wslg: 在 WSLg 下启动独立 Xwayland 并启动桌面会话
         Logger::step("启动 WSLg (Xwayland)...");
 
         if (!cfg_.is_wsl) {
@@ -718,18 +351,13 @@ namespace tmoe::domain {
             return false;
         }
 
-        // 清理 X 锁文件 (对应旧 Bash remove_xsession_lock)
-        Executor::shell("rm -vf /tmp/.X" + std::to_string(display_port) +
-                        "-lock /tmp/.X11-unix/X" + std::to_string(display_port) +
-                        " 2>/dev/null || true");
+        std::error_code ec;
+        fs::remove("/tmp/.X" + std::to_string(display_port) + "-lock", ec);
+        fs::remove("/tmp/.X11-unix/X" + std::to_string(display_port), ec);
 
-        // 停止 VNC (对应旧 Bash AUTO_STOP_VNC)
         Executor::shell("stopvnc -no-stop-dbus 2>/dev/null || true");
-
-        // 启动 D-Bus
         vnc_manager_.launch_dbus_daemon();
 
-        // 启动 Xwayland，关键: unset WAYLAND_DISPLAY 防止递归冲突
         std::string cmd = "unset WAYLAND_DISPLAY; Xwayland :" + std::to_string(display_port) + " -noreset &";
         Executor::passthrough(cmd);
         Executor::shell("sleep 1");
@@ -741,7 +369,7 @@ namespace tmoe::domain {
 
     bool GUIManager::beautify_desktop() {
         Logger::step("桌面美化...");
-        return true; // 由 TUI 菜单驱动
+        return true;
     }
 
     bool GUIManager::install_theme(std::string_view theme) {
@@ -749,7 +377,7 @@ namespace tmoe::domain {
         std::string name_lower(theme);
         std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), ::tolower);
         std::string pkg_name = gui_config::theme_package_name(name_lower);
-        return Executor::passthrough(cfg_.install_command + " " + pkg_name + " 2>/dev/null || true").ok();
+        return PackageManager::install(pkg_name, get_family(cfg_));
     }
 
     bool GUIManager::install_icon_theme(std::string_view theme) {
@@ -757,14 +385,13 @@ namespace tmoe::domain {
         std::string name_lower(theme);
         std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), ::tolower);
         std::string pkg_name = gui_config::icon_theme_package_name(name_lower);
-        return Executor::passthrough(cfg_.install_command + " " + pkg_name + " 2>/dev/null || true").ok();
+        return PackageManager::install(pkg_name, get_family(cfg_));
     }
 
     bool GUIManager::set_wallpaper(std::string_view path) {
         Logger::step("设置壁纸...");
 
         if (!path.empty() && fs::exists(path)) {
-            // XFCE 壁纸设置
             std::string cmd = "xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image "
                               "-s " + std::string(path) + " 2>/dev/null &";
             Executor::shell(cmd);
@@ -780,15 +407,14 @@ namespace tmoe::domain {
 
     bool GUIManager::install_dock() {
         Logger::step("安装 Plank dock...");
-        return SystemHelper::install_packages({"plank"}, cfg_.install_command);
+        return PackageManager::install("plank", get_family(cfg_));
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // PulseAudio (保留现有实现，略作优化)
+    // PulseAudio
     // ═══════════════════════════════════════════════════════════════
 
     bool GUIManager::start_pulseaudio_bridge() const {
-        // WSL/WSL2: PulseAudio 运行在 Windows 宿主机，Linux 内部不启动
         if (cfg_.is_wsl) {
             Logger::info("WSL 环境: PulseAudio 由 Windows 宿主机提供");
             Logger::info("若音频未启动，请手动打开 C:\\Users\\Public\\Downloads\\pulseaudio\\pulseaudio.bat");
@@ -802,13 +428,11 @@ namespace tmoe::domain {
 
         Logger::step("正在拉起 PulseAudio TCP 桥接守护进程...");
 
-        // PulseAudio 拒绝以 root 运行；如有原始用户则降权
         std::string prefix;
         if (!cfg_.is_termux && std::getenv("SUDO_USER")) {
             prefix = std::string("su - ") + std::getenv("SUDO_USER") + " -c ";
         }
 
-        // 启用 TCP 模块，仅允许本地匿名访问，禁用自动空闲退出
         std::string cmd =
                 prefix +
                 "\"pulseaudio --start --load=\\\"module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1\\\" --exit-idle-time=-1\"";
@@ -845,7 +469,6 @@ namespace tmoe::domain {
     }
 
     void GUIManager::run_vnc_config_menu() {
-        // 对应旧 Bash modify_other_vnc_conf (精简为7项核心配置)
         while (true) {
             std::string menu_cmd = cfg_.tui_bin +
                                    " --title \"Modify vnc server conf\""
@@ -945,9 +568,8 @@ namespace tmoe::domain {
                 std::string pa_addr = Executor::tui_select(pa_cmd);
                 if (!pa_addr.empty()) {
                     std::string pa_script = "/usr/local/bin/startvnc";
-                    auto pa_check = Executor::shell(
-                        "grep -q '^export.*PULSE_SERVER' " + pa_script + " 2>/dev/null && echo 'yes'");
-                    if (pa_check.ok() && pa_check.stdout_data.find("yes") != std::string::npos) {
+                    auto pa_content = SystemHelper::read_file(fs::path(pa_script));
+                    if (pa_content.find("PULSE_SERVER") != std::string::npos) {
                         Executor::shell(
                             "sed -i 's@^export PULSE_SERVER=.*@export PULSE_SERVER=" + pa_addr + "@' " + pa_script +
                             " 2>/dev/null || true");
@@ -958,15 +580,12 @@ namespace tmoe::domain {
                     Logger::ok("PULSE_SERVER 已更新为: " + pa_addr);
                 }
             } else if (choice == "8") {
-                // Edit xsession
                 std::string editor = std::getenv("EDITOR") ? std::getenv("EDITOR") : "nano";
                 Executor::passthrough(editor + " /etc/X11/xinit/Xsession");
             } else if (choice == "9") {
-                // Edit tigervnc-config
                 std::string editor = std::getenv("EDITOR") ? std::getenv("EDITOR") : "nano";
                 Executor::passthrough(editor + " /etc/tigervnc/vncserver-config-tmoe");
             } else if (choice == "10") {
-                // Window scaling factor
                 std::string scale_cmd = cfg_.tui_bin +
                                         " --title \"Window scaling factor\""
                                         " --inputbox \"请选择缩放因子 (1 或 2)\\n1 = 正常, 2 = 2倍缩放\\n"
@@ -975,11 +594,10 @@ namespace tmoe::domain {
                 if (!scale.empty() && (scale == "1" || scale == "2")) {
                     Executor::shell("dbus-launch xfconf-query -c xsettings -t int -np /Gdk/WindowScalingFactor -s " +
                                     scale + " 2>/dev/null || true");
-                    // Focal Fossa special case: adjust theme for HiDPI (only when scale > 1)
                     if (scale == "2") {
-                        auto os_rel = Executor::shell(
-                            "grep -q 'Focal Fossa\\|focal' /etc/os-release && echo 'yes'");
-                        if (os_rel.ok() && os_rel.stdout_data.find("yes") != std::string::npos) {
+                        auto os_rel_content = SystemHelper::read_file("/etc/os-release");
+                        if (os_rel_content.find("Focal Fossa") != std::string::npos ||
+                            os_rel_content.find("focal") != std::string::npos) {
                             Executor::shell(
                                 "dbus-launch xfconf-query -c xfwm4 -t string -np /general/theme -s \"Kali-Light-xHiDPI\""
                                 " 2>/dev/null || true");
@@ -989,7 +607,6 @@ namespace tmoe::domain {
                     Logger::ok("WindowScalingFactor 已设置为 " + scale);
                 }
             } else if (choice == "11") {
-                // WSL pulseaudio (only for windows)
                 std::string editor = std::getenv("EDITOR") ? std::getenv("EDITOR") : "nano";
                 Executor::passthrough(editor + " /usr/local/etc/tmoe-linux/wsl_pulse_audio");
             }
@@ -1025,7 +642,6 @@ namespace tmoe::domain {
     }
 
     void GUIManager::run_rootless_de_menu() {
-        // 对应旧 Bash tmoe_container_desktop (循环)
         while (true) {
             std::string menu_cmd = cfg_.tui_bin +
                                    " --title \"" + _("gui.de_rootless") + "\""
@@ -1046,7 +662,6 @@ namespace tmoe::domain {
                     ++i;
                     if (i == sel) {
                         desktop_manager_.install_desktop(d.id);
-                        // 对应旧 Bash: 装完后提示可继续装更多桌面或去配置远程桌面
                         desktop_manager_.after_desktop_install_hint();
                         break;
                     }
@@ -1087,8 +702,6 @@ namespace tmoe::domain {
     }
 
     void GUIManager::run_wm_menu() {
-        // 对应旧 Bash window_manager_installation (gui:768-1085)
-        // 菜单包含所有 WM 名称+描述，匹配旧 Bash 的 50 项 WM 菜单
         while (true) {
             std::string wm_menu = cfg_.tui_bin +
                                   " --title \"" + std::string(_("gui.wm_title")) +
@@ -1134,167 +747,26 @@ namespace tmoe::domain {
                               "\"5\" \"lxdm: LXDE默认DM(独立于桌面环境)\" "
                               "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
         auto ch = Executor::tui_select(dm_menu);
+        auto fam = get_family(cfg_);
         if (ch == "1") {
-            SystemHelper::install_packages({"lightdm", "lightdm-gtk-greeter"}, cfg_.install_command);
+            PackageManager::install({"lightdm", "lightdm-gtk-greeter"}, fam);
             desktop_manager_.tmoe_display_manager_systemctl("lightdm", "lightdm");
         } else if (ch == "2") {
-            SystemHelper::install_packages({"sddm", "sddm-theme-breeze"}, cfg_.install_command);
+            PackageManager::install({"sddm", "sddm-theme-breeze"}, fam);
             desktop_manager_.tmoe_display_manager_systemctl("sddm", "sddm");
         } else if (ch == "3") {
-            SystemHelper::install_packages({"gdm3"}, cfg_.install_command);
+            PackageManager::install("gdm3", fam);
             desktop_manager_.tmoe_display_manager_systemctl("gdm3", "gdm");
         } else if (ch == "4") {
-            SystemHelper::install_packages({"slim"}, cfg_.install_command);
+            PackageManager::install("slim", fam);
             desktop_manager_.tmoe_display_manager_systemctl("slim", "slim");
         } else if (ch == "5") {
-            SystemHelper::install_packages({"lxdm"}, cfg_.install_command);
+            PackageManager::install("lxdm", fam);
             desktop_manager_.tmoe_display_manager_systemctl("lxdm", "lxdm");
         }
     }
 
-    void GUIManager::run_remote_desktop_menu() {
-        while (true) {
-            std::string menu_cmd = cfg_.tui_bin +
-                                   " --title \"" + std::string(_("gui.remote_title")) +
-                                   "\" --menu \"" + std::string(_("gui.remote_prompt")) + "\" 0 0 0 "
-                                   "\"1\" \"" + std::string(_("gui.remote_tightvnc")) + "\" "
-                                   "\"2\" \"" + std::string(_("gui.remote_x11vnc")) + "\" "
-                                   "\"3\" \"" + std::string(_("gui.remote_xsdl")) + "\" "
-                                   "\"4\" \"" + std::string(_("gui.remote_novnc")) + "\" "
-                                   "\"5\" \"" + std::string(_("gui.remote_xrdp")) + "\" "
-                                   "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
-
-            std::string choice = Executor::tui_select(menu_cmd);
-            if (choice == "0" || choice.empty()) break;
-
-            if (choice == "1") {
-                // 对应旧 Bash modify_vnc_conf: 先 yesno "分辨率/其它" 再进入子菜单
-                if (!fs::exists("/usr/local/bin/startvnc")) {
-                    Logger::warn("未检测到 startvnc，您可能尚未安装图形桌面");
-                    auto r = Executor::passthrough(cfg_.tui_bin +
-                                                   " --yesno \"未检测到 startvnc，是否继续编辑配置？\" 0 0");
-                    if (r.exit_code != 0) continue;
-                }
-                auto r = Executor::passthrough(cfg_.tui_bin +
-                                               " --title \"modify vnc configuration\""
-                                               " --yes-button \"分辨率 resolution\" --no-button \"其它 other\""
-                                               " --yesno \"Which configuration do you want to modify?\" 9 50");
-                if (r.exit_code == 0) {
-                    // 分辨率 → inputbox
-                    std::string cmd = cfg_.tui_bin +
-                                      " --title \"请输入分辨率\""
-                                      " --inputbox \"例如 1920x1080, 1440x720, 1280x1024\" 15 50 \"" +
-                                      std::to_string(vnc_manager_.config().resolution_w) + "x" +
-                                      std::to_string(vnc_manager_.config().resolution_h) + "\"";
-                    std::string val = Executor::tui_select(cmd);
-                    auto xpos = val.find('x');
-                    if (!val.empty() && xpos != std::string::npos) {
-                        vnc_manager_.config().resolution_w = std::stoi(val.substr(0, xpos));
-                        vnc_manager_.config().resolution_h = std::stoi(val.substr(xpos + 1));
-                        vnc_manager_.configure_vnc_defaults();
-                        Logger::ok("分辨率已修改为 " + val);
-                    }
-                } else {
-                    run_vnc_config_menu();
-                }
-            } else if (choice == "2") {
-                run_x11vnc_config_menu();
-            } else if (choice == "3") {
-                run_xsdl_config_menu();
-            } else if (choice == "4") {
-                run_novnc_config_menu();
-            } else if (choice == "5") {
-                run_xrdp_menu();
-            }
-            Logger::press_enter();
-        }
-    }
-
-    void GUIManager::run_x11vnc_config_menu() {
-        // 对应旧 Bash configure_x11vnc (8项)
-        while (true) {
-            std::string menu = cfg_.tui_bin +
-                               " --title \"CONFIGURE x11vnc\""
-                               " --menu \"Type startx11vnc to start vncserver\" 0 0 0 "
-                               "\"1\" \"pulse_server 音频服务\" "
-                               "\"2\" \"resolution 分辨率\" "
-                               "\"3\" \"port 端口\" "
-                               "\"4\" \"修改 startx11vnc 启动脚本\" "
-                               "\"5\" \"remove 卸载/移除\" "
-                               "\"6\" \"readme 进程管理说明\" "
-                               "\"7\" \"password 密码\" "
-                               "\"8\" \"read doc 阅读文档\" "
-                               "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) break;
-
-            if (ch == "1") vnc_manager_.modify_x11vnc_pulse_server();
-            else if (ch == "2") vnc_manager_.modify_x11vnc_resolution();
-            else if (ch == "3") vnc_manager_.modify_x11vnc_port();
-            else if (ch == "4")
-                Executor::passthrough(
-                    "${EDITOR:-nano} /usr/local/bin/startx11vnc 2>/dev/null || nano /usr/local/bin/startx11vnc");
-            else if (ch == "5") {
-                auto r = Executor::passthrough(cfg_.tui_bin + " --yesno \"确认卸载 x11vnc？\" 0 0");
-                if (r.exit_code == 0) {
-                    for (const auto &pkg: {"x11vnc", "x11vnc-data"})
-                        Executor::passthrough(cfg_.remove_command + " " + pkg + " 2>/dev/null || true");
-                }
-            } else if (ch == "6") {
-                Logger::info("x11vnc 进程管理:");
-                Logger::info("  启动: startx11vnc");
-                Logger::info("  停止: stopvnc (会同时停止 tightvnc)");
-                Logger::info("  查看: ps aux | grep x11vnc");
-            } else if (ch == "7") Executor::passthrough("x11vncpasswd 2>/dev/null || x11vnc -storepasswd");
-            else if (ch == "8") {
-                Logger::info("x11vnc 文档:");
-                Logger::info("  startx11vnc — 启动 x11vnc (自动启动 Xvfb)");
-                Logger::info("  stopvnc — 停止所有 VNC 服务 (包括 x11vnc)");
-                Logger::info("  x11vnc 连接到真实 X 桌面: x11vnc -display :0");
-                Logger::info("  x11vnc 配合 Xvfb: x11vnc -display :233");
-                Logger::info("  更多: man x11vnc");
-            }
-            Logger::press_enter();
-        }
-    }
-
-    void GUIManager::run_novnc_config_menu() {
-        // 对应旧 Bash modify_novnc_conf → configure_novnc (3项)
-        while (true) {
-            std::string menu = cfg_.tui_bin +
-                               " --title \"CONFIGURE NOVNC\""
-                               " --menu \"Type novnc to start novnc.输novnc启动novnc\" 0 0 0 "
-                               "\"1\" \"port 端口\" "
-                               "\"2\" \"修改 startnovnc 启动脚本\" "
-                               "\"3\" \"remove 卸载/移除\" "
-                               "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) break;
-
-            if (ch == "1") {
-                std::string port_cmd = cfg_.tui_bin +
-                                       " --title \"请输入端口\""
-                                       " --inputbox \"Please type the novnc port, the default is 36080\" 10 50 \"36080\"";
-                std::string port = Executor::tui_select(port_cmd);
-                if (!port.empty())
-                    Executor::shell(
-                        "sed -i 's@NOVNC_PORT=.*@NOVNC_PORT=" + port + "@' /usr/local/bin/novnc 2>/dev/null || true");
-            } else if (ch == "2") {
-                Executor::passthrough("${EDITOR:-nano} /usr/local/bin/novnc 2>/dev/null || nano /usr/local/bin/novnc");
-            } else if (ch == "3") {
-                auto r = Executor::passthrough(cfg_.tui_bin + " --yesno \"确认卸载 noVNC？\" 0 0");
-                if (r.exit_code == 0) {
-                    Executor::passthrough("pip3 uninstall -y numpy websockify 2>/dev/null || "
-                        "sudo -H pip3 uninstall -y numpy websockify 2>/dev/null || true");
-                    Executor::passthrough("rm -rfv /usr/local/bin/novnc ${TMOE_LINUX_DIR}/novnc 2>/dev/null || true");
-                }
-            }
-            Logger::press_enter();
-        }
-    }
-
     void GUIManager::run_xsdl_config_menu() {
-        // 对应旧 Bash modify_xsdl_conf (6项)
         while (true) {
             std::string menu = cfg_.tui_bin +
                                " --title \"Modify x server conf\""
@@ -1337,9 +809,7 @@ namespace tmoe::domain {
             } else if (ch == "4") {
                 Executor::passthrough("${EDITOR:-nano} " + script + " 2>/dev/null || nano " + script);
             } else if (ch == "5") {
-                // DISPLAY switch
-                std::string cmd = cfg_.tui_bin +
-                                  " --yesno \"是否切换 DISPLAY 转发开关？\" 0 0";
+                std::string cmd = cfg_.tui_bin + " --yesno \"是否切换 DISPLAY 转发开关？\" 0 0";
                 auto r = Executor::passthrough(cmd);
                 if (r.exit_code == 0)
                     Executor::shell(
@@ -1356,254 +826,6 @@ namespace tmoe::domain {
             }
             Logger::press_enter();
         }
-    }
-
-    void GUIManager::run_xrdp_menu() {
-        // 对应旧 Bash modify_xrdp_conf: 先 proot检查 + Start/Configure yesno
-        if (cfg_.is_termux || cfg_.linux_distro == "Android") {
-            Logger::warn("检测到 proot 容器环境，xrdp 可能无法正常连接！");
-            auto entry_r = Executor::passthrough(cfg_.tui_bin +
-                                                 " --yesno \"检测到 proot 容器环境，xrdp 可能无法正常连接，是否继续？\" 0 0");
-            if (entry_r.exit_code != 0) return;
-        }
-
-        auto status_r = Executor::shell("pgrep xrdp 2>/dev/null");
-        bool is_running = status_r.ok() && !status_r.stdout_data.empty();
-
-        auto entry = Executor::passthrough(cfg_.tui_bin +
-                                           " --title \"你想要对这个小可爱做什么\""
-                                           " --yes-button \"" + std::string(is_running ? "Restart 重启" : "Start 启动") +
-                                           "\""
-                                           " --no-button \"Configure 配置\""
-                                           " --yesno \"您是想要启动服务还是配置服务？检测到 xrdp 进程" +
-                                           std::string(is_running ? "正在运行" : "未运行") + "\" 9 50");
-
-        if (entry.exit_code == 0) {
-            if (!fs::exists("/usr/sbin/xrdp")) {
-                Logger::warn("未检测到 xrdp，正在初始化配置...");
-                install_xrdp();
-                configure_xrdp_desktop();
-            }
-            Executor::passthrough("service xrdp restart 2>/dev/null || "
-                "systemctl restart xrdp 2>/dev/null || /usr/sbin/xrdp 2>/dev/null &");
-            Logger::ok("xrdp 已" + std::string(is_running ? "重启" : "启动"));
-            Logger::press_enter();
-            return;
-        }
-
-        // Configure: 进入 11 项子菜单
-        while (true) {
-            std::string menu = cfg_.tui_bin +
-                               " --title \"CONFIGURE XRDP\""
-                               " --menu \"Type service xrdp start to start it\" 0 0 0 "
-                               "\"1\"  \"One-key conf 初始化一键配置\" "
-                               "\"2\"  \"指定xrdp桌面环境\" "
-                               "\"3\"  \"xrdp port 修改xrdp端口\" "
-                               "\"4\"  \"xrdp.ini 修改配置文件\" "
-                               "\"5\"  \"startwm.sh 修改启动脚本\" "
-                               "\"6\"  \"stop 停止\" "
-                               "\"7\"  \"status 进程状态\" "
-                               "\"8\"  \"pulse_server 音频服务\" "
-                               "\"9\"  \"reset 重置\" "
-                               "\"10\" \"remove 卸载/移除\" "
-                               "\"11\" \"进程管理说明\" "
-                               "\"0\"  \"" + std::string(_("menu.tui.back")) + "\"";
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) break;
-
-            if (ch == "1") {
-                Executor::passthrough("service xrdp stop 2>/dev/null || systemctl stop xrdp 2>/dev/null || true");
-                install_xrdp();
-                configure_xrdp_desktop();
-            } else if (ch == "2") configure_xrdp_desktop();
-            else if (ch == "3") {
-                std::string cmd = cfg_.tui_bin +
-                                  " --title \"xrdp port\""
-                                  " --inputbox \"请输入 xrdp 端口 (默认 3389)\" 10 40 \"3389\"";
-                std::string val = Executor::tui_select(cmd);
-                Logger::debug(val);
-                if (!val.empty()) {
-                    try { set_xrdp_port(std::stoi(val)); } catch (...) {
-                    }
-                }
-            } else if (ch == "4") {
-                Executor::shell("mkdir -p /etc/xrdp 2>/dev/null || true");
-                Executor::passthrough("${EDITOR:-nano} /etc/xrdp/xrdp.ini 2>/dev/null || nano /etc/xrdp/xrdp.ini");
-            } else if (ch == "5") {
-                Executor::shell("mkdir -p /etc/xrdp 2>/dev/null || true");
-                Executor::passthrough("${EDITOR:-nano} /etc/xrdp/startwm.sh 2>/dev/null || nano /etc/xrdp/startwm.sh");
-            } else if (ch == "6") stop_xrdp();
-            else if (ch == "7") {
-                auto r = Executor::shell("ps aux | grep xrdp | grep -v grep 2>/dev/null");
-                if (!r.stdout_data.empty()) {
-                    Logger::info("xrdp 进程正在运行:");
-                    Logger::info(r.stdout_data);
-                } else {
-                    Logger::info("xrdp 进程未运行");
-                }
-            } else if (ch == "8") {
-                std::string cmd = cfg_.tui_bin +
-                                  " --title \"PULSE SERVER\""
-                                  " --inputbox \"请输入 PulseAudio 服务器地址\" 10 50 \"127.0.0.1\"";
-                std::string val = Executor::tui_select(cmd);
-                if (!val.empty())
-                    Executor::shell(
-                        "sed -i 's@PULSE_SERVER=.*@PULSE_SERVER=" + val +
-                        "@' /etc/xrdp/startwm.sh 2>/dev/null || true");
-            } else if (ch == "9") {
-                auto r = Executor::passthrough(cfg_.tui_bin + " --yesno \"确认重置 xrdp 配置？\" 0 0");
-                if (r.exit_code == 0) {
-                    Executor::passthrough("service xrdp stop 2>/dev/null || systemctl stop xrdp 2>/dev/null || true");
-                    Executor::passthrough("rm -rf /etc/xrdp/xrdp.ini /etc/xrdp/startwm.sh 2>/dev/null || true");
-                    install_xrdp();
-                    configure_xrdp_desktop();
-                }
-            } else if (ch == "10") {
-                auto r = Executor::passthrough(cfg_.tui_bin + " --yesno \"确认卸载 xrdp？\" 0 0");
-                if (r.exit_code == 0) remove_xrdp();
-            } else if (ch == "11") {
-                Logger::info("xrdp 进程管理:");
-                Logger::info("  启动: service xrdp start 或 systemctl start xrdp");
-                Logger::info("  停止: service xrdp stop 或 systemctl stop xrdp");
-                Logger::info("  重启: service xrdp restart 或 systemctl restart xrdp");
-                Logger::info("  状态: service xrdp status 或 systemctl status xrdp");
-            }
-            Logger::press_enter();
-        }
-    }
-
-    void GUIManager::configure_remote_desktop_environment(std::string_view context) {
-        // 对应旧 Bash configure_remote_desktop_environment (gui:4918-4996)
-        // context: "x11vnc" or "xrdp"
-        std::string menu_cmd = cfg_.tui_bin +
-                               " --title \"REMOTE_DESKTOP\""
-                               " --menu \"您想要配置哪个桌面？按方向键选择，回车键确认！\\n Which desktop environment do you want to configure? \" 0 0 0 "
-                               "\"1\" \"auto 自动选择\" "
-                               "\"2\" \"xfce：兼容性高\" "
-                               "\"3\" \"lxde：轻量化桌面\" "
-                               "\"4\" \"mate：基于GNOME 2\" "
-                               "\"5\" \"lxqt\" "
-                               "\"6\" \"kde plasma 5\" "
-                               "\"7\" \"gnome 3\" "
-                               "\"8\" \"cinnamon\" "
-                               "\"9\" \"dde (deepin desktop)\" "
-                               "\"0\" \"我一个都不选 =￣ω￣=\"";
-
-        std::string choice = Executor::tui_select(menu_cmd);
-        if (choice == "0" || choice.empty()) return;
-
-        std::string session_01, session_02;
-        if (choice == "1") {
-            session_01 = "/etc/X11/xinit/Xsession";
-            session_02 = "/etc/X11/xinit/Xsession";
-        } else if (choice == "2") {
-            session_01 = "xfce4-session";
-            session_02 = "startxfce4";
-        } else if (choice == "3") {
-            session_01 = "lxsession";
-            session_02 = "startlxde";
-        } else if (choice == "4") {
-            session_01 = "mate-session";
-            session_02 = "mate-panel";
-        } else if (choice == "5") {
-            session_01 = "startlxqt";
-            session_02 = "lxqt-session";
-        } else if (choice == "6") {
-            session_01 = "startplasma-x11";
-            session_02 = "startkde";
-        } else if (choice == "7") {
-            session_01 = "gnome-session";
-            session_02 = "gnome-panel";
-        } else if (choice == "8") {
-            session_01 = "cinnamon-session";
-            session_02 = "cinnamon-launcher";
-        } else if (choice == "9") {
-            session_01 = "startdde";
-            session_02 = "dde-launcher";
-        } else return;
-
-        // 检测哪个会话命令可用
-        std::string remote_session;
-        if (Executor::has(session_01)) {
-            remote_session = session_01;
-        } else {
-            remote_session = session_02;
-        }
-
-        Logger::info("远程桌面会话: " + remote_session);
-
-        // 根据上下文调用相应的完整配置函数
-        std::string ctx(context);
-        if (ctx == "xrdp") {
-            configure_xrdp_remote_desktop_session(remote_session);
-            // 旧 Bash configure_xrdp_remote_desktop_session 末尾会重启, 这里补上
-            xrdp_restart();
-        } else {
-            // x11vnc
-            configure_x11vnc_remote_desktop_session();
-        }
-    }
-
-    void GUIManager::configure_xrdp_desktop() {
-        // 对应旧 Bash xrdp_desktop_environment → configure_remote_desktop_environment
-        configure_remote_desktop_environment("xrdp");
-    }
-
-    void GUIManager::configure_x11vnc_remote_desktop_session() {
-        // 对应旧 Bash configure_x11vnc_remote_desktop_session (gui:1194-1213)
-        Logger::step(_("gui.configuring_x11vnc_session"));
-
-        // 1. 部署 startx11vnc 和 x11vncpasswd 脚本
-        Executor::shell("cd /usr/local/bin/ && "
-            "rm -f startx11vnc x11vncpasswd 2>/dev/null; "
-            "cp -f ${TMOE_GIT_DIR:-/usr/local/etc/tmoe-linux/git}/share/old-version/tools/gui/startx11vnc "
-            "${TMOE_GIT_DIR:-/usr/local/etc/tmoe-linux/git}/share/old-version/tools/gui/x11vncpasswd "
-            "./ 2>/dev/null || true");
-        Executor::shell("chmod a+rx /usr/local/bin/startx11vnc /usr/local/bin/x11vncpasswd 2>/dev/null || true");
-
-        // 若 deploy_startup_scripts 已部署则跳过复制，但确保 x11passwd 存在
-        if (fs::exists(vnc_manager_.config().passwd_file)) {
-            Executor::shell("cd " + vnc_manager_.config().vnc_home_dir.string() + " && "
-                            "cp -pvf passwd x11passwd 2>/dev/null || "
-                            "cd /usr/local/bin && ./x11vncpasswd 2>/dev/null || true");
-        } else {
-            Executor::shell("cd /usr/local/bin && ./x11vncpasswd 2>/dev/null || "
-                            "x11vnc -storepasswd " +
-                            (vnc_manager_.config().vnc_home_dir / "x11passwd").string() + " 2>/dev/null || true");
-        }
-
-        Logger::info(_("gui.x11vnc_manager_.config()complete"));
-        Logger::info("You can type startx11vnc to restart it, type stopvnc to stop it.");
-        Logger::info(std::string(_("gui.switch_to_startvnc")));
-    }
-
-    void GUIManager::configure_xrdp_remote_desktop_session(const std::string &session_cmd) {
-        // 对应旧 Bash configure_xrdp_remote_desktop_session (gui:4998-5023)
-        Logger::step(std::string(_("gui.configuring_xrdp_session")) + " " + session_cmd);
-
-        Executor::shell("mkdir -p /etc/xrdp 2>/dev/null");
-        Executor::shell("cd /etc/xrdp && "
-            "sed -i '/Xsession/d' startwm.sh 2>/dev/null; "
-            "if grep -q 'exec' startwm.sh 2>/dev/null; then "
-            "  sed -i '$ d' startwm.sh 2>/dev/null; "
-            "  sed -i '$ d' startwm.sh 2>/dev/null; "
-            "fi || true");
-
-        // 添加 Xsession 行
-        SystemHelper::append_file("/etc/xrdp/startwm.sh",
-                                  "test -x /etc/X11/Xsession && exec /etc/X11/Xsession\n"
-                                  "exec /etc/X11/xinit/Xsession\n");
-
-        // 替换为 dbus-launch + 实际会话
-        Executor::shell("sed -i 's@exec /etc/X11/Xsession@exec dbus-launch " + session_cmd +
-                        "@g' /etc/xrdp/startwm.sh 2>/dev/null || true");
-
-        Logger::info(std::string(_("gui.xrdp_session_config")));
-        Executor::passthrough("cat /etc/xrdp/startwm.sh 2>/dev/null || true");
-
-        // 不在此处重启: 让调用方控制重启时机，避免 xrdp.ini 未就绪时提前启动
-        check_xrdp_status();
-        Logger::ok(std::string(_("gui.xrdp_session_done")));
     }
 
     void GUIManager::run_beautification_menu() {
@@ -1684,49 +906,34 @@ namespace tmoe::domain {
     }
 
     void GUIManager::docker_auto_install_gui_env(std::string_view /*desktop*/) {
-        // 对应旧 Bash docker_auto_install_gui_env (gui:57-118)
         Logger::step(_("gui.docker_env_prep"));
 
-        // 创建 tmoe/tome 软链接
-        Executor::shell("ln -sfv ${TMOE_GIT_DIR:-/usr/local/etc/tmoe-linux/git}/share/old-version/share/app/tmoe "
-            "/usr/local/bin/tmoe 2>/dev/null || true");
-        Executor::shell("ln -svf tmoe /usr/local/bin/tome 2>/dev/null || true");
+        ensure_tmoe_symlink();
 
-        auto family = infer_family_from_config(cfg_.linux_distro);
-        if (family == DistroFamily::Unknown)
-            family = PackageManager::detect_distro_family();
+        auto family = get_family(cfg_);
         bool is_debian = (family == DistroFamily::Debian);
         bool is_ubuntu = (is_debian && cfg_.sub_distro == "ubuntu");
         bool is_kali = (is_debian && cfg_.sub_distro == "kali");
 
-        // 安装 add-apt-repository (debian)
         if (is_debian && !Executor::has("add-apt-repository") && Executor::has("apt-get")) {
-            Executor::passthrough("apt install -y software-properties-common 2>/dev/null || true");
+            PackageManager::install("software-properties-common", family);
         }
 
-        // 安装 aria2c
         if (!Executor::has("aria2c")) {
-            Executor::passthrough(cfg_.install_command + " aria2 2>/dev/null || " +
-                                  cfg_.install_command + " aria2 2>/dev/null || true");
+            PackageManager::install("aria2", family);
         }
 
-        // Ubuntu: language-pack-zh
         if (is_ubuntu) {
-            Executor::passthrough("apt install -y ^language-pack-zh 2>/dev/null || true");
+            PackageManager::install("^language-pack-zh", family);
         }
 
-        // Kali: debian-archive-keyring
         if (is_kali) {
-            Executor::passthrough("apt install -y debian-archive-keyring 2>/dev/null || true");
+            PackageManager::install("debian-archive-keyring", family);
         }
 
-        // 下载 Iosevka 字体
         desktop_manager_.download_iosevka_ttf_font_ext();
-
-        // preconfigure_gui_dependecies_02
         desktop_manager_.preconfigure_gui_dependencies();
 
-        // 按发行版设置自动安装标志 (对应旧 Bash docker_auto_install_gui_env)
         DistroFamily fam = family;
         bool af = false, ae = false, av = false, ac = true, ak = false;
         std::string kt = "kali-linux-arm";
@@ -1740,12 +947,11 @@ namespace tmoe::domain {
         } else if (fam == DistroFamily::Debian || fam == DistroFamily::Arch) {
             af = false;
             ae = true;
-            Executor::passthrough(cfg_.install_command + " baobab 2>/dev/null || true");
-            Executor::passthrough(cfg_.install_command + " bleachbit 2>/dev/null || true");
+            PackageManager::install("baobab", fam);
+            PackageManager::install("bleachbit", fam);
             av = true;
         }
 
-        // Kali tools
         if (is_kali) {
             kt = "kali-linux-arm";
             ak = true;
@@ -1754,9 +960,9 @@ namespace tmoe::domain {
         ac = true;
         desktop_manager_.set_auto_install_flags(af, ae, av, ac, ak, kt);
 
-        // 创建 ~/.vnc 目录和 passwd 占位文件
-        Executor::shell("mkdir -p ~/.vnc 2>/dev/null");
-        Executor::shell("printf 'please delete the invalid passwd file\\n' > ~/.vnc/passwd 2>/dev/null || true");
+        std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
+        fs::create_directories(home + "/.vnc");
+        SystemHelper::write_file(home + "/.vnc/passwd", "please delete the invalid passwd file\n");
 
         Logger::ok(_("gui.docker_env_done"));
     }
@@ -1764,27 +970,19 @@ namespace tmoe::domain {
     bool GUIManager::auto_install_gui(std::string_view desktop) {
         Logger::info(_f("gui.auto_install.mode", std::string(desktop)));
 
-        // 启用静默模式 (对应旧 Bash AUTO_INSTALL_GUI=true)
         set_auto_install_mode(true);
-
-        // 1. Docker 自动安装环境准备 (旧 Bash docker_auto_install_gui_env)
         docker_auto_install_gui_env(desktop);
 
-        // 2. 安装桌面 + 配置 VNC xstartup + first_configure_vnc + 追问链
         if (!desktop_manager_.install_desktop(desktop)) {
             Logger::error("桌面环境安装失败");
             return false;
         }
 
-        // 3. 安装输入法
         desktop_manager_.install_fcitx();
-
-        // 4. 修复权限 + dbus + 部署启动脚本
         vnc_manager_.fix_vnc_permissions();
         vnc_manager_.deploy_startup_scripts();
         vnc_manager_.fix_vnc_dbus();
 
-        // 5. 启动 VNC
         bool ok = vnc_manager_.start_vnc();
 
         if (ok) {
@@ -1799,25 +997,24 @@ namespace tmoe::domain {
     bool GUIManager::install_iosevka_font() {
         Logger::step("安装 Iosevka 编程字体...");
 
-        // 检查是否已安装
-        auto check = Executor::shell("fc-list | grep -qi iosevka && echo 'yes'");
-        if (check.stdout_data.find("yes") != std::string::npos) {
+        if (fs::exists("/usr/share/fonts/truetype/iosevka") ||
+            fs::exists("/usr/share/fonts/iosevka") ||
+            fs::exists("/usr/local/share/fonts/iosevka")) {
             Logger::ok("Iosevka 字体已安装");
             return true;
         }
 
-        // 先尝试包管理器
-        if (Executor::passthrough(cfg_.install_command + " fonts-iosevka 2>/dev/null").ok()) {
+        auto family = get_family(cfg_);
+        if (PackageManager::install("fonts-iosevka", family)) {
             Logger::ok("Iosevka 字体安装完成");
             return true;
         }
 
-        // 备用: 从 GitHub 下载
         const char *iosevka_url = "https://github.com/be5invis/Iosevka/releases/download/v28.1.0/"
                 "PkgTTF-Iosevka-28.1.0.zip";
 
         std::string font_dir = "/usr/local/share/fonts/iosevka";
-        Executor::shell("mkdir -p " + font_dir);
+        fs::create_directories(font_dir);
 
         Logger::info("从 GitHub 下载 Iosevka...");
         std::string dl_cmd = "cd /tmp && (wget -q --timeout=30 '" + std::string(iosevka_url) +
@@ -1841,15 +1038,12 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
 
     bool GUIManager::detect_and_configure_hidpi(std::string_view desktop) {
-        // 对应旧 Bash first_configure_startvnc 中完整的 HiDPI 检测流程
         std::string wm_size_file = "/usr/local/etc/tmoe-linux/wm_size.txt";
         int orig_w = 0, orig_h = 0;
         bool high_dpi = false;
 
-        // 1. 读取 wm_size.txt
         if (fs::exists(wm_size_file)) {
             auto content = SystemHelper::read_file(fs::path(wm_size_file));
-            // 旧 Bash: awk -F 'x' '{print $2,$1}' → 宽<高时交换
             auto xpos = content.find('x');
             if (xpos != std::string::npos) {
                 try {
@@ -1868,7 +1062,6 @@ namespace tmoe::domain {
             if (orig_w >= 2340) high_dpi = true;
         }
 
-        // 2. Termux: wm size
         if (orig_w == 0 && cfg_.is_termux) {
             auto result = Executor::shell("wm size 2>/dev/null | grep -oE '[0-9]+x[0-9]+'");
             if (result.ok()) {
@@ -1884,7 +1077,6 @@ namespace tmoe::domain {
             if (orig_w >= 2340) high_dpi = true;
         }
 
-        // 3. Android 分辨率确认提示 (旧 Bash lines 5525-5533)
         if (orig_w > 0 && !cfg_.is_termux) {
             std::string res_str = std::to_string(orig_w) + "x" + std::to_string(orig_h);
             auto r = Executor::passthrough(cfg_.tui_bin +
@@ -1901,7 +1093,6 @@ namespace tmoe::domain {
             }
         }
 
-        // 4. xfce 二次确认: 720P/1080P 或 2K/4K (旧 Bash lines 5539-5554)
         std::string d(desktop);
         std::transform(d.begin(), d.end(), d.begin(), ::tolower);
         if (orig_w == 0 && (d.find("xfce") != std::string::npos)) {
@@ -1920,25 +1111,26 @@ namespace tmoe::domain {
             }
         }
 
-        // 5. LXDE: 重命名 lxpolkit 文件 (旧 Bash lines 5556-5563)
         if (d.find("lxde") != std::string::npos) {
-            Executor::shell("for f in /etc/xdg/autostart/lxpolkit.desktop /usr/bin/lxpolkit; do "
-                "[ -f \"$f\" ] && mv -f \"$f\" \"$f.bak\" 2>/dev/null; done || true");
+            for (const auto &f: {"/etc/xdg/autostart/lxpolkit.desktop", "/usr/bin/lxpolkit"}) {
+                if (fs::exists(f)) {
+                    std::error_code ec;
+                    fs::rename(f, std::string(f) + ".bak", ec);
+                }
+            }
         }
 
-        // 6. 兜底默认分辨率
         if (orig_w == 0) {
             orig_w = 1440;
             orig_h = 720;
         }
 
-        // 7. 应用 HiDPI 设置 (对应旧 Bash case TMOE_HIGH_DPI)
         if (high_dpi) {
             Logger::info("Tmoe-linux tool将为您自动调整高分屏设定");
             Executor::shell(
                 "dbus-launch xfconf-query -c xsettings -t int -np /Gdk/WindowScalingFactor -s 2 2>/dev/null || true");
-            auto focal_check = Executor::shell("grep -q 'Focal Fossa' /etc/os-release && echo 'yes'");
-            if (focal_check.ok() && focal_check.stdout_data.find("yes") != std::string::npos) {
+            auto os_rel_content = SystemHelper::read_file("/etc/os-release");
+            if (os_rel_content.find("Focal Fossa") != std::string::npos) {
                 Executor::shell("xfconf-query -c xfwm4 -p /general/theme -s Kali-Light-xHiDPI 2>/dev/null || true");
             } else {
                 Executor::shell("xfconf-query -c xfwm4 -p /general/theme -s Default-xhdpi 2>/dev/null || true");
@@ -1956,53 +1148,35 @@ namespace tmoe::domain {
     // 输入法与浏览器
     // ═══════════════════════════════════════════════════════════════
 
-    bool GUIManager::stop_novnc() {
-        Logger::step("停止 noVNC...");
-        Executor::shell("pkill -f websockify 2>/dev/null || true");
-        Logger::ok("noVNC websockify 已停止");
-        return true;
-    }
-
-    bool GUIManager::remove_novnc() {
-        Logger::step("卸载 noVNC...");
-        stop_novnc();
-        // 清理 pip3 安装的包
-        Executor::passthrough("pip3 uninstall -y websockify numpy 2>/dev/null || true");
-        // 清理目录
-        Executor::shell("rm -rf /opt/novnc /usr/share/novnc 2>/dev/null || true");
-        Executor::passthrough(cfg_.remove_command + " novnc websockify 2>/dev/null || true");
-        Logger::ok("noVNC 已卸载");
-        return true;
-    }
-
     bool GUIManager::download_wallpaper(std::string_view source) {
         Logger::step("下载壁纸: " + std::string(source));
 
         std::string wallpaper_dir = "/usr/share/backgrounds/tmoe";
-        Executor::shell("mkdir -p " + wallpaper_dir);
+        fs::create_directories(wallpaper_dir);
 
         std::string url;
         std::string filename;
         std::string src_lower(source);
         std::transform(src_lower.begin(), src_lower.end(), src_lower.begin(), ::tolower);
+        auto fam = get_family(cfg_);
 
         if (src_lower == "debian" || src_lower == "gnome") {
-            SystemHelper::install_packages({"gnome-backgrounds"}, cfg_.install_command);
+            PackageManager::install("gnome-backgrounds", fam);
             Logger::ok("GNOME 壁纸包已安装");
             return true;
         } else if (src_lower == "xfce" || src_lower == "xubuntu") {
             url = "https://gitlab.xfce.org/artwork/xfce4-artwork/-/raw/master/backgrounds/xfce-stripes.png";
             filename = "xfce-stripes.png";
         } else if (src_lower == "mate" || src_lower == "ubuntu-mate") {
-            SystemHelper::install_packages({"ubuntu-mate-wallpapers"}, cfg_.install_command);
+            PackageManager::install("ubuntu-mate-wallpapers", fam);
             Logger::ok("Ubuntu MATE 壁纸包已安装");
             return true;
         } else if (src_lower == "deepin") {
-            SystemHelper::install_packages({"deepin-wallpapers"}, cfg_.install_command);
+            PackageManager::install("deepin-wallpapers", fam);
             Logger::ok("Deepin 壁纸包已安装");
             return true;
         } else if (src_lower == "kde") {
-            SystemHelper::install_packages({"plasma-workspace-wallpapers"}, cfg_.install_command);
+            PackageManager::install("plasma-workspace-wallpapers", fam);
             Logger::ok("KDE 壁纸包已安装");
             return true;
         } else {
@@ -2023,15 +1197,14 @@ namespace tmoe::domain {
 
     bool GUIManager::install_conky() {
         Logger::step("安装 Conky 系统监控...");
-        if (!SystemHelper::install_packages({"conky", "conky-all"}, cfg_.install_command)) {
+        if (!PackageManager::install({"conky", "conky-all"}, get_family(cfg_))) {
             Logger::warn("Conky 安装失败");
             return false;
         }
 
-        // 写入基础 conky 配置
         std::string home = std::getenv("HOME") ? std::string(std::getenv("HOME")) : "/root";
         std::string conky_dir = home + "/.config/conky";
-        Executor::shell("mkdir -p " + conky_dir);
+        fs::create_directories(conky_dir);
 
         std::string conky_conf =
                 "conky.config = {\n"
@@ -2059,8 +1232,9 @@ namespace tmoe::domain {
                 "]];\n";
         SystemHelper::write_file(fs::path(conky_dir + "/conky.conf"), conky_conf);
 
-        // 创建 autostart
-        std::string autostart = home + "/.config/autostart/conky.desktop";
+        std::string autostart_dir = home + "/.config/autostart";
+        fs::create_directories(autostart_dir);
+        std::string autostart = autostart_dir + "/conky.desktop";
         std::string desktop_entry =
                 "[Desktop Entry]\n"
                 "Type=Application\n"
@@ -2071,9 +1245,9 @@ namespace tmoe::domain {
 
         Logger::ok("Conky 安装完成");
 
-        // 尝试克隆 Harmattan conky 主题 (对应旧 Bash configure_conky)
         if (!fs::exists(home + "/github/Harmattan")) {
-            Executor::shell("mkdir -pv " + home + "/github && cd " + home + "/github && "
+            fs::create_directories(home + "/github");
+            Executor::shell("cd " + home + "/github && "
                             "(git clone --depth=1 https://github.com/zagortenay333/Harmattan.git 2>/dev/null || "
                             "git clone --depth=1 git://github.com/zagortenay333/Harmattan.git 2>/dev/null || true)");
             if (fs::exists(home + "/github/Harmattan")) {
@@ -2093,9 +1267,9 @@ namespace tmoe::domain {
             "emerald", "emerald-themes", "compizconfig-settings-manager"
         };
 
-        if (!SystemHelper::install_packages(pkgs, cfg_.install_command)) {
+        if (!PackageManager::install(pkgs, get_family(cfg_))) {
             Logger::warn("部分 Compiz 组件安装失败，尝试核心包...");
-            SystemHelper::install_packages({"compiz", "compiz-core", "compiz-plugins"}, cfg_.install_command);
+            PackageManager::install({"compiz", "compiz-core", "compiz-plugins"}, get_family(cfg_));
         }
 
         Logger::ok("Compiz 安装完成");
@@ -2109,7 +1283,7 @@ namespace tmoe::domain {
         std::string name_lower(theme);
         std::transform(name_lower.begin(), name_lower.end(), name_lower.begin(), ::tolower);
         std::string pkg_name = gui_config::cursor_theme_package_name(name_lower);
-        if (!Executor::passthrough(cfg_.install_command + " " + pkg_name + " 2>/dev/null || true").ok()) {
+        if (!PackageManager::install(pkg_name, get_family(cfg_))) {
             Logger::warn("鼠标指针安装可能失败，请手动检查");
             return false;
         }
@@ -2118,15 +1292,27 @@ namespace tmoe::domain {
     }
 
     bool GUIManager::deploy_xfce_panel_config() {
-        // 仅在 XFCE 环境下部署
         Logger::step("部署 XFCE4 面板配置...");
 
         std::string home = std::getenv("HOME") ? std::string(std::getenv("HOME")) : "/root";
         fs::path panel_dir = fs::path(home) / ".config" / "xfce4" / "xfconf" / "xfce-perchannel-xml";
-        Executor::shell("mkdir -p " + panel_dir.string());
+        fs::path panel_file = panel_dir / "xfce4-panel.xml";
+
+        if (fs::exists(panel_file)) {
+            fs::path backup_dest = fs::path(home) / ".config" / "tmoe-linux" / "xfce4-panel.xml.bak";
+            try {
+                fs::create_directories(backup_dest.parent_path());
+                fs::copy_file(panel_file, backup_dest, fs::copy_options::overwrite_existing);
+                Logger::info("已备份 xfce4-panel.xml -> " + backup_dest.string());
+            } catch (const fs::filesystem_error &e) {
+                Logger::warn("备份 xfce4-panel.xml 失败: " + std::string(e.what()));
+            }
+        }
+
+        fs::create_directories(panel_dir);
 
         std::string panel_xml = generate_xfce_panel_xml();
-        return SystemHelper::write_file(panel_dir / "xfce4-panel.xml", panel_xml);
+        return SystemHelper::write_file(panel_file, panel_xml);
     }
 
     std::string GUIManager::generate_xfce_panel_xml() {
@@ -2136,6 +1322,7 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
     // Phase 2: 额外的内联脚本生成
     // ═══════════════════════════════════════════════════════════════
+
     void GUIManager::ubuntu_gnome_wallpapers_menu() {
         const char *codes[] = {
             "artful", "bionic", "cosmic", "disco", "eoan", "focal", "karmic", "lucid", "maverick",
@@ -2153,15 +1340,8 @@ namespace tmoe::domain {
     }
 
 
-    void GUIManager::x11vnc_onekey() {
-        x11vnc_warning();
-        // configure_remote_desktop_environment for x11vnc
-        configure_remote_desktop_environment("x11vnc");
-    }
-
-
     void GUIManager::download_uos_icon_theme() {
-        Executor::passthrough(cfg_.install_command + " deepin-icon-theme 2>/dev/null || true");
+        PackageManager::install("deepin-icon-theme", get_family(cfg_));
         if (fs::exists("/usr/share/icons/Uos")) {
             Logger::info("检测到已安装 UOS 图标主题");
             return;
@@ -2172,7 +1352,8 @@ namespace tmoe::domain {
             "cd /tmp/UosICONS && "
             "tar -Jxvf Uos.tar.xz -C /usr/share/icons 2>/dev/null && "
             "update-icon-caches /usr/share/icons/Uos 2>/dev/null &");
-        Executor::shell("rm -rf /tmp/UosICONS 2>/dev/null || true");
+        std::error_code ec;
+        fs::remove_all("/tmp/UosICONS", ec);
         desktop_manager_.set_default_xfce_icon_theme("Uos");
     }
 
@@ -2196,12 +1377,10 @@ namespace tmoe::domain {
         std::string url = Executor::tui_select(url_cmd);
         if (url.empty()) return;
 
-        // 下载 HTML 并解析主题列表
         Logger::info("正在解析主题页面...");
         Executor::shell("cd /tmp && aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
                         "-o .theme_index_cache_tmoe.html '" + url + "' 2>/dev/null || "
                         "curl -L -o .theme_index_cache_tmoe.html '" + url + "' 2>/dev/null || true");
-        // 对应旧 Bash xfce_theme_parsing — 解析主题名和下载量
         Executor::shell("cd /tmp && "
             "cat .theme_index_cache_tmoe.html | sed 's@,@\\n@g' | grep -E 'tar.xz|tar.gz' | grep '\"title\"' | "
             "sed 's@\"@ @g' | awk '{print $3}' | sort -um >.tmoe-linux_cache.01; "
@@ -2230,74 +1409,6 @@ namespace tmoe::domain {
     }
 
 
-    void GUIManager::xrdp_onekey() {
-        Logger::step("XRDP 一键配置...");
-        // 安装 xrdp (按发行版)
-        auto family = infer_family_from_config(cfg_.linux_distro);
-        if (family == DistroFamily::Unknown) family = PackageManager::detect_distro_family();
-        if (!Executor::has("xrdp-keygen") && !fs::exists("/usr/sbin/xrdp")) {
-            if (family == DistroFamily::Gentoo) {
-                Executor::passthrough("emerge -avk layman 2>/dev/null; layman -a bleeding-edge 2>/dev/null; "
-                    "layman -S 2>/dev/null || true");
-            }
-            Executor::passthrough(cfg_.install_command + " xrdp 2>/dev/null || true");
-        }
-        // 修复 xrdp 证书权限: key.pem 默认 640 root:ssl-cert
-        Executor::shell(
-            "if getent group ssl-cert >/dev/null 2>&1; then "
-            "  usermod -a -G ssl-cert xrdp 2>/dev/null || true; "
-            "fi; "
-            "chown -R root:ssl-cert /etc/xrdp/ 2>/dev/null || true; "
-            "chmod 640 /etc/xrdp/key.pem 2>/dev/null || true; "
-            "chmod 644 /etc/xrdp/cert.pem 2>/dev/null || true");
-        if (cfg_.is_termux || cfg_.linux_distro == "Android") {
-            Executor::shell("usermod -a -G aid_inet xrdp 2>/dev/null || true");
-        }
-        // polkit 规则
-        Executor::shell("mkdir -pv /etc/polkit-1/localauthority.conf.d /etc/polkit-1/localauthority/50-local.d/");
-        SystemHelper::write_file("/etc/polkit-1/localauthority.conf.d/02-allow-colord.conf",
-                                 generate_polkit_colord_conf());
-        SystemHelper::write_file("/etc/polkit-1/localauthority/50-local.d/45-allow.colord.pkla",
-                                 generate_polkit_colord_pkla());
-        // 备份配置
-        if (!fs::exists(
-            std::string(std::getenv("HOME") ? std::getenv("HOME") : "/root") + "/.config/tmoe-linux/xrdp.ini")) {
-            std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
-            Executor::shell("mkdir -pv " + home + "/.config/tmoe-linux/; "
-                            "cp -p /etc/xrdp/startwm.sh /etc/xrdp/xrdp.ini " + home +
-                            "/.config/tmoe-linux/ 2>/dev/null || true");
-        }
-        // 修复 startwm.sh — 注入 WSL/WSLg/GPU 环境修复 (幂等插入)
-        Executor::shell("sed -i 's@exec /etc/X11/Xsession@exec /etc/X11/xinit/Xsession@g;"
-            "s:exec /bin/sh /etc/X11/Xsession:exec /etc/X11/xinit/Xsession:g' "
-            "/etc/xrdp/startwm.sh 2>/dev/null || true");
-
-        auto ensure_line = [](const std::string &pattern, const std::string &line, int at_line) {
-            Executor::shell(
-                "if ! grep -q '" + pattern + "' /etc/xrdp/startwm.sh 2>/dev/null; then "
-                "  sed -i '" + std::to_string(at_line) + "i\\" + line + "' /etc/xrdp/startwm.sh 2>/dev/null || true; "
-                "fi");
-        };
-        ensure_line("unset WAYLAND_DISPLAY", "unset WAYLAND_DISPLAY", 2);
-        ensure_line("unset XDG_RUNTIME_DIR", "unset XDG_RUNTIME_DIR", 3);
-        ensure_line("LIBGL_ALWAYS_SOFTWARE", "export LIBGL_ALWAYS_SOFTWARE=1", 4);
-        ensure_line("GALLIUM_DRIVER", "export GALLIUM_DRIVER=llvmpipe", 5);
-        ensure_line("^export PULSE_SERVER", "export PULSE_SERVER=127.0.0.1", 6);
-
-        // WSL 处理
-        if (cfg_.is_wsl) {
-            Logger::info("WSL环境: 正在设置端口(避免与3389冲突)...");
-            Executor::shell(
-                "sed -i 's/^export PULSE_SERVER=.*/export PULSE_SERVER=$(ip route list table 0 | head -n 1 | "
-                "awk -F '\"'\"'default via '\"'\"' \"'\"'{print $2}'\"'\"' |awk \"'\"'{print $1}'\"'\"')/' "
-                "/etc/xrdp/startwm.sh 2>/dev/null || true");
-        }
-        xrdp_port();
-        xrdp_restart();
-        Logger::ok("XRDP 一键配置完成");
-    }
-
-
     void GUIManager::download_win10x_theme() {
         if (fs::exists("/usr/share/icons/We10X-Valley-dark")) {
             Logger::info("检测到已安装 Win10x 图标主题");
@@ -2309,7 +1420,8 @@ namespace tmoe::domain {
             "cd /tmp/.WINDOWS_11_ICON_THEME && "
             "tar -Jxvf We10X.tar.xz -C /usr/share/icons 2>/dev/null && "
             "update-icon-caches /usr/share/icons/We10X-Valley-dark /usr/share/icons/We10X-Valley 2>/dev/null &");
-        Executor::shell("rm -rf /tmp/.WINDOWS_11_ICON_THEME 2>/dev/null || true");
+        std::error_code ec;
+        fs::remove_all("/tmp/.WINDOWS_11_ICON_THEME", ec);
         desktop_manager_.set_default_xfce_icon_theme("We10X-Valley");
     }
 
@@ -2331,26 +1443,14 @@ namespace tmoe::domain {
     }
 
 
-    void GUIManager::check_xrdp_status() {
-        if (Executor::has("service")) {
-            Executor::passthrough("service xrdp status 2>/dev/null | head -n 24");
-        } else {
-            Executor::passthrough("systemctl status xrdp 2>/dev/null | head -n 24");
-        }
-    }
-
-
     void GUIManager::install_gui() {
-        // 对应旧 Bash install_gui (gui:356-387)
         Logger::step(_("gui.install_gui_title"));
 
-        // WSL 检测
         if (cfg_.is_wsl) {
             Logger::info(_("gui.wsl_detected"));
             download_wsl_components();
         }
 
-        // 检查 Iosevka 字体
         const char *iosevka_file = "/usr/share/fonts/truetype/iosevka/Iosevka-Term-Mono.ttf";
         if (!fs::exists(iosevka_file)) {
             desktop_manager_.download_iosevka_ttf_font_ext();
@@ -2359,7 +1459,6 @@ namespace tmoe::domain {
         check_zstd();
         random_neko();
 
-        // 下载预览图片
         std::string lxde_url = cfg_.is_wsl
                                    ? "https://gitee.com/mo2/pic_api/raw/test/2020/03/15/BUSYeSLZRqq3i3oM.png"
                                    : "https://gitee.com/ak2/icons/raw/master/raspbian-lxde.jpg";
@@ -2379,7 +1478,6 @@ namespace tmoe::domain {
         Logger::info(_("gui.press_enter_select_de"));
         Logger::press_enter();
 
-        // 进入桌面安装主菜单 (对应旧 Bash standand_desktop_installation)
         run_desktop_install_menu();
     }
 
@@ -2387,26 +1485,34 @@ namespace tmoe::domain {
     void GUIManager::download_arch_xfce_artwork() {
         Logger::step("下载 Arch XFCE artwork...");
         std::string repo = "https://mirrors.bfsu.edu.cn/archlinux/extra/os/x86_64/";
-        Executor::shell("cd /tmp && mkdir -pv .xfce_art && cd .xfce_art && "
+        std::error_code ec;
+        fs::path tmp_dir = "/tmp/.xfce_art";
+        fs::create_directories(tmp_dir, ec);
+        Executor::shell("cd " + tmp_dir.string() + " && "
                         "curl -Lo index.html '" + repo + "' 2>/dev/null && "
                         "LATEST=$(cat index.html | grep 'xfce4-artwork' | grep pkg.tar | tail -n 1 | "
                         "cut -d '=' -f 3 | cut -d '\"' -f 2) && "
                         "[ -n \"$LATEST\" ] && curl -Lo art.pkg.tar.xz '" + repo + "'\"$LATEST\" && "
-                        "tar -Jxvf art.pkg.tar.xz -C / 2>/dev/null; rm -rf /tmp/.xfce_art || true");
+                        "tar -Jxvf art.pkg.tar.xz -C / 2>/dev/null");
+        fs::remove_all(tmp_dir, ec);
     }
 
 
     void GUIManager::download_manjaro_wallpaper() {
         Logger::step("下载 Manjaro 壁纸...");
-        Executor::shell("mkdir -pv /tmp/.manjaro_wp && cd /tmp/.manjaro_wp && "
-            "aria2c --console-log-level=warn --no-conf --allow-overwrite=true -s 5 -x 5 -k 1M "
-            "-o 'wp2018.tar.xz' "
-            "'https://mirrors.bfsu.edu.cn/manjaro/pool/overlay/wallpapers-2018-1.2-1-any.pkg.tar.xz' 2>/dev/null && "
-            "tar -Jxvf wp2018.tar.xz -C / 2>/dev/null && "
-            "aria2c --console-log-level=warn --no-conf --allow-overwrite=true -s 5 -x 5 -k 1M "
-            "-o 'wp2017.tar.xz' "
-            "'https://mirrors.bfsu.edu.cn/manjaro/pool/overlay/manjaro-sx-wallpapers-20171023-1-any.pkg.tar.xz' 2>/dev/null && "
-            "tar -Jxvf wp2017.tar.xz -C / 2>/dev/null; rm -rf /tmp/.manjaro_wp || true");
+        std::error_code ec;
+        fs::path tmp_dir = "/tmp/.manjaro_wp";
+        fs::create_directories(tmp_dir, ec);
+        Executor::shell("cd " + tmp_dir.string() + " && "
+                        "aria2c --console-log-level=warn --no-conf --allow-overwrite=true -s 5 -x 5 -k 1M "
+                        "-o 'wp2018.tar.xz' "
+                        "'https://mirrors.bfsu.edu.cn/manjaro/pool/overlay/wallpapers-2018-1.2-1-any.pkg.tar.xz' 2>/dev/null && "
+                        "tar -Jxvf wp2018.tar.xz -C / 2>/dev/null && "
+                        "aria2c --console-log-level=warn --no-conf --allow-overwrite=true -s 5 -x 5 -k 1M "
+                        "-o 'wp2017.tar.xz' "
+                        "'https://mirrors.bfsu.edu.cn/manjaro/pool/overlay/manjaro-sx-wallpapers-20171023-1-any.pkg.tar.xz' 2>/dev/null && "
+                        "tar -Jxvf wp2017.tar.xz -C / 2>/dev/null");
+        fs::remove_all(tmp_dir, ec);
     }
 
 
@@ -2416,21 +1522,23 @@ namespace tmoe::domain {
             return;
         }
         Logger::step("下载 Candy 图标主题...");
-        Executor::shell("mkdir -pv /tmp/.CANDY_ICON_THEME && cd /tmp/.CANDY_ICON_THEME && "
-            "(curl -Lo master.zip https://ghproxy.com/https://github.com/EliverLara/candy-icons/"
-            "archive/refs/heads/master.zip 2>/dev/null || "
-            "curl -Lo master.zip https://github.com/EliverLara/candy-icons/"
-            "archive/refs/heads/master.zip 2>/dev/null) && "
-            "unzip master.zip 2>/dev/null && "
-            "mv candy-icons-master /usr/share/icons/candy-icons 2>/dev/null && "
-            "update-icon-caches /usr/share/icons/candy-icons 2>/dev/null &");
-        Executor::shell("rm -rf /tmp/.CANDY_ICON_THEME 2>/dev/null || true");
+        std::error_code ec;
+        fs::path tmp_dir = "/tmp/.CANDY_ICON_THEME";
+        fs::create_directories(tmp_dir, ec);
+        Executor::shell("cd " + tmp_dir.string() + " && "
+                        "(curl -Lo master.zip https://ghproxy.com/https://github.com/EliverLara/candy-icons/"
+                        "archive/refs/heads/master.zip 2>/dev/null || "
+                        "curl -Lo master.zip https://github.com/EliverLara/candy-icons/"
+                        "archive/refs/heads/master.zip 2>/dev/null) && "
+                        "unzip master.zip 2>/dev/null && "
+                        "mv candy-icons-master /usr/share/icons/candy-icons 2>/dev/null && "
+                        "update-icon-caches /usr/share/icons/candy-icons 2>/dev/null &");
+        fs::remove_all(tmp_dir, ec);
         desktop_manager_.set_default_xfce_icon_theme("candy-icons");
     }
 
 
     void GUIManager::choose_vnc_port_5902_or_5903() {
-        // 对应旧 Bash choose_vnc_port_5902_or_5903 (gui:5845-5859)
         auto r = Executor::passthrough(cfg_.tui_bin +
                                        " --title \"VNC PORT\" --yes-button \"5902\" --no-button \"5903\""
                                        " --yesno \"请选择VNC端口✨\\nPlease choose a vnc port\" 0 50");
@@ -2448,9 +1556,8 @@ namespace tmoe::domain {
 
 
     void GUIManager::check_zstd() {
-        // 对应旧 Bash check_zstd: 确保 zstd 可用
         if (!Executor::has("zstd")) {
-            Executor::passthrough(cfg_.install_command + " zstd 2>/dev/null || true");
+            PackageManager::install("zstd", get_family(cfg_));
         }
     }
 
@@ -2465,9 +1572,11 @@ namespace tmoe::domain {
     void GUIManager::download_ubuntu_wallpaper(const std::string &ubuntu_code) {
         Logger::step("下载 Ubuntu 壁纸: " + ubuntu_code);
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
-        Executor::shell("mkdir -pv " + home + "/Pictures/ubuntu-wallpapers 2>/dev/null");
+        fs::path wp_dir = fs::path(home) / "Pictures" / "ubuntu-wallpapers";
+        fs::create_directories(wp_dir);
+
         std::string repo = "https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/u/ubuntu-wallpapers/";
-        Executor::shell("cd " + home + "/Pictures/ubuntu-wallpapers && "
+        Executor::shell("cd " + wp_dir.string() + " && "
                         "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'ubuntu-wallpapers-" + ubuntu_code + "' | "
                         "grep all.deb | tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2) && "
                         "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
@@ -2477,7 +1586,6 @@ namespace tmoe::domain {
 
 
     void GUIManager::random_neko() {
-        // 对应旧 Bash random_neko: 随机猫娘问候
         const std::string nekos[] = {
             _("gui.neko_greeting"),
             "🐱 喵呜~ 今天想安装什么桌面呢?",
@@ -2490,7 +1598,6 @@ namespace tmoe::domain {
 
 
     void GUIManager::catimg_preview_lxde_mate_xfce() {
-        // 对应旧 Bash catimg_preview_lxde_mate_xfce_01 + _02 (gui:327-355)
         std::string lxde_url = cfg_.is_wsl
                                    ? "https://gitee.com/mo2/pic_api/raw/test/2020/03/15/BUSYeSLZRqq3i3oM.png"
                                    : "https://gitee.com/ak2/icons/raw/master/raspbian-lxde.jpg";
@@ -2501,29 +1608,27 @@ namespace tmoe::domain {
                                    ? "https://gitee.com/mo2/pic_api/raw/test/2020/03/15/a7IQ9NnfgPckuqRt.jpg"
                                    : "https://gitee.com/ak2/icons/raw/master/debian-xfce.jpg";
 
-        // LXDE preview
         if (!fs::exists("/tmp/LXDE_BUSYeSLZRqq3i3oM.png"))
             Executor::shell("cd /tmp && curl -sLo 'LXDE_BUSYeSLZRqq3i3oM.png' '" + lxde_url + "' 2>/dev/null || true");
         if (Executor::has("catimg") && fs::exists("/tmp/LXDE_BUSYeSLZRqq3i3oM.png"))
             Executor::passthrough("catimg /tmp/LXDE_BUSYeSLZRqq3i3oM.png 2>/dev/null || true");
 
-        // MATE preview
         if (!fs::exists("/tmp/MATE_1frRp1lpOXLPz6mO.jpg"))
             Executor::shell("cd /tmp && curl -sLo 'MATE_1frRp1lpOXLPz6mO.jpg' '" + mate_url + "' 2>/dev/null || true");
         if (Executor::has("catimg") && fs::exists("/tmp/MATE_1frRp1lpOXLPz6mO.jpg"))
             Executor::passthrough("catimg /tmp/MATE_1frRp1lpOXLPz6mO.jpg 2>/dev/null || true");
 
-        // XFCE preview
         if (!fs::exists("/tmp/XFCE_a7IQ9NnfgPckuqRt.jpg"))
             Executor::shell("cd /tmp && curl -sLo 'XFCE_a7IQ9NnfgPckuqRt.jpg' '" + xfce_url + "' 2>/dev/null || true");
         if (Executor::has("catimg") && fs::exists("/tmp/XFCE_a7IQ9NnfgPckuqRt.jpg"))
             Executor::passthrough("catimg /tmp/XFCE_a7IQ9NnfgPckuqRt.jpg 2>/dev/null || true");
 
-        // WSL: copy XFCE preview to VcXsrv dir
         if (cfg_.is_wsl) {
-            Executor::shell(
-                "[ -e '/mnt/c/Users/Public/Downloads/VcXsrv' ] || mkdir -p '/mnt/c/Users/Public/Downloads/VcXsrv'; "
-                "cp -f /tmp/XFCE_a7IQ9NnfgPckuqRt.jpg '/mnt/c/Users/Public/Downloads/VcXsrv/' 2>/dev/null || true");
+            fs::create_directories("/mnt/c/Users/Public/Downloads/VcXsrv");
+            std::error_code ec;
+            fs::copy_file("/tmp/XFCE_a7IQ9NnfgPckuqRt.jpg",
+                          "/mnt/c/Users/Public/Downloads/VcXsrv/XFCE_a7IQ9NnfgPckuqRt.jpg",
+                          fs::copy_options::overwrite_existing, ec);
         }
     }
 
@@ -2532,51 +1637,12 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
 
 
-    void GUIManager::xrdp_port() {
-        std::string current_port = Executor::shell("cat /etc/xrdp/xrdp.ini 2>/dev/null | grep 'port=' | head -n 1 | "
-            "cut -d '=' -f 2").stdout_data;
-        while (!current_port.empty() && (current_port.back() == '\n' || current_port.back() == '\r'))
-            current_port.
-                    pop_back();
-        std::string cmd = cfg_.tui_bin +
-                          " --title \"PORT\""
-                          " --inputbox \"请输入新的端口号(纯数字)，范围在1-65525之间, 当前端口为" + current_port + "\\n"
-                          "Please type the port number.\" 12 50 \"" + (current_port.empty() ? "3389" : current_port) +
-                          "\"";
-        std::string val = Executor::tui_select(cmd);
-        if (!val.empty()) {
-            set_xrdp_port(std::stoi(val));
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // Phase 8: 兼容性表格 / 警告 / 成就系统
-    // ═══════════════════════════════════════════════════════════════
-
-
     void GUIManager::tmoe_theme_installer(const std::string &file_path, bool is_icon) {
         std::string extract_path = is_icon ? "/usr/share/icons" : "/usr/share/themes";
-        Executor::shell("mkdir -p " + extract_path);
+        fs::create_directories(extract_path);
         Executor::passthrough("tar -xf '" + file_path + "' -C " + extract_path + " 2>/dev/null || "
                               "tar -Jxf '" + file_path + "' -C " + extract_path + " 2>/dev/null || true");
         Logger::ok("主题已安装到 " + extract_path);
-    }
-
-
-    void GUIManager::xrdp_restart() {
-        std::string rdp_port = Executor::shell("cat /etc/xrdp/xrdp.ini 2>/dev/null | grep 'port=' | head -n 1 | "
-            "cut -d '=' -f 2").stdout_data;
-        while (!rdp_port.empty() && (rdp_port.back() == '\n' || rdp_port.back() == '\r')) rdp_port.pop_back();
-        Executor::passthrough("service xrdp restart 2>/dev/null || systemctl restart xrdp 2>/dev/null || "
-            "/etc/init.d/xrdp restart 2>/dev/null || true");
-        check_xrdp_status();
-        Logger::info("XRDP 端口: " + rdp_port);
-        Logger::info("本地访问地址: localhost:" + rdp_port);
-        if (cfg_.is_wsl) {
-            Logger::info("WSL 环境: 正在启动音频服务...");
-            Executor::shell("cd '/mnt/c/Users/Public/Downloads/pulseaudio/bin' 2>/dev/null && "
-                "/mnt/c/WINDOWS/system32/cmd.exe /c \"start .\\pulseaudio.bat\" 2>/dev/null &");
-        }
     }
 
 
@@ -2661,23 +1727,21 @@ namespace tmoe::domain {
         if (!cfg_.is_wsl) return;
         Logger::step(_("gui.wsl_components_download"));
 
-        // 对应旧 Bash tools/gui/wsl (75行): 用 aria2c/curl 下载预编译 tar 包，非 git clone
         std::string pub_dl = "/mnt/c/Users/Public/Downloads";
-        Executor::shell("mkdir -p " + pub_dl + "/pulseaudio " + pub_dl + "/VcXsrv " + pub_dl + "/tigervnc 2>/dev/null");
+        fs::create_directories(pub_dl + "/pulseaudio");
+        fs::create_directories(pub_dl + "/VcXsrv");
+        fs::create_directories(pub_dl + "/tigervnc");
 
-        // 1. PulseAudio for Windows (预编译二进制)
         Logger::info("下载 Windows PulseAudio...");
         Executor::shell("cd " + pub_dl + "/pulseaudio && "
                         "curl -LfsS 'https://gitee.com/mo2/wsl/raw/master/pulseaudio/pulseaudio.tar.xz' -o pulseaudio.tar.xz 2>/dev/null && "
                         "tar -Jxvf pulseaudio.tar.xz 2>/dev/null || true");
 
-        // 2. VcXsrv X Server
         Logger::info("下载 Windows VcXsrv X Server...");
         Executor::shell("cd " + pub_dl + "/VcXsrv && "
                         "curl -LfsS 'https://gitee.com/mo2/wsl/raw/master/VcXsrv/VcXsrv.tar.xz' -o VcXsrv.tar.xz 2>/dev/null && "
                         "tar -Jxvf VcXsrv.tar.xz 2>/dev/null || true");
 
-        // 3. TigerVNC Viewer for Windows
         Logger::info("下载 Windows TigerVNC Viewer...");
         Executor::shell("cd " + pub_dl + "/tigervnc && "
                         "curl -LfsS 'https://gitee.com/ak2/tigervnc-viewer/raw/master/vncviewer64.zip' -o vncviewer64.zip 2>/dev/null && "
@@ -2688,13 +1752,11 @@ namespace tmoe::domain {
 
 
     void GUIManager::set_vnc_passwd() {
-        // 对应旧 Bash set_vnc_passwd (gui:5828-5843) — 交互式密码设置
         vnc_manager_.configure_vnc_password();
     }
 
 
     void GUIManager::fix_vnc_dbus_launch() {
-        // 对应旧 Bash --fix-dbus 标志
         vnc_manager_.fix_vnc_dbus();
         Logger::ok("VNC dbus 修复完成");
     }
@@ -2720,42 +1782,6 @@ namespace tmoe::domain {
     }
 
 
-    void GUIManager::remove_x11vnc_ext() {
-        Logger::step("停止并卸载 x11vnc...");
-        vnc_manager_.stop_x11vnc();
-        Executor::shell("rm -rfv /usr/local/bin/startx11vnc 2>/dev/null || true");
-        Executor::passthrough(cfg_.remove_command + " x11vnc 2>/dev/null || true");
-        Logger::ok("x11vnc 已卸载");
-    }
-
-
-    void GUIManager::x11vnc_warning() {
-        Logger::info("------------------------");
-        Logger::info(std::string(_("gui.vnc.x11vnc_intro")));
-        Logger::info(std::string(_("gui.vnc.x11vnc_details")));
-        Logger::info(std::string(_("gui.vnc.recommendation")));
-        Logger::info(std::string(_("gui.vnc.performance_no_accel")));
-        Logger::info(std::string(_("gui.vnc.performance_accel")));
-        Logger::info(std::string(_("gui.vnc.configure_multiple")));
-        Logger::info("------------------------");
-    }
-
-
-    void GUIManager::xrdp_pulse_server() {
-        std::string cmd = cfg_.tui_bin +
-                          " --title \"MODIFY PULSE SERVER ADDRESS\""
-                          " --inputbox \"输入 PulseAudio 服务器地址\\\\n当前为\"$(grep 'PULSE_SERVER' /etc/xrdp/startwm.sh | "
-                          "grep -v '^#' | cut -d '=' -f 2 | head -n 1)\"\\\\n例如 127.0.0.1\" 15 50";
-        std::string addr = Executor::tui_select(cmd);
-        if (!addr.empty()) {
-            Executor::shell("if ! grep -q '^export.*PULSE_SERVER' /etc/xrdp/startwm.sh; then "
-                            "sed -i '1 a\\export PULSE_SERVER=" + addr + "' /etc/xrdp/startwm.sh; fi; "
-                            "sed -i -E 's@(export PULSE_SERVER=).*@\\1" + addr +
-                            "@' /etc/xrdp/startwm.sh 2>/dev/null || true");
-        }
-    }
-
-
     std::string GUIManager::get_local_ip_addresses() const {
         return vnc_manager_.get_local_ip_addresses();
     }
@@ -2775,7 +1801,7 @@ namespace tmoe::domain {
 
     void GUIManager::link_to_debian_wallpaper() {
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
-        Executor::shell("mkdir -pv " + home + "/Pictures 2>/dev/null");
+        fs::create_directories(home + "/Pictures");
         if (fs::exists("/usr/share/backgrounds/kali/")) {
             Executor::shell("ln -sf /usr/share/backgrounds/kali/ " + home + "/Pictures/kali 2>/dev/null || true");
         }
@@ -2788,7 +1814,7 @@ namespace tmoe::domain {
 
     void GUIManager::download_raspbian_pixel_wallpaper() {
         Logger::step("下载 Raspbian Pixel 壁纸...");
-        download_raspbian_pixel_icon_theme(); // 复用
+        download_raspbian_pixel_icon_theme();
     }
 
 
@@ -2809,7 +1835,6 @@ namespace tmoe::domain {
             return;
         }
 
-        // 判断是主题还是图标
         auto type_r = Executor::passthrough(cfg_.tui_bin +
                                             " --title \"Please choose the file type\" --yes-button 'THEME主题' --no-button 'ICON图标包'"
                                             " --yesno '这是主题包还是图标包?' 0 50");
@@ -2819,55 +1844,19 @@ namespace tmoe::domain {
     }
 
 
-    void GUIManager::x11vnc_doc() {
-        Logger::info("x11vnc 文档: http://www.karlrunge.com/x11vnc/x11vnc_opts.html");
-    }
-
-
-    void GUIManager::do_you_want_to_configure_novnc() {
-        // 对应旧 Bash do_you_want_to_configure_novnc (gui:5792-5826)
-        vnc_manager_.check_the_which_command();
-        Logger::info("You can type novnc to start novnc+websockify");
-        Logger::info("配置完成后，您可以输novnc来启动novnc,在浏览器里输入novnc访问地址进行连接。");
-        Logger::info("------------------------");
-        Logger::info("Do you want to configure novnc?");
-        Logger::info("您是否需要配置novnc？");
-
-        // 对应旧 Bash: 先询问用户是否要配置 novnc
-        auto confirm = Executor::passthrough(cfg_.tui_bin +
-                                             " --yesno \"" + std::string(_("gui.confirm_novnc")) + "\" 0 0");
-        if (confirm.exit_code != 0) {
-            Logger::info(std::string(_("gui.skip_novnc")));
-            return;
-        }
-
-        install_novnc();
-        vnc_manager_.if_container_is_arm();
-
-        // Achievement 解锁
-        std::string tmoe_dir = "/usr/local/etc/tmoe-linux";
-        if (!fs::exists(tmoe_dir + "/achievement01")) {
-            Logger::info("Congratulations！恭喜您获得新成就: vnc大师");
-            Logger::info("由于您获得了该成就，故解锁了本工具的vnc(所有可配置)选项。");
-            Executor::shell("mkdir -p " + tmoe_dir + " && printf 'vnc master\\n' > " + tmoe_dir + "/achievement01");
-        }
-        std::string vnc_msg = Executor::has("apt-get")
-                                  ? "您可以使用以下任意一条命令来启动vnc或x: \nstartvnc,tightvnc,tigervnc,startx11vnc,startxsdl,novnc,输入stopvnc停止"
-                                  : "您可以使用以下任意一条命令来启动vnc或x: \nstartvnc,startx11vnc,startxsdl,novnc,输入stopvnc停止";
-        Executor::passthrough(cfg_.tui_bin + " --title \"VNC COMMANDS\" --msgbox \"" + vnc_msg + "\" 12 55");
-        Logger::info("*°▽°* You are a VNC Master！");
-    }
-
-
     void GUIManager::download_elementary_wallpaper() {
         Logger::step("下载 Elementary 壁纸...");
         std::string repo = "https://mirrors.bfsu.edu.cn/archlinux/pool/community/";
-        Executor::shell("cd /tmp && mkdir -pv .elementary_wp && cd .elementary_wp && "
+        std::error_code ec;
+        fs::path tmp_dir = "/tmp/.elementary_wp";
+        fs::create_directories(tmp_dir, ec);
+        Executor::shell("cd " + tmp_dir.string() + " && "
                         "curl -Lo index.html '" + repo + "' 2>/dev/null && "
                         "LATEST=$(cat index.html | grep 'elementary-wallpapers' | grep pkg.tar | tail -n 1 | "
                         "cut -d '=' -f 3 | cut -d '\"' -f 2) && "
                         "[ -n \"$LATEST\" ] && curl -Lo wp.pkg.tar.xz '" + repo + "'\"$LATEST\" && "
-                        "tar -Jxvf wp.pkg.tar.xz -C / 2>/dev/null; rm -rf /tmp/.elementary_wp || true");
+                        "tar -Jxvf wp.pkg.tar.xz -C / 2>/dev/null");
+        fs::remove_all(tmp_dir, ec);
     }
 
 
@@ -2902,12 +1891,16 @@ namespace tmoe::domain {
                                           const std::string &url_02,
                                           const std::string & /*wallpaper_name*/,
                                           const std::string & /*custom_name*/) {
-        Executor::shell("mkdir -pv /tmp/." + theme_name + " && cd /tmp/." + theme_name + " && "
+        std::error_code ec;
+        fs::path tmp_dir = "/tmp/." + theme_name;
+        fs::create_directories(tmp_dir, ec);
+        Executor::shell("cd " + tmp_dir.string() + " && "
                         "(aria2c --console-log-level=warn --no-conf --allow-overwrite=true -s 5 -x 5 -k 1M "
                         "-o 'data.tar.xz' '" + url + "' 2>/dev/null || "
                         "aria2c --console-log-level=warn --no-conf --allow-overwrite=true -s 5 -x 5 -k 1M "
                         "-o 'data.tar.xz' '" + url_02 + "' 2>/dev/null) && "
-                        "tar -Jxvf data.tar.xz -C / 2>/dev/null; rm -rf /tmp/." + theme_name + " || true");
+                        "tar -Jxvf data.tar.xz -C / 2>/dev/null");
+        fs::remove_all(tmp_dir, ec);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -2919,32 +1912,16 @@ namespace tmoe::domain {
         link_to_debian_wallpaper();
         Logger::step("下载 Arch 壁纸...");
         std::string repo = "https://mirrors.bfsu.edu.cn/archlinux/pool/community/";
-        Executor::shell("cd /tmp && mkdir -pv .arch_wp && cd .arch_wp && "
+        std::error_code ec;
+        fs::path tmp_dir = "/tmp/.arch_wp";
+        fs::create_directories(tmp_dir, ec);
+        Executor::shell("cd " + tmp_dir.string() + " && "
                         "curl -Lo index.html '" + repo + "' 2>/dev/null && "
                         "LATEST=$(cat index.html | grep 'archlinux-wallpaper' | grep pkg.tar | tail -n 1 | "
                         "cut -d '=' -f 3 | cut -d '\"' -f 2) && "
                         "[ -n \"$LATEST\" ] && curl -Lo wp.pkg.tar.xz '" + repo + "'\"$LATEST\" && "
-                        "tar -Jxvf wp.pkg.tar.xz -C / 2>/dev/null; rm -rf /tmp/.arch_wp || true");
-    }
-
-
-    void GUIManager::x11vnc_process_readme() {
-        Logger::info("输startx11vnc启动x11vnc服务。");
-        Logger::info("输stopvnc停止x11vnc");
-        Logger::info("若您的音频服务端为Android系统，请输pulseaudio --start");
-    }
-
-    void GUIManager::xrdp_systemd() {
-        Logger::info("systemd管理:");
-        Logger::info("  systemctl start xrdp  启动");
-        Logger::info("  systemctl stop xrdp   停止");
-        Logger::info("  systemctl status xrdp 查看状态");
-        Logger::info("  systemctl enable xrdp 开机自启");
-        Logger::info("  systemctl disable xrdp 禁用自启");
-        Logger::info("service命令:");
-        Logger::info("  service xrdp start/stop/status");
-        Logger::info("init.d管理:");
-        Logger::info("  /etc/init.d/xrdp start/restart/stop/status/force-reload");
+                        "tar -Jxvf wp.pkg.tar.xz -C / 2>/dev/null");
+        fs::remove_all(tmp_dir, ec);
     }
 
 
@@ -2973,21 +1950,23 @@ namespace tmoe::domain {
             else if (ch == "6") desktop_manager_.install_breeze_theme_ext();
             else if (ch == "7") desktop_manager_.download_kali_theme();
             else if (ch == "8") {
-                Executor::passthrough(cfg_.install_command + " ukui-themes ukui-greeter 2>/dev/null || true");
-                // 备用: 从 Debian 镜像下载 ukui-themes deb
+                PackageManager::install({"ukui-themes", "ukui-greeter"}, get_family(cfg_));
                 if (!fs::exists("/usr/share/icons/ukui-icon-theme-default") &&
                     !fs::exists("/usr/share/icons/ukui-icon-theme")) {
-                    Executor::shell("mkdir -pv /tmp/.ukui-gtk-themes && cd /tmp/.ukui-gtk-themes && "
-                        "UKUITHEME=\"$(curl -LfsS 'https://mirrors.bfsu.edu.cn/debian/pool/main/u/ukui-themes/' 2>/dev/null | "
-                        "grep all.deb | tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2)\" && "
-                        "aria2c --console-log-level=warn --no-conf --allow-overwrite=true -s 5 -x 5 -k 1M "
-                        "-o 'ukui-themes.deb' \"https://mirrors.bfsu.edu.cn/debian/pool/main/u/ukui-themes/$UKUITHEME\" && "
-                        "ar xv ukui-themes.deb && cd / && "
-                        "tar -Jxvf /tmp/.ukui-gtk-themes/data.tar.xz ./usr 2>/dev/null && "
-                        "update-icon-caches /usr/share/icons/ukui-icon-theme-basic "
-                        "/usr/share/icons/ukui-icon-theme-classical "
-                        "/usr/share/icons/ukui-icon-theme-default 2>/dev/null &");
-                    Executor::shell("rm -rf /tmp/.ukui-gtk-themes 2>/dev/null || true");
+                    std::error_code ec;
+                    fs::path tmp_dir = "/tmp/.ukui-gtk-themes";
+                    fs::create_directories(tmp_dir, ec);
+                    Executor::shell("cd " + tmp_dir.string() + " && "
+                                    "UKUITHEME=\"$(curl -LfsS 'https://mirrors.bfsu.edu.cn/debian/pool/main/u/ukui-themes/' 2>/dev/null | "
+                                    "grep all.deb | tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2)\" && "
+                                    "aria2c --console-log-level=warn --no-conf --allow-overwrite=true -s 5 -x 5 -k 1M "
+                                    "-o 'ukui-themes.deb' \"https://mirrors.bfsu.edu.cn/debian/pool/main/u/ukui-themes/$UKUITHEME\" && "
+                                    "ar xv ukui-themes.deb && cd / && "
+                                    "tar -Jxvf " + tmp_dir.string() + "/data.tar.xz ./usr 2>/dev/null && "
+                                    "update-icon-caches /usr/share/icons/ukui-icon-theme-basic "
+                                    "/usr/share/icons/ukui-icon-theme-classical "
+                                    "/usr/share/icons/ukui-icon-theme-default 2>/dev/null &");
+                    fs::remove_all(tmp_dir, ec);
                 }
                 desktop_manager_.set_default_xfce_icon_theme("ukui-icon-theme");
             } else if (ch == "9") desktop_manager_.install_arc_gtk_theme_ext();
@@ -3019,68 +1998,18 @@ namespace tmoe::domain {
 
 
     void GUIManager::check_tmoe_linux_desktop_link() {
-        // 对应旧 Bash check_tmoe_linux_desktop_link
-        Executor::shell("ln -sfv ${TMOE_GIT_DIR:-/usr/local/etc/tmoe-linux/git}/share/old-version/share/app/tmoe "
-            "/usr/local/bin/tmoe 2>/dev/null || true");
+        ensure_tmoe_symlink();
+    }
+
+    void GUIManager::ensure_tmoe_symlink() {
+        Executor::shell(
+            "TOME_BIN=$(readlink -f /proc/self/exe 2>/dev/null || echo /usr/local/bin/tome); "
+            "ln -sfv \"$TOME_BIN\" /usr/local/bin/tmoe 2>/dev/null || true");
         Executor::shell("ln -svf tmoe /usr/local/bin/tome 2>/dev/null || true");
     }
 
 
-    void GUIManager::xrdp_reset() {
-        // 对应旧 Bash xrdp_reset (gui:5227-5238): 从备份恢复 xrdp 配置
-        Logger::step("重置 XRDP 配置...");
-
-        // 旧 Bash 有 do_you_want_to_continue 确认; 这里用 Logger::confirm
-        if (!Logger::confirm("WARNING！继续执行此操作将丢失 xrdp 配置信息！\n确认重置？")) {
-            return;
-        }
-
-        Executor::passthrough("service xrdp stop 2>/dev/null || systemctl stop xrdp 2>/dev/null || "
-            "pkill xrdp 2>/dev/null || true");
-
-        Executor::shell("rm -f /etc/polkit-1/localauthority/50-local.d/45-allow.colord.pkla "
-            "/etc/polkit-1/localauthority.conf.d/02-allow-colord.conf 2>/dev/null || true");
-
-        // 尝试从备份恢复
-        std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
-        std::string backup_ini = home + "/.config/tmoe-linux/xrdp.ini";
-        std::string backup_wm = home + "/.config/tmoe-linux/startwm.sh";
-
-        bool restored = false;
-        if (fs::exists(backup_ini) && fs::exists(backup_wm)) {
-            // 旧 Bash: cd ~/.config/tmoe-linux && cp -pvf xrdp.ini startwm.sh /etc/xrdp/
-            auto cp_result = Executor::shell("cp -pf " + backup_ini + " /etc/xrdp/xrdp.ini 2>/dev/null && "
-                                             "cp -pf " + backup_wm + " /etc/xrdp/startwm.sh 2>/dev/null");
-            if (cp_result.ok()) {
-                restored = true;
-                Logger::ok("已从备份恢复 xrdp.ini 和 startwm.sh");
-            }
-        }
-
-        if (!restored) {
-            // 备份不存在，重新生成配置而不是损坏现有文件
-            Logger::warn("未找到 xrdp 备份，将重新生成配置...");
-            // 先写 xrdp.ini (确保重启前配置已就绪)
-            set_xrdp_port(3389);
-            // 再生成 startwm.sh
-            configure_xrdp_session("xfce");
-            Logger::ok("已重新生成 xrdp 配置");
-        }
-
-        // 重新生成 polkit 规则
-        Executor::shell(
-            "mkdir -pv /etc/polkit-1/localauthority.conf.d /etc/polkit-1/localauthority/50-local.d/ 2>/dev/null");
-        SystemHelper::write_file("/etc/polkit-1/localauthority.conf.d/02-allow-colord.conf",
-                                 generate_polkit_colord_conf());
-        SystemHelper::write_file("/etc/polkit-1/localauthority/50-local.d/45-allow.colord.pkla",
-                                 generate_polkit_colord_pkla());
-
-        xrdp_restart();
-    }
-
-
     bool GUIManager::handle_gui_cli_flag(std::string_view flag) {
-        // 对应旧 Bash gui_main CLI 路由 (gui:5-54)
         if (flag == "--auto-install-gui-xfce") {
             return auto_install_gui("xfce");
         } else if (flag == "--auto-install-gui-lxde") {
@@ -3097,6 +2026,10 @@ namespace tmoe::domain {
             return auto_install_gui("dde");
         } else if (flag == "--auto-install-gui-ukui") {
             return auto_install_gui("ukui");
+        } else if (flag == "--auto-install-vscode") {
+            desktop_manager_.set_auto_install_mode(true);
+            desktop_manager_.set_auto_install_flags(false, false, true, true, false, "");
+            return auto_install_gui("xfce");
         } else if (flag == "--install-gui" || flag == "install-gui") {
             install_gui();
             return true;
@@ -3118,9 +2051,7 @@ namespace tmoe::domain {
         } else if (flag == "--fix-dbus") {
             fix_vnc_dbus_launch();
             return true;
-        }
-        // ── 方案B: thin wrapper CLI flags ──
-        else if (flag == "--start-vnc") {
+        } else if (flag == "--start-vnc") {
             vnc_manager_.start_vnc();
             return true;
         } else if (flag == "--stop-vnc") {
@@ -3133,17 +2064,15 @@ namespace tmoe::domain {
             vnc_manager_.start_x11vnc();
             return true;
         } else if (flag == "--start-novnc") {
-            start_novnc();
+            remote_desktop_manager_.start_novnc();
             return true;
         }
-        // 默认: install_gui
         install_gui();
         return true;
     }
 
 
     void GUIManager::download_chameleon_cursor_theme() {
-        // 下载 3 个光标主题
         for (const auto &info: {
                  std::make_pair("breeze-cursor-theme",
                                 "https://mirrors.bfsu.edu.cn/debian/pool/main/b/breeze/"),
@@ -3179,11 +2108,59 @@ namespace tmoe::domain {
     }
 
 
-    std::string GUIManager::generate_polkit_colord_conf() {
-        return gui_config::POLKIT_COLORD_CONF;
-    }
+    void GUIManager::run_remote_desktop_menu() {
+        while (true) {
+            std::string menu_cmd = cfg_.tui_bin +
+                                   " --title \"" + std::string(_("gui.remote_title")) +
+                                   "\" --menu \"" + std::string(_("gui.remote_prompt")) + "\" 0 0 0 "
+                                   "\"1\" \"" + std::string(_("gui.remote_tightvnc")) + "\" "
+                                   "\"2\" \"" + std::string(_("gui.remote_x11vnc")) + "\" "
+                                   "\"3\" \"" + std::string(_("gui.remote_xsdl")) + "\" "
+                                   "\"4\" \"" + std::string(_("gui.remote_novnc")) + "\" "
+                                   "\"5\" \"" + std::string(_("gui.remote_xrdp")) + "\" "
+                                   "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
 
-    std::string GUIManager::generate_polkit_colord_pkla() {
-        return gui_config::POLKIT_COLORD_PKLA;
+            std::string choice = Executor::tui_select(menu_cmd);
+            if (choice == "0" || choice.empty()) break;
+
+            if (choice == "1") {
+                if (!fs::exists("/usr/local/bin/startvnc")) {
+                    Logger::warn("未检测到 startvnc，您可能尚未安装图形桌面");
+                    auto r = Executor::passthrough(cfg_.tui_bin +
+                                                   " --yesno \"未检测到 startvnc，是否继续编辑配置？\" 0 0");
+                    if (r.exit_code != 0) continue;
+                }
+                auto r = Executor::passthrough(cfg_.tui_bin +
+                                               " --title \"modify vnc configuration\""
+                                               " --yes-button \"分辨率 resolution\" --no-button \"其它 other\""
+                                               " --yesno \"Which configuration do you want to modify?\" 9 50");
+                if (r.exit_code == 0) {
+                    std::string cmd = cfg_.tui_bin +
+                                      " --title \"请输入分辨率\""
+                                      " --inputbox \"例如 1920x1080, 1440x720, 1280x1024\" 15 50 \"" +
+                                      std::to_string(vnc_manager_.config().resolution_w) + "x" +
+                                      std::to_string(vnc_manager_.config().resolution_h) + "\"";
+                    std::string val = Executor::tui_select(cmd);
+                    auto xpos = val.find('x');
+                    if (!val.empty() && xpos != std::string::npos) {
+                        vnc_manager_.config().resolution_w = std::stoi(val.substr(0, xpos));
+                        vnc_manager_.config().resolution_h = std::stoi(val.substr(xpos + 1));
+                        vnc_manager_.configure_vnc_defaults();
+                        Logger::ok("分辨率已修改为 " + val);
+                    }
+                } else {
+                    run_vnc_config_menu();
+                }
+            } else if (choice == "2") {
+                remote_desktop_manager_.run_x11vnc_config_menu();
+            } else if (choice == "3") {
+                run_xsdl_config_menu();
+            } else if (choice == "4") {
+                remote_desktop_manager_.run_novnc_config_menu();
+            } else if (choice == "5") {
+                remote_desktop_manager_.run_xrdp_menu();
+            }
+            Logger::press_enter();
+        }
     }
 } // namespace tmoe::domain

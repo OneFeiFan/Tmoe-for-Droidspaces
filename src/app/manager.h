@@ -7,7 +7,7 @@
 #include "core/config.h"
 #include "domain/container.h"
 #include "domain/environment.h"
-#include "domain/gui.h"
+#include "../domain/gui/gui.hpp"
 #include "domain/mirrors.h"
 #include "domain/mirror_registry.h"
 #include "domain/backup.h"
