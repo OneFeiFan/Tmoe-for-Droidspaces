@@ -5,6 +5,8 @@
 #include <filesystem>
 #include "core/config.h"
 #include "vnc_manager.h"
+#include "gui_config/registries.h"
+#include "gui_config/templates.h"
 
 namespace fs = std::filesystem;
 

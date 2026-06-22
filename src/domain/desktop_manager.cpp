@@ -1,220 +1,206 @@
 #include "desktop_manager.h"
-#include "core/system_helper.h"
-#include "core/executor.h"
-#include "core/logger.h"
-#include "core/i18n.h"
-#include "core/command_builder.hpp"
-#include "package_manager.h"
-#include "gui_config/templates.h"
-#include <algorithm>
-#include <ctime>
-#include <cstdlib>
-#include <fstream>
-#include <sstream>
-
-#include "gui_config/registries.h"
 
 namespace tmoe::domain {
-
-/** 发行版家族 → 包名覆盖 key (debian/arch/redhat/void/gentoo/suse/alpine) */
-static std::string distro_family_to_key(DistroFamily f) {
-    switch (f) {
-        case DistroFamily::Debian: return "debian";
-        case DistroFamily::Arch: return "arch";
-        case DistroFamily::RedHat: return "redhat";
-        case DistroFamily::Void_: return "void";
-        case DistroFamily::Gentoo: return "gentoo";
-        case DistroFamily::Suse: return "suse";
-        case DistroFamily::Alpine: return "alpine";
-        default: return "";
+    /** 发行版家族 → 包名覆盖 key (debian/arch/redhat/void/gentoo/suse/alpine) */
+    static std::string distro_family_to_key(DistroFamily f) {
+        switch (f) {
+            case DistroFamily::Debian: return "debian";
+            case DistroFamily::Arch: return "arch";
+            case DistroFamily::RedHat: return "redhat";
+            case DistroFamily::Void_: return "void";
+            case DistroFamily::Gentoo: return "gentoo";
+            case DistroFamily::Suse: return "suse";
+            case DistroFamily::Alpine: return "alpine";
+            default: return "";
+        }
     }
-}
 
-DesktopManager::DesktopManager(const TmoeConfig& cfg, VncManager& vnc_manager)
-    : cfg_(cfg), vnc_manager_(vnc_manager) {}
+    DesktopManager::DesktopManager(const TmoeConfig &cfg, VncManager &vnc_manager)
+        : cfg_(cfg), vnc_manager_(vnc_manager) {
+    }
 
-void DesktopManager::set_auto_install_flags(bool fcitx, bool electron, bool vscode,
-                                            bool chromium, bool kali,
-                                            const std::string& kali_tools) {
-    auto_install_fcitx4_ = fcitx;
-    auto_install_electron_ = electron;
-    auto_install_vscode_ = vscode;
-    auto_install_chromium_ = chromium;
-    auto_install_kali_ = kali;
-    kali_tools_ = kali_tools;
-}
+    void DesktopManager::set_auto_install_flags(bool fcitx, bool electron, bool vscode,
+                                                bool chromium, bool kali,
+                                                const std::string &kali_tools) {
+        auto_install_fcitx4_ = fcitx;
+        auto_install_electron_ = electron;
+        auto_install_vscode_ = vscode;
+        auto_install_chromium_ = chromium;
+        auto_install_kali_ = kali;
+        kali_tools_ = kali_tools;
+    }
 
-// ═══════════════════════════════════════════════════════════════
-// 桌面环境注册表
-// ═══════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════
+    // 桌面环境注册表
+    // ═══════════════════════════════════════════════════════════════
 
-const std::vector<DesktopInfo> &DesktopManager::desktop_registry() const {
-    static const std::vector<DesktopInfo> reg = {
-        // ═══════════════════════════════════════════════════════
-        // 完整桌面环境 (Full Desktop Environments)
-        // ═══════════════════════════════════════════════════════
-        {
-            "xfce", "🐭 Xfce", "🐭", "xfce4-session", "startxfce4", "lightdm", false, false, "xfce4 xfce4-goodies",
-            "兼容性高,简单优雅"
-        },
-        {
-            "xfce-lite", "Xfce Lite", "", "xfce4-session", "startxfce4", "lightdm", false, false,
-            "xfce4 xfce4-terminal xfce4-panel thunar", "精简安装,未美化"
-        },
-        {
-            "lxqt", "🐦 LXQt", "🐦", "lxqt-session", "startlxqt", "sddm", false, false, "lxqt lxqt-qtplugin",
-            "LXDE团队基于Qt开发"
-        },
-        {
-            "lxde", "🕊 LXDE", "🕊", "lxsession", "startlxde", "lightdm", false, false, "lxde lxde-common",
-            "轻量化桌面,资源占用低"
-        },
-        {
-            "mate", "🌿 MATE", "🌿", "mate-session", "mate-panel", "lightdm", false, false,
-            "mate-desktop-environment", "GNOME2的延续,舒适体验"
-        },
-        {
-            "kde", "🦖 KDE Plasma", "🦖", "startplasma-x11", "startkde", "sddm", false, false, "kde-plasma-desktop",
-            "风格华丽,功能丰富"
-        },
-        {
-            "cinnamon", "🌲 Cinnamon", "🌲", "cinnamon-session", "cinnamon", "lightdm", true, false,
-            "cinnamon-desktop-environment", "基于GNOME,对用户友好"
-        },
-        {
-            "gnome", "👣 GNOME", "👣", "gnome-session", "gnome-shell-x11", "gdm", true, false,
-            "gnome-session gnome-shell", "GNU网络对象模型环境"
-        },
-        {
-            "budgie", "🦜 Budgie", "🦜", "budgie-desktop", "budgie-panel", "lightdm", true, false, "budgie-desktop",
-            "虎皮鹦鹉,基于GNOME"
-        },
-        {
-            "dde", "🐋 Deepin DDE", "🐋", "startdde", "dde-launcher", "lightdm", true, false, "dde dde-desktop",
-            "国产精美桌面"
-        },
-        {
-            "deepin", "🐳 Deepin", "🐳", "deepin-session", "deepin-launcher", "lightdm", true, false,
-            "deepin-desktop-environment deepin-terminal", "Deepin完整桌面"
-        },
-        {
-            "ukui", "🐱 UKUI", "🐱", "ukui-session", "ukui-panel", "lightdm", true, false,
-            "ukui-desktop-environment", "优麒麟桌面,简洁流畅"
-        },
-        {
-            "cutefish", "🐟 Cutefish", "🐟", "cutefish-session", "cutefish-launcher", "lightdm", true, false,
-            "cutefish", "简洁美观的现代化桌面"
-        },
+    const std::vector<DesktopInfo> &DesktopManager::desktop_registry() const {
+        static const std::vector<DesktopInfo> reg = {
+            // ═══════════════════════════════════════════════════════
+            // 完整桌面环境 (Full Desktop Environments)
+            // ═══════════════════════════════════════════════════════
+            {
+                "xfce", "🐭 Xfce", "🐭", "xfce4-session", "startxfce4", "lightdm", false, false, "xfce4 xfce4-goodies",
+                "兼容性高,简单优雅"
+            },
+            {
+                "xfce-lite", "Xfce Lite", "", "xfce4-session", "startxfce4", "lightdm", false, false,
+                "xfce4 xfce4-terminal xfce4-panel thunar", "精简安装,未美化"
+            },
+            {
+                "lxqt", "🐦 LXQt", "🐦", "lxqt-session", "startlxqt", "sddm", false, false, "lxqt lxqt-qtplugin",
+                "LXDE团队基于Qt开发"
+            },
+            {
+                "lxde", "🕊 LXDE", "🕊", "lxsession", "startlxde", "lightdm", false, false, "lxde lxde-common",
+                "轻量化桌面,资源占用低"
+            },
+            {
+                "mate", "🌿 MATE", "🌿", "mate-session", "mate-panel", "lightdm", false, false,
+                "mate-desktop-environment", "GNOME2的延续,舒适体验"
+            },
+            {
+                "kde", "🦖 KDE Plasma", "🦖", "startplasma-x11", "startkde", "sddm", false, false, "kde-plasma-desktop",
+                "风格华丽,功能丰富"
+            },
+            {
+                "cinnamon", "🌲 Cinnamon", "🌲", "cinnamon-session", "cinnamon", "lightdm", true, false,
+                "cinnamon-desktop-environment", "基于GNOME,对用户友好"
+            },
+            {
+                "gnome", "👣 GNOME", "👣", "gnome-session", "gnome-shell-x11", "gdm", true, false,
+                "gnome-session gnome-shell", "GNU网络对象模型环境"
+            },
+            {
+                "budgie", "🦜 Budgie", "🦜", "budgie-desktop", "budgie-panel", "lightdm", true, false, "budgie-desktop",
+                "虎皮鹦鹉,基于GNOME"
+            },
+            {
+                "dde", "🐋 Deepin DDE", "🐋", "startdde", "dde-launcher", "lightdm", true, false, "dde dde-desktop",
+                "国产精美桌面"
+            },
+            {
+                "deepin", "🐳 Deepin", "🐳", "deepin-session", "deepin-launcher", "lightdm", true, false,
+                "deepin-desktop-environment deepin-terminal", "Deepin完整桌面"
+            },
+            {
+                "ukui", "🐱 UKUI", "🐱", "ukui-session", "ukui-panel", "lightdm", true, false,
+                "ukui-desktop-environment", "优麒麟桌面,简洁流畅"
+            },
+            {
+                "cutefish", "🐟 Cutefish", "🐟", "cutefish-session", "cutefish-launcher", "lightdm", true, false,
+                "cutefish", "简洁美观的现代化桌面"
+            },
 
-        // ═══════════════════════════════════════════════════════
-        // 窗口管理器 (Window Managers, 50个)
-        // ═══════════════════════════════════════════════════════
-        {"icewm", "❄ IceWM", "", "icewm-session", "icewm", "", false, true, "icewm icewm-common", "意在提升感观和体验"},
-        {
-            "openbox", "📦 Openbox", "", "openbox-session", "openbox", "", false, true, "openbox obconf obmenu",
-            "快速,轻巧,可扩展", {{"debian", "openbox openbox-menu"}}
-        },
-        {
-            "fvwm", "🪶 FVWM", "", "fvwm", "fvwm", "", false, true, "fvwm fvwm-icons",
-            "强大的ICCCM2兼容WM", {{"debian", "fvwm fvwm-icons"}}
-        },
-        {
-            "awesome", "🚀 Awesome", "", "awesome", "awesome", "", false, true, "awesome",
-            "平铺式WM", {{"debian", "awesome awesome-extra"}}
-        },
-        {
-            "enlightenment", "💡 Enlightenment", "", "enlightenment", "enlightenment", "", false, true,
-            "enlightenment", "X11 WM based on EFL"
-        },
-        {
-            "fluxbox", "📐 Fluxbox", "", "fluxbox", "fluxbox", "", false, true, "fluxbox",
-            "高度可配置,低资源占用", {{"debian", "bbmail bbpager bbtime fbpager fluxbox"}}
-        },
-        {
-            "i3", "🧩 i3", "", "i3", "i3", "", false, true, "i3 i3status i3lock dmenu",
-            "改进的动态平铺WM", {{"debian", "i3 i3-wm i3blocks"}, {"alpine", "i3wm"}}
-        },
-        {
-            "xmonad", "λ XMonad", "", "xmonad", "xmonad", "", false, true, "xmonad xmobar",
-            "基于Haskell的平铺式WM", {{"debian", "xmobar dmenu xmonad"}}
-        },
-        {"9wm", "9️⃣ 9wm", "", "9wm", "9wm", "", false, true, "9wm", "inspired by Plan 9's rio"},
-        {"metacity", "🪟 Metacity", "", "metacity", "metacity", "", false, true, "metacity", "轻量的GTK+ WM"},
-        {"twm", "📋 TWM", "", "twm", "twm", "", false, true, "twm", "Tab Window Manager"},
-        {"aewm", "🧱 aewm", "", "aewm", "aewm", "", false, true, "aewm", "极简主义WM for X11"},
-        {"aewm++", "🧱 aewm++", "", "aewm++", "aewm++", "", false, true, "aewm++", "最小WM written in C++"},
-        {"afterstep", "🪜 AfterStep", "", "afterstep", "afterstep", "", false, true, "afterstep", "NEXTSTEP风格的WM"},
-        {
-            "blackbox", "⬛ Blackbox", "", "blackbox", "blackbox", "", false, true, "blackbox",
-            "WM for X", {{"debian", "bbmail bbpager bbtime blackbox"}}
-        },
-        {"dwm", "🪶 dwm", "", "dwm", "dwm", "", false, true, "dwm st", "dynamic window manager"},
-        {"mutter", "🪟 Mutter", "", "mutter", "mutter", "", false, true, "mutter", "轻量的GTK+ WM"},
-        {"bspwm", "🌲 bspwm", "", "bspwm", "bspwm", "", false, true, "bspwm sxhkd", "Binary space partitioning WM"},
-        {"clfswm", "💻 CLFSWM", "", "clfswm", "clfswm", "", false, true, "clfswm", "Common Lisp FullScreen WM"},
-        {"ctwm", "📑 CTWM", "", "ctwm", "ctwm", "", false, true, "ctwm", "Claude's Tab WM"},
-        {"evilwm", "👿 evilwm", "", "evilwm", "evilwm", "", false, true, "evilwm", "极简主义WM for X11"},
-        {"flwm", "💨 FLWM", "", "flwm", "flwm", "", false, true, "flwm", "Fast Light WM"},
-        {
-            "herbstluftwm", "🌳 herbstluftwm", "", "herbstluftwm", "herbstluftwm", "", false, true, "herbstluftwm",
-            "manual tiling WM for X11"
-        },
-        {"jwm", "🫙 JWM", "", "jwm", "jwm", "", false, true, "jwm", "very small & pure轻量纯净"},
-        {
-            "kwin", "🪟 KWin", "", "kwin_x11", "kwin_x11", "", false, true, "kwin-x11",
-            "KDE默认WM,X11 version", {{"alpine", "kwin"}}
-        },
-        {"lwm", "🪶 LWM", "", "lwm", "lwm", "", false, true, "lwm", "轻量化WM"},
-        {"marco", "🪟 Marco", "", "marco", "marco", "", false, true, "marco", "轻量化GTK+ WM for MATE"},
-        {
-            "matchbox", "📱 Matchbox", "", "matchbox-window-manager", "matchbox-window-manager", "", false, true,
-            "matchbox-window-manager",
-            "低配机福音", {{"debian", "matchbox-themes-extra matchbox-window-manager"}}
-        },
-        {"miwm", "🧱 MIWM", "", "miwm", "miwm", "", false, true, "miwm", "microscopic WM"},
-        {
-            "muffin", "🧁 Muffin", "", "muffin", "muffin", "", false, true, "muffin",
-            "Cinnamon默认WM", {{"debian", "murrine-themes muffin"}}
-        },
-        {"mwm", "🧱 MWM", "", "mwm", "mwm", "", false, true, "mwm", "Motif Window Manager"},
-        {"oroborus", "🪟 Oroborus", "", "oroborus", "oroborus", "", false, true, "oroborus", "轻量WM for X11"},
-        {
-            "pekwm", "🧱 PekWM", "", "pekwm", "pekwm", "", false, true, "pekwm",
-            "轻量WM", {{"debian", "pekwm-themes pekwm"}}
-        },
-        {"ratpoison", "🐀 Ratpoison", "", "ratpoison", "ratpoison", "", false, true, "ratpoison", "无鼠平铺WM"},
-        {"sapphire", "💎 Sapphire", "", "sapphire", "sapphire", "", false, true, "sapphire", "最小的X11 WM之一"},
-        {
-            "sawfish", "🐟 Sawfish", "", "sawfish", "sawfish", "", false, true, "sawfish",
-            "可扩展WM", {{"debian", "sawfish-themes sawfish"}}
-        },
-        {"spectrwm", "📐 SpectrWM", "", "spectrwm", "spectrwm", "", false, true, "spectrwm", "平铺式WM"},
-        {"stumpwm", "🪵 StumpWM", "", "stumpwm", "stumpwm", "", false, true, "stumpwm", "Common Lisp平铺WM"},
-        {"subtle", "🧩 Subtle", "", "subtle", "subtle", "", false, true, "subtle", "平铺式WM"},
-        {"sugar", "🍬 Sugar", "", "sugar-session", "sugar-session", "", false, true, "sucrose", "Sugar学习平台"},
-        {"tinywm", "🔬 TinyWM", "", "tinywm", "tinywm", "", false, true, "tinywm", "极简教学WM"},
-        {"ukwm", "🪟 UKWM", "", "ukwm", "ukwm", "", false, true, "ukwm", "UKUI默认WM"},
-        {"vdesk", "🖥 VDesk", "", "vdesk", "vdesk", "", false, true, "vdesk", "虚拟桌面WM"},
-        {"vtwm", "📺 VTWM", "", "vtwm", "vtwm", "", false, true, "vtwm", "Virtual Tab WM"},
-        {"w9wm", "9️⃣ w9wm", "", "w9wm", "w9wm", "", false, true, "w9wm", "Plan 9 inspired WM"},
-        {"wm2", "🪟 WM2", "", "wm2", "wm2", "", false, true, "wm2", "最小X11 WM"},
-        {"wmaker", "🪟 Window Maker", "", "wmaker", "wmaker", "", false, true, "wmaker", "NeXTSTEP风格WM"},
-        {"wmii", "🪟 wmii", "", "wmii", "wmii", "", false, true, "wmii", "轻量平铺WM"},
-        {"xfwm4", "🪟 Xfwm4", "", "xfwm4", "xfwm4", "", false, true, "xfwm4", "Xfce默认WM,可独立运行"},
-        {
-            "exwm", "🧙 Emacs EXWM", "", "emacs-gtk", "emacs-gtk", "", false, true, "elpa-exwm emacs-gtk",
-            "Emacs X Window Manager"
-        },
-    };
-    return reg;
-}
+            // ═══════════════════════════════════════════════════════
+            // 窗口管理器 (Window Managers, 50个)
+            // ═══════════════════════════════════════════════════════
+            {"icewm", "❄ IceWM", "", "icewm-session", "icewm", "", false, true, "icewm icewm-common", "意在提升感观和体验"},
+            {
+                "openbox", "📦 Openbox", "", "openbox-session", "openbox", "", false, true, "openbox obconf obmenu",
+                "快速,轻巧,可扩展", {{"debian", "openbox openbox-menu"}}
+            },
+            {
+                "fvwm", "🪶 FVWM", "", "fvwm", "fvwm", "", false, true, "fvwm fvwm-icons",
+                "强大的ICCCM2兼容WM", {{"debian", "fvwm fvwm-icons"}}
+            },
+            {
+                "awesome", "🚀 Awesome", "", "awesome", "awesome", "", false, true, "awesome",
+                "平铺式WM", {{"debian", "awesome awesome-extra"}}
+            },
+            {
+                "enlightenment", "💡 Enlightenment", "", "enlightenment", "enlightenment", "", false, true,
+                "enlightenment", "X11 WM based on EFL"
+            },
+            {
+                "fluxbox", "📐 Fluxbox", "", "fluxbox", "fluxbox", "", false, true, "fluxbox",
+                "高度可配置,低资源占用", {{"debian", "bbmail bbpager bbtime fbpager fluxbox"}}
+            },
+            {
+                "i3", "🧩 i3", "", "i3", "i3", "", false, true, "i3 i3status i3lock dmenu",
+                "改进的动态平铺WM", {{"debian", "i3 i3-wm i3blocks"}, {"alpine", "i3wm"}}
+            },
+            {
+                "xmonad", "λ XMonad", "", "xmonad", "xmonad", "", false, true, "xmonad xmobar",
+                "基于Haskell的平铺式WM", {{"debian", "xmobar dmenu xmonad"}}
+            },
+            {"9wm", "9️⃣ 9wm", "", "9wm", "9wm", "", false, true, "9wm", "inspired by Plan 9's rio"},
+            {"metacity", "🪟 Metacity", "", "metacity", "metacity", "", false, true, "metacity", "轻量的GTK+ WM"},
+            {"twm", "📋 TWM", "", "twm", "twm", "", false, true, "twm", "Tab Window Manager"},
+            {"aewm", "🧱 aewm", "", "aewm", "aewm", "", false, true, "aewm", "极简主义WM for X11"},
+            {"aewm++", "🧱 aewm++", "", "aewm++", "aewm++", "", false, true, "aewm++", "最小WM written in C++"},
+            {"afterstep", "🪜 AfterStep", "", "afterstep", "afterstep", "", false, true, "afterstep", "NEXTSTEP风格的WM"},
+            {
+                "blackbox", "⬛ Blackbox", "", "blackbox", "blackbox", "", false, true, "blackbox",
+                "WM for X", {{"debian", "bbmail bbpager bbtime blackbox"}}
+            },
+            {"dwm", "🪶 dwm", "", "dwm", "dwm", "", false, true, "dwm st", "dynamic window manager"},
+            {"mutter", "🪟 Mutter", "", "mutter", "mutter", "", false, true, "mutter", "轻量的GTK+ WM"},
+            {"bspwm", "🌲 bspwm", "", "bspwm", "bspwm", "", false, true, "bspwm sxhkd", "Binary space partitioning WM"},
+            {"clfswm", "💻 CLFSWM", "", "clfswm", "clfswm", "", false, true, "clfswm", "Common Lisp FullScreen WM"},
+            {"ctwm", "📑 CTWM", "", "ctwm", "ctwm", "", false, true, "ctwm", "Claude's Tab WM"},
+            {"evilwm", "👿 evilwm", "", "evilwm", "evilwm", "", false, true, "evilwm", "极简主义WM for X11"},
+            {"flwm", "💨 FLWM", "", "flwm", "flwm", "", false, true, "flwm", "Fast Light WM"},
+            {
+                "herbstluftwm", "🌳 herbstluftwm", "", "herbstluftwm", "herbstluftwm", "", false, true, "herbstluftwm",
+                "manual tiling WM for X11"
+            },
+            {"jwm", "🫙 JWM", "", "jwm", "jwm", "", false, true, "jwm", "very small & pure轻量纯净"},
+            {
+                "kwin", "🪟 KWin", "", "kwin_x11", "kwin_x11", "", false, true, "kwin-x11",
+                "KDE默认WM,X11 version", {{"alpine", "kwin"}}
+            },
+            {"lwm", "🪶 LWM", "", "lwm", "lwm", "", false, true, "lwm", "轻量化WM"},
+            {"marco", "🪟 Marco", "", "marco", "marco", "", false, true, "marco", "轻量化GTK+ WM for MATE"},
+            {
+                "matchbox", "📱 Matchbox", "", "matchbox-window-manager", "matchbox-window-manager", "", false, true,
+                "matchbox-window-manager",
+                "低配机福音", {{"debian", "matchbox-themes-extra matchbox-window-manager"}}
+            },
+            {"miwm", "🧱 MIWM", "", "miwm", "miwm", "", false, true, "miwm", "microscopic WM"},
+            {
+                "muffin", "🧁 Muffin", "", "muffin", "muffin", "", false, true, "muffin",
+                "Cinnamon默认WM", {{"debian", "murrine-themes muffin"}}
+            },
+            {"mwm", "🧱 MWM", "", "mwm", "mwm", "", false, true, "mwm", "Motif Window Manager"},
+            {"oroborus", "🪟 Oroborus", "", "oroborus", "oroborus", "", false, true, "oroborus", "轻量WM for X11"},
+            {
+                "pekwm", "🧱 PekWM", "", "pekwm", "pekwm", "", false, true, "pekwm",
+                "轻量WM", {{"debian", "pekwm-themes pekwm"}}
+            },
+            {"ratpoison", "🐀 Ratpoison", "", "ratpoison", "ratpoison", "", false, true, "ratpoison", "无鼠平铺WM"},
+            {"sapphire", "💎 Sapphire", "", "sapphire", "sapphire", "", false, true, "sapphire", "最小的X11 WM之一"},
+            {
+                "sawfish", "🐟 Sawfish", "", "sawfish", "sawfish", "", false, true, "sawfish",
+                "可扩展WM", {{"debian", "sawfish-themes sawfish"}}
+            },
+            {"spectrwm", "📐 SpectrWM", "", "spectrwm", "spectrwm", "", false, true, "spectrwm", "平铺式WM"},
+            {"stumpwm", "🪵 StumpWM", "", "stumpwm", "stumpwm", "", false, true, "stumpwm", "Common Lisp平铺WM"},
+            {"subtle", "🧩 Subtle", "", "subtle", "subtle", "", false, true, "subtle", "平铺式WM"},
+            {"sugar", "🍬 Sugar", "", "sugar-session", "sugar-session", "", false, true, "sucrose", "Sugar学习平台"},
+            {"tinywm", "🔬 TinyWM", "", "tinywm", "tinywm", "", false, true, "tinywm", "极简教学WM"},
+            {"ukwm", "🪟 UKWM", "", "ukwm", "ukwm", "", false, true, "ukwm", "UKUI默认WM"},
+            {"vdesk", "🖥 VDesk", "", "vdesk", "vdesk", "", false, true, "vdesk", "虚拟桌面WM"},
+            {"vtwm", "📺 VTWM", "", "vtwm", "vtwm", "", false, true, "vtwm", "Virtual Tab WM"},
+            {"w9wm", "9️⃣ w9wm", "", "w9wm", "w9wm", "", false, true, "w9wm", "Plan 9 inspired WM"},
+            {"wm2", "🪟 WM2", "", "wm2", "wm2", "", false, true, "wm2", "最小X11 WM"},
+            {"wmaker", "🪟 Window Maker", "", "wmaker", "wmaker", "", false, true, "wmaker", "NeXTSTEP风格WM"},
+            {"wmii", "🪟 wmii", "", "wmii", "wmii", "", false, true, "wmii", "轻量平铺WM"},
+            {"xfwm4", "🪟 Xfwm4", "", "xfwm4", "xfwm4", "", false, true, "xfwm4", "Xfce默认WM,可独立运行"},
+            {
+                "exwm", "🧙 Emacs EXWM", "", "emacs-gtk", "emacs-gtk", "", false, true, "elpa-exwm emacs-gtk",
+                "Emacs X Window Manager"
+            },
+        };
+        return reg;
+    }
 
-/** 兼容旧接口: 窗口管理器名 → 默认包名映射 (已废弃，请用 desktop_registry) */
-const std::map<std::string, std::string> &DesktopManager::window_manager_registry() const {
-    return gui_config::window_manager_packages();
-}
+    /** 兼容旧接口: 窗口管理器名 → 默认包名映射 (已废弃，请用 desktop_registry) */
+    const std::map<std::string, std::string> &DesktopManager::window_manager_registry() const {
+        return gui_config::window_manager_packages();
+    }
 
-DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
+    DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
         for (const auto &info: desktop_registry()) {
             if (info.id == desktop) return info;
         }
@@ -799,7 +785,8 @@ DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
                     SystemHelper::write_file("/usr/local/bin/gnome-shell-x11", generate_gnome_shell_x11());
                     Executor::shell("chmod a+rx /usr/local/bin/gnome-shell-x11");
                 } else if (session_ch == "2") {
-                    SystemHelper::write_file("/usr/local/bin/gnome-flashback-metacity", generate_gnome_flashback_metacity());
+                    SystemHelper::write_file("/usr/local/bin/gnome-flashback-metacity",
+                                             generate_gnome_flashback_metacity());
                     Executor::shell("chmod a+rx /usr/local/bin/gnome-flashback-metacity");
                 } else if (session_ch == "3") {
                     /* uses default gnome-session */
@@ -888,7 +875,7 @@ DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
                         cfg_.install_command + " mint-meta-cinnamon mint-meta-core mint-artwork 2>/dev/null || true");
                 }
                 Executor::passthrough("dpkg --configure -a 2>/dev/null || true");
-                vnc_manager_.auto_select_keyboard_layout();
+                // 键盘布局已在顶部统一调用，此处不再重复
             } else if (family == DistroFamily::RedHat) {
                 Executor::passthrough(cfg_.install_command + " @'Cinnamon Desktop' 2>/dev/null || true");
             } else if (family == DistroFamily::Arch) {
@@ -939,7 +926,7 @@ DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
                             cfg_.install_command + " ubuntudde-dde deepin-terminal 2>/dev/null || true");
                 }
                 Executor::passthrough("dpkg --configure -a 2>/dev/null || true");
-                vnc_manager_.auto_select_keyboard_layout();
+                // 键盘布局已在顶部统一调用，此处不再重复
                 Executor::passthrough("apt clean 2>/dev/null || true");
                 // fix DDE dpkg errors
                 Executor::shell("for f in /var/lib/dpkg/info/{mincores-dkms,warm-sched}.postinst; do "
@@ -985,7 +972,7 @@ DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
     // ═══════════════════════════════════════════════════════════════
 
 
-    void DesktopManager::after_desktop_install_hint() const{
+    void DesktopManager::after_desktop_install_hint() const {
         // 对应旧 Bash first_configure_startvnc 末尾的使用说明
         Logger::info("------------------------");
         Logger::info("关于 VNC 和 X 的启动说明:");
@@ -1147,7 +1134,8 @@ DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
                 "grep -q '\\-\\-systemd' /usr/local/bin/gnome-flashback-metacity 2>/dev/null && echo 'yes'");
             if (check_systemd.ok() && check_systemd.stdout_data.find("yes") != std::string::npos) {
                 Executor::shell("rm -vf /usr/local/bin/gnome-flashback-metacity 2>/dev/null || true");
-                SystemHelper::write_file("/usr/local/bin/gnome-flashback-metacity", generate_gnome_flashback_metacity());
+                SystemHelper::write_file("/usr/local/bin/gnome-flashback-metacity",
+                                         generate_gnome_flashback_metacity());
                 Executor::shell("chmod a+rx /usr/local/bin/gnome-flashback-metacity");
             }
         } else {
@@ -1234,10 +1222,10 @@ DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
                             "sed -i '/ColorForeground=/d' terminalrc 2>/dev/null; "
                             "sed -i '/ColorBackground=/d' terminalrc 2>/dev/null || true");
             SystemHelper::append_file(fs::path(termrc),
-                        "ColorPalette=#000000;#ff3333;#b8cc52;#e7c547;#36a3d9;#f07178;#95e6cb;#ffffff;"
-                        "#323232;#ff6565;#eafe84;#fff779;#68d5ff;#ffa3aa;#c7fffd;#ffffff\n"
-                        "ColorForeground=#e6e1cf\n"
-                        "ColorBackground=#0f1419\n");
+                                      "ColorPalette=#000000;#ff3333;#b8cc52;#e7c547;#36a3d9;#f07178;#95e6cb;#ffffff;"
+                                      "#323232;#ff6565;#eafe84;#fff779;#68d5ff;#ffa3aa;#c7fffd;#ffffff\n"
+                                      "ColorForeground=#e6e1cf\n"
+                                      "ColorBackground=#0f1419\n");
         }
 
         // 设置字体
@@ -1437,7 +1425,7 @@ DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
     }
 
 
-    void DesktopManager::xfce_warning() const{
+    void DesktopManager::xfce_warning() const {
         Logger::info("xfce4桌面支持表格:");
         Logger::info("Debian/Kali/Ubuntu: x11vnc ✓ | tigervnc ✓ | xserver ✓");
         Logger::info("Fedora/CentOS:       x11vnc ✓ | tigervnc ✓ | xserver ✓");
@@ -1448,7 +1436,7 @@ DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
     }
 
 
-    void DesktopManager::kde_warning() const{
+    void DesktopManager::kde_warning() const {
         Logger::info("KDE Plasma 5 桌面支持表格:");
         Logger::info("Debian/Ubuntu: x11vnc ✓ | tigervnc ✓ | xserver ✓");
         Logger::info("Fedora:        x11vnc ? | tigervnc ? | xserver ?");
@@ -1457,7 +1445,7 @@ DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
     }
 
 
-    void DesktopManager::gnome3_warning() const{
+    void DesktopManager::gnome3_warning() const {
         Logger::info("GNOME 3 桌面支持表格:");
         Logger::info("注意: proot 容器中 GNOME 可能无法正常运行");
         Logger::info("建议在虚拟机或实体机中安装");
@@ -1473,7 +1461,7 @@ DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
     }
 
 
-    void DesktopManager::deepin_desktop_warning() const{
+    void DesktopManager::deepin_desktop_warning() const {
         Logger::info("Deepin桌面支持表格:");
         Logger::info("注意: 仅支持 x86_64 和 i386 架构");
         Logger::info("Ubuntu 20.04:  x11vnc ✓ | tigervnc ? | xserver ?");
@@ -1486,12 +1474,12 @@ DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
     }
 
 
-    void DesktopManager::dde_warning() const{
+    void DesktopManager::dde_warning() const {
         deepin_desktop_warning();
     }
 
 
-    void DesktopManager::arch_linux_mate_warning()const {
+    void DesktopManager::arch_linux_mate_warning() const {
         // 对应旧 Bash arch_linux_mate_warning
         Logger::warn("------------------------");
         Logger::warn("Arch Linux proot + MATE 桌面兼容性警告:");
@@ -1504,7 +1492,7 @@ DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
     }
 
 
-    void DesktopManager::tmoe_desktop_warning() const{
+    void DesktopManager::tmoe_desktop_warning() const {
         // 对应旧 Bash tmoe_desktop_warning: 通用 proot 桌面警告
         Logger::warn("------------------------");
         Logger::warn("Proot 容器桌面环境通用警告:");
@@ -1519,7 +1507,7 @@ DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
     }
 
 
-    void DesktopManager::tips_of_tiger_vnc_server() const{
+    void DesktopManager::tips_of_tiger_vnc_server() const {
         // 对应旧 Bash: 推荐 tiger vnc 用于特定 DE
         Logger::info("------------------------");
         Logger::info("TigerVNC 服务端推荐:");
@@ -1537,7 +1525,7 @@ DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
     }
 
 
-    void DesktopManager::tmoe_desktop_faq()const {
+    void DesktopManager::tmoe_desktop_faq() const {
         // 对应旧 Bash tmoe_desktop_faq: 显示 tmoe 桌面 FAQ (source 旧 faq 文件内容)
         Logger::info("==============================");
         Logger::info("  tmoe-linux 桌面环境 FAQ");
@@ -1676,7 +1664,7 @@ DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
 
 
     void DesktopManager::set_linuxmint_wallpaper_vars(const std::string &mint_code,
-                                                  std::string &out_name, std::string &out_path) {
+                                                      std::string &out_name, std::string &out_path) {
         if (mint_code == "serena") {
             out_name = "mint_backgrounds_serena";
             out_path = "backgrounds/linuxmint-serena";
@@ -1850,19 +1838,19 @@ DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
     }
 
 
-void DesktopManager::download_papirus_icon_theme() {
-    Logger::step("下载 Papirus 图标主题...");
-    std::string repo = "https://mirrors.bfsu.edu.cn/debian/pool/main/p/papirus-icon-theme/";
-    Executor::shell("cd /tmp && "
-                    "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'papirus-icon-theme' | grep all.deb | "
-                    "tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2) && "
-                    "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
-                    "-o papirus.deb '" + repo + "'\"$LATEST\" && "
-                    "ar xv papirus.deb && tar -Jxvf data.tar.xz -C / 2>/dev/null && "
-                    "update-icon-caches /usr/share/icons/Papirus /usr/share/icons/Papirus-Dark "
-                    "/usr/share/icons/Papirus-Light /usr/share/icons/ePapirus 2>/dev/null &");
-    set_default_xfce_icon_theme("Papirus");
-}
+    void DesktopManager::download_papirus_icon_theme() {
+        Logger::step("下载 Papirus 图标主题...");
+        std::string repo = "https://mirrors.bfsu.edu.cn/debian/pool/main/p/papirus-icon-theme/";
+        Executor::shell("cd /tmp && "
+                        "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'papirus-icon-theme' | grep all.deb | "
+                        "tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2) && "
+                        "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
+                        "-o papirus.deb '" + repo + "'\"$LATEST\" && "
+                        "ar xv papirus.deb && tar -Jxvf data.tar.xz -C / 2>/dev/null && "
+                        "update-icon-caches /usr/share/icons/Papirus /usr/share/icons/Papirus-Dark "
+                        "/usr/share/icons/Papirus-Light /usr/share/icons/ePapirus 2>/dev/null &");
+        set_default_xfce_icon_theme("Papirus");
+    }
 
 
     std::string DesktopManager::generate_xfce_desktop_xml() {
@@ -1908,5 +1896,4 @@ void DesktopManager::download_papirus_icon_theme() {
         Logger::info("  GNOME Desktop Environment");
         Logger::info("  https://www.gnome.org/");
     }
-
 } // namespace tmoe::domain

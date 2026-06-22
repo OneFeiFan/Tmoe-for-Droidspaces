@@ -266,6 +266,7 @@ namespace tmoe::domain {
         Logger::info("注：配置完本工具所支持的所有VNC,将解锁成就*^^*");
         do_you_want_to_configure_novnc();
     }
+
     bool GUIManager::install_novnc() {
         Logger::step(_("gui.novnc.installing"));
 
@@ -431,13 +432,13 @@ namespace tmoe::domain {
         // 必须保留 /etc/profile 等加载逻辑，否则 PATH/LANG 等变量缺失。
         if (!fs::exists("/etc/xrdp/startwm.sh")) {
             SystemHelper::write_file("/etc/xrdp/startwm.sh",
-                       "#!/bin/sh\n"
-                       "# tmoe-linux xrdp startwm\n\n"
-                       "if test -r /etc/profile; then\n"
-                       "    . /etc/profile\n"
-                       "fi\n\n"
-                       "test -x /etc/X11/Xsession && exec /etc/X11/Xsession\n"
-                       "exec /etc/X11/xinit/Xsession\n");
+                                     "#!/bin/sh\n"
+                                     "# tmoe-linux xrdp startwm\n\n"
+                                     "if test -r /etc/profile; then\n"
+                                     "    . /etc/profile\n"
+                                     "fi\n\n"
+                                     "test -x /etc/X11/Xsession && exec /etc/X11/Xsession\n"
+                                     "exec /etc/X11/xinit/Xsession\n");
             Executor::shell("chmod +x /etc/xrdp/startwm.sh 2>/dev/null || true");
         }
 
@@ -531,75 +532,75 @@ namespace tmoe::domain {
         // 且段落级 port (如 [Xorg] port=-1) 各发行版默认值不尽相同，
         // 直接写完整模板最可靠。
         SystemHelper::write_file("/etc/xrdp/xrdp.ini",
-                   "[Globals]\n"
-                   "address=0.0.0.0\n"
-                   "ini_version=1\n"
-                   "fork=true\n"
-                   "port=tcp://0.0.0.0:" + port_str + "\n"
-                   "use_vsock=false\n"
-                   "tcp_nodelay=true\n"
-                   "tcp_keepalive=true\n"
-                   "security_layer=rdp\n"
-                   "crypt_level=none\n"
-                   "certificate=\n"
-                   "key_file=\n"
-                   "ssl_protocols=TLSv1.2, TLSv1.3\n"
-                   "autorun=\n"
-                   "allow_channels=true\n"
-                   "allow_multimon=true\n"
-                   "bitmap_cache=true\n"
-                   "bitmap_compression=true\n"
-                   "bulk_compression=true\n"
-                   "max_bpp=32\n"
-                   "new_cursors=true\n"
-                   "use_fastpath=both\n"
-                   "\n"
-                   "[Logging]\n"
-                   "LogFile=xrdp.log\n"
-                   "LogLevel=INFO\n"
-                   "EnableSyslog=true\n"
-                   "\n"
-                   "[Channels]\n"
-                   "rdpdr=true\n"
-                   "rdpsnd=true\n"
-                   "drdynvc=true\n"
-                   "cliprdr=true\n"
-                   "rail=true\n"
-                   "xrdpvr=true\n"
-                   "tcutils=true\n"
-                   "\n"
-                   "[Xorg]\n"
-                   "name=Xorg\n"
-                   "lib=libxup.so\n"
-                   "username=ask\n"
-                   "password=ask\n"
-                   "ip=127.0.0.1\n"
-                   "port=-1\n"
-                   "code=20\n"
-                   "\n"
-                   "[Xvnc]\n"
-                   "name=Xvnc\n"
-                   "lib=libvnc.so\n"
-                   "username=ask\n"
-                   "password=ask\n"
-                   "ip=127.0.0.1\n"
-                   "port=-1\n"
-                   "\n"
-                   "[vnc-any]\n"
-                   "name=vnc-any\n"
-                   "lib=libvnc.so\n"
-                   "ip=ask\n"
-                   "port=5900\n"
-                   "username=na\n"
-                   "password=ask\n"
-                   "\n"
-                   "[neutrinordp-any]\n"
-                   "name=neutrinordp-any\n"
-                   "lib=libxrdpneutrinordp.so\n"
-                   "ip=ask\n"
-                   "port=3389\n"
-                   "username=ask\n"
-                   "password=ask\n");
+                                 "[Globals]\n"
+                                 "address=0.0.0.0\n"
+                                 "ini_version=1\n"
+                                 "fork=true\n"
+                                 "port=tcp://0.0.0.0:" + port_str + "\n"
+                                 "use_vsock=false\n"
+                                 "tcp_nodelay=true\n"
+                                 "tcp_keepalive=true\n"
+                                 "security_layer=rdp\n"
+                                 "crypt_level=none\n"
+                                 "certificate=\n"
+                                 "key_file=\n"
+                                 "ssl_protocols=TLSv1.2, TLSv1.3\n"
+                                 "autorun=\n"
+                                 "allow_channels=true\n"
+                                 "allow_multimon=true\n"
+                                 "bitmap_cache=true\n"
+                                 "bitmap_compression=true\n"
+                                 "bulk_compression=true\n"
+                                 "max_bpp=32\n"
+                                 "new_cursors=true\n"
+                                 "use_fastpath=both\n"
+                                 "\n"
+                                 "[Logging]\n"
+                                 "LogFile=xrdp.log\n"
+                                 "LogLevel=INFO\n"
+                                 "EnableSyslog=true\n"
+                                 "\n"
+                                 "[Channels]\n"
+                                 "rdpdr=true\n"
+                                 "rdpsnd=true\n"
+                                 "drdynvc=true\n"
+                                 "cliprdr=true\n"
+                                 "rail=true\n"
+                                 "xrdpvr=true\n"
+                                 "tcutils=true\n"
+                                 "\n"
+                                 "[Xorg]\n"
+                                 "name=Xorg\n"
+                                 "lib=libxup.so\n"
+                                 "username=ask\n"
+                                 "password=ask\n"
+                                 "ip=127.0.0.1\n"
+                                 "port=-1\n"
+                                 "code=20\n"
+                                 "\n"
+                                 "[Xvnc]\n"
+                                 "name=Xvnc\n"
+                                 "lib=libvnc.so\n"
+                                 "username=ask\n"
+                                 "password=ask\n"
+                                 "ip=127.0.0.1\n"
+                                 "port=-1\n"
+                                 "\n"
+                                 "[vnc-any]\n"
+                                 "name=vnc-any\n"
+                                 "lib=libvnc.so\n"
+                                 "ip=ask\n"
+                                 "port=5900\n"
+                                 "username=na\n"
+                                 "password=ask\n"
+                                 "\n"
+                                 "[neutrinordp-any]\n"
+                                 "name=neutrinordp-any\n"
+                                 "lib=libxrdpneutrinordp.so\n"
+                                 "ip=ask\n"
+                                 "port=3389\n"
+                                 "username=ask\n"
+                                 "password=ask\n");
         Executor::shell("chmod 644 /etc/xrdp/xrdp.ini 2>/dev/null || true");
 
         // 验证 xrdp 用户能否读取配置
@@ -681,6 +682,7 @@ namespace tmoe::domain {
         Logger::ok("XSDL 模式已启动 — DISPLAY=" + display);
         return true;
     }
+
     bool GUIManager::configure_wsl_pulseaudio() {
         Logger::step("配置 WSL PulseAudio...");
 
@@ -699,8 +701,8 @@ namespace tmoe::domain {
                                  ? std::string(std::getenv("HOME")) + "/.bashrc"
                                  : "/root/.bashrc";
         SystemHelper::append_file(fs::path(bashrc),
-                    "\n# tmoe WSL PulseAudio (已自动配置)\n"
-                    "export PULSE_SERVER=" + pulse_server + "\n");
+                                  "\n# tmoe WSL PulseAudio (已自动配置)\n"
+                                  "export PULSE_SERVER=" + pulse_server + "\n");
 
         Logger::ok("WSL PulseAudio 已配置: " + pulse_server);
         Logger::info("请在 Windows 端启动 PulseAudio 服务");
@@ -736,6 +738,7 @@ namespace tmoe::domain {
         Logger::info("现在可以运行 GUI 程序，画面将显示在 Windows 宿主机上");
         return true;
     }
+
     bool GUIManager::beautify_desktop() {
         Logger::step("桌面美化...");
         return true; // 由 TUI 菜单驱动
@@ -1588,8 +1591,8 @@ namespace tmoe::domain {
 
         // 添加 Xsession 行
         SystemHelper::append_file("/etc/xrdp/startwm.sh",
-                    "test -x /etc/X11/Xsession && exec /etc/X11/Xsession\n"
-                    "exec /etc/X11/xinit/Xsession\n");
+                                  "test -x /etc/X11/Xsession && exec /etc/X11/Xsession\n"
+                                  "exec /etc/X11/xinit/Xsession\n");
 
         // 替换为 dbus-launch + 实际会话
         Executor::shell("sed -i 's@exec /etc/X11/Xsession@exec dbus-launch " + session_cmd +
@@ -1602,6 +1605,7 @@ namespace tmoe::domain {
         check_xrdp_status();
         Logger::ok(std::string(_("gui.xrdp_session_done")));
     }
+
     void GUIManager::run_beautification_menu() {
         while (true) {
             std::string menu_cmd = cfg_.tui_bin +
@@ -1727,11 +1731,15 @@ namespace tmoe::domain {
         bool af = false, ae = false, av = false, ac = true, ak = false;
         std::string kt = "kali-linux-arm";
         if (fam == DistroFamily::Alpine) {
-            af = false; ae = false;
+            af = false;
+            ae = false;
         } else if (fam == DistroFamily::RedHat) {
-            af = false; ae = true; av = true;
+            af = false;
+            ae = true;
+            av = true;
         } else if (fam == DistroFamily::Debian || fam == DistroFamily::Arch) {
-            af = false; ae = true;
+            af = false;
+            ae = true;
             Executor::passthrough(cfg_.install_command + " baobab 2>/dev/null || true");
             Executor::passthrough(cfg_.install_command + " bleachbit 2>/dev/null || true");
             av = true;
@@ -1787,6 +1795,7 @@ namespace tmoe::domain {
 
         return ok;
     }
+
     bool GUIManager::install_iosevka_font() {
         Logger::step("安装 Iosevka 编程字体...");
 
@@ -1965,6 +1974,7 @@ namespace tmoe::domain {
         Logger::ok("noVNC 已卸载");
         return true;
     }
+
     bool GUIManager::download_wallpaper(std::string_view source) {
         Logger::step("下载壁纸: " + std::string(source));
 
@@ -2245,8 +2255,10 @@ namespace tmoe::domain {
         }
         // polkit 规则
         Executor::shell("mkdir -pv /etc/polkit-1/localauthority.conf.d /etc/polkit-1/localauthority/50-local.d/");
-        SystemHelper::write_file("/etc/polkit-1/localauthority.conf.d/02-allow-colord.conf", generate_polkit_colord_conf());
-        SystemHelper::write_file("/etc/polkit-1/localauthority/50-local.d/45-allow.colord.pkla", generate_polkit_colord_pkla());
+        SystemHelper::write_file("/etc/polkit-1/localauthority.conf.d/02-allow-colord.conf",
+                                 generate_polkit_colord_conf());
+        SystemHelper::write_file("/etc/polkit-1/localauthority/50-local.d/45-allow.colord.pkla",
+                                 generate_polkit_colord_pkla());
         // 备份配置
         if (!fs::exists(
             std::string(std::getenv("HOME") ? std::getenv("HOME") : "/root") + "/.config/tmoe-linux/xrdp.ini")) {
@@ -2542,9 +2554,6 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
 
 
-
-
-
     void GUIManager::tmoe_theme_installer(const std::string &file_path, bool is_icon) {
         std::string extract_path = is_icon ? "/usr/share/icons" : "/usr/share/themes";
         Executor::shell("mkdir -p " + extract_path);
@@ -2752,7 +2761,6 @@ namespace tmoe::domain {
     }
 
 
-
     void GUIManager::download_debian_gnome_wallpaper() {
         Logger::step("下载 Debian GNOME 壁纸...");
         std::string repo = "https://mirrors.bfsu.edu.cn/debian/pool/main/g/gnome-backgrounds/";
@@ -2875,7 +2883,6 @@ namespace tmoe::domain {
                         "update-icon-caches /usr/share/icons/Paper /usr/share/icons/Paper-Mono-Dark 2>/dev/null &");
         desktop_manager_.set_default_xfce_icon_theme("Paper");
     }
-
 
 
     void GUIManager::download_raspbian_pixel_icon_theme() {
@@ -3063,8 +3070,10 @@ namespace tmoe::domain {
         // 重新生成 polkit 规则
         Executor::shell(
             "mkdir -pv /etc/polkit-1/localauthority.conf.d /etc/polkit-1/localauthority/50-local.d/ 2>/dev/null");
-        SystemHelper::write_file("/etc/polkit-1/localauthority.conf.d/02-allow-colord.conf", generate_polkit_colord_conf());
-        SystemHelper::write_file("/etc/polkit-1/localauthority/50-local.d/45-allow.colord.pkla", generate_polkit_colord_pkla());
+        SystemHelper::write_file("/etc/polkit-1/localauthority.conf.d/02-allow-colord.conf",
+                                 generate_polkit_colord_conf());
+        SystemHelper::write_file("/etc/polkit-1/localauthority/50-local.d/45-allow.colord.pkla",
+                                 generate_polkit_colord_pkla());
 
         xrdp_restart();
     }
@@ -3170,8 +3179,6 @@ namespace tmoe::domain {
     }
 
 
-
-
     std::string GUIManager::generate_polkit_colord_conf() {
         return gui_config::POLKIT_COLORD_CONF;
     }
@@ -3179,5 +3186,4 @@ namespace tmoe::domain {
     std::string GUIManager::generate_polkit_colord_pkla() {
         return gui_config::POLKIT_COLORD_PKLA;
     }
-
 } // namespace tmoe::domain
