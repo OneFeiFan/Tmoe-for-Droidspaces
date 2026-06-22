@@ -713,7 +713,7 @@ namespace tmoe::domain {
         while (true) {
             std::string menu_cmd = CommandBuilder(cfg_.tui_bin)
                     .add_arg("--title").add_arg(_("gui.de_install_title"))
-                    .add_arg("--menu").add_arg("")
+                    .add_arg("--menu").add_arg(" ")  // 空字符串会被 add_arg 跳过,用空格代替
                     .add_arg("0").add_arg("0").add_arg("0")
                     .add_arg("1").add_arg(_("gui.de_rootless"))
                     .add_arg("2").add_arg(_("gui.de_rootful"))
@@ -742,7 +742,7 @@ namespace tmoe::domain {
         while (true) {
             CommandBuilder menu_cmd(cfg_.tui_bin);
             menu_cmd.add_arg("--title").add_arg(_("gui.de_rootless"))
-                    .add_arg("--menu").add_arg("")
+                    .add_arg("--menu").add_arg(" ")  // 空字符串会被 add_arg 跳过,用空格代替
                     .add_arg("0").add_arg("0").add_arg("0");
             int idx = 1;
             for (const auto &d: desktop_manager_.desktop_registry()) {
@@ -773,7 +773,7 @@ namespace tmoe::domain {
         while (true) {
             CommandBuilder menu_cmd(cfg_.tui_bin);
             menu_cmd.add_arg("--title").add_arg(_("gui.de_rootful"))
-                    .add_arg("--menu").add_arg("")
+                    .add_arg("--menu").add_arg(" ")  // 空字符串会被 add_arg 跳过,用空格代替
                     .add_arg("0").add_arg("0").add_arg("0");
             int idx = 1;
             for (const auto &d: desktop_manager_.desktop_registry()) {
