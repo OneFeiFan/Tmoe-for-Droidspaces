@@ -1139,8 +1139,8 @@ namespace tmoe::domain {
         bool is_proot = cfg_.is_termux || cfg_.linux_distro == "Android";
         Logger::debug("Using dbus-launch for session dbus" + std::string(is_proot ? " (proot mode)" : ""));
         return run_shell_command(is_proot
-            ? "dbus-launch 2>/dev/null &"
-            : "dbus-launch --exit-with-session 2>/dev/null &");
+                                     ? "dbus-launch 2>/dev/null &"
+                                     : "dbus-launch --exit-with-session 2>/dev/null &");
     }
 
     bool VncManager::fix_vnc_dbus() {
@@ -1212,14 +1212,14 @@ namespace tmoe::domain {
             // 原生生成 wslg thin wrapper (替代旧版 old-version 拷贝)
             const char *tmoe_bin = "/usr/local/bin/tmoe";
             write_file_content("/usr/local/bin/wslg",
-                "#!/bin/bash\n"
-                "# tmoe-linux wslg — native thin wrapper\n"
-                "TMOE_BIN=\"" + std::string(tmoe_bin) + "\"\n"
-                "[ -x \"$TMOE_BIN\" ] && exec \"$TMOE_BIN\" gui --start-wslg \"$@\"\n"
-                "# Fallback: direct Xwayland for WSLg\n"
-                "unset WAYLAND_DISPLAY\n"
-                "Xwayland :${1:-2} -noreset &\n"
-                "echo 'WSLg Xwayland started on :${1:-2}'\n");
+                               "#!/bin/bash\n"
+                               "# tmoe-linux wslg — native thin wrapper\n"
+                               "TMOE_BIN=\"" + std::string(tmoe_bin) + "\"\n"
+                               "[ -x \"$TMOE_BIN\" ] && exec \"$TMOE_BIN\" gui --start-wslg \"$@\"\n"
+                               "# Fallback: direct Xwayland for WSLg\n"
+                               "unset WAYLAND_DISPLAY\n"
+                               "Xwayland :${1:-2} -noreset &\n"
+                               "echo 'WSLg Xwayland started on :${1:-2}'\n");
             run_shell_command("chmod a+rx /usr/local/bin/wslg 2>/dev/null || true");
         }
         if (cfg_.sub_distro == "centos") {

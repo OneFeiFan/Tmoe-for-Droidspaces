@@ -710,13 +710,12 @@ namespace tmoe::domain {
                     install_packages({"ubuntudde-dde", "deepin-terminal"});
             }
             Executor::passthrough("dpkg --configure -a 2>/dev/null || true");
-            Executor::passthrough("apt clean 2>/dev/null || true");
-            {
-                const char* postinst_files[] = {
+            Executor::passthrough("apt clean 2>/dev/null || true"); {
+                const char *postinst_files[] = {
                     "/var/lib/dpkg/info/mincores-dkms.postinst",
                     "/var/lib/dpkg/info/warm-sched.postinst"
                 };
-                for (const auto& pf : postinst_files) {
+                for (const auto &pf: postinst_files) {
                     if (fs::exists(pf)) {
                         auto pf_content = SystemHelper::read_file(pf);
                         size_t newline_pos = pf_content.find('\n');
@@ -760,14 +759,18 @@ namespace tmoe::domain {
             if (r.exit_code == 0) {
                 install_packages({"cutefish", "cutefish-core"});
             } else {
-                install_packages({"cutefish", "cutefish-core", "cutefish-settings",
-                                  "cutefish-dock", "cutefish-launcher", "cutefish-filemanager",
-                                  "cutefish-terminal", "cutefish-texteditor"});
+                install_packages({
+                    "cutefish", "cutefish-core", "cutefish-settings",
+                    "cutefish-dock", "cutefish-launcher", "cutefish-filemanager",
+                    "cutefish-terminal", "cutefish-texteditor"
+                });
             }
         } else if (family == DistroFamily::Arch) {
-            PackageManager::install({"cutefish", "cutefish-core", "cutefish-settings",
-                                     "cutefish-dock", "cutefish-launcher", "cutefish-filemanager",
-                                     "cutefish-terminal"},
+            PackageManager::install({
+                                        "cutefish", "cutefish-core", "cutefish-settings",
+                                        "cutefish-dock", "cutefish-launcher", "cutefish-filemanager",
+                                        "cutefish-terminal"
+                                    },
                                     DistroFamily::Arch);
         } else if (family == DistroFamily::RedHat) {
             Executor::passthrough(cfg_.install_command + " cutefish cutefish-core 2>/dev/null || true");
@@ -1032,8 +1035,7 @@ namespace tmoe::domain {
 
         // 确保有 ColorPalette
         auto termrc_content = SystemHelper::read_file(termrc);
-        bool has_color_palette = false;
-        {
+        bool has_color_palette = false; {
             std::istringstream cp_stream(termrc_content);
             std::string cp_line;
             while (std::getline(cp_stream, cp_line)) {
@@ -1066,8 +1068,7 @@ namespace tmoe::domain {
 
         // 设置字体
         auto termrc_final = SystemHelper::read_file(termrc);
-        bool has_font_name = false;
-        {
+        bool has_font_name = false; {
             std::istringstream fn_stream(termrc_final);
             std::string fn_line;
             while (std::getline(fn_stream, fn_line)) {
@@ -1446,11 +1447,11 @@ namespace tmoe::domain {
 
 
     void DesktopManager::fix_dde_dpkg_error_ext() {
-        const char* postinst_files[] = {
+        const char *postinst_files[] = {
             "/var/lib/dpkg/info/mincores-dkms.postinst",
             "/var/lib/dpkg/info/warm-sched.postinst"
         };
-        for (const auto& pf : postinst_files) {
+        for (const auto &pf: postinst_files) {
             if (fs::exists(pf)) {
                 auto pf_content = SystemHelper::read_file(pf);
                 size_t newline_pos = pf_content.find('\n');

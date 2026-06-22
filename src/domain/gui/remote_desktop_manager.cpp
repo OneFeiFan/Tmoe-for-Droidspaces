@@ -210,9 +210,11 @@ namespace tmoe::domain {
             if (!content.empty()) {
                 auto nl_pos = content.find('\n');
                 std::string header = (nl_pos != std::string::npos)
-                    ? content.substr(0, nl_pos + 1) : content + "\n";
+                                         ? content.substr(0, nl_pos + 1)
+                                         : content + "\n";
                 std::string body = (nl_pos != std::string::npos)
-                    ? content.substr(nl_pos + 1) : "";
+                                       ? content.substr(nl_pos + 1)
+                                       : "";
 
                 std::string to_inject;
                 if (content.find("unset WAYLAND_DISPLAY") == std::string::npos)
@@ -494,7 +496,7 @@ namespace tmoe::domain {
                         if (start != std::string::npos) {
                             auto end = content.find('\n', start);
                             content.replace(start, (end != std::string::npos ? end - start : content.size() - start),
-                                           "NOVNC_PORT=" + port);
+                                            "NOVNC_PORT=" + port);
                         }
                         SystemHelper::write_file("/usr/local/bin/novnc", content);
                     }
@@ -610,7 +612,7 @@ namespace tmoe::domain {
                         if (start != std::string::npos) {
                             auto end = content.find('\n', start);
                             content.replace(start, (end != std::string::npos ? end - start : content.size() - start),
-                                           "PULSE_SERVER=" + val);
+                                            "PULSE_SERVER=" + val);
                         }
                         SystemHelper::write_file("/etc/xrdp/startwm.sh", content);
                     }
@@ -728,14 +730,14 @@ namespace tmoe::domain {
 
         // 2. 原生生成 x11vncpasswd 辅助脚本 (替代旧版 old-version 拷贝)
         SystemHelper::write_file("/usr/local/bin/x11vncpasswd",
-            "#!/bin/bash\n"
-            "# tmoe-linux x11vncpasswd — native password helper\n"
-            "VNC_HOME=\"" + vnc_manager_.config().vnc_home_dir.string() + "\"\n"
-            "mkdir -p \"$VNC_HOME\" 2>/dev/null\n"
-            "echo \"Setting x11vnc password...\"\n"
-            "x11vnc -storepasswd \"$VNC_HOME/x11passwd\" 2>/dev/null || "
-            "x11vnc -storepasswd ~/.vnc/x11passwd 2>/dev/null || true\n"
-            "echo 'x11vnc password configured'\n");
+                                 "#!/bin/bash\n"
+                                 "# tmoe-linux x11vncpasswd — native password helper\n"
+                                 "VNC_HOME=\"" + vnc_manager_.config().vnc_home_dir.string() + "\"\n"
+                                 "mkdir -p \"$VNC_HOME\" 2>/dev/null\n"
+                                 "echo \"Setting x11vnc password...\"\n"
+                                 "x11vnc -storepasswd \"$VNC_HOME/x11passwd\" 2>/dev/null || "
+                                 "x11vnc -storepasswd ~/.vnc/x11passwd 2>/dev/null || true\n"
+                                 "echo 'x11vnc password configured'\n");
         Executor::shell("chmod a+rx /usr/local/bin/x11vncpasswd 2>/dev/null || true");
 
         // 3. 确保 x11passwd 存在
@@ -811,7 +813,7 @@ namespace tmoe::domain {
                 }
                 // 替换 exec /etc/X11/Xsession -> exec dbus-launch [...] session_cmd
                 std::string replacement = "exec dbus-launch" +
-                    std::string(is_proot ? "" : " --exit-with-session") + " " + session_cmd;
+                                          std::string(is_proot ? "" : " --exit-with-session") + " " + session_cmd;
                 for (auto pos = content.find("exec /etc/X11/Xsession");
                      pos != std::string::npos;
                      pos = content.find("exec /etc/X11/Xsession", pos + replacement.size())) {
@@ -961,8 +963,7 @@ namespace tmoe::domain {
 
     void RemoteDesktopManager::xrdp_port() {
         // 原生 C++ 替代 cat|grep|cut 管道: 从 xrdp.ini 提取端口号
-        std::string current_port;
-        {
+        std::string current_port; {
             auto content = SystemHelper::read_file("/etc/xrdp/xrdp.ini");
             auto pos = content.find("port=");
             if (pos != std::string::npos) {
@@ -976,13 +977,13 @@ namespace tmoe::domain {
                     if (colon != std::string::npos && colon > eq_or_nl) {
                         auto end = content.find_first_of("\n\r ", colon);
                         current_port = content.substr(colon + 1,
-                            (end != std::string::npos ? end - colon - 1 : std::string::npos));
+                                                      (end != std::string::npos ? end - colon - 1 : std::string::npos));
                     }
                 } else {
                     // 简单格式: port=3389
                     auto end = content.find_first_of("\n\r ", val_start);
                     current_port = content.substr(val_start,
-                        (end != std::string::npos ? end - val_start : std::string::npos));
+                                                  (end != std::string::npos ? end - val_start : std::string::npos));
                 }
             }
         }
@@ -1007,8 +1008,7 @@ namespace tmoe::domain {
 
     void RemoteDesktopManager::xrdp_restart() {
         // 原生 C++ 替代 cat|grep|cut 管道: 从 xrdp.ini 提取端口号
-        std::string rdp_port;
-        {
+        std::string rdp_port; {
             auto content = SystemHelper::read_file("/etc/xrdp/xrdp.ini");
             auto pos = content.find("port=");
             if (pos != std::string::npos) {
@@ -1019,12 +1019,12 @@ namespace tmoe::domain {
                     if (colon != std::string::npos && colon > eq_or_nl) {
                         auto end = content.find_first_of("\n\r ", colon);
                         rdp_port = content.substr(colon + 1,
-                            (end != std::string::npos ? end - colon - 1 : std::string::npos));
+                                                  (end != std::string::npos ? end - colon - 1 : std::string::npos));
                     }
                 } else {
                     auto end = content.find_first_of("\n\r ", val_start);
                     rdp_port = content.substr(val_start,
-                        (end != std::string::npos ? end - val_start : std::string::npos));
+                                              (end != std::string::npos ? end - val_start : std::string::npos));
                 }
             }
         }

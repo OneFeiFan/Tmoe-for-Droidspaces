@@ -53,8 +53,13 @@ namespace tmoe::domain {
 
         vnc_manager_.configure_startvnc();
         vnc_manager_.configure_startxsdl();
-        Executor::shell(
-            "chmod a+rx -v /usr/local/bin/startvnc /usr/local/bin/stopvnc /usr/local/bin/startxsdl 2>/dev/null || true");
+        Executor::shell(CommandBuilder("chmod")
+                        .add_arg("a+rx")
+                        .add_arg("-v")
+                        .add_arg("/usr/local/bin/startvnc")
+                        .add_arg("/usr/local/bin/stopvnc")
+                        .add_arg("/usr/local/bin/startxsdl")
+                        .build_string() + " 2>/dev/null || true");
 
         // 5a. 安装 VNC 服务端字体依赖
         if (family == DistroFamily::Debian) {
@@ -77,10 +82,13 @@ namespace tmoe::domain {
                                  "It is recommended to use tiger.\n"
                                  "You only need to edit the startvnc script to change the vnc server at any time.";
 
-        auto r = Executor::passthrough(cfg_.tui_bin +
-                                       " --title \"Which vnc server do you prefer\""
-                                       " --yes-button 'tiger' --no-button 'tight'"
-                                       " --yesno \"" + prompt + "\" 0 50");
+        auto r = Executor::passthrough(CommandBuilder(cfg_.tui_bin)
+            .add_arg("--title").add_arg("Which vnc server do you prefer")
+            .add_arg("--yes-button").add_arg("tiger")
+            .add_arg("--no-button").add_arg("tight")
+            .add_arg("--yesno").add_arg(prompt)
+            .add_arg("0").add_arg("50")
+            .build_string());
         if (r.exit_code == 0) {
             vnc_manager_.config().server = "tiger";
             vnc_manager_.config().server_bin = "tigervnc";
@@ -103,9 +111,14 @@ namespace tmoe::domain {
             vnc_manager_.config().display = 2;
             vnc_manager_.config().update_port();
         } else {
-            auto port_r = Executor::passthrough(cfg_.tui_bin +
-                                                " --title \"VNC PORT\" --yes-button \"5902\" --no-button \"5903\""
-                                                " --yesno \"请选择VNC端口✨\\nPlease choose a vnc port\" 0 50");
+            auto port_r = Executor::passthrough(CommandBuilder(cfg_.tui_bin)
+                .add_arg("--title").add_arg("VNC PORT")
+                .add_arg("--yes-button").add_arg("5902")
+                .add_arg("--no-button").add_arg("5903")
+                .add_arg("--yesno")
+                .add_arg("请选择VNC端口✨\\nPlease choose a vnc port")
+                .add_arg("0").add_arg("50")
+                .build_string());
             if (port_r.exit_code == 0) {
                 vnc_manager_.config().display = 2;
                 vnc_manager_.config().update_port();
@@ -176,35 +189,60 @@ namespace tmoe::domain {
         if (!res.empty() && vnc_manager_.config().resolution_w > 0 && vnc_manager_.config().resolution_h > 0) {
             std::string res_str = std::to_string(vnc_manager_.config().resolution_w) + "x" + std::to_string(
                                       vnc_manager_.config().resolution_h);
-            Executor::shell(
-                "sed -i -E 's@(geometry)=.*@\\1=" + res_str +
-                "@' /etc/tigervnc/vncserver-config-tmoe 2>/dev/null || true");
-            Executor::shell(
-                "sed -i -E 's@^(VNC_RESOLUTION)=.*@\\1=" + res_str + "@' /usr/local/bin/startvnc 2>/dev/null || true");
-            Executor::shell(
-                "sed -i -E 's@^(TMOE_X11_RESOLUTION)=.*@\\1=" + res_str +
-                "@' /usr/local/bin/startx11vnc 2>/dev/null || true");
+            Executor::shell(CommandBuilder("sed")
+                            .add_arg("-i")
+                            .add_arg("-E")
+                            .add_arg("s@(geometry)=.*@\\1=" + res_str + "@")
+                            .add_arg("/etc/tigervnc/vncserver-config-tmoe")
+                            .build_string() + " 2>/dev/null || true");
+            Executor::shell(CommandBuilder("sed")
+                            .add_arg("-i")
+                            .add_arg("-E")
+                            .add_arg("s@^(VNC_RESOLUTION)=.*@\\1=" + res_str + "@")
+                            .add_arg("/usr/local/bin/startvnc")
+                            .build_string() + " 2>/dev/null || true");
+            Executor::shell(CommandBuilder("sed")
+                            .add_arg("-i")
+                            .add_arg("-E")
+                            .add_arg("s@^(TMOE_X11_RESOLUTION)=.*@\\1=" + res_str + "@")
+                            .add_arg("/usr/local/bin/startx11vnc")
+                            .build_string() + " 2>/dev/null || true");
         }
 
         // 5f. 权限修复
         if (home != "/root") {
-            Executor::passthrough("chown -R $(id -un):$(id -gn) " + home +
-                                  "/.vnc " + home + "/.Xauthority " + home + "/.ICEauthority "
-                                  + home + "/.cache " + home + "/.dbus " + home + "/.local 2>/dev/null || true");
+            Executor::passthrough(CommandBuilder("chown")
+                                  .add_arg("-R")
+                                  .add_arg("$(id -un):$(id -gn)")
+                                  .add_arg(home + "/.vnc")
+                                  .add_arg(home + "/.Xauthority")
+                                  .add_arg(home + "/.ICEauthority")
+                                  .add_arg(home + "/.cache")
+                                  .add_arg(home + "/.dbus")
+                                  .add_arg(home + "/.local")
+                                  .build_string() + " 2>/dev/null || true");
         }
 
         vnc_manager_.configure_vnc_defaults();
 
         // 6. 创建 ~/startvnc 符号链接
         if (!fs::exists(home + "/startvnc"))
-            Executor::shell("ln -sf /usr/local/bin/startvnc " + home + "/startvnc 2>/dev/null || true");
+            Executor::shell(CommandBuilder("ln")
+                            .add_arg("-sf")
+                            .add_arg("/usr/local/bin/startvnc")
+                            .add_arg(home + "/startvnc")
+                            .build_string() + " 2>/dev/null || true");
 
         // 复制 .vnc 到 /root
         if (home != "/root") {
             std::error_code ec;
             fs::copy(home + "/.vnc", "/root/.vnc", fs::copy_options::recursive | fs::copy_options::overwrite_existing,
                      ec);
-            Executor::shell("chown -R 0:0 /root/.vnc 2>/dev/null || true");
+            Executor::shell(CommandBuilder("chown")
+                            .add_arg("-R")
+                            .add_arg("0:0")
+                            .add_arg("/root/.vnc")
+                            .build_string() + " 2>/dev/null || true");
         }
 
         // 7. WSL 环境网络处理
@@ -222,13 +260,19 @@ namespace tmoe::domain {
                 std::string wsl_ip = wsl_r.ok() ? wsl_r.stdout_data : "";
                 while (!wsl_ip.empty() && (wsl_ip.back() == '\n' || wsl_ip.back() == '\r')) wsl_ip.pop_back();
                 if (!wsl_ip.empty()) {
-                    Executor::shell("export PULSE_SERVER=" + wsl_ip + " 2>/dev/null || true");
-                    Executor::shell("export DISPLAY=" + wsl_ip + ":0 2>/dev/null || true");
+                    Executor::shell(CommandBuilder("export")
+                                    .add_arg("PULSE_SERVER=" + wsl_ip)
+                                    .build_string() + " 2>/dev/null || true");
+                    Executor::shell(CommandBuilder("export")
+                                    .add_arg("DISPLAY=" + wsl_ip + ":0")
+                                    .build_string() + " 2>/dev/null || true");
                     Logger::info(std::string(_("gui.wsl_ip_modified")) + wsl_ip);
                 }
             } else {
                 Logger::info(_("gui.wsl1_detected"));
-                Executor::shell("export DISPLAY=127.0.0.1:0 2>/dev/null || true");
+                Executor::shell(CommandBuilder("export")
+                                .add_arg("DISPLAY=127.0.0.1:0")
+                                .build_string() + " 2>/dev/null || true");
             }
             Logger::info(_("gui.wsl_wslg_hint"));
         }
@@ -257,8 +301,11 @@ namespace tmoe::domain {
         Logger::info(std::string(_("gui.section_three")) + "：");
         vnc_manager_.check_xvnc_command();
         remote_desktop_manager_.x11vnc_warning();
-        auto x11vnc_confirm = Executor::passthrough(cfg_.tui_bin +
-                                                    " --yesno \"" + std::string(_("gui.confirm_x11vnc")) + "\" 0 0");
+        auto x11vnc_confirm = Executor::passthrough(CommandBuilder(cfg_.tui_bin)
+            .add_arg("--yesno")
+            .add_arg(std::string(_("gui.confirm_x11vnc")))
+            .add_arg("0").add_arg("0")
+            .build_string());
         if (x11vnc_confirm.exit_code == 0) {
             remote_desktop_manager_.configure_x11vnc_remote_desktop_session();
         }
@@ -272,20 +319,23 @@ namespace tmoe::domain {
     bool GUIManager::configure_xsdl() {
         Logger::step("配置 XSDL 连接...");
 
-        std::string display_cmd = cfg_.tui_bin +
-                                  " --title \"" + std::string(_("gui.xsdl_config_title")) +
-                                  "\" --menu \"" + std::string(_("gui.xsdl_config_prompt")) + "\" 0 0 0 "
-                                  "\"1\" \"" + std::string(_("gui.xsdl_display_local")) + "\" "
-                                  "\"2\" \"" + std::string(_("gui.xsdl_display_custom")) + "\"";
+        std::string display_cmd = CommandBuilder(cfg_.tui_bin)
+                .add_arg("--title").add_arg(std::string(_("gui.xsdl_config_title")))
+                .add_arg("--menu").add_arg(std::string(_("gui.xsdl_config_prompt")))
+                .add_arg("0").add_arg("0").add_arg("0")
+                .add_arg("1").add_arg(std::string(_("gui.xsdl_display_local")))
+                .add_arg("2").add_arg(std::string(_("gui.xsdl_display_custom")))
+                .build_string();
 
         std::string choice = Executor::tui_select(display_cmd);
         std::string display = "127.0.0.1:0";
 
         if (choice == "2") {
-            std::string input_cmd = cfg_.tui_bin +
-                                    " --title \"" + std::string(_("gui.xsdl_custom_title")) +
-                                    "\" --inputbox \"" + std::string(_("gui.xsdl_custom_input")) +
-                                    "\" 10 40 \"127.0.0.1:0\"";
+            std::string input_cmd = CommandBuilder(cfg_.tui_bin)
+                    .add_arg("--title").add_arg(std::string(_("gui.xsdl_custom_title")))
+                    .add_arg("--inputbox").add_arg(std::string(_("gui.xsdl_custom_input")))
+                    .add_arg("10").add_arg("40").add_arg("127.0.0.1:0")
+                    .build_string();
             display = Executor::tui_select(input_cmd);
         }
 
@@ -355,11 +405,15 @@ namespace tmoe::domain {
         fs::remove("/tmp/.X" + std::to_string(display_port) + "-lock", ec);
         fs::remove("/tmp/.X11-unix/X" + std::to_string(display_port), ec);
 
-        Executor::shell("stopvnc -no-stop-dbus 2>/dev/null || true");
+        Executor::shell(CommandBuilder("stopvnc")
+                        .add_arg("-no-stop-dbus")
+                        .build_string() + " 2>/dev/null || true");
         vnc_manager_.launch_dbus_daemon();
 
-        std::string cmd = "unset WAYLAND_DISPLAY; Xwayland :" + std::to_string(display_port) + " -noreset &";
-        Executor::passthrough(cmd);
+        auto xwayland_cmd = CommandBuilder("Xwayland")
+                .add_arg(":" + std::to_string(display_port))
+                .add_arg("-noreset");
+        Executor::passthrough("unset WAYLAND_DISPLAY; " + xwayland_cmd.build_string() + " &");
         Executor::shell("sleep 1");
 
         Logger::ok("WSLg Xwayland 已启动 — DISPLAY=:" + std::to_string(display_port));
@@ -392,9 +446,11 @@ namespace tmoe::domain {
         Logger::step("设置壁纸...");
 
         if (!path.empty() && fs::exists(path)) {
-            std::string cmd = "xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image "
-                              "-s " + std::string(path) + " 2>/dev/null &";
-            Executor::shell(cmd);
+            Executor::shell(CommandBuilder("xfconf-query")
+                            .add_arg("-c").add_arg("xfce4-desktop")
+                            .add_arg("-p").add_arg("/backdrop/screen0/monitor0/workspace0/last-image")
+                            .add_arg("-s").add_arg(std::string(path))
+                            .build_string() + " 2>/dev/null &");
             Logger::ok("壁纸已设置");
             return true;
         }
@@ -446,13 +502,15 @@ namespace tmoe::domain {
 
     void GUIManager::run_gui_menu() {
         while (true) {
-            std::string menu_cmd = cfg_.tui_bin +
-                                   " --title \"" + std::string(_("gui.main_title")) + "\""
-                                   " --menu \"" + std::string(_("gui.main_menu_prompt")) + "\" 0 0 0 "
-                                   "\"1\" \"" + std::string(_("gui.install_de")) + "\" "
-                                   "\"2\" \"" + std::string(_("gui.remote_title")) + "\" "
-                                   "\"3\" \"" + std::string(_("gui.beautify")) + "\" "
-                                   "\"0\" \"" + std::string(_("menu.tui.back_upper")) + "\"";
+            std::string menu_cmd = CommandBuilder(cfg_.tui_bin)
+                    .add_arg("--title").add_arg(std::string(_("gui.main_title")))
+                    .add_arg("--menu").add_arg(std::string(_("gui.main_menu_prompt")))
+                    .add_arg("0").add_arg("0").add_arg("0")
+                    .add_arg("1").add_arg(std::string(_("gui.install_de")))
+                    .add_arg("2").add_arg(std::string(_("gui.remote_title")))
+                    .add_arg("3").add_arg(std::string(_("gui.beautify")))
+                    .add_arg("0").add_arg(std::string(_("menu.tui.back_upper")))
+                    .build_string();
 
             std::string choice = Executor::tui_select(menu_cmd);
             if (choice == "0" || choice.empty()) break;
@@ -470,27 +528,30 @@ namespace tmoe::domain {
 
     void GUIManager::run_vnc_config_menu() {
         while (true) {
-            std::string menu_cmd = cfg_.tui_bin +
-                                   " --title \"Modify vnc server conf\""
-                                   " --menu \"Type startvnc to start vncserver,输入startvnc启动vnc服务\" 0 0 0 "
-                                   "\"edit_startvnc\" \"Edit startvnc 编辑vnc启动脚本\" "
-                                   "\"1\" \"" + std::string(_("gui.vnc_password")) + "\" "
-                                   "\"2\" \"" + std::string(_("gui.vnc_switch_server")) + "\" "
-                                   "\"3\" \"" + std::string(_("gui.vnc_resolution")) + " " + std::to_string(
-                                       vnc_manager_.config().resolution_w) + "x" +
-                                   std::to_string(vnc_manager_.config().resolution_h) + ")\" "
-                                   "\"4\" \"" + std::string(_("gui.vnc_port")) + " " + std::to_string(
-                                       vnc_manager_.config().rfb_port) + ")\" "
-                                   "\"5\" \"" + std::string(_("gui.vnc_depth")) + " " + std::to_string(
-                                       vnc_manager_.config().pixel_depth) + ")\" "
-                                   "\"6\" \"" + std::string(_("gui.vnc_zlib")) + " " + std::to_string(
-                                       vnc_manager_.config().zlib_level) + ")\" "
-                                   "\"7\" \"" + std::string(_("gui.vnc_pulseaudio")) + "\" "
-                                   "\"8\" \"Edit xsession\" "
-                                   "\"9\" \"Edit tigervnc-config\" "
-                                   "\"10\" \"Window scaling factor\" "
-                                   "\"11\" \"WSL pulseaudio(only for windows)\" "
-                                   "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
+            std::string menu_cmd = CommandBuilder(cfg_.tui_bin)
+                    .add_arg("--title").add_arg("Modify vnc server conf")
+                    .add_arg("--menu")
+                    .add_arg("Type startvnc to start vncserver,输入startvnc启动vnc服务")
+                    .add_arg("0").add_arg("0").add_arg("0")
+                    .add_arg("edit_startvnc").add_arg("Edit startvnc 编辑vnc启动脚本")
+                    .add_arg("1").add_arg(std::string(_("gui.vnc_password")))
+                    .add_arg("2").add_arg(std::string(_("gui.vnc_switch_server")))
+                    .add_arg("3").add_arg(std::string(_("gui.vnc_resolution")) + " " +
+                                          std::to_string(vnc_manager_.config().resolution_w) + "x" +
+                                          std::to_string(vnc_manager_.config().resolution_h) + ")")
+                    .add_arg("4").add_arg(std::string(_("gui.vnc_port")) + " " +
+                                          std::to_string(vnc_manager_.config().rfb_port) + ")")
+                    .add_arg("5").add_arg(std::string(_("gui.vnc_depth")) + " " +
+                                          std::to_string(vnc_manager_.config().pixel_depth) + ")")
+                    .add_arg("6").add_arg(std::string(_("gui.vnc_zlib")) + " " +
+                                          std::to_string(vnc_manager_.config().zlib_level) + ")")
+                    .add_arg("7").add_arg(std::string(_("gui.vnc_pulseaudio")))
+                    .add_arg("8").add_arg("Edit xsession")
+                    .add_arg("9").add_arg("Edit tigervnc-config")
+                    .add_arg("10").add_arg("Window scaling factor")
+                    .add_arg("11").add_arg("WSL pulseaudio(only for windows)")
+                    .add_arg("0").add_arg(std::string(_("menu.tui.back")))
+                    .build_string();
 
             std::string choice = Executor::tui_select(menu_cmd);
             if (choice == "0" || choice.empty()) break;
@@ -504,15 +565,17 @@ namespace tmoe::domain {
                 vnc_manager_.choose_vnc_server();
                 vnc_manager_.configure_vnc_defaults();
             } else if (choice == "3") {
-                std::string res_cmd = cfg_.tui_bin +
-                                      " --title \"" + std::string(_("gui.resolution_title")) +
-                                      "\" --menu \"" + std::string(_("gui.resolution_prompt")) + "\" 0 0 0 "
-                                      "\"1440x720\"  \"" + std::string(_("gui.resolution_1440x720")) + "\" "
-                                      "\"1280x720\"  \"" + std::string(_("gui.resolution_1280x720")) + "\" "
-                                      "\"1920x1080\" \"" + std::string(_("gui.resolution_1920x1080")) + "\" "
-                                      "\"2560x1440\" \"" + std::string(_("gui.resolution_2560x1440")) + "\" "
-                                      "\"1024x768\"  \"" + std::string(_("gui.resolution_1024x768")) + "\" "
-                                      "\"custom\"    \"" + std::string(_("gui.resolution_custom")) + "\"";
+                std::string res_cmd = CommandBuilder(cfg_.tui_bin)
+                        .add_arg("--title").add_arg(std::string(_("gui.resolution_title")))
+                        .add_arg("--menu").add_arg(std::string(_("gui.resolution_prompt")))
+                        .add_arg("0").add_arg("0").add_arg("0")
+                        .add_arg("1440x720").add_arg(std::string(_("gui.resolution_1440x720")))
+                        .add_arg("1280x720").add_arg(std::string(_("gui.resolution_1280x720")))
+                        .add_arg("1920x1080").add_arg(std::string(_("gui.resolution_1920x1080")))
+                        .add_arg("2560x1440").add_arg(std::string(_("gui.resolution_2560x1440")))
+                        .add_arg("1024x768").add_arg(std::string(_("gui.resolution_1024x768")))
+                        .add_arg("custom").add_arg(std::string(_("gui.resolution_custom")))
+                        .build_string();
                 std::string res = Executor::tui_select(res_cmd);
                 if (!res.empty() && res != "custom") {
                     auto xpos = res.find('x');
@@ -523,59 +586,79 @@ namespace tmoe::domain {
                     }
                 }
             } else if (choice == "4") {
-                std::string port_cmd = cfg_.tui_bin +
-                                       " --title \"" + std::string(_("gui.port_title")) +
-                                       "\" --menu \"" + std::string(_("gui.port_prompt")) + "\" 0 0 0 "
-                                       "\"5902\" \"" + std::string(_("gui.port_5902")) + "\" "
-                                       "\"5903\" \"" + std::string(_("gui.port_5903")) + "\" "
-                                       "\"5901\" \"" + std::string(_("gui.port_5901")) + "\"";
+                std::string port_cmd = CommandBuilder(cfg_.tui_bin)
+                        .add_arg("--title").add_arg(std::string(_("gui.port_title")))
+                        .add_arg("--menu").add_arg(std::string(_("gui.port_prompt")))
+                        .add_arg("0").add_arg("0").add_arg("0")
+                        .add_arg("5902").add_arg(std::string(_("gui.port_5902")))
+                        .add_arg("5903").add_arg(std::string(_("gui.port_5903")))
+                        .add_arg("5901").add_arg(std::string(_("gui.port_5901")))
+                        .build_string();
                 std::string port = Executor::tui_select(port_cmd);
                 if (!port.empty()) {
                     int p = std::stoi(port);
                     vnc_manager_.config().display = p - 5900;
                     vnc_manager_.config().rfb_port = p;
-                    Executor::shell(
-                        "sed -i 's@tmoe-linux.*:.*@tmoe-linux :" + std::to_string(vnc_manager_.config().display) +
-                        "@' /usr/local/bin/startvnc 2>/dev/null || true");
-                    Executor::shell(
-                        "sed -i 's@VNC_DISPLAY=.*@VNC_DISPLAY=" + std::to_string(vnc_manager_.config().display) +
-                        "@' /usr/local/bin/startvnc 2>/dev/null || true");
+                    Executor::shell(CommandBuilder("sed")
+                                    .add_arg("-i")
+                                    .add_arg("s@tmoe-linux.*:.*@tmoe-linux :" +
+                                             std::to_string(vnc_manager_.config().display) + "@")
+                                    .add_arg("/usr/local/bin/startvnc")
+                                    .build_string() + " 2>/dev/null || true");
+                    Executor::shell(CommandBuilder("sed")
+                                    .add_arg("-i")
+                                    .add_arg("s@VNC_DISPLAY=.*@VNC_DISPLAY=" +
+                                             std::to_string(vnc_manager_.config().display) + "@")
+                                    .add_arg("/usr/local/bin/startvnc")
+                                    .build_string() + " 2>/dev/null || true");
                 }
             } else if (choice == "5") {
-                std::string depth_cmd = cfg_.tui_bin +
-                                        " --title \"" + std::string(_("gui.depth_title")) +
-                                        "\" --menu \"" + std::string(_("gui.depth_prompt")) + "\" 0 0 0 "
-                                        "\"24\" \"" + std::string(_("gui.depth_24")) + "\" "
-                                        "\"16\" \"" + std::string(_("gui.depth_16")) + "\"";
+                std::string depth_cmd = CommandBuilder(cfg_.tui_bin)
+                        .add_arg("--title").add_arg(std::string(_("gui.depth_title")))
+                        .add_arg("--menu").add_arg(std::string(_("gui.depth_prompt")))
+                        .add_arg("0").add_arg("0").add_arg("0")
+                        .add_arg("24").add_arg(std::string(_("gui.depth_24")))
+                        .add_arg("16").add_arg(std::string(_("gui.depth_16")))
+                        .build_string();
                 std::string depth = Executor::tui_select(depth_cmd);
                 if (!depth.empty()) vnc_manager_.config().pixel_depth = std::stoi(depth);
             } else if (choice == "6") {
-                std::string zlib_cmd = cfg_.tui_bin +
-                                       " --title \"" + std::string(_("gui.zlib_title")) +
-                                       "\" --menu \"" + std::string(_("gui.zlib_prompt")) + "\" 0 0 0 "
-                                       "\"0\" \"" + std::string(_("gui.zlib_0")) + "\" "
-                                       "\"3\" \"" + std::string(_("gui.zlib_3")) + "\" "
-                                       "\"6\" \"" + std::string(_("gui.zlib_6")) + "\" "
-                                       "\"9\" \"" + std::string(_("gui.zlib_9")) + "\"";
+                std::string zlib_cmd = CommandBuilder(cfg_.tui_bin)
+                        .add_arg("--title").add_arg(std::string(_("gui.zlib_title")))
+                        .add_arg("--menu").add_arg(std::string(_("gui.zlib_prompt")))
+                        .add_arg("0").add_arg("0").add_arg("0")
+                        .add_arg("0").add_arg(std::string(_("gui.zlib_0")))
+                        .add_arg("3").add_arg(std::string(_("gui.zlib_3")))
+                        .add_arg("6").add_arg(std::string(_("gui.zlib_6")))
+                        .add_arg("9").add_arg(std::string(_("gui.zlib_9")))
+                        .build_string();
                 std::string zlib = Executor::tui_select(zlib_cmd);
                 if (!zlib.empty()) vnc_manager_.config().zlib_level = std::stoi(zlib);
             } else if (choice == "7") {
-                std::string pa_cmd = cfg_.tui_bin +
-                                     " --title \"MODIFY PULSE SERVER ADDRESS\""
-                                     " --inputbox \"输入 PulseAudio 服务器地址, linux 默认为 127.0.0.1, WSL2 为宿主机 ip\\\\n"
-                                     "Android-Termux 需输 pulseaudio --start\\\\n"
-                                     "例如 192.168.1.3:4713\" 20 50";
+                std::string pa_cmd = CommandBuilder(cfg_.tui_bin)
+                        .add_arg("--title").add_arg("MODIFY PULSE SERVER ADDRESS")
+                        .add_arg("--inputbox")
+                        .add_arg("输入 PulseAudio 服务器地址, linux 默认为 127.0.0.1, WSL2 为宿主机 ip\\\\n"
+                            "Android-Termux 需输 pulseaudio --start\\\\n"
+                            "例如 192.168.1.3:4713")
+                        .add_arg("20").add_arg("50")
+                        .build_string();
                 std::string pa_addr = Executor::tui_select(pa_cmd);
                 if (!pa_addr.empty()) {
                     std::string pa_script = "/usr/local/bin/startvnc";
                     auto pa_content = SystemHelper::read_file(fs::path(pa_script));
                     if (pa_content.find("PULSE_SERVER") != std::string::npos) {
-                        Executor::shell(
-                            "sed -i 's@^export PULSE_SERVER=.*@export PULSE_SERVER=" + pa_addr + "@' " + pa_script +
-                            " 2>/dev/null || true");
+                        Executor::shell(CommandBuilder("sed")
+                                        .add_arg("-i")
+                                        .add_arg("s@^export PULSE_SERVER=.*@export PULSE_SERVER=" + pa_addr + "@")
+                                        .add_arg(pa_script)
+                                        .build_string() + " 2>/dev/null || true");
                     } else {
-                        Executor::shell(
-                            "sed -i '4 a\\export PULSE_SERVER=" + pa_addr + "' " + pa_script + " 2>/dev/null || true");
+                        Executor::shell(CommandBuilder("sed")
+                                        .add_arg("-i")
+                                        .add_arg("4 a\\export PULSE_SERVER=" + pa_addr)
+                                        .add_arg(pa_script)
+                                        .build_string() + " 2>/dev/null || true");
                     }
                     Logger::ok("PULSE_SERVER 已更新为: " + pa_addr);
                 }
@@ -586,21 +669,33 @@ namespace tmoe::domain {
                 std::string editor = std::getenv("EDITOR") ? std::getenv("EDITOR") : "nano";
                 Executor::passthrough(editor + " /etc/tigervnc/vncserver-config-tmoe");
             } else if (choice == "10") {
-                std::string scale_cmd = cfg_.tui_bin +
-                                        " --title \"Window scaling factor\""
-                                        " --inputbox \"请选择缩放因子 (1 或 2)\\n1 = 正常, 2 = 2倍缩放\\n"
-                                        "1 = normal, 2 = HiDPI\" 12 50 \"1\"";
+                std::string scale_cmd = CommandBuilder(cfg_.tui_bin)
+                        .add_arg("--title").add_arg("Window scaling factor")
+                        .add_arg("--inputbox")
+                        .add_arg("请选择缩放因子 (1 或 2)\\n1 = 正常, 2 = 2倍缩放\\n"
+                            "1 = normal, 2 = HiDPI")
+                        .add_arg("12").add_arg("50").add_arg("1")
+                        .build_string();
                 std::string scale = Executor::tui_select(scale_cmd);
                 if (!scale.empty() && (scale == "1" || scale == "2")) {
-                    Executor::shell("dbus-launch xfconf-query -c xsettings -t int -np /Gdk/WindowScalingFactor -s " +
-                                    scale + " 2>/dev/null || true");
+                    Executor::shell(CommandBuilder("dbus-launch")
+                                    .add_arg("xfconf-query")
+                                    .add_arg("-c").add_arg("xsettings")
+                                    .add_arg("-t").add_arg("int")
+                                    .add_arg("-np").add_arg("/Gdk/WindowScalingFactor")
+                                    .add_arg("-s").add_arg(scale)
+                                    .build_string() + " 2>/dev/null || true");
                     if (scale == "2") {
                         auto os_rel_content = SystemHelper::read_file("/etc/os-release");
                         if (os_rel_content.find("Focal Fossa") != std::string::npos ||
                             os_rel_content.find("focal") != std::string::npos) {
-                            Executor::shell(
-                                "dbus-launch xfconf-query -c xfwm4 -t string -np /general/theme -s \"Kali-Light-xHiDPI\""
-                                " 2>/dev/null || true");
+                            Executor::shell(CommandBuilder("dbus-launch")
+                                            .add_arg("xfconf-query")
+                                            .add_arg("-c").add_arg("xfwm4")
+                                            .add_arg("-t").add_arg("string")
+                                            .add_arg("-np").add_arg("/general/theme")
+                                            .add_arg("-s").add_arg("Kali-Light-xHiDPI")
+                                            .build_string() + " 2>/dev/null || true");
                             Logger::info("Focal Fossa: 已设置主题为 Kali-Light-xHiDPI");
                         }
                     }
@@ -616,14 +711,16 @@ namespace tmoe::domain {
 
     void GUIManager::run_desktop_install_menu() {
         while (true) {
-            std::string menu_cmd = cfg_.tui_bin +
-                                   " --title \"" + _("gui.de_install_title") + "\""
-                                   " --menu \"" + "" + "\" 0 0 0 "
-                                   "\"1\" \"" + _("gui.de_rootless") + "\" "
-                                   "\"2\" \"" + _("gui.de_rootful") + "\" "
-                                   "\"3\" \"" + _("gui.de_install_wm") + "\" "
-                                   "\"4\" \"" + _("gui.de_install_dm") + "\" "
-                                   "\"0\" \"" + _("menu.tui.back") + "\"";
+            std::string menu_cmd = CommandBuilder(cfg_.tui_bin)
+                    .add_arg("--title").add_arg(_("gui.de_install_title"))
+                    .add_arg("--menu").add_arg("")
+                    .add_arg("0").add_arg("0").add_arg("0")
+                    .add_arg("1").add_arg(_("gui.de_rootless"))
+                    .add_arg("2").add_arg(_("gui.de_rootful"))
+                    .add_arg("3").add_arg(_("gui.de_install_wm"))
+                    .add_arg("4").add_arg(_("gui.de_install_dm"))
+                    .add_arg("0").add_arg(_("menu.tui.back"))
+                    .build_string();
 
             std::string choice = Executor::tui_select(menu_cmd);
             if (choice == "0" || choice.empty()) break;
@@ -643,17 +740,18 @@ namespace tmoe::domain {
 
     void GUIManager::run_rootless_de_menu() {
         while (true) {
-            std::string menu_cmd = cfg_.tui_bin +
-                                   " --title \"" + _("gui.de_rootless") + "\""
-                                   " --menu \"\" 0 0 0 ";
+            CommandBuilder menu_cmd(cfg_.tui_bin);
+            menu_cmd.add_arg("--title").add_arg(_("gui.de_rootless"))
+                    .add_arg("--menu").add_arg("")
+                    .add_arg("0").add_arg("0").add_arg("0");
             int idx = 1;
             for (const auto &d: desktop_manager_.desktop_registry()) {
                 if (!d.requires_root) {
-                    menu_cmd += "\"" + std::to_string(idx++) + "\" \"" + d.name + " (" + d.compat_notes + ")\" ";
+                    menu_cmd.add_arg(std::to_string(idx++)).add_arg(d.name + " (" + d.compat_notes + ")");
                 }
             }
-            menu_cmd += "\"0\" \"" + _("menu.tui.back") + "\"";
-            auto ch = Executor::tui_select(menu_cmd);
+            menu_cmd.add_arg("0").add_arg(_("menu.tui.back"));
+            auto ch = Executor::tui_select(menu_cmd.build_string());
             if (ch == "0" || ch.empty()) break;
             int sel = std::stoi(ch);
             int i = 0;
@@ -673,17 +771,18 @@ namespace tmoe::domain {
 
     void GUIManager::run_rootful_de_menu() {
         while (true) {
-            std::string menu_cmd = cfg_.tui_bin +
-                                   " --title \"" + _("gui.de_rootful") + "\""
-                                   " --menu \"\" 0 0 0 ";
+            CommandBuilder menu_cmd(cfg_.tui_bin);
+            menu_cmd.add_arg("--title").add_arg(_("gui.de_rootful"))
+                    .add_arg("--menu").add_arg("")
+                    .add_arg("0").add_arg("0").add_arg("0");
             int idx = 1;
             for (const auto &d: desktop_manager_.desktop_registry()) {
                 if (d.requires_root) {
-                    menu_cmd += "\"" + std::to_string(idx++) + "\" \"" + d.name + " (" + d.compat_notes + ")\" ";
+                    menu_cmd.add_arg(std::to_string(idx++)).add_arg(d.name + " (" + d.compat_notes + ")");
                 }
             }
-            menu_cmd += "\"0\" \"" + _("menu.tui.back") + "\"";
-            auto ch = Executor::tui_select(menu_cmd);
+            menu_cmd.add_arg("0").add_arg(_("menu.tui.back"));
+            auto ch = Executor::tui_select(menu_cmd.build_string());
             if (ch == "0" || ch.empty()) break;
             int sel = std::stoi(ch);
             int i = 0;
@@ -703,18 +802,19 @@ namespace tmoe::domain {
 
     void GUIManager::run_wm_menu() {
         while (true) {
-            std::string wm_menu = cfg_.tui_bin +
-                                  " --title \"" + std::string(_("gui.wm_title")) +
-                                  "\" --menu \"" + std::string(_("gui.wm_prompt")) + "\" 0 0 0 ";
+            CommandBuilder wm_menu(cfg_.tui_bin);
+            wm_menu.add_arg("--title").add_arg(std::string(_("gui.wm_title")))
+                    .add_arg("--menu").add_arg(std::string(_("gui.wm_prompt")))
+                    .add_arg("0").add_arg("0").add_arg("0");
             int idx = 1;
             for (const auto &d: desktop_manager_.desktop_registry()) {
                 if (d.is_window_manager) {
-                    wm_menu += "\"" + std::to_string(idx++) + "\" \""
-                            + d.name + (d.compat_notes.empty() ? "" : " (" + d.compat_notes + ")") + "\" ";
+                    wm_menu.add_arg(std::to_string(idx++)).add_arg(
+                        d.name + (d.compat_notes.empty() ? "" : " (" + d.compat_notes + ")"));
                 }
             }
-            wm_menu += "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
-            auto ch = Executor::tui_select(wm_menu);
+            wm_menu.add_arg("0").add_arg(std::string(_("menu.tui.back")));
+            auto ch = Executor::tui_select(wm_menu.build_string());
             if (ch == "0" || ch.empty()) break;
             int sel = std::stoi(ch);
             int i = 0;
@@ -737,15 +837,17 @@ namespace tmoe::domain {
     }
 
     void GUIManager::run_dm_menu() {
-        std::string dm_menu = cfg_.tui_bin +
-                              " --title \"" + std::string(_("gui.dm_title")) +
-                              "\" --menu \"" + std::string(_("gui.dm_prompt")) + "\" 0 0 0 "
-                              "\"1\" \"lightdm: 支持跨桌面,可使用各种前端\" "
-                              "\"2\" \"sddm: 现代化DM,替代KDE4的KDM\" "
-                              "\"3\" \"gdm: GNOME默认DM\" "
-                              "\"4\" \"slim: Lightweight轻量\" "
-                              "\"5\" \"lxdm: LXDE默认DM(独立于桌面环境)\" "
-                              "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
+        std::string dm_menu = CommandBuilder(cfg_.tui_bin)
+                .add_arg("--title").add_arg(std::string(_("gui.dm_title")))
+                .add_arg("--menu").add_arg(std::string(_("gui.dm_prompt")))
+                .add_arg("0").add_arg("0").add_arg("0")
+                .add_arg("1").add_arg("lightdm: 支持跨桌面,可使用各种前端")
+                .add_arg("2").add_arg("sddm: 现代化DM,替代KDE4的KDM")
+                .add_arg("3").add_arg("gdm: GNOME默认DM")
+                .add_arg("4").add_arg("slim: Lightweight轻量")
+                .add_arg("5").add_arg("lxdm: LXDE默认DM(独立于桌面环境)")
+                .add_arg("0").add_arg(std::string(_("menu.tui.back")))
+                .build_string();
         auto ch = Executor::tui_select(dm_menu);
         auto fam = get_family(cfg_);
         if (ch == "1") {
@@ -768,61 +870,89 @@ namespace tmoe::domain {
 
     void GUIManager::run_xsdl_config_menu() {
         while (true) {
-            std::string menu = cfg_.tui_bin +
-                               " --title \"Modify x server conf\""
-                               " --menu \"Type startxsdl to start x11.输startxsdl启动x11\" 0 50 0 "
-                               "\"1\" \"Pulse server port 音频端口\" "
-                               "\"2\" \"Display number 显示编号\" "
-                               "\"3\" \"ip address\" "
-                               "\"4\" \"Edit manually 手动编辑\" "
-                               "\"5\" \"DISPLAY switch 转发显示开关(仅qemu)\" "
-                               "\"6\" \"VcXsrv显示端口(仅win10)\" "
-                               "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
+            std::string menu = CommandBuilder(cfg_.tui_bin)
+                    .add_arg("--title").add_arg("Modify x server conf")
+                    .add_arg("--menu")
+                    .add_arg("Type startxsdl to start x11.输startxsdl启动x11")
+                    .add_arg("0").add_arg("50").add_arg("0")
+                    .add_arg("1").add_arg("Pulse server port 音频端口")
+                    .add_arg("2").add_arg("Display number 显示编号")
+                    .add_arg("3").add_arg("ip address")
+                    .add_arg("4").add_arg("Edit manually 手动编辑")
+                    .add_arg("5").add_arg("DISPLAY switch 转发显示开关(仅qemu)")
+                    .add_arg("6").add_arg("VcXsrv显示端口(仅win10)")
+                    .add_arg("0").add_arg(std::string(_("menu.tui.back")))
+                    .build_string();
             auto ch = Executor::tui_select(menu);
             if (ch == "0" || ch.empty()) break;
 
             std::string script = "/usr/local/bin/startxsdl";
             if (ch == "1") {
-                std::string cmd = cfg_.tui_bin +
-                                  " --title \"MODIFY PULSE SERVER PORT\""
-                                  " --inputbox \"Please type the pulse server port\" 10 50";
+                std::string cmd = CommandBuilder(cfg_.tui_bin)
+                        .add_arg("--title").add_arg("MODIFY PULSE SERVER PORT")
+                        .add_arg("--inputbox").add_arg("Please type the pulse server port")
+                        .add_arg("10").add_arg("50")
+                        .build_string();
                 std::string val = Executor::tui_select(cmd);
                 if (!val.empty())
-                    Executor::shell(
-                        "sed -i 's@PULSE_SERVER=.*@PULSE_SERVER=\"tcp:localhost:" + val + "\"@' " + script +
-                        " 2>/dev/null || true");
+                    Executor::shell(CommandBuilder("sed")
+                                    .add_arg("-i")
+                                    .add_arg("s@PULSE_SERVER=.*@PULSE_SERVER=\"tcp:localhost:" + val + "\"@")
+                                    .add_arg(script)
+                                    .build_string() + " 2>/dev/null || true");
             } else if (ch == "2") {
-                std::string cmd = cfg_.tui_bin +
-                                  " --title \"DISPLAY NUMBER\""
-                                  " --inputbox \"请输入显示编号 (默认0)\" 10 50 \"0\"";
+                std::string cmd = CommandBuilder(cfg_.tui_bin)
+                        .add_arg("--title").add_arg("DISPLAY NUMBER")
+                        .add_arg("--inputbox").add_arg("请输入显示编号 (默认0)")
+                        .add_arg("10").add_arg("50").add_arg("0")
+                        .build_string();
                 std::string val = Executor::tui_select(cmd);
                 if (!val.empty())
-                    Executor::shell(
-                        "sed -i 's@DISPLAY_NUM=.*@DISPLAY_NUM=" + val + "@' " + script + " 2>/dev/null || true");
+                    Executor::shell(CommandBuilder("sed")
+                                    .add_arg("-i")
+                                    .add_arg("s@DISPLAY_NUM=.*@DISPLAY_NUM=" + val + "@")
+                                    .add_arg(script)
+                                    .build_string() + " 2>/dev/null || true");
             } else if (ch == "3") {
-                std::string cmd = cfg_.tui_bin +
-                                  " --title \"IP ADDRESS\""
-                                  " --inputbox \"请输入 ip 地址 (默认 127.0.0.1)\" 10 50 \"127.0.0.1\"";
+                std::string cmd = CommandBuilder(cfg_.tui_bin)
+                        .add_arg("--title").add_arg("IP ADDRESS")
+                        .add_arg("--inputbox").add_arg("请输入 ip 地址 (默认 127.0.0.1)")
+                        .add_arg("10").add_arg("50").add_arg("127.0.0.1")
+                        .build_string();
                 std::string val = Executor::tui_select(cmd);
                 if (!val.empty())
-                    Executor::shell("sed -i 's@XSDL_IP=.*@XSDL_IP=" + val + "@' " + script + " 2>/dev/null || true");
+                    Executor::shell(CommandBuilder("sed")
+                                    .add_arg("-i")
+                                    .add_arg("s@XSDL_IP=.*@XSDL_IP=" + val + "@")
+                                    .add_arg(script)
+                                    .build_string() + " 2>/dev/null || true");
             } else if (ch == "4") {
                 Executor::passthrough("${EDITOR:-nano} " + script + " 2>/dev/null || nano " + script);
             } else if (ch == "5") {
-                std::string cmd = cfg_.tui_bin + " --yesno \"是否切换 DISPLAY 转发开关？\" 0 0";
+                std::string cmd = CommandBuilder(cfg_.tui_bin)
+                        .add_arg("--yesno").add_arg("是否切换 DISPLAY 转发开关？")
+                        .add_arg("0").add_arg("0")
+                        .build_string();
                 auto r = Executor::passthrough(cmd);
                 if (r.exit_code == 0)
                     Executor::shell(
-                        "if grep -q '^export.*DISPLAY' " + script + "; then sed -i '/export DISPLAY=/d' " + script +
+                        "if grep -q '^export.*DISPLAY' " + script + "; then " +
+                        CommandBuilder("sed").add_arg("-i").add_arg("/export DISPLAY=/d").add_arg(script)
+                        .build_string() +
                         "; else echo 'export DISPLAY=:0' >> " + script + "; fi 2>/dev/null || true");
             } else if (ch == "6") {
-                std::string cmd = cfg_.tui_bin +
-                                  " --title \"VcXsrv DISPLAY PORT\""
-                                  " --inputbox \"请输入 VcXsrv 显示端口 (默认 :0)\" 10 50 \":0\"";
+                std::string cmd = CommandBuilder(cfg_.tui_bin)
+                        .add_arg("--title").add_arg("VcXsrv DISPLAY PORT")
+                        .add_arg("--inputbox").add_arg("请输入 VcXsrv 显示端口 (默认 :0)")
+                        .add_arg("10").add_arg("50").add_arg(":0")
+                        .build_string();
                 std::string val = Executor::tui_select(cmd);
                 if (!val.empty())
-                    Executor::shell(
-                        "sed -i 's@VCXSRV_DISPLAY=.*@VCXSRV_DISPLAY=" + val + "@' " + script + " 2>/dev/null || true");
+                    Executor::shell(CommandBuilder("sed")
+                                    .add_arg("-i")
+                                    .add_arg("s@VCXSRV_DISPLAY=.*@VCXSRV_DISPLAY=" + val + "@")
+                                    .add_arg(script)
+                                    .build_string() + " 2>/dev/null || true");
             }
             Logger::press_enter();
         }
@@ -830,56 +960,64 @@ namespace tmoe::domain {
 
     void GUIManager::run_beautification_menu() {
         while (true) {
-            std::string menu_cmd = cfg_.tui_bin +
-                                   " --title \"" + std::string(_("gui.beautify_title")) +
-                                   "\" --menu \"" + std::string(_("gui.beautify_prompt")) + "\" 0 0 0 "
-                                   "\"1\" \"" + std::string(_("gui.beautify_gtk_theme")) + "\" "
-                                   "\"2\" \"" + std::string(_("gui.beautify_icon_theme")) + "\" "
-                                   "\"3\" \"" + std::string(_("gui.beautify_wallpaper")) + "\" "
-                                   "\"4\" \"" + std::string(_("gui.beautify_plank")) + "\" "
-                                   "\"5\" \"" + std::string(_("gui.beautify_compiz")) + "\" "
-                                   "\"6\" \"" + std::string(_("gui.beautify_conky")) + "\" "
-                                   "\"7\" \"" + std::string(_("gui.beautify_cursor")) + "\" "
-                                   "\"8\" \"" + std::string(_("gui.beautify_xfce_panel")) + "\" "
-                                   "\"9\" \"" + std::string(_("gui.beautify_iosevka")) + "\" "
-                                   "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
+            std::string menu_cmd = CommandBuilder(cfg_.tui_bin)
+                    .add_arg("--title").add_arg(std::string(_("gui.beautify_title")))
+                    .add_arg("--menu").add_arg(std::string(_("gui.beautify_prompt")))
+                    .add_arg("0").add_arg("0").add_arg("0")
+                    .add_arg("1").add_arg(std::string(_("gui.beautify_gtk_theme")))
+                    .add_arg("2").add_arg(std::string(_("gui.beautify_icon_theme")))
+                    .add_arg("3").add_arg(std::string(_("gui.beautify_wallpaper")))
+                    .add_arg("4").add_arg(std::string(_("gui.beautify_plank")))
+                    .add_arg("5").add_arg(std::string(_("gui.beautify_compiz")))
+                    .add_arg("6").add_arg(std::string(_("gui.beautify_conky")))
+                    .add_arg("7").add_arg(std::string(_("gui.beautify_cursor")))
+                    .add_arg("8").add_arg(std::string(_("gui.beautify_xfce_panel")))
+                    .add_arg("9").add_arg(std::string(_("gui.beautify_iosevka")))
+                    .add_arg("0").add_arg(std::string(_("menu.tui.back")))
+                    .build_string();
 
             std::string choice = Executor::tui_select(menu_cmd);
             if (choice == "0" || choice.empty()) break;
 
             if (choice == "1") {
-                std::string theme_menu = cfg_.tui_bin +
-                                         " --title \"" + std::string(_("gui.gtk_theme_title")) +
-                                         "\" --menu \"" + std::string(_("gui.gtk_theme_prompt")) + "\" 0 0 0 "
-                                         "\"arc\" \"" + std::string(_("gui.gtk_theme_arc")) + "\" "
-                                         "\"adapta\" \"" + std::string(_("gui.gtk_theme_adapta")) + "\" "
-                                         "\"numix\" \"" + std::string(_("gui.gtk_theme_numix")) + "\" "
-                                         "\"materia\" \"" + std::string(_("gui.gtk_theme_materia")) + "\" "
-                                         "\"breeze\" \"" + std::string(_("gui.gtk_theme_breeze")) + "\"";
+                std::string theme_menu = CommandBuilder(cfg_.tui_bin)
+                        .add_arg("--title").add_arg(std::string(_("gui.gtk_theme_title")))
+                        .add_arg("--menu").add_arg(std::string(_("gui.gtk_theme_prompt")))
+                        .add_arg("0").add_arg("0").add_arg("0")
+                        .add_arg("arc").add_arg(std::string(_("gui.gtk_theme_arc")))
+                        .add_arg("adapta").add_arg(std::string(_("gui.gtk_theme_adapta")))
+                        .add_arg("numix").add_arg(std::string(_("gui.gtk_theme_numix")))
+                        .add_arg("materia").add_arg(std::string(_("gui.gtk_theme_materia")))
+                        .add_arg("breeze").add_arg(std::string(_("gui.gtk_theme_breeze")))
+                        .build_string();
                 std::string t = Executor::tui_select(theme_menu);
                 if (!t.empty() && t != "0") install_theme(t);
             } else if (choice == "2") {
-                std::string icon_menu = cfg_.tui_bin +
-                                        " --title \"" + std::string(_("gui.icon_theme_title")) +
-                                        "\" --menu \"" + std::string(_("gui.icon_theme_prompt")) + "\" 0 0 0 "
-                                        "\"papirus\" \"" + std::string(_("gui.icon_papirus")) + "\" "
-                                        "\"numix\" \"" + std::string(_("gui.icon_numix")) + "\" "
-                                        "\"breeze\" \"" + std::string(_("gui.icon_breeze")) + "\" "
-                                        "\"elementary\" \"" + std::string(_("gui.icon_elementary")) + "\" "
-                                        "\"tango\" \"" + std::string(_("gui.icon_tango")) + "\" "
-                                        "\"moka\" \"" + std::string(_("gui.icon_moka")) + "\" "
-                                        "\"faenza\" \"" + std::string(_("gui.icon_faenza")) + "\"";
+                std::string icon_menu = CommandBuilder(cfg_.tui_bin)
+                        .add_arg("--title").add_arg(std::string(_("gui.icon_theme_title")))
+                        .add_arg("--menu").add_arg(std::string(_("gui.icon_theme_prompt")))
+                        .add_arg("0").add_arg("0").add_arg("0")
+                        .add_arg("papirus").add_arg(std::string(_("gui.icon_papirus")))
+                        .add_arg("numix").add_arg(std::string(_("gui.icon_numix")))
+                        .add_arg("breeze").add_arg(std::string(_("gui.icon_breeze")))
+                        .add_arg("elementary").add_arg(std::string(_("gui.icon_elementary")))
+                        .add_arg("tango").add_arg(std::string(_("gui.icon_tango")))
+                        .add_arg("moka").add_arg(std::string(_("gui.icon_moka")))
+                        .add_arg("faenza").add_arg(std::string(_("gui.icon_faenza")))
+                        .build_string();
                 std::string i = Executor::tui_select(icon_menu);
                 if (!i.empty() && i != "0") install_icon_theme(i);
             } else if (choice == "3") {
-                std::string wp_menu = cfg_.tui_bin +
-                                      " --title \"" + std::string(_("gui.wallpaper_title")) +
-                                      "\" --menu \"" + std::string(_("gui.wallpaper_prompt")) + "\" 0 0 0 "
-                                      "\"gnome\" \"" + std::string(_("gui.wp_gnome")) + "\" "
-                                      "\"xfce\" \"" + std::string(_("gui.wp_xfce")) + "\" "
-                                      "\"mate\" \"" + std::string(_("gui.wp_mate")) + "\" "
-                                      "\"deepin\" \"" + std::string(_("gui.wp_deepin")) + "\" "
-                                      "\"kde\" \"" + std::string(_("gui.wp_kde")) + "\"";
+                std::string wp_menu = CommandBuilder(cfg_.tui_bin)
+                        .add_arg("--title").add_arg(std::string(_("gui.wallpaper_title")))
+                        .add_arg("--menu").add_arg(std::string(_("gui.wallpaper_prompt")))
+                        .add_arg("0").add_arg("0").add_arg("0")
+                        .add_arg("gnome").add_arg(std::string(_("gui.wp_gnome")))
+                        .add_arg("xfce").add_arg(std::string(_("gui.wp_xfce")))
+                        .add_arg("mate").add_arg(std::string(_("gui.wp_mate")))
+                        .add_arg("deepin").add_arg(std::string(_("gui.wp_deepin")))
+                        .add_arg("kde").add_arg(std::string(_("gui.wp_kde")))
+                        .build_string();
                 std::string wp = Executor::tui_select(wp_menu);
                 if (!wp.empty() && wp != "0") download_wallpaper(wp);
             } else if (choice == "4") {
@@ -889,11 +1027,13 @@ namespace tmoe::domain {
             } else if (choice == "6") {
                 install_conky();
             } else if (choice == "7") {
-                std::string cursor_menu = cfg_.tui_bin +
-                                          " --title \"" + std::string(_("gui.cursor_title")) +
-                                          "\" --menu \"" + std::string(_("gui.cursor_prompt")) + "\" 0 0 0 "
-                                          "\"breeze\" \"" + std::string(_("gui.cursor_breeze")) + "\" "
-                                          "\"chameleon\" \"" + std::string(_("gui.cursor_chameleon")) + "\"";
+                std::string cursor_menu = CommandBuilder(cfg_.tui_bin)
+                        .add_arg("--title").add_arg(std::string(_("gui.cursor_title")))
+                        .add_arg("--menu").add_arg(std::string(_("gui.cursor_prompt")))
+                        .add_arg("0").add_arg("0").add_arg("0")
+                        .add_arg("breeze").add_arg(std::string(_("gui.cursor_breeze")))
+                        .add_arg("chameleon").add_arg(std::string(_("gui.cursor_chameleon")))
+                        .build_string();
                 std::string c = Executor::tui_select(cursor_menu);
                 if (!c.empty() && c != "0") install_cursor_theme(c);
             } else if (choice == "8") {
@@ -1017,10 +1157,15 @@ namespace tmoe::domain {
         fs::create_directories(font_dir);
 
         Logger::info("从 GitHub 下载 Iosevka...");
-        std::string dl_cmd = "cd /tmp && (wget -q --timeout=30 '" + std::string(iosevka_url) +
-                             "' -O iosevka.zip 2>/dev/null || "
-                             "curl -sL '" + std::string(iosevka_url) + "' -o iosevka.zip 2>/dev/null)"
-                             " && unzip -o iosevka.zip -d " + font_dir +
+        std::string dl_cmd = "cd /tmp && (" +
+                             CommandBuilder("wget").add_arg("-q").add_arg("--timeout=30")
+                             .add_arg(std::string(iosevka_url)).add_arg("-O").add_arg("iosevka.zip")
+                             .build_string() + " 2>/dev/null || " +
+                             CommandBuilder("curl").add_arg("-sL")
+                             .add_arg(std::string(iosevka_url)).add_arg("-o").add_arg("iosevka.zip")
+                             .build_string() + " 2>/dev/null)" +
+                             " && " + CommandBuilder("unzip").add_arg("-o").add_arg("iosevka.zip")
+                             .add_arg("-d").add_arg(font_dir).build_string() +
                              " 2>/dev/null && rm -f iosevka.zip";
 
         if (Executor::passthrough(dl_cmd).ok()) {
@@ -1079,11 +1224,14 @@ namespace tmoe::domain {
 
         if (orig_w > 0 && !cfg_.is_termux) {
             std::string res_str = std::to_string(orig_w) + "x" + std::to_string(orig_h);
-            auto r = Executor::passthrough(cfg_.tui_bin +
-                                           " --title \"Is your resolution " + res_str + "?\""
-                                           " --yes-button 'YES' --no-button 'NO'"
-                                           " --yesno \"Your host is detected as Android and the resolution is " +
-                                           res_str + "\" 0 50");
+            auto r = Executor::passthrough(CommandBuilder(cfg_.tui_bin)
+                .add_arg("--title").add_arg("Is your resolution " + res_str + "?")
+                .add_arg("--yes-button").add_arg("YES")
+                .add_arg("--no-button").add_arg("NO")
+                .add_arg("--yesno")
+                .add_arg("Your host is detected as Android and the resolution is " + res_str)
+                .add_arg("0").add_arg("50")
+                .build_string());
             if (r.exit_code != 0) {
                 orig_w = 0;
                 orig_h = 0;
@@ -1096,10 +1244,14 @@ namespace tmoe::domain {
         std::string d(desktop);
         std::transform(d.begin(), d.end(), d.begin(), ::tolower);
         if (orig_w == 0 && (d.find("xfce") != std::string::npos)) {
-            auto r2 = Executor::passthrough(cfg_.tui_bin +
-                                            " --title \"720P/1080P Screen/Monitor\""
-                                            " --yes-button 'Yes (720P~1080P)' --no-button 'No (2K~4K)'"
-                                            " --yesno '若屏幕分辨率 x, 720P<=x<=1080P 选 Yes, 2K<=x<=4K 选 No' 0 50");
+            auto r2 = Executor::passthrough(CommandBuilder(cfg_.tui_bin)
+                .add_arg("--title").add_arg("720P/1080P Screen/Monitor")
+                .add_arg("--yes-button").add_arg("Yes (720P~1080P)")
+                .add_arg("--no-button").add_arg("No (2K~4K)")
+                .add_arg("--yesno")
+                .add_arg("若屏幕分辨率 x, 720P<=x<=1080P 选 Yes, 2K<=x<=4K 选 No")
+                .add_arg("0").add_arg("50")
+                .build_string());
             if (r2.exit_code == 0) {
                 orig_w = 1440;
                 orig_h = 720;
@@ -1127,13 +1279,26 @@ namespace tmoe::domain {
 
         if (high_dpi) {
             Logger::info("Tmoe-linux tool将为您自动调整高分屏设定");
-            Executor::shell(
-                "dbus-launch xfconf-query -c xsettings -t int -np /Gdk/WindowScalingFactor -s 2 2>/dev/null || true");
+            Executor::shell(CommandBuilder("dbus-launch")
+                            .add_arg("xfconf-query")
+                            .add_arg("-c").add_arg("xsettings")
+                            .add_arg("-t").add_arg("int")
+                            .add_arg("-np").add_arg("/Gdk/WindowScalingFactor")
+                            .add_arg("-s").add_arg("2")
+                            .build_string() + " 2>/dev/null || true");
             auto os_rel_content = SystemHelper::read_file("/etc/os-release");
             if (os_rel_content.find("Focal Fossa") != std::string::npos) {
-                Executor::shell("xfconf-query -c xfwm4 -p /general/theme -s Kali-Light-xHiDPI 2>/dev/null || true");
+                Executor::shell(CommandBuilder("xfconf-query")
+                                .add_arg("-c").add_arg("xfwm4")
+                                .add_arg("-p").add_arg("/general/theme")
+                                .add_arg("-s").add_arg("Kali-Light-xHiDPI")
+                                .build_string() + " 2>/dev/null || true");
             } else {
-                Executor::shell("xfconf-query -c xfwm4 -p /general/theme -s Default-xhdpi 2>/dev/null || true");
+                Executor::shell(CommandBuilder("xfconf-query")
+                                .add_arg("-c").add_arg("xfwm4")
+                                .add_arg("-p").add_arg("/general/theme")
+                                .add_arg("-s").add_arg("Default-xhdpi")
+                                .build_string() + " 2>/dev/null || true");
             }
             Logger::info("已将默认分辨率修改为" + std::to_string(orig_w) + "x" + std::to_string(orig_h) +
                          "，窗口缩放大小调整为2x");
@@ -1185,9 +1350,13 @@ namespace tmoe::domain {
         }
 
         if (!url.empty()) {
-            Executor::passthrough("wget -q '" + url + "' -O " + wallpaper_dir + "/" + filename +
-                                  " 2>/dev/null || curl -sL '" + url + "' -o " + wallpaper_dir + "/" + filename +
-                                  " 2>/dev/null");
+            auto wp_dl = CommandBuilder("wget").add_arg("-q").add_arg(url)
+                         .add_arg("-O").add_arg(wallpaper_dir + "/" + filename).build_string()
+                         + " 2>/dev/null || " +
+                         CommandBuilder("curl").add_arg("-sL").add_arg(url)
+                         .add_arg("-o").add_arg(wallpaper_dir + "/" + filename).build_string()
+                         + " 2>/dev/null";
+            Executor::passthrough(wp_dl);
             set_wallpaper(wallpaper_dir + "/" + filename);
         }
 
@@ -1329,11 +1498,14 @@ namespace tmoe::domain {
             "natty", "oneiric", "precise", "quantal", "raring", "saucy", "trusty", "utopic", "vivid",
             "wily", "xenial", "yakkety", "zesty", nullptr
         };
-        std::string menu = cfg_.tui_bin + " --title \"UBUNTU壁纸\" --menu \"Download ubuntu wallpaper-packs\" 0 50 0 ";
+        CommandBuilder menu(cfg_.tui_bin);
+        menu.add_arg("--title").add_arg("UBUNTU壁纸")
+                .add_arg("--menu").add_arg("Download ubuntu wallpaper-packs")
+                .add_arg("0").add_arg("50").add_arg("0");
         for (int i = 0; codes[i]; ++i)
-            menu += "\"" + std::to_string(i + 1) + "\" \"" + codes[i] + "\" ";
-        menu += "\"0\" \"Back\"";
-        auto ch = Executor::tui_select(menu);
+            menu.add_arg(std::to_string(i + 1)).add_arg(codes[i]);
+        menu.add_arg("0").add_arg("Back");
+        auto ch = Executor::tui_select(menu.build_string());
         if (ch == "0" || ch.empty()) return;
         int idx = std::stoi(ch) - 1;
         if (idx >= 0 && idx < 22) download_ubuntu_wallpaper(codes[idx]);
@@ -1371,9 +1543,12 @@ namespace tmoe::domain {
 
 
     void GUIManager::xfce_theme_parsing() {
-        std::string url_cmd = cfg_.tui_bin +
-                              " --title \"Tmoe xfce&gnome theme parser\""
-                              " --inputbox \"请输入主题链接Please enter a url\\n例如https://gnome-look.org/xx或https://xfce-look.org/xx\" 0 50";
+        std::string url_cmd = CommandBuilder(cfg_.tui_bin)
+                .add_arg("--title").add_arg("Tmoe xfce&gnome theme parser")
+                .add_arg("--inputbox")
+                .add_arg("请输入主题链接Please enter a url\\n例如https://gnome-look.org/xx或https://xfce-look.org/xx")
+                .add_arg("0").add_arg("50")
+                .build_string();
         std::string url = Executor::tui_select(url_cmd);
         if (url.empty()) return;
 
@@ -1432,11 +1607,14 @@ namespace tmoe::domain {
             "xubuntu-community-artwork/trusty", "xubuntu-community-artwork/xenial",
             "xubuntu-community-artwork/bionic", "xubuntu-community-artwork/focal"
         };
-        std::string menu = cfg_.tui_bin + " --title \"桌面壁纸\" --menu \"您想要下载哪套xubuntu壁纸包？\" 0 50 0 ";
+        CommandBuilder menu(cfg_.tui_bin);
+        menu.add_arg("--title").add_arg("桌面壁纸")
+                .add_arg("--menu").add_arg("您想要下载哪套xubuntu壁纸包？")
+                .add_arg("0").add_arg("50").add_arg("0");
         for (int i = 0; items[i]; ++i)
-            menu += "\"" + std::to_string(i + 1) + "\" \"" + items[i] + "\" ";
-        menu += "\"0\" \"Back\"";
-        auto ch = Executor::tui_select(menu);
+            menu.add_arg(std::to_string(i + 1)).add_arg(items[i]);
+        menu.add_arg("0").add_arg("Back");
+        auto ch = Executor::tui_select(menu.build_string());
         if (ch == "0" || ch.empty()) return;
         int idx = std::stoi(ch) - 1;
         if (idx >= 0 && idx < 4) desktop_manager_.download_xubuntu_wallpaper(items[idx], folders[idx]);
@@ -1539,19 +1717,34 @@ namespace tmoe::domain {
 
 
     void GUIManager::choose_vnc_port_5902_or_5903() {
-        auto r = Executor::passthrough(cfg_.tui_bin +
-                                       " --title \"VNC PORT\" --yes-button \"5902\" --no-button \"5903\""
-                                       " --yesno \"请选择VNC端口✨\\nPlease choose a vnc port\" 0 50");
+        auto r = Executor::passthrough(CommandBuilder(cfg_.tui_bin)
+            .add_arg("--title").add_arg("VNC PORT")
+            .add_arg("--yes-button").add_arg("5902")
+            .add_arg("--no-button").add_arg("5903")
+            .add_arg("--yesno")
+            .add_arg("请选择VNC端口✨\\nPlease choose a vnc port")
+            .add_arg("0").add_arg("50")
+            .build_string());
         if (r.exit_code == 0) {
             vnc_manager_.config().display = 2;
         } else {
             vnc_manager_.config().display = 3;
         }
         vnc_manager_.config().update_port();
-        Executor::shell("sed -i -E 's@(tmoe-linux) :.*@\\1 :" + std::to_string(vnc_manager_.config().display) +
-                        "@' /usr/local/bin/startvnc 2>/dev/null || true");
-        Executor::shell("sed -i -E 's@(VNC_DISPLAY)=.*@\\1=" + std::to_string(vnc_manager_.config().display) +
-                        "@' /usr/local/bin/startvnc 2>/dev/null || true");
+        Executor::shell(CommandBuilder("sed")
+                        .add_arg("-i")
+                        .add_arg("-E")
+                        .add_arg("s@(tmoe-linux) :.*@\\1 :" +
+                                 std::to_string(vnc_manager_.config().display) + "@")
+                        .add_arg("/usr/local/bin/startvnc")
+                        .build_string() + " 2>/dev/null || true");
+        Executor::shell(CommandBuilder("sed")
+                        .add_arg("-i")
+                        .add_arg("-E")
+                        .add_arg("s@(VNC_DISPLAY)=.*@\\1=" +
+                                 std::to_string(vnc_manager_.config().display) + "@")
+                        .add_arg("/usr/local/bin/startvnc")
+                        .build_string() + " 2>/dev/null || true");
     }
 
 
@@ -1609,19 +1802,31 @@ namespace tmoe::domain {
                                    : "https://gitee.com/ak2/icons/raw/master/debian-xfce.jpg";
 
         if (!fs::exists("/tmp/LXDE_BUSYeSLZRqq3i3oM.png"))
-            Executor::shell("cd /tmp && curl -sLo 'LXDE_BUSYeSLZRqq3i3oM.png' '" + lxde_url + "' 2>/dev/null || true");
+            Executor::shell("cd /tmp && " +
+                            CommandBuilder("curl").add_arg("-sLo").add_arg("LXDE_BUSYeSLZRqq3i3oM.png").add_arg(
+                                lxde_url)
+                            .build_string() + " 2>/dev/null || true");
         if (Executor::has("catimg") && fs::exists("/tmp/LXDE_BUSYeSLZRqq3i3oM.png"))
-            Executor::passthrough("catimg /tmp/LXDE_BUSYeSLZRqq3i3oM.png 2>/dev/null || true");
+            Executor::passthrough(CommandBuilder("catimg").add_arg("/tmp/LXDE_BUSYeSLZRqq3i3oM.png")
+                                  .build_string() + " 2>/dev/null || true");
 
         if (!fs::exists("/tmp/MATE_1frRp1lpOXLPz6mO.jpg"))
-            Executor::shell("cd /tmp && curl -sLo 'MATE_1frRp1lpOXLPz6mO.jpg' '" + mate_url + "' 2>/dev/null || true");
+            Executor::shell("cd /tmp && " +
+                            CommandBuilder("curl").add_arg("-sLo").add_arg("MATE_1frRp1lpOXLPz6mO.jpg").add_arg(
+                                mate_url)
+                            .build_string() + " 2>/dev/null || true");
         if (Executor::has("catimg") && fs::exists("/tmp/MATE_1frRp1lpOXLPz6mO.jpg"))
-            Executor::passthrough("catimg /tmp/MATE_1frRp1lpOXLPz6mO.jpg 2>/dev/null || true");
+            Executor::passthrough(CommandBuilder("catimg").add_arg("/tmp/MATE_1frRp1lpOXLPz6mO.jpg")
+                                  .build_string() + " 2>/dev/null || true");
 
         if (!fs::exists("/tmp/XFCE_a7IQ9NnfgPckuqRt.jpg"))
-            Executor::shell("cd /tmp && curl -sLo 'XFCE_a7IQ9NnfgPckuqRt.jpg' '" + xfce_url + "' 2>/dev/null || true");
+            Executor::shell("cd /tmp && " +
+                            CommandBuilder("curl").add_arg("-sLo").add_arg("XFCE_a7IQ9NnfgPckuqRt.jpg").add_arg(
+                                xfce_url)
+                            .build_string() + " 2>/dev/null || true");
         if (Executor::has("catimg") && fs::exists("/tmp/XFCE_a7IQ9NnfgPckuqRt.jpg"))
-            Executor::passthrough("catimg /tmp/XFCE_a7IQ9NnfgPckuqRt.jpg 2>/dev/null || true");
+            Executor::passthrough(CommandBuilder("catimg").add_arg("/tmp/XFCE_a7IQ9NnfgPckuqRt.jpg")
+                                  .build_string() + " 2>/dev/null || true");
 
         if (cfg_.is_wsl) {
             fs::create_directories("/mnt/c/Users/Public/Downloads/VcXsrv");
@@ -1640,27 +1845,33 @@ namespace tmoe::domain {
     void GUIManager::tmoe_theme_installer(const std::string &file_path, bool is_icon) {
         std::string extract_path = is_icon ? "/usr/share/icons" : "/usr/share/themes";
         fs::create_directories(extract_path);
-        Executor::passthrough("tar -xf '" + file_path + "' -C " + extract_path + " 2>/dev/null || "
-                              "tar -Jxf '" + file_path + "' -C " + extract_path + " 2>/dev/null || true");
+        auto tar_cmd = CommandBuilder("tar").add_arg("-xf").add_arg(file_path)
+                .add_arg("-C").add_arg(extract_path).build_string();
+        auto tar_j_cmd = CommandBuilder("tar").add_arg("-Jxf").add_arg(file_path)
+                .add_arg("-C").add_arg(extract_path).build_string();
+        Executor::passthrough(tar_cmd + " 2>/dev/null || " + tar_j_cmd + " 2>/dev/null || true");
         Logger::ok("主题已安装到 " + extract_path);
     }
 
 
     void GUIManager::download_wallpapers_menu() {
         while (true) {
-            std::string menu = cfg_.tui_bin +
-                               " --title \"桌面壁纸\""
-                               " --menu \"您想要下载哪套壁纸包？\\n Which wallpaper-pack do you want to download? \" 0 50 0 "
-                               "\"1\" \"ubuntu:汇聚了官方及社区的绝赞壁纸包\" "
-                               "\"2\" \"Mint:聆听自然的律动与风之呼吸,感受清新而唯美\" "
-                               "\"3\" \"deepin-community+official 深度\" "
-                               "\"4\" \"elementary(如沐春风)\" "
-                               "\"5\" \"raspberrypi pixel树莓派(美如画卷)\" "
-                               "\"6\" \"manjaro-2017+2018\" "
-                               "\"7\" \"gnome-backgrounds(简单而纯粹)\" "
-                               "\"8\" \"xfce-artwork\" "
-                               "\"9\" \"arch(领略别样艺术)\" "
-                               "\"0\" \"🌚 Return to previous menu 返回上级菜单\"";
+            std::string menu = CommandBuilder(cfg_.tui_bin)
+                    .add_arg("--title").add_arg("桌面壁纸")
+                    .add_arg("--menu")
+                    .add_arg("您想要下载哪套壁纸包？\\n Which wallpaper-pack do you want to download? ")
+                    .add_arg("0").add_arg("50").add_arg("0")
+                    .add_arg("1").add_arg("ubuntu:汇聚了官方及社区的绝赞壁纸包")
+                    .add_arg("2").add_arg("Mint:聆听自然的律动与风之呼吸,感受清新而唯美")
+                    .add_arg("3").add_arg("deepin-community+official 深度")
+                    .add_arg("4").add_arg("elementary(如沐春风)")
+                    .add_arg("5").add_arg("raspberrypi pixel树莓派(美如画卷)")
+                    .add_arg("6").add_arg("manjaro-2017+2018")
+                    .add_arg("7").add_arg("gnome-backgrounds(简单而纯粹)")
+                    .add_arg("8").add_arg("xfce-artwork")
+                    .add_arg("9").add_arg("arch(领略别样艺术)")
+                    .add_arg("0").add_arg("🌚 Return to previous menu 返回上级菜单")
+                    .build_string();
             auto ch = Executor::tui_select(menu);
             if (ch == "0" || ch.empty()) return;
             if (ch == "1") ubuntu_wallpapers_and_photos_menu();
@@ -1680,18 +1891,21 @@ namespace tmoe::domain {
     void GUIManager::download_icon_themes_menu() {
         while (true) {
             desktop_manager_.check_update_icon_caches_sh();
-            std::string menu = cfg_.tui_bin +
-                               " --title \"图标包\""
-                               " --menu \"您想要下载哪个图标包？\\n Which icon-theme do you want to download? \" 0 50 0 "
-                               "\"1\" \"win11:更新颖的UI设计\" "
-                               "\"2\" \"candy:Sweet gradient icons\" "
-                               "\"3\" \"pixel:raspberrypi树莓派\" "
-                               "\"4\" \"paper:简约、灵动、现代化的图标包\" "
-                               "\"5\" \"papirus:优雅的图标包,基于paper\" "
-                               "\"6\" \"numix:modern现代化\" "
-                               "\"7\" \"moka:简约一致的美学\" "
-                               "\"8\" \"UOS\" "
-                               "\"0\" \"🌚 Return to previous menu 返回上级菜单\"";
+            std::string menu = CommandBuilder(cfg_.tui_bin)
+                    .add_arg("--title").add_arg("图标包")
+                    .add_arg("--menu")
+                    .add_arg("您想要下载哪个图标包？\\n Which icon-theme do you want to download? ")
+                    .add_arg("0").add_arg("50").add_arg("0")
+                    .add_arg("1").add_arg("win11:更新颖的UI设计")
+                    .add_arg("2").add_arg("candy:Sweet gradient icons")
+                    .add_arg("3").add_arg("pixel:raspberrypi树莓派")
+                    .add_arg("4").add_arg("paper:简约、灵动、现代化的图标包")
+                    .add_arg("5").add_arg("papirus:优雅的图标包,基于paper")
+                    .add_arg("6").add_arg("numix:modern现代化")
+                    .add_arg("7").add_arg("moka:简约一致的美学")
+                    .add_arg("8").add_arg("UOS")
+                    .add_arg("0").add_arg("🌚 Return to previous menu 返回上级菜单")
+                    .build_string();
             auto ch = Executor::tui_select(menu);
             if (ch == "0" || ch.empty()) return;
             if (ch == "1") download_win10x_theme();
@@ -1715,10 +1929,13 @@ namespace tmoe::domain {
 
     void GUIManager::download_and_cat_icon_img(const std::string &url, const std::string &filename) {
         if (!fs::exists("/tmp/" + filename)) {
-            Executor::shell("cd /tmp && curl -sLo '" + filename + "' '" + url + "' 2>/dev/null || true");
+            Executor::shell("cd /tmp && " +
+                            CommandBuilder("curl").add_arg("-sLo").add_arg(filename).add_arg(url)
+                            .build_string() + " 2>/dev/null || true");
         }
         if (Executor::has("catimg") && fs::exists("/tmp/" + filename)) {
-            Executor::passthrough("catimg /tmp/" + filename + " 2>/dev/null || true");
+            Executor::passthrough(CommandBuilder("catimg").add_arg("/tmp/" + filename)
+                                  .build_string() + " 2>/dev/null || true");
         }
     }
 
@@ -1764,14 +1981,16 @@ namespace tmoe::domain {
 
     void GUIManager::ubuntu_wallpapers_and_photos_menu() {
         while (true) {
-            std::string menu = cfg_.tui_bin +
-                               " --title \"Ubuntu壁纸包\""
-                               " --menu \"您想要下载哪套Ubuntu壁纸包？\" 0 50 0 "
-                               "\"1\" \"ubuntu-gnome:(bionic,cosmic,etc.)\" "
-                               "\"2\" \"xubuntu-community:(bionic,focal,etc.)\" "
-                               "\"3\" \"ubuntu-mate\" "
-                               "\"4\" \"ubuntu-kylin 优麒麟\" "
-                               "\"0\" \"Back\"";
+            std::string menu = CommandBuilder(cfg_.tui_bin)
+                    .add_arg("--title").add_arg("Ubuntu壁纸包")
+                    .add_arg("--menu").add_arg("您想要下载哪套Ubuntu壁纸包？")
+                    .add_arg("0").add_arg("50").add_arg("0")
+                    .add_arg("1").add_arg("ubuntu-gnome:(bionic,cosmic,etc.)")
+                    .add_arg("2").add_arg("xubuntu-community:(bionic,focal,etc.)")
+                    .add_arg("3").add_arg("ubuntu-mate")
+                    .add_arg("4").add_arg("ubuntu-kylin 优麒麟")
+                    .add_arg("0").add_arg("Back")
+                    .build_string();
             auto ch = Executor::tui_select(menu);
             if (ch == "0" || ch.empty()) return;
             if (ch == "1") ubuntu_gnome_wallpapers_menu();
@@ -1822,9 +2041,12 @@ namespace tmoe::domain {
         Logger::info("本地主题安装器");
         Logger::info("请将主题包 (.tar.gz / .tar.xz) 放置在 /tmp 目录");
 
-        std::string cmd = cfg_.tui_bin +
-                          " --title \"LOCAL THEME INSTALLER\""
-                          " --inputbox \"请输入主题包文件名 (在 /tmp 目录下)\\n例如: my-theme.tar.xz\" 10 60";
+        std::string cmd = CommandBuilder(cfg_.tui_bin)
+                .add_arg("--title").add_arg("LOCAL THEME INSTALLER")
+                .add_arg("--inputbox")
+                .add_arg("请输入主题包文件名 (在 /tmp 目录下)\\n例如: my-theme.tar.xz")
+                .add_arg("10").add_arg("60")
+                .build_string();
         std::string filename = Executor::tui_select(cmd);
 
         if (filename.empty()) return;
@@ -1835,9 +2057,13 @@ namespace tmoe::domain {
             return;
         }
 
-        auto type_r = Executor::passthrough(cfg_.tui_bin +
-                                            " --title \"Please choose the file type\" --yes-button 'THEME主题' --no-button 'ICON图标包'"
-                                            " --yesno '这是主题包还是图标包?' 0 50");
+        auto type_r = Executor::passthrough(CommandBuilder(cfg_.tui_bin)
+            .add_arg("--title").add_arg("Please choose the file type")
+            .add_arg("--yes-button").add_arg("THEME主题")
+            .add_arg("--no-button").add_arg("ICON图标包")
+            .add_arg("--yesno").add_arg("这是主题包还是图标包?")
+            .add_arg("0").add_arg("50")
+            .build_string());
         bool is_icon = (type_r.exit_code == 1);
 
         tmoe_theme_installer(full_path, is_icon);
@@ -1927,19 +2153,22 @@ namespace tmoe::domain {
 
     void GUIManager::configure_theme_menu() {
         while (true) {
-            std::string menu = cfg_.tui_bin +
-                               " --title \"桌面环境主题\""
-                               " --menu \"您想要下载哪个主题？\\n Which theme do you want to download? \" 0 50 0 "
-                               "\"1\" \"🌈 XFCE-LOOK-parser 主题链接解析器\" "
-                               "\"2\" \"⚡ local-theme-installer 本地主题安装器\" "
-                               "\"3\" \"🎭 win10:kali卧底模式主题\" "
-                               "\"4\" \"🚥 MacOS:Mojave\" "
-                               "\"5\" \"🍎 MacOS:Big Sur\" "
-                               "\"6\" \"🎋 breeze:plasma桌面微风gtk+版主题\" "
-                               "\"7\" \"Kali:Flat-Remix-Blue主题\" "
-                               "\"8\" \"ukui:国产优麒麟ukui桌面主题\" "
-                               "\"9\" \"arc:融合透明元素的平面主题\" "
-                               "\"0\" \"🌚 Return to previous menu 返回上级菜单\"";
+            std::string menu = CommandBuilder(cfg_.tui_bin)
+                    .add_arg("--title").add_arg("桌面环境主题")
+                    .add_arg("--menu")
+                    .add_arg("您想要下载哪个主题？\\n Which theme do you want to download? ")
+                    .add_arg("0").add_arg("50").add_arg("0")
+                    .add_arg("1").add_arg("🌈 XFCE-LOOK-parser 主题链接解析器")
+                    .add_arg("2").add_arg("⚡ local-theme-installer 本地主题安装器")
+                    .add_arg("3").add_arg("🎭 win10:kali卧底模式主题")
+                    .add_arg("4").add_arg("🚥 MacOS:Mojave")
+                    .add_arg("5").add_arg("🍎 MacOS:Big Sur")
+                    .add_arg("6").add_arg("🎋 breeze:plasma桌面微风gtk+版主题")
+                    .add_arg("7").add_arg("Kali:Flat-Remix-Blue主题")
+                    .add_arg("8").add_arg("ukui:国产优麒麟ukui桌面主题")
+                    .add_arg("9").add_arg("arc:融合透明元素的平面主题")
+                    .add_arg("0").add_arg("🌚 Return to previous menu 返回上级菜单")
+                    .build_string();
             auto ch = Executor::tui_select(menu);
             if (ch == "0" || ch.empty()) return;
             if (ch == "1") xfce_theme_parsing();
@@ -1982,11 +2211,14 @@ namespace tmoe::domain {
             "maya", "lisa-extra", "katya-extra", "xfce", nullptr
         };
         while (true) {
-            std::string menu = cfg_.tui_bin + " --title \"MINT壁纸包\" --menu \"Download Mint wallpaper-packs\" 0 50 0 ";
+            CommandBuilder menu(cfg_.tui_bin);
+            menu.add_arg("--title").add_arg("MINT壁纸包")
+                    .add_arg("--menu").add_arg("Download Mint wallpaper-packs")
+                    .add_arg("0").add_arg("50").add_arg("0");
             for (int i = 0; codes[i]; ++i)
-                menu += "\"" + std::to_string(i + 1) + "\" \"" + codes[i] + "\" ";
-            menu += "\"0\" \"Back\"";
-            auto ch = Executor::tui_select(menu);
+                menu.add_arg(std::to_string(i + 1)).add_arg(codes[i]);
+            menu.add_arg("0").add_arg("Back");
+            auto ch = Executor::tui_select(menu.build_string());
             if (ch == "0" || ch.empty()) return;
             int idx = std::stoi(ch) - 1;
             if (idx >= 0 && idx < 22) {
@@ -2005,7 +2237,11 @@ namespace tmoe::domain {
         Executor::shell(
             "TOME_BIN=$(readlink -f /proc/self/exe 2>/dev/null || echo /usr/local/bin/tome); "
             "ln -sfv \"$TOME_BIN\" /usr/local/bin/tmoe 2>/dev/null || true");
-        Executor::shell("ln -svf tmoe /usr/local/bin/tome 2>/dev/null || true");
+        Executor::shell(CommandBuilder("ln")
+                        .add_arg("-svf")
+                        .add_arg("tmoe")
+                        .add_arg("/usr/local/bin/tome")
+                        .build_string() + " 2>/dev/null || true");
     }
 
 
@@ -2110,15 +2346,17 @@ namespace tmoe::domain {
 
     void GUIManager::run_remote_desktop_menu() {
         while (true) {
-            std::string menu_cmd = cfg_.tui_bin +
-                                   " --title \"" + std::string(_("gui.remote_title")) +
-                                   "\" --menu \"" + std::string(_("gui.remote_prompt")) + "\" 0 0 0 "
-                                   "\"1\" \"" + std::string(_("gui.remote_tightvnc")) + "\" "
-                                   "\"2\" \"" + std::string(_("gui.remote_x11vnc")) + "\" "
-                                   "\"3\" \"" + std::string(_("gui.remote_xsdl")) + "\" "
-                                   "\"4\" \"" + std::string(_("gui.remote_novnc")) + "\" "
-                                   "\"5\" \"" + std::string(_("gui.remote_xrdp")) + "\" "
-                                   "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
+            std::string menu_cmd = CommandBuilder(cfg_.tui_bin)
+                    .add_arg("--title").add_arg(std::string(_("gui.remote_title")))
+                    .add_arg("--menu").add_arg(std::string(_("gui.remote_prompt")))
+                    .add_arg("0").add_arg("0").add_arg("0")
+                    .add_arg("1").add_arg(std::string(_("gui.remote_tightvnc")))
+                    .add_arg("2").add_arg(std::string(_("gui.remote_x11vnc")))
+                    .add_arg("3").add_arg(std::string(_("gui.remote_xsdl")))
+                    .add_arg("4").add_arg(std::string(_("gui.remote_novnc")))
+                    .add_arg("5").add_arg(std::string(_("gui.remote_xrdp")))
+                    .add_arg("0").add_arg(std::string(_("menu.tui.back")))
+                    .build_string();
 
             std::string choice = Executor::tui_select(menu_cmd);
             if (choice == "0" || choice.empty()) break;
@@ -2126,20 +2364,30 @@ namespace tmoe::domain {
             if (choice == "1") {
                 if (!fs::exists("/usr/local/bin/startvnc")) {
                     Logger::warn("未检测到 startvnc，您可能尚未安装图形桌面");
-                    auto r = Executor::passthrough(cfg_.tui_bin +
-                                                   " --yesno \"未检测到 startvnc，是否继续编辑配置？\" 0 0");
+                    auto r = Executor::passthrough(CommandBuilder(cfg_.tui_bin)
+                        .add_arg("--yesno")
+                        .add_arg("未检测到 startvnc，是否继续编辑配置？")
+                        .add_arg("0").add_arg("0")
+                        .build_string());
                     if (r.exit_code != 0) continue;
                 }
-                auto r = Executor::passthrough(cfg_.tui_bin +
-                                               " --title \"modify vnc configuration\""
-                                               " --yes-button \"分辨率 resolution\" --no-button \"其它 other\""
-                                               " --yesno \"Which configuration do you want to modify?\" 9 50");
+                auto r = Executor::passthrough(CommandBuilder(cfg_.tui_bin)
+                    .add_arg("--title").add_arg("modify vnc configuration")
+                    .add_arg("--yes-button").add_arg("分辨率 resolution")
+                    .add_arg("--no-button").add_arg("其它 other")
+                    .add_arg("--yesno")
+                    .add_arg("Which configuration do you want to modify?")
+                    .add_arg("9").add_arg("50")
+                    .build_string());
                 if (r.exit_code == 0) {
-                    std::string cmd = cfg_.tui_bin +
-                                      " --title \"请输入分辨率\""
-                                      " --inputbox \"例如 1920x1080, 1440x720, 1280x1024\" 15 50 \"" +
-                                      std::to_string(vnc_manager_.config().resolution_w) + "x" +
-                                      std::to_string(vnc_manager_.config().resolution_h) + "\"";
+                    std::string cmd = CommandBuilder(cfg_.tui_bin)
+                            .add_arg("--title").add_arg("请输入分辨率")
+                            .add_arg("--inputbox")
+                            .add_arg("例如 1920x1080, 1440x720, 1280x1024")
+                            .add_arg("15").add_arg("50")
+                            .add_arg(std::to_string(vnc_manager_.config().resolution_w) + "x" +
+                                     std::to_string(vnc_manager_.config().resolution_h))
+                            .build_string();
                     std::string val = Executor::tui_select(cmd);
                     auto xpos = val.find('x');
                     if (!val.empty() && xpos != std::string::npos) {
