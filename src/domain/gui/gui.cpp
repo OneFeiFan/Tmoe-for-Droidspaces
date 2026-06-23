@@ -713,7 +713,7 @@ namespace tmoe::domain {
         while (true) {
             std::string menu_cmd = CommandBuilder(cfg_.tui_bin)
                     .add_arg("--title").add_arg(_("gui.de_install_title"))
-                    .add_arg("--menu").add_arg(" ")  // 空字符串会被 add_arg 跳过,用空格代替
+                    .add_arg("--menu").add_arg("")
                     .add_arg("0").add_arg("0").add_arg("0")
                     .add_arg("1").add_arg(_("gui.de_rootless"))
                     .add_arg("2").add_arg(_("gui.de_rootful"))
@@ -742,11 +742,11 @@ namespace tmoe::domain {
         while (true) {
             CommandBuilder menu_cmd(cfg_.tui_bin);
             menu_cmd.add_arg("--title").add_arg(_("gui.de_rootless"))
-                    .add_arg("--menu").add_arg(" ")  // 空字符串会被 add_arg 跳过,用空格代替
+                    .add_arg("--menu").add_arg("")
                     .add_arg("0").add_arg("0").add_arg("0");
             int idx = 1;
             for (const auto &d: desktop_manager_.desktop_registry()) {
-                if (!d.requires_root) {
+                if (!d.requires_root && !d.is_window_manager) {
                     menu_cmd.add_arg(std::to_string(idx++)).add_arg(d.name + " (" + d.compat_notes + ")");
                 }
             }
@@ -756,7 +756,7 @@ namespace tmoe::domain {
             int sel = std::stoi(ch);
             int i = 0;
             for (const auto &d: desktop_manager_.desktop_registry()) {
-                if (!d.requires_root) {
+                if (!d.requires_root && !d.is_window_manager) {
                     ++i;
                     if (i == sel) {
                         desktop_manager_.install_desktop(d.id);
@@ -773,11 +773,11 @@ namespace tmoe::domain {
         while (true) {
             CommandBuilder menu_cmd(cfg_.tui_bin);
             menu_cmd.add_arg("--title").add_arg(_("gui.de_rootful"))
-                    .add_arg("--menu").add_arg(" ")  // 空字符串会被 add_arg 跳过,用空格代替
+                    .add_arg("--menu").add_arg("")
                     .add_arg("0").add_arg("0").add_arg("0");
             int idx = 1;
             for (const auto &d: desktop_manager_.desktop_registry()) {
-                if (d.requires_root) {
+                if (d.requires_root && !d.is_window_manager) {
                     menu_cmd.add_arg(std::to_string(idx++)).add_arg(d.name + " (" + d.compat_notes + ")");
                 }
             }
@@ -787,7 +787,7 @@ namespace tmoe::domain {
             int sel = std::stoi(ch);
             int i = 0;
             for (const auto &d: desktop_manager_.desktop_registry()) {
-                if (d.requires_root) {
+                if (d.requires_root && !d.is_window_manager) {
                     ++i;
                     if (i == sel) {
                         desktop_manager_.install_desktop(d.id);

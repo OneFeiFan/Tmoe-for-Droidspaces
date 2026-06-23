@@ -5,7 +5,7 @@ namespace tmoe {
     }
 
     CommandBuilder &CommandBuilder::add_arg(std::string arg) {
-        if (!arg.empty()) args_.push_back(std::move(arg));
+        args_.push_back(std::move(arg));
         return *this;
     }
 

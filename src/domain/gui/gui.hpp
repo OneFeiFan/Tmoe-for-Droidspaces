@@ -3,8 +3,11 @@
 #include "core/executor.h"
 #include "core/logger.h"
 #include "core/command_builder.hpp"
+#include "core/system_helper.h"
+#include "core/i18n.h"
 #include "../gui_config/templates.h"
 #include "../gui_config/registries.h"
+#include "../package_manager.h"
 #include "vnc_manager.h"
 #include "desktop_manager.h"
 #include "remote_desktop_manager.h"
@@ -12,22 +15,11 @@
 #include <vector>
 #include <map>
 #include <filesystem>
-#include "vnc_manager.h"
-#include "core/system_helper.h"
-#include "core/logger.h"
-#include "core/executor.h"
-#include "core/config.h"
-#include "core/i18n.h"
-#include "../gui_config/templates.h"
-#include "../gui_config/registries.h"
-#include "../package_manager.h"
-
 #include <algorithm>
 #include <ctime>
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
-#include <filesystem>
 #include <system_error>
 
 namespace fs = std::filesystem;
