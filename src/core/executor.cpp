@@ -53,7 +53,11 @@ namespace tmoe {
         int rc = ::pclose(pipe.release());
 
 #ifdef _WIN32
-        return ExecResult{rc, std::move(output), ""};
+        // _pclose 在 Windows 上返回子进程的退出状态，格式为:
+        //   高字节 = 退出码，低字节 = 0 (正常退出) 或 信号编号
+        // 参考: MSDN _pclose / _cwait 文档
+        int exit_code = (rc >= 0) ? ((rc >> 8) & 0xFF) : -1;
+        return ExecResult{exit_code, std::move(output), ""};
 #else
     return ExecResult{WIFEXITED(rc) ? WEXITSTATUS(rc) : -1, std::move(output), ""};
 #endif
@@ -82,7 +86,10 @@ namespace tmoe {
         int rc = ::pclose(pipe.release());
 
 #ifdef _WIN32
-        return ExecResult{rc, std::move(output), ""};
+        // _pclose 返回子进程退出状态，高字节=退出码
+        // 参考: MSDN _pclose returns exit status of cmd.exe
+        int shell_exit = (rc >= 0) ? ((rc >> 8) & 0xFF) : -1;
+        return ExecResult{shell_exit, std::move(output), ""};
 #else
     return ExecResult{WIFEXITED(rc) ? WEXITSTATUS(rc) : -1, std::move(output), ""};
 #endif
