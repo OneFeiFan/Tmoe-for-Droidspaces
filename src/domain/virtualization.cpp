@@ -17,7 +17,6 @@ namespace tmoe::domain {
                                "\"1\" \"" + _("virt.download_iso") + "\" "
                                "\"2\" \"" + _("virt.docker") + "\" "
                                "\"3\" \"" + _("virt.wine") + "\" "
-                               "\"4\" \"" + _("virt.virt_manager") + "\" "
                                "\"0\" \"" + _("menu.tui.back") + "\"";
 
             std::string choice = Executor::tui_select(menu);
@@ -29,8 +28,6 @@ namespace tmoe::domain {
                 if (docker_cb_) docker_cb_();
             } else if (choice == "3") {
                 run_wine_menu();
-            } else if (choice == "4") {
-                install_virt_manager();
             }
             Logger::press_enter();
         }
@@ -273,19 +270,6 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
     //  辅助
     // ═══════════════════════════════════════════════════════════════
-
-    bool VirtualizationManager::install_virt_manager() {
-        Logger::step(_("virt.installing_virt_manager"));
-        auto result = Executor::passthrough(cfg_.install_command +
-                                            " virt-manager libvirt-daemon-system");
-        if (result.ok()) {
-            Logger::ok(_("virt.virt_manager_installed"));
-            Executor::passthrough("systemctl enable libvirtd 2>/dev/null");
-            Executor::passthrough("systemctl start libvirtd 2>/dev/null");
-            return true;
-        }
-        return false;
-    }
 
     std::string VirtualizationManager::os_release() const {
         auto result = Executor::shell("cat /etc/os-release 2>/dev/null | grep '^ID=' | cut -d= -f2");

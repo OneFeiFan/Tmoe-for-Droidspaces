@@ -14,10 +14,10 @@ namespace fs = std::filesystem;
 
 namespace tmoe::domain {
     /** 虚拟化主管理器，对应 Bash 脚本:
-     *   tools/virtualization/virt-menu
+     *   tools/virtualization/virt-menu (不含 qemu/VirtualBox)
      *   tools/virtualization/iso.sh
      *   tools/virtualization/wine32.sh
-     *   tools/virtualization/docker/*
+     *   Docker 管理由独立的 DockerManager 处理
      */
     class VirtualizationManager {
     public:
@@ -54,8 +54,6 @@ namespace tmoe::domain {
         void run_wine_menu();
 
         // ── 辅助 ──
-        /** 安装 virt-manager GUI。 */
-        bool install_virt_manager();
 
     private:
         const TmoeConfig &cfg_;

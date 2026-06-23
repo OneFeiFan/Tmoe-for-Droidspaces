@@ -25,6 +25,11 @@ namespace tmoe::app {
         input_method_ = std::make_unique<domain::InputMethodManager>(cfg_);
         browser_ = std::make_unique<domain::BrowserManager>(cfg_);
         beta_features_ = std::make_unique<domain::BetaFeaturesManager>(cfg_);
+        // 注入回调：beta_features → 各领域模块
+        beta_features_->set_virt_callback([this]() { virt_mgr_->run_virt_menu(); });
+        beta_features_->set_education_callback([this]() { education_->run_education_menu(); });
+        beta_features_->set_input_method_callback([this]() { input_method_->run_input_method_menu(); });
+        beta_features_->set_terminal_callback([this]() { terminal_app_->run_terminal_menu(); });
         dev_tools_ = std::make_unique<domain::DeveloperTools>(cfg_);
         download_tools_ = std::make_unique<domain::DownloadTools>(cfg_);
         init_routes();
@@ -153,9 +158,9 @@ namespace tmoe::app {
             backup_mgr_->run_backup_menu();
         };
 
-        // 16. 虚拟化管理 (ISO/Wine/Docker)
+        // 16. 秘密花园 (容器/虚拟机, 教育, 系统, 商店, 视频, 绘图, 文件, 阅读, 网络, 输入法, 终端, 其他)
         tui_routes_["16"] = [this]() {
-            virt_mgr_->run_virt_menu();
+            beta_features_->run_beta_menu();
         };
 
         // 17. 容器配置管理 (DNS/时区/Locale/Fortune/共享目录/密码/主机名)
@@ -168,25 +173,6 @@ namespace tmoe::app {
             software_center_->run_software_center_menu();
         };
 
-        // 19. 终端模拟器应用
-        tui_routes_["19"] = [this]() {
-            terminal_app_->run_terminal_menu();
-        };
-
-        // 20. 教育学习 (数学/化学/物理/英语/考试)
-        tui_routes_["20"] = [this]() {
-            education_->run_education_menu();
-        };
-
-        // 21. 输入法 (fcitx4/fcitx5/ibus/搜狗)
-        tui_routes_["21"] = [this]() {
-            input_method_->run_input_method_menu();
-        };
-
-        // 22. Beta/实验功能 (绘图/R语言/文件管理/多媒体/Deepin)
-        tui_routes_["22"] = [this]() {
-            beta_features_->run_beta_menu();
-        };
     }
 
     /** 镜像源管理子菜单 (对应原始 Bash 脚本的 12 项 TUI)。 */
@@ -330,13 +316,9 @@ namespace tmoe::app {
                 "\"13\" \"" + _("menu.tui.gui_remote") + "\" "
                 "\"14\" \"" + _("menu.tui.gui_beautify") + "\" "
                 "\"15\" \"" + _("menu.tui.backup") + "\" "
-                "\"16\" \"" + _("menu.tui.virt") + "\" "
+                "\"16\" \"" + _("menu.tui.secret_garden") + "\" "
                 "\"17\" \"" + _("menu.tui.config") + "\" "
                 "\"18\" \"" + _("menu.tui.software_center") + "\" "
-                "\"19\" \"" + _("menu.tui.terminal_app") + "\" "
-                "\"20\" \"" + _("menu.tui.education") + "\" "
-                "\"21\" \"" + _("menu.tui.input_method") + "\" "
-                "\"22\" \"" + _("menu.tui.beta") + "\" "
                 "\"0\" \"" + _("menu.tui.exit") + "\"";
 
         return Executor::tui_select(menu_cmd);
