@@ -1681,5 +1681,14 @@
   "docker.systemd_fedora_desc": "Red Hat community edition, new technology testbed",
   "docker.systemd_centos_desc": "Community Enterprise OS based on Red Hat",
   "docker.mgt_systemd": "run with systemd (privileged + /sbin/init)",
-  "docker.mgt_attach_label": "attach"
+  "docker.mgt_attach_label": "attach",
+  "beta.sys_no_users": "No valid users found",
+  "beta.sys_efi_install_failed": "efibootmgr installation failed",
+  "beta.sys_bootrepair_debian_only": "boot-repair requires Debian/Ubuntu",
+  "beta.sys_yasat_install_failed": "yasat installation failed",
+  "beta.sys_old_manager": "Tmoe-linux manager (legacy bash script)",
+  "beta.store_aptitude_debian_only": "aptitude is Debian-only",
+  "docker.portainer_btn_default": "default 39080",
+  "docker.portainer_btn_custom": "custom port",
+  "docker.portainer_custom_port_input": "Enter port number (default 39080):"
 }

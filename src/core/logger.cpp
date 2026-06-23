@@ -84,9 +84,14 @@ namespace tmoe {
         std::fprintf(stderr, "%s[ENTER] %s%s", ansi(INFO), RESET, _("misc.press_enter").c_str());
         std::fflush(stderr);
 #ifndef _WIN32
-    tcflush(STDIN_FILENO, TCIFLUSH);
-#endif
+        // 排空 stdin 缓冲（tcflush 清终端驱动层，read 清 stdio 内部缓冲），
+        // 避免残留字符导致 press_enter 连锁触发
+        tcflush(STDIN_FILENO, TCIFLUSH);
+        char c;
+        while (::read(STDIN_FILENO, &c, 1) == 1 && c != '\n') {}
+#else
         std::getchar();
+#endif
     }
 
     bool Logger::confirm(std::string_view question) {
@@ -94,9 +99,9 @@ namespace tmoe {
         std::fflush(stderr);
 
 #ifndef _WIN32
-    // 清空 stdin 残留 (passthrough/system 调用后可能遗留换行符)
-    // 否则 getchar() 会立刻读到 \n → 用户来不及输入 → 被误判为 No
-    tcflush(STDIN_FILENO, TCIFLUSH);
+        tcflush(STDIN_FILENO, TCIFLUSH);
+        char dummy;
+        while (::read(STDIN_FILENO, &dummy, 1) == 1 && dummy != '\n') {}
 #endif
 
         int ch = std::getchar();

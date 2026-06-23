@@ -91,12 +91,6 @@ private:
 
     /** 通用多包安装 */
     void install_multi(const std::vector<std::string>& pkgs);
-
-    /** 占位提示：功能尚未实现 */
-    void placeholder(const std::string& feature_name);
-
-    /** 占位提示 + 返回 */
-    void placeholder_return(const std::string& feature_name);
 };
 
 } // namespace tmoe::domain

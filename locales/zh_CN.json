@@ -1681,5 +1681,14 @@
   "docker.systemd_fedora_desc": "红帽社区版,新技术试验场",
   "docker.systemd_centos_desc": "基于红帽的社区企业操作系统",
   "docker.mgt_systemd": "run with systemd (特权模式 + /sbin/init)",
-  "docker.mgt_attach_label": "连接"
+  "docker.mgt_attach_label": "连接",
+  "beta.sys_no_users": "未找到有效用户",
+  "beta.sys_efi_install_failed": "efibootmgr 安装失败",
+  "beta.sys_bootrepair_debian_only": "boot-repair 仅支持 Debian/Ubuntu",
+  "beta.sys_yasat_install_failed": "yasat 安装失败",
+  "beta.sys_old_manager": "Tmoe-linux manager (旧版bash脚本)",
+  "beta.store_aptitude_debian_only": "aptitude 仅适用于 Debian 系发行版",
+  "docker.portainer_btn_default": "默认 39080",
+  "docker.portainer_btn_custom": "自定义端口",
+  "docker.portainer_custom_port_input": "请输入端口号 (默认 39080):"
 }

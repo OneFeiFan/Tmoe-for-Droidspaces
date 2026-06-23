@@ -49,6 +49,7 @@ namespace tmoe::app {
             } else {
                 container.start();
             }
+            Logger::press_enter();
         };
 
         // 2. Chroot (需要 root 权限)
@@ -59,6 +60,7 @@ namespace tmoe::app {
             }
             Logger::step(_("container.launching_chroot"));
             // TODO: 实现 Chroot 容器启动逻辑
+            Logger::press_enter();
         };
 
         // 3. 移除/卸载容器
@@ -79,6 +81,7 @@ namespace tmoe::app {
                 container_mgr_->remove("default");
                 Logger::ok(_("container.removed_ok"));
             }
+            Logger::press_enter();
         };
 
         // 4. 语言区域切换（支持 zh_CN / en_US）
@@ -94,6 +97,7 @@ namespace tmoe::app {
         // 6. 美化终端 (oh-my-zsh 等)
         tui_routes_["6"] = [this]() {
             termux_->beautify_terminal();
+            Logger::press_enter();
         };
 
         // 7. 通过 git pull 自更新
@@ -104,6 +108,7 @@ namespace tmoe::app {
             } else {
                 Logger::error(_("update.failed"));
             }
+            Logger::press_enter();
         };
 
         // 8. 常见问题
@@ -126,11 +131,13 @@ namespace tmoe::app {
         tui_routes_["9"] = [this]() {
             Logger::info(_("report.bug_info"));
             Logger::info("https://github.com/2-moe/tmoe-linux");
+            Logger::press_enter();
         };
 
         // 10. 修复 Android 12+ Signal 9
         tui_routes_["10"] = [this]() {
             termux_->fix_android_12_signal_9();
+            Logger::press_enter();
         };
 
         // 11. 镜像源管理子菜单
@@ -353,7 +360,7 @@ namespace tmoe::app {
             auto it = tui_routes_.find(choice);
             if (it != tui_routes_.end()) {
                 it->second();
-                Logger::press_enter();
+                // press_enter 由各路由内部自行处理 — 避免子菜单返回后双重回车
             } else {
                 Logger::warn(_("menu.unimplemented") + ": " + choice);
                 Logger::press_enter();

@@ -65,7 +65,7 @@ namespace tmoe::domain {
             } else if (ch == "12") {
                 run_other_menu();
             }
-            Logger::press_enter();
+            // 不在末尾调用 press_enter() — 每个子菜单和委托回调内部已有自己的 enter 循环
         }
     }
 
@@ -101,7 +101,11 @@ namespace tmoe::domain {
                     auto users_out = Executor::shell(
                         "grep -Ev 'nologin|halt|shutdown|0:0' /etc/passwd | awk -F':' '{print $1}'");
                     std::string user_list = users_out.ok() ? users_out.stdout_data : "";
-                    if (user_list.empty()) { placeholder_return("no users found"); break; }
+                    if (user_list.empty()) {
+                        Logger::error(_("beta.sys_no_users"));
+                        Logger::info("No non-system users in /etc/passwd. Create a user first: adduser <name>");
+                        break;
+                    }
 
                     // 构建 whiptail 菜单
                     std::string umenu = cfg_.tui_bin +
@@ -168,7 +172,13 @@ namespace tmoe::domain {
                 case 3: {
                     if (!Executor::has("efibootmgr"))
                         PackageManager::install("efibootmgr", family);
-                    if (!Executor::has("efibootmgr")) { placeholder_return("efibootmgr install failed"); break; }
+                    if (!Executor::has("efibootmgr")) {
+                        Logger::error(_("beta.sys_efi_install_failed"));
+                        Logger::info("apt install efibootmgr   # Debian/Ubuntu");
+                        Logger::info("pacman -S efibootmgr    # Arch");
+                        Logger::info("dnf install efibootmgr  # Fedora");
+                        break;
+                    }
 
                     while (true) {
                         std::string bmenu = cfg_.tui_bin +
@@ -221,7 +231,10 @@ namespace tmoe::domain {
                 // ── 7. boot-repair (对应 Bash install_boot_repair) ──
                 case 7: {
                     if (cfg_.linux_distro != "debian") {
-                        placeholder_return("boot-repair (Debian/Ubuntu only)");
+                        Logger::error(_("beta.sys_bootrepair_debian_only"));
+                        Logger::info("boot-repair requires Ubuntu/Debian with PPA support.");
+                        Logger::info("Manual: https://help.ubuntu.com/community/Boot-Repair");
+                        Logger::info("For other distros, try: grub-mkconfig -o /boot/grub/grub.cfg");
                         break;
                     }
                     Executor::passthrough("apt update 2>/dev/null");
@@ -262,13 +275,23 @@ namespace tmoe::domain {
                         PackageManager::install("yasat", family);
                     if (Executor::has("yasat"))
                         Executor::passthrough("yasat --full-scan");
-                    else
-                        placeholder_return("yasat install failed");
+                    else {
+                        Logger::error(_("beta.sys_yasat_install_failed"));
+                        Logger::info("apt install yasat    # Debian/Ubuntu");
+                        Logger::info("pip install yasat    # pip fallback");
+                        Logger::info("Manual: https://github.com/gh0st-arch/yasat");
+                    }
                     break;
                 }
 
                 // ── 10. 保持占位 ──
-                case 10: placeholder_return("Tmoe-linux manager (old version)"); break;
+                // ── 10. Tmoe-linux manager (旧版外部脚本, 对应 Bash source app/manager) ──
+                case 10:
+                    Logger::info(_("beta.sys_old_manager"));
+                    Logger::info("This feature requires the legacy bash script from:");
+                    Logger::info("  ${TMOE_GIT_DIR}/share/old-version/share/app/manager");
+                    Logger::info("Run: bash /path/to/tmoe-linux/share/old-version/share/app/manager");
+                    break;
                 default: break;
             }
             Logger::press_enter();
@@ -304,7 +327,9 @@ namespace tmoe::domain {
                     if (cfg_.linux_distro == "debian") {
                         Executor::passthrough("aptitude");
                     } else {
-                        placeholder("aptitude (Debian only)");
+                        Logger::error(_("beta.store_aptitude_debian_only"));
+                        Logger::info("aptitude is only available on Debian-based distributions.");
+                        Logger::info("Alternatives: pamac (Arch), dnfdragora (Fedora), yast (openSUSE)");
                     }
                     break;
                 case 2: run_deepin_menu();
@@ -524,8 +549,46 @@ namespace tmoe::domain {
             if (ch == "1") {
                 PackageManager::install("r-base", family);
             } else if (ch == "2") {
-                // RStudio — 架构/发行版判断 (对应 Bash install_r_studio)
-                placeholder("RStudio (arch/distro-specific download)");
+                // RStudio — 对应 Bash install_r_studio: amd64 only, distro-specific
+                if (cfg_.arch != "amd64") {
+                    Logger::error("RStudio requires amd64 architecture");
+                    break;
+                }
+                if (cfg_.linux_distro == "arch") {
+                    PackageManager::install("rstudio-desktop-git", family);
+                } else if (cfg_.linux_distro == "debian") {
+                    // 从 rstudio.com 抓取最新 .deb
+                    Logger::step("Downloading latest RStudio...");
+                    auto ver = Executor::shell(
+                        "curl -sL 'https://rstudio.com/products/rstudio/download/#download' 2>/dev/null | "
+                        "grep -oP 'rstudio-[\\d.]+-amd64\\.deb' | head -n1");
+                    std::string deb = ver.ok() ? ver.stdout_data : "";
+                    if (!deb.empty()) {
+                        deb.erase(std::remove(deb.begin(), deb.end(), '\n'), deb.end());
+                        Executor::passthrough("curl -L -o /tmp/" + deb + " "
+                            "'https://download1.rstudio.org/electron/focal/amd64/" + deb + "' 2>/dev/null");
+                        Executor::passthrough("apt install -y /tmp/" + deb + " 2>/dev/null");
+                        Logger::ok("RStudio installed");
+                    } else {
+                        Logger::error("Could not detect latest RStudio version");
+                    }
+                } else if (cfg_.linux_distro == "redhat") {
+                    auto ver = Executor::shell(
+                        "curl -sL 'https://rstudio.com/products/rstudio/download/#download' 2>/dev/null | "
+                        "grep -oP 'rstudio-[\\d.]+-x86_64\\.rpm' | head -n1");
+                    std::string rpm = ver.ok() ? ver.stdout_data : "";
+                    if (!rpm.empty()) {
+                        rpm.erase(std::remove(rpm.begin(), rpm.end(), '\n'), rpm.end());
+                        Executor::passthrough("curl -L -o /tmp/" + rpm + " "
+                            "'https://download1.rstudio.org/electron/focal/amd64/" + rpm + "' 2>/dev/null");
+                        Executor::passthrough("yum install -y /tmp/" + rpm + " 2>/dev/null");
+                        Logger::ok("RStudio installed");
+                    } else {
+                        Logger::error("Could not detect latest RStudio version");
+                    }
+                } else {
+                    Logger::warn("RStudio auto-download only supports Debian/Redhat/Arch");
+                }
             } else if (ch == "3") {
                 PackageManager::install("r-recommended", family);
             }
@@ -572,8 +635,19 @@ namespace tmoe::domain {
             if (idx < 0 || idx >= 9) continue;
 
             if (idx == 0) {
-                // 文件管理器三选一 (对应 Bash thunar_nautilus_dolphion)
-                placeholder_return("file manager: thunar / nautilus / dolphin (interactive pick)");
+                // 文件管理器选择器 (对应 Bash thunar_nautilus_dolphion)
+                std::string fm_menu = cfg_.tui_bin +
+                    " --title \"FILE MANAGER\" --menu \"Select file manager:\" 0 50 0 "
+                    "\"1\" \"thunar (XFCE, lightweight)\" "
+                    "\"2\" \"nautilus (GNOME Files)\" "
+                    "\"3\" \"dolphin (KDE)\" "
+                    "\"4\" \"thunar + nautilus\" "
+                    "\"0\" \"" + _("menu.tui.back") + "\"";
+                std::string fmpick = Executor::tui_select(fm_menu);
+                if (fmpick == "1") PackageManager::install("thunar", family);
+                else if (fmpick == "2") PackageManager::install("nautilus", family);
+                else if (fmpick == "3") PackageManager::install("dolphin", family);
+                else if (fmpick == "4") PackageManager::install({"thunar", "nautilus"}, family);
             } else {
                 PackageManager::install(pkgs[idx], family);
             }
@@ -627,65 +701,29 @@ namespace tmoe::domain {
     //  选项9: 网络管理 (对应 Bash: network 321行) — 占位
     // ═══════════════════════════════════════════════════════════════
 
+    // TODO(network): 完整网络管理 — 对应 Bash old/tools/system/network (321行)
+    //   - nmtui: 检查并安装 network-manager, 检查 managed=true, 启动 NetworkManager
+    //   - enable device: nmcli device list → ip link set <dev> up
+    //   - WiFi scan: 安装 iw+wireless-tools, iwlist scan, 解析 SSID
+    //   - device status: iw phy, nmcli device show, nmcli connection show
+    //   - driver: check_debian_nonfree_source → firmware-iwlwifi/realtek/libertas/brcm/misc
+    //   - view IP: ip -br -c a, curl myip.ipip.net / ip.cip.cc
+    //   - wifi-qr: 安装 wifi-qr, wifi-qr t
+    //   - edit config: 编辑器遍历 → /etc/NetworkManager/system-connections/* 等
+    //   - systemctl enable: alpine→rc-update, 其他→systemctl enable
+    //   - blueman: alpine→gnome-bluetooth+blueman, 其他→blueman-manager+blueman
+    //   - gnome-nettool: debian→network-manager-gnome, 其他→gnome-network-manager
     void BetaFeaturesManager::run_network_menu() {
-        while (true) {
-            std::string menu = cfg_.tui_bin + " --title \"" + _("beta.net_title")
-                               + "\" --menu \"" + _("beta.net_prompt") + "\" 17 50 8 "
-                               "\"1\" \"" + _("beta.net_nmtui") + "\" "
-                               "\"2\" \"" + _("beta.net_enable_dev") + "\" "
-                               "\"3\" \"" + _("beta.net_wifi_scan") + "\" "
-                               "\"4\" \"" + _("beta.net_dev_status") + "\" "
-                               "\"5\" \"" + _("beta.net_driver") + "\" "
-                               "\"6\" \"" + _("beta.net_view_ip") + "\" "
-                               "\"7\" \"" + _("beta.net_wifi_qr") + "\" "
-                               "\"8\" \"" + _("beta.net_edit_config") + "\" "
-                               "\"9\" \"" + _("beta.net_autostart") + "\" "
-                               "\"10\" \"" + _("beta.net_blueman") + "\" "
-                               "\"11\" \"" + _("beta.net_gnome_nettool") + "\" "
-                               "\"0\" \"" + _("menu.tui.back") + "\"";
-
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) break;
-
-            auto family = infer_family_from_config(cfg_.linux_distro);
-
-            switch (std::stoi(ch)) {
-                case 1: placeholder_return("nmtui (NetworkManager TUI)");
-                    break;
-                case 2: placeholder_return("enable network device");
-                    break;
-                case 3: placeholder_return("WiFi scan (iw/iwlist)");
-                    break;
-                case 4: placeholder_return("network device status");
-                    break;
-                case 5: placeholder_return("network card driver install");
-                    break;
-                case 6: placeholder_return("view IP address");
-                    break;
-                case 7: placeholder_return("WiFi QR code");
-                    break;
-                case 8: placeholder_return("edit network config");
-                    break;
-                case 9: placeholder_return("systemctl enable NetworkManager");
-                    break;
-                case 10:
-                    // blueman
-                    if (cfg_.linux_distro == "alpine")
-                        PackageManager::install({"gnome-bluetooth", "blueman"}, family);
-                    else
-                        PackageManager::install({"blueman-manager", "blueman"}, family);
-                    break;
-                case 11:
-                    // gnome-nettool
-                    if (cfg_.linux_distro == "debian")
-                        PackageManager::install({"gnome-nettool", "network-manager-gnome"}, family);
-                    else
-                        PackageManager::install({"gnome-nettool", "gnome-network-manager"}, family);
-                    break;
-                default: break;
-            }
-            Logger::press_enter();
-        }
+        Logger::warn(_("misc.not_implemented"));
+        Logger::info("Network management sub-menu is not yet implemented.");
+        Logger::info("It will cover: nmtui, WiFi scan, device management,");
+        Logger::info("network card drivers (non-free firmware), IP display,");
+        Logger::info("wifi-qr, manual config editing, blueman, gnome-nettool.");
+        Logger::info("---");
+        Logger::info("For now, use these commands directly:");
+        Logger::info("  nmtui              — NetworkManager TUI");
+        Logger::info("  nmcli device wifi   — WiFi scan & connect");
+        Logger::info("  ip -br -c a        — view IP addresses");
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -760,15 +798,63 @@ namespace tmoe::domain {
                     PackageManager::install("scrcpy", family);
                     break;
                 }
-                case 2: placeholder_return("adb connect (interactive address input)");
+                // ── adb 连接管理 (对应 Bash scrcpy_connect_to_android_device) ──
+                case 2: {
+                    std::string target = Executor::tui_select(
+                        cfg_.tui_bin + " --title \"ADB ADDRESS\""
+                        " --inputbox \"Enter adb address (e.g. 192.168.99.3:5555)\" 0 0");
+                    if (target.empty()) target = "localhost:5555";
+                    if (target.find(':') == std::string::npos) target += ":5555";
+                    Executor::passthrough("adb connect " + target + " 2>/dev/null");
+                    Executor::passthrough("adb devices -l 2>/dev/null");
+                    Logger::info("You can run scrcpy now. Start it?");
                     break;
-                case 3: placeholder_return("switch scrcpy device (adb devices list)");
+                }
+                // ── 切换 scrcpy 设备 (对应 Bash switch_scrcpy_device) ──
+                case 3: {
+                    auto devs = Executor::shell("adb devices 2>/dev/null | sed '1d;$d' | awk '{print $1}'");
+                    std::string dlist = devs.ok() ? devs.stdout_data : "";
+                    if (dlist.empty()) { Logger::warn("no adb devices found"); break; }
+                    std::string dmenu = cfg_.tui_bin + " --title \"SCRCPY DEVICES\" --menu \"Switch to:\" 0 0 0 ";
+                    std::vector<std::string> devices;
+                    std::istringstream iss(dlist);
+                    std::string d;
+                    int dn = 1;
+                    while (std::getline(iss, d)) {
+                        if (d.empty()) continue;
+                        d.erase(std::remove(d.begin(), d.end(), '\r'), d.end());
+                        devices.push_back(d);
+                        dmenu += "\"" + std::to_string(dn++) + "\" \"" + d + "\" ";
+                    }
+                    dmenu += "\"0\" \"" + _("menu.tui.back") + "\"";
+                    std::string dpick = Executor::tui_select(dmenu);
+                    if (dpick == "0" || dpick.empty()) break;
+                    int didx = std::stoi(dpick) - 1;
+                    if (didx >= 0 && didx < (int)devices.size())
+                        Executor::passthrough("scrcpy -s " + devices[didx] + " 2>/dev/null &");
                     break;
+                }
                 case 4:
                     Executor::passthrough("adb kill-server 2>/dev/null || true");
                     Executor::passthrough("adb devices -l 2>/dev/null || true");
                     break;
-                case 5: placeholder_return("scrcpy FAQ / readme");
+                // ── scrcpy FAQ (对应 Bash scrpy_faq) ──
+                case 5:
+                    Logger::info("scrcpy FAQ:");
+                    Logger::info("  scrcpy            — start with defaults");
+                    Logger::info("  scrcpy -S         — turn off device screen");
+                    Logger::info("  scrcpy -m 1024    — limit resolution to 1024");
+                    Logger::info("  scrcpy -b 4M      — set video bitrate to 4M");
+                    Logger::info("  scrcpy -c 1920:1080:0:0 — crop display");
+                    Logger::info("  scrcpy -T         — keep window on top");
+                    Logger::info("  scrcpy -t         — show touch points");
+                    Logger::info("  scrcpy -f         — fullscreen");
+                    Logger::info("  scrcpy --push-target /path — file transfer dir");
+                    Logger::info("  scrcpy -n         — read-only (display only)");
+                    Logger::info("  scrcpy -r video.mp4 — screen recording");
+                    Logger::info("  scrcpy -Nr video.mkv — recording (no display)");
+                    Logger::info("  scrcpy --window-title 'title' — set window title");
+                    Logger::info("Docs: https://github.com/Genymobile/scrcpy");
                     break;
                 default: break;
             }
@@ -792,12 +878,4 @@ namespace tmoe::domain {
         PackageManager::install(pkgs, family);
     }
 
-    void BetaFeaturesManager::placeholder(const std::string &feature_name) {
-        Logger::warn(_("misc.not_implemented") + ": " + feature_name);
-    }
-
-    void BetaFeaturesManager::placeholder_return(const std::string &feature_name) {
-        Logger::warn(_("misc.not_implemented") + ": " + feature_name);
-        Logger::info(_("misc.press_enter"));
-    }
 } // namespace tmoe::domain

@@ -191,11 +191,23 @@ namespace tmoe::domain {
         }
 
         // 对应 Bash install_docker_portainer (1139-1158行): 默认端口39080
-        std::string port_cmd = cfg_.tui_bin +
-                               " --title \"" + _("docker.portainer_port_title") + "\""
-                               " --inputbox \"" + _("docker.portainer_port_input") + "\" 0 50 \"39080\"";
-        std::string port_str = Executor::tui_select(port_cmd);
-        int port = port_str.empty() ? 39080 : std::stoi(port_str);
+        // 用 yesno 替代 inputbox — 避免 tui_select 无法区分 cancel 和空输入
+        int port = 39080;
+        std::string confirm = cfg_.tui_bin +
+            " --title \"" + _("docker.portainer_port_title") + "\""
+            " --yes-button \"" + _("docker.portainer_btn_default") + "\""
+            " --no-button \"" + _("docker.portainer_btn_custom") + "\""
+            " --yesno \"" + _("docker.portainer_port_input") + "\" 0 50";
+        auto choice = Executor::passthrough(confirm);
+        if (choice.exit_code == 255) return false;  // Esc pressed → cancel
+        if (choice.exit_code != 0) {
+            // 用户选了自定义端口
+            std::string port_str = Executor::tui_select(
+                cfg_.tui_bin +
+                " --title \"" + _("docker.portainer_port_title") + "\""
+                " --inputbox \"" + _("docker.portainer_custom_port_input") + "\" 0 0 \"39080\"");
+            if (!port_str.empty()) port = std::stoi(port_str);
+        }
 
         Logger::step(_("docker.installing_portainer"));
         ensure_docker_running();
@@ -1068,7 +1080,26 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
 
     void DockerManager::tmoe_docker_readme(const std::string &container_name) const {
-        Logger::info(_("docker.readme_content"));
+        // 对应 Bash tmoe_docker_readme (107-120行)
+        std::fprintf(stderr,
+            "\n══════════ Docker Usage ══════════\n\n"
+            "  Container: %s\n\n"
+            "  service docker start      — start docker daemon\n"
+            "  systemctl enable docker   — auto-start on boot\n"
+            "  ─────────────────────────────────\n"
+            "  docker ps                 — list running containers\n"
+            "  docker ps -a              — list all containers\n"
+            "  docker start   <name>     — start container\n"
+            "  docker stop    <name>     — stop container\n"
+            "  docker attach  <name>     — attach to container\n"
+            "  docker exec -it <name> sh — exec shell in container\n"
+            "  ─────────────────────────────────\n"
+            "  docker pull <image>:<tag> — pull image\n"
+            "  docker rmi  <image>:<tag> — remove image\n"
+            "  docker export <name> > bak.tar — export\n"
+            "  docker import - <name>:<tag> < bak.tar — import\n\n",
+            container_name.c_str());
+        Logger::press_enter();
     }
 
     std::string DockerManager::custom_docker_container_tag(const std::string &docker_name,
