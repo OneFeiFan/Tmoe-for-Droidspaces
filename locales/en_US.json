@@ -1676,5 +1676,8 @@
   "docker.install_ce_or_io_title": "DOCKER",
   "docker.install_ce_or_io_prompt": "Please make sure your linux kernel supports docker.\\nTo avoid conflicts, please choose only one.\\n\\n安装前请先确保您的linux内核支持docker。为避免冲突,请只选择其中一个。",
   "docker.btn_ce": "docker-ce",
-  "docker.btn_io": "docker.io"
+  "docker.btn_io": "docker.io",
+  "docker.systemd_prompt": "Which distribution image do you want to pull? (systemd supported)",
+  "docker.systemd_fedora_desc": "Red Hat community edition, new technology testbed",
+  "docker.systemd_centos_desc": "Community Enterprise OS based on Red Hat"
 }

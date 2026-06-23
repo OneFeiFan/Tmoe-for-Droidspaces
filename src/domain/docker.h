@@ -48,9 +48,6 @@ namespace tmoe::domain {
         /** 安装 Portainer Web 管理界面 (对应 Bash install_docker_portainer, 默认端口39080)。 */
         bool install_docker_portainer();
 
-        /** 跨架构运行 Docker 容器 (对应 Bash run_docker_across_architectures)。 */
-        void run_docker_across_architectures();
-
         // ── 镜像管理 ──
         /** 拉取 Docker 镜像。 */
         bool pull_image(std::string_view image, std::string_view tag = "latest");
@@ -204,9 +201,5 @@ namespace tmoe::domain {
         std::string current_docker_tag2_;
         std::string current_docker_name2_;
         int current_mgt_menu_type_ = 1;
-        bool current_systemd_ = false;
-        std::string cross_arch_prefix_;   // 跨架构镜像前缀 (如 amd64, arm64v8)
-        std::string cross_arch_qemu_;      // qemu-user-static 架构 (如 x86_64, aarch64), 空=同架构
-        std::string cross_arch_suffix_;    // 容器名后缀 (如 x64, arm64)
     };
 } // namespace tmoe::domain

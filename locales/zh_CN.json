@@ -1676,5 +1676,8 @@
   "docker.install_ce_or_io_title": "DOCKER本体",
   "docker.install_ce_or_io_prompt": "Please make sure your linux kernel supports docker.\\n安装前请先确保您的linux内核支持docker。为避免冲突,请只选择其中一个。",
   "docker.btn_ce": "docker-ce",
-  "docker.btn_io": "docker.io"
+  "docker.btn_io": "docker.io",
+  "docker.systemd_prompt": "您想要拉取哪个GNU/Linux发行版的镜像?(支持systemd)",
+  "docker.systemd_fedora_desc": "红帽社区版,新技术试验场",
+  "docker.systemd_centos_desc": "基于红帽的社区企业操作系统"
 }

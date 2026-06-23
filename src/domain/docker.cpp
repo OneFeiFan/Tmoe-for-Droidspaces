@@ -56,8 +56,7 @@ namespace tmoe::domain {
         {"photon", "VMware Photon OS"},
     };
 
-    DockerManager::DockerManager(const TmoeConfig &cfg) : cfg_(cfg),
-                                                          current_systemd_(false) {
+    DockerManager::DockerManager(const TmoeConfig &cfg) : cfg_(cfg) {
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -70,51 +69,40 @@ namespace tmoe::domain {
                                         ? _("docker.status_installed")
                                         : _("docker.status_not_installed");
 
-            // 对应 Bash tmoe_docker_menu (697-732行) — 9项菜单，带emoji
             std::string menu = cfg_.tui_bin +
                                " --title \"" + _("docker.title") + " — " + available + "\""
                                " --menu \"" + _("docker.menu_prompt") + "\" 0 0 0 "
-                               "\"1\" \"" + _("docker.menu_cross_arch") + "\" "
-                               "\"2\" \"" + _("docker.menu_systemd_docker") + "\" "
-                               "\"3\" \"" + _("docker.menu_pull_distro") + "\" "
-                               "\"4\" \"" + _("docker.menu_portainer") + "\" "
-                               "\"5\" \"" + _("docker.menu_export") + "\" "
-                               "\"6\" \"" + _("docker.menu_import") + "\" "
-                               "\"7\" \"" + _("docker.menu_mirror") + "\" "
-                               "\"8\" \"" + _("docker.menu_install_ce") + "\" "
-                               "\"9\" \"" + _("docker.menu_add_user") + "\" "
+                               "\"1\" \"" + _("docker.menu_pull_distro") + "\" "
+                               "\"2\" \"" + _("docker.menu_portainer") + "\" "
+                               "\"3\" \"" + _("docker.menu_export") + "\" "
+                               "\"4\" \"" + _("docker.menu_import") + "\" "
+                               "\"5\" \"" + _("docker.menu_mirror") + "\" "
+                               "\"6\" \"" + _("docker.menu_install_ce") + "\" "
+                               "\"7\" \"" + _("docker.menu_add_user") + "\" "
                                "\"0\" \"" + _("menu.tui.back_upper") + "\"";
 
             std::string choice = Executor::tui_select(menu);
             if (choice == "0" || choice.empty()) break;
 
             if (choice == "1") {
-                // 跨架构运行 → 对应 Bash run_docker_across_architectures
-                current_systemd_ = false;
-                run_docker_across_architectures();
-            } else if (choice == "2") {
-                // systemd docker → 对应 Bash systemd_docker_env
-                current_systemd_ = true;
-                run_docker_across_architectures();
-            } else if (choice == "3") {
                 proot_warning_check();
                 if (!check_docker_installation()) { Logger::press_enter(); continue; }
-                choose_gnu_linux_docker_images(current_systemd_);
-            } else if (choice == "4") {
+                choose_gnu_linux_docker_images(false);
+            } else if (choice == "2") {
                 if (!check_docker_installation()) { Logger::press_enter(); continue; }
                 install_docker_portainer();
-            } else if (choice == "5") {
+            } else if (choice == "3") {
                 if (!check_docker_installation()) { Logger::press_enter(); continue; }
                 export_docker_image_menu();
-            } else if (choice == "6") {
+            } else if (choice == "4") {
                 if (!check_docker_installation()) { Logger::press_enter(); continue; }
                 import_docker_image_menu();
-            } else if (choice == "7") {
+            } else if (choice == "5") {
                 docker_mirror_source();
-            } else if (choice == "8") {
+            } else if (choice == "6") {
                 proot_warning_check();
                 install_docker_ce_or_io();
-            } else if (choice == "9") {
+            } else if (choice == "7") {
                 add_user_to_docker_group();
             }
             Logger::press_enter();
@@ -220,142 +208,9 @@ namespace tmoe::domain {
     //  跨架构运行 Docker 容器 (对应 Bash run_docker_across_architectures 1022-1100行)
     // ═══════════════════════════════════════════════════════════════
 
-    void DockerManager::run_docker_across_architectures() {
-        if (!check_docker_installation()) return;
-
-        while (true) {
-            // 对应 Bash: 6个目标架构 + qemu-user-static管理
-            std::string menu = cfg_.tui_bin +
-                               " --title \"" + _("docker.cross_arch_title") + "\""
-                               " --menu \"" + _("docker.cross_arch_prompt") + "\" 0 50 0 "
-                               "\"0\" \"" + _("menu.tui.back_upper") + "\" "
-                               "\"00\" \"" + _("docker.cross_arch_qemu_mgr") + "\" "
-                               "\"1\" \"x64/amd64 (" + _("docker.cross_arch_amd64_desc") + ")\" "
-                               "\"2\" \"arm64v8/aarch64 (" + _("docker.cross_arch_arm64_desc") + ")\" "
-                               "\"3\" \"i386 (" + _("docker.cross_arch_i386_desc") + ")\" "
-                               "\"4\" \"arm32v7/armhf (" + _("docker.cross_arch_armhf_desc") + ")\" "
-                               "\"5\" \"ppc64le (" + _("docker.cross_arch_ppc64le_desc") + ")\" "
-                               "\"6\" \"s390x (" + _("docker.cross_arch_s390x_desc") + ")\"";
-
-            std::string choice = Executor::tui_select(menu);
-            if (choice == "0" || choice.empty()) break;
-
-            std::string target_arch = detect_true_arch();
-            std::string new_arch, qemu_arch, container_ext;
-
-            if (choice == "00") {
-                // qemu-user-static 管理 — 占位
-                Logger::info(_("docker.cross_arch_qemu_hint"));
-                ensure_docker_running();
-                Executor::passthrough("apt install -y qemu-user-static 2>/dev/null || true");
-                Executor::passthrough("docker run --rm --privileged multiarch/qemu-user-static:register 2>/dev/null || true");
-                Logger::press_enter();
-                continue;
-            }
-
-            if (choice == "1") {
-                new_arch = "amd64"; qemu_arch = "x86_64"; container_ext = "x64";
-                if (target_arch == "amd64") qemu_arch = "";
-            } else if (choice == "2") {
-                new_arch = "arm64v8"; qemu_arch = "aarch64"; container_ext = "arm64";
-                if (target_arch == "arm64") qemu_arch = "";
-            } else if (choice == "3") {
-                new_arch = "i386"; qemu_arch = "i386"; container_ext = "x86";
-                if (target_arch == "i386") qemu_arch = "";
-            } else if (choice == "4") {
-                new_arch = "arm32v7"; qemu_arch = "arm"; container_ext = "arm";
-                if (target_arch == "armhf") qemu_arch = "";
-            } else if (choice == "5") {
-                new_arch = "ppc64le"; qemu_arch = "ppc64le"; container_ext = "ppc";
-                if (target_arch == "ppc64el") qemu_arch = "";
-            } else if (choice == "6") {
-                new_arch = "s390x"; qemu_arch = "s390x"; container_ext = "s390";
-                if (target_arch == "s390x") qemu_arch = "";
-            } else continue;
-
-            cross_arch_prefix_ = new_arch;
-            cross_arch_qemu_ = qemu_arch;
-            cross_arch_suffix_ = container_ext;
-
-            // 确保 qemu-user-static 可用
-            if (!qemu_arch.empty()) {
-                if (!Executor::shell("test -e /usr/bin/qemu-" + qemu_arch + "-static").ok()) {
-                    Logger::warn(_("docker.cross_arch_need_qemu"));
-                    Executor::passthrough("apt install -y qemu-user-static 2>/dev/null || true");
-                    Executor::passthrough("docker run --rm --privileged multiarch/qemu-user-static:register 2>/dev/null || true");
-                }
-            }
-
-            // 进入发行版选择 (systemd模式下用systemd子列表)
-            if (current_systemd_) {
-                choose_gnu_linux_docker_images(true);
-            } else {
-                choose_gnu_linux_docker_images(false);
-            }
-            break;
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  镜像管理
-    // ═══════════════════════════════════════════════════════════════
-
-    bool DockerManager::pull_image(std::string_view image, std::string_view tag) {
-        Logger::step(_f("docker.pulling_image", std::string(image), std::string(tag)));
-        std::string full = std::string(image) + ":" + std::string(tag);
-        return Executor::passthrough("docker pull " + full).ok();
-    }
-
-    std::vector<DockerImageInfo> DockerManager::list_images() const {
-        std::vector<DockerImageInfo> result;
-        auto exec = Executor::shell("docker images --format \"{{.Repository}} {{.Tag}}\" 2>/dev/null");
-        if (!exec.ok()) return result;
-
-        std::istringstream iss(exec.stdout_data);
-        std::string line;
-        while (std::getline(iss, line)) {
-            if (line.empty()) continue;
-            std::istringstream lss(line);
-            std::string name, tag;
-            lss >> name >> tag;
-            if (!name.empty()) {
-                if (tag.empty()) tag = "latest";
-                result.push_back({name, tag});
-            }
-        }
-        return result;
-    }
-
-    bool DockerManager::tui_pull_distro_image() {
-        std::string menu = cfg_.tui_bin +
-                           " --title \"" + _("docker.pull_distro_title") + "\""
-                           " --menu \"" + _("docker.pull_distro_prompt") + "\" 0 0 0 ";
-
-        for (size_t i = 0; i < DISTRO_IMAGES.size(); ++i) {
-            menu += "\"" + std::to_string(i + 1) + "\" \""
-                    + DISTRO_IMAGES[i].second + "\" ";
-        }
-        menu += "\"0\" \"" + _("menu.tui.back") + "\"";
-
-        std::string choice = Executor::tui_select(menu);
-        if (choice == "0" || choice.empty()) return false;
-
-        int idx = std::stoi(choice) - 1;
-        if (idx < 0 || idx >= static_cast<int>(DISTRO_IMAGES.size())) return false;
-
-        std::string image_name = DISTRO_IMAGES[idx].first;
-        std::string tag = tui_input_tag();
-        return pull_image(image_name, tag);
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  发行版选择 + 容器管理子菜单（完整 Bash 复刻）
-    // ═══════════════════════════════════════════════════════════════
-
     void DockerManager::choose_gnu_linux_docker_images(bool systemd_mode) {
         if (!check_docker_installation()) return;
 
-        current_systemd_ = systemd_mode;
 
         // 构建 17 种发行版菜单（+ systemd 子菜单中的 centos/fedora）
         std::string menu = cfg_.tui_bin +
@@ -1166,15 +1021,33 @@ namespace tmoe::domain {
     bool DockerManager::add_user_to_docker_group() {
         Logger::step(_("docker.adding_user_group"));
 
-        std::string cur_user = "root";
-        auto result = Executor::shell("whoami");
-        if (result.ok()) {
-            cur_user = result.stdout_data;
-            cur_user.erase(std::remove(cur_user.begin(), cur_user.end(), '\n'), cur_user.end());
-            cur_user.erase(std::remove(cur_user.begin(), cur_user.end(), '\r'), cur_user.end());
+        // 对应 Bash: 优先用 $SUDO_USER（sudo提权时的原始用户），
+        // 其次从 $HOME 在 /etc/passwd 中反查，最后用 whoami
+        std::string cur_user;
+        const char* sudo_user = std::getenv("SUDO_USER");
+        if (sudo_user && sudo_user[0] != '\0') {
+            cur_user = sudo_user;
+        } else {
+            const char* home = std::getenv("HOME");
+            if (home) {
+                auto result = Executor::shell(
+                    std::string("grep \"") + home + "\" /etc/passwd | awk -F':' '{print $1}' | head -n 1");
+                if (result.ok() && !result.stdout_data.empty()) {
+                    cur_user = result.stdout_data;
+                    cur_user.erase(std::remove(cur_user.begin(), cur_user.end(), '\n'), cur_user.end());
+                }
+            }
+            if (cur_user.empty()) {
+                auto result = Executor::shell("whoami");
+                if (result.ok()) {
+                    cur_user = result.stdout_data;
+                    cur_user.erase(std::remove(cur_user.begin(), cur_user.end(), '\n'), cur_user.end());
+                    cur_user.erase(std::remove(cur_user.begin(), cur_user.end(), '\r'), cur_user.end());
+                }
+            }
         }
 
-        if (cur_user == "root") {
+        if (cur_user == "root" || cur_user.empty()) {
             Logger::info(_("docker.root_no_group_needed"));
             return true;
         }
@@ -1182,7 +1055,7 @@ namespace tmoe::domain {
         Executor::shell("groupadd docker 2>/dev/null");
         bool ok = Executor::shell("gpasswd -a " + cur_user + " docker").ok();
         if (ok) {
-            Logger::ok(_f("docker.user_added_to_group", cur_user));
+            Logger::ok(_("docker.user_added_to_group") + ": " + cur_user);
             Logger::info(_("docker.relogin_hint"));
         }
         return ok;
