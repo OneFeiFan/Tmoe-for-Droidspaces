@@ -1093,7 +1093,9 @@ namespace tmoe::domain {
     }
 
     bool DockerManager::is_docker_available() const {
-        return Executor::shell("docker info 2>/dev/null 1>/dev/null").ok();
+        // command -v 瞬间返回，不会像 docker info 那样挂 socket 超时
+        if (!Executor::has("docker")) return false;
+        return Executor::shell("pgrep dockerd >/dev/null 2>&1").ok();
     }
 
     // ═══════════════════════════════════════════════════════════════
