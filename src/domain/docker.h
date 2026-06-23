@@ -55,8 +55,8 @@ namespace tmoe::domain {
         /** 列出本地 Docker 镜像。 */
         std::vector<DockerImageInfo> list_images() const;
 
-        /** 选择并拉取 Linux 发行版镜像 (完整 TUI，含 17 种发行版 + arch 路由)。 */
-        void choose_gnu_linux_docker_images(bool systemd_mode = false);
+        /** 选择并拉取 Linux 发行版镜像 (完整 TUI，含 17 种发行版)。 */
+        void choose_gnu_linux_docker_images();
 
         /** TUI 拉取发行版镜像（旧版简易列表）。 */
         bool tui_pull_distro_image();
@@ -88,14 +88,12 @@ namespace tmoe::domain {
         /** 连接 Docker 容器 (docker attach / exec)。 */
         bool docker_attach_container(const std::string &container_name,
                                      const std::string &docker_name,
-                                     const std::string &docker_tag,
-                                     bool systemd = false);
+                                     const std::string &docker_tag);
 
         /** 重置容器（删除 + 重拉 + 重建）。 */
         bool reset_docker_container(const std::string &docker_name,
                                     const std::string &docker_tag,
-                                    const std::string &container_name,
-                                    bool systemd = false);
+                                    const std::string &container_name);
 
         // ── 导入/导出 ──
         /** 导出容器为 tar 文件。 */
@@ -168,25 +166,22 @@ namespace tmoe::domain {
         /** 检查 Docker 是否已安装（未安装则提示安装）。 */
         bool check_docker_installation();
 
-        /** 容器管理子菜单（类型1: 1标签+2标签+自定义+连接+说明+重置+删除）。 */
+        /** 容器管理子菜单（类型1: 1标签+2标签+自定义+systemd+连接+说明+重置+删除）。 */
         void docker_management_menu_01(const std::string &docker_name,
                                        const std::string &container_name,
                                        const std::string &tag1,
-                                       const std::string &tag2,
-                                       bool systemd);
+                                       const std::string &tag2);
 
         /** 容器管理子菜单（类型2: 双镜像名）。 */
         void docker_management_menu_02(const std::string &docker_name,
                                        const std::string &docker_name2,
                                        const std::string &container_name,
-                                       const std::string &tag1,
-                                       bool systemd);
+                                       const std::string &tag1);
 
-        /** 容器管理子菜单（类型3: 单标签+自定义+连接+说明+重置+删除）。 */
+        /** 容器管理子菜单（类型3: 单标签+自定义+systemd+连接+说明+重置+删除）。 */
         void docker_management_menu_03(const std::string &docker_name,
                                        const std::string &container_name,
-                                       const std::string &tag1,
-                                       bool systemd);
+                                       const std::string &tag1);
 
         /** 初始化 Docker 挂载目录。 */
         void docker_init();

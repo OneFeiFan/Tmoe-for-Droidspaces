@@ -1679,5 +1679,7 @@
   "docker.btn_io": "docker.io",
   "docker.systemd_prompt": "您想要拉取哪个GNU/Linux发行版的镜像?(支持systemd)",
   "docker.systemd_fedora_desc": "红帽社区版,新技术试验场",
-  "docker.systemd_centos_desc": "基于红帽的社区企业操作系统"
+  "docker.systemd_centos_desc": "基于红帽的社区企业操作系统",
+  "docker.mgt_systemd": "run with systemd (特权模式 + /sbin/init)",
+  "docker.mgt_attach_label": "连接"
 }

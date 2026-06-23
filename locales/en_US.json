@@ -1679,5 +1679,7 @@
   "docker.btn_io": "docker.io",
   "docker.systemd_prompt": "Which distribution image do you want to pull? (systemd supported)",
   "docker.systemd_fedora_desc": "Red Hat community edition, new technology testbed",
-  "docker.systemd_centos_desc": "Community Enterprise OS based on Red Hat"
+  "docker.systemd_centos_desc": "Community Enterprise OS based on Red Hat",
+  "docker.mgt_systemd": "run with systemd (privileged + /sbin/init)",
+  "docker.mgt_attach_label": "attach"
 }

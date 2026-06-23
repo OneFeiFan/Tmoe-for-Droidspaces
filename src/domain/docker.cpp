@@ -86,16 +86,28 @@ namespace tmoe::domain {
 
             if (choice == "1") {
                 proot_warning_check();
-                if (!check_docker_installation()) { Logger::press_enter(); continue; }
-                choose_gnu_linux_docker_images(false);
+                if (!check_docker_installation()) {
+                    Logger::press_enter();
+                    continue;
+                }
+                choose_gnu_linux_docker_images();
             } else if (choice == "2") {
-                if (!check_docker_installation()) { Logger::press_enter(); continue; }
+                if (!check_docker_installation()) {
+                    Logger::press_enter();
+                    continue;
+                }
                 install_docker_portainer();
             } else if (choice == "3") {
-                if (!check_docker_installation()) { Logger::press_enter(); continue; }
+                if (!check_docker_installation()) {
+                    Logger::press_enter();
+                    continue;
+                }
                 export_docker_image_menu();
             } else if (choice == "4") {
-                if (!check_docker_installation()) { Logger::press_enter(); continue; }
+                if (!check_docker_installation()) {
+                    Logger::press_enter();
+                    continue;
+                }
                 import_docker_image_menu();
             } else if (choice == "5") {
                 docker_mirror_source();
@@ -208,11 +220,11 @@ namespace tmoe::domain {
     //  跨架构运行 Docker 容器 (对应 Bash run_docker_across_architectures 1022-1100行)
     // ═══════════════════════════════════════════════════════════════
 
-    void DockerManager::choose_gnu_linux_docker_images(bool systemd_mode) {
+    void DockerManager::choose_gnu_linux_docker_images() {
         if (!check_docker_installation()) return;
 
 
-        // 构建 17 种发行版菜单（+ systemd 子菜单中的 centos/fedora）
+        // 构建 17 种发行版菜单
         std::string menu = cfg_.tui_bin +
                            " --title \"" + _("docker.distros_title") + "\""
                            " --menu \"" + _("docker.distros_prompt") + "\" 0 50 0 ";
@@ -312,36 +324,29 @@ namespace tmoe::domain {
             }
         }
 
-        // systemd 模式下容器名加后缀
-        if (systemd_mode) {
-            current_container_name_ += "-systemd";
-        }
-
         // 进入子菜单
         switch (current_mgt_menu_type_) {
             case 1:
                 if (current_docker_tag2_.empty()) {
                     docker_management_menu_03(current_docker_name_, current_container_name_,
-                                              current_docker_tag1_, systemd_mode);
+                                              current_docker_tag1_);
                 } else {
                     docker_management_menu_01(current_docker_name_, current_container_name_,
-                                              current_docker_tag1_, current_docker_tag2_,
-                                              systemd_mode);
+                                              current_docker_tag1_, current_docker_tag2_);
                 }
                 break;
             case 2:
                 docker_management_menu_02(current_docker_name_, current_docker_name2_,
-                                          current_container_name_, current_docker_tag1_,
-                                          systemd_mode);
+                                          current_container_name_, current_docker_tag1_);
                 break;
             case 3:
                 docker_management_menu_03(current_docker_name_, current_container_name_,
-                                          current_docker_tag1_, systemd_mode);
+                                          current_docker_tag1_);
                 break;
         }
 
         Logger::press_enter();
-        choose_gnu_linux_docker_images(systemd_mode);
+        choose_gnu_linux_docker_images();
     }
 
     // ── 容器管理子菜单 ──
@@ -349,49 +354,49 @@ namespace tmoe::domain {
     void DockerManager::docker_management_menu_01(const std::string &docker_name,
                                                   const std::string &container_name,
                                                   const std::string &tag1,
-                                                  const std::string &tag2,
-                                                  bool systemd) {
+                                                  const std::string &tag2) {
         while (true) {
             std::string menu = cfg_.tui_bin +
                                " --title \"" + docker_name + " CONTAINER\""
                                " --menu \"" + _("docker.mgt_menu_prompt") + "\" 0 0 0 "
-                               "\"1\" \"" + "\"" + tag1 + " (" + _("docker.mgt_run_tag") + ")\" " + "\" "
-                               "\"2\" \"" + _f("docker.mgt_tag2", tag2) + "\" "
+                               "\"1\" \"" + tag1 + " (" + _("docker.mgt_run_tag") + ")\" "
+                               "\"2\" \"" + tag2 + " (" + _("docker.mgt_run_tag") + ")\" "
                                "\"3\" \"" + _("docker.mgt_custom_tag") + "\" "
-                               "\"4\" \"" + "\"docker attach " + container_name + "\"" + "\" "
-                               "\"5\" \"" + _("docker.mgt_readme") + "\" "
-                               "\"6\" \"" + _("docker.mgt_reset") + "\" "
-                               "\"7\" \"" + _("docker.mgt_delete") + "\" "
+                               "\"4\" \"" + "docker attach " + container_name + " (" + _("docker.mgt_attach_label") +
+                               ")\" "
+                               "\"5\" \"" + _("docker.mgt_systemd") + "\" "
+                               "\"6\" \"" + _("docker.mgt_readme") + "\" "
+                               "\"7\" \"" + _("docker.mgt_reset") + "\" "
+                               "\"8\" \"" + _("docker.mgt_delete") + "\" "
                                "\"0\" \"" + _("menu.tui.back_upper") + "\"";
 
             std::string choice = Executor::tui_select(menu);
             if (choice == "0" || choice.empty()) break;
 
             if (choice == "1") {
-                run_special_tag_docker_container(docker_name, tag1, container_name, systemd);
+                run_special_tag_docker_container(docker_name, tag1, container_name, false);
             } else if (choice == "2") {
-                run_special_tag_docker_container(docker_name, tag2, container_name, systemd);
+                run_special_tag_docker_container(docker_name, tag2, container_name, false);
             } else if (choice == "3") {
                 std::string custom_tag = custom_docker_container_tag(docker_name, container_name);
                 if (!custom_tag.empty()) {
-                    run_special_tag_docker_container(docker_name, custom_tag, container_name, systemd);
+                    run_special_tag_docker_container(docker_name, custom_tag, container_name, false);
                 }
             } else if (choice == "4") {
-                docker_attach_container(container_name, docker_name, tag1, systemd);
+                docker_attach_container(container_name, docker_name, tag1);
             } else if (choice == "5") {
-                tmoe_docker_readme(container_name);
+                run_special_tag_docker_container(docker_name, tag1, container_name, true);
             } else if (choice == "6") {
-                // 询问确认
-                Logger::info("\"reset " + container_name + " (" + docker_name + ":" + tag1 + ")?\"");
+                tmoe_docker_readme(container_name);
+            } else if (choice == "7") {
+                Logger::info(_("docker.reset_prompt"));
                 std::string confirm = cfg_.tui_bin +
                                       " --title \"" + _("docker.mgt_reset") + "\""
-                                      " --yesno \"" + "\"reset " + container_name + " (" + docker_name + ":" + tag1 + ")?\"" +
-                                      "\" 0 50";
+                                      " --yesno \"" + _("docker.reset_prompt") + "\" 0 50";
                 if (Executor::passthrough(confirm).exit_code == 0) {
-                    reset_docker_container(docker_name, tag1, container_name, systemd);
+                    reset_docker_container(docker_name, tag1, container_name);
                 }
-            } else if (choice == "7") {
-                // 删除确认
+            } else if (choice == "8") {
                 std::string del_menu = cfg_.tui_bin +
                                        " --title \"" + _("docker.delete_title") + "\""
                                        " --yes-button '" + _("docker.delete_container_only") + "'"
@@ -405,15 +410,14 @@ namespace tmoe::domain {
                 }
             }
 
-            if (choice != "5") Logger::press_enter();
+            if (choice != "6") Logger::press_enter();
         }
     }
 
     void DockerManager::docker_management_menu_02(const std::string &docker_name,
                                                   const std::string &docker_name2,
                                                   const std::string &container_name,
-                                                  const std::string &tag1,
-                                                  bool systemd) {
+                                                  const std::string &tag1) {
         while (true) {
             std::string menu = cfg_.tui_bin +
                                " --title \"" + docker_name + " CONTAINER\""
@@ -421,7 +425,71 @@ namespace tmoe::domain {
                                "\"1\" \"" + docker_name + "\" "
                                "\"2\" \"" + docker_name2 + "\" "
                                "\"3\" \"" + _("docker.mgt_custom_tag") + "\" "
-                               "\"4\" \"" + "\"docker attach " + container_name + "\"" + "\" "
+                               "\"4\" \"" + "docker attach " + container_name + " (" + _("docker.mgt_attach_label") +
+                               ")\" "
+                               "\"5\" \"" + _("docker.mgt_systemd") + "\" "
+                               "\"6\" \"" + _("docker.mgt_readme") + "\" "
+                               "\"7\" \"" + _("docker.mgt_reset") + "\" "
+                               "\"8\" \"" + _("docker.mgt_delete") + "\" "
+                               "\"0\" \"" + _("menu.tui.back_upper") + "\"";
+
+            std::string choice = Executor::tui_select(menu);
+            if (choice == "0" || choice.empty()) break;
+
+            if (choice == "1") {
+                run_special_tag_docker_container(docker_name, tag1, container_name, false);
+            } else if (choice == "2") {
+                run_special_tag_docker_container(docker_name2, tag1, container_name, false);
+            } else if (choice == "3") {
+                std::string ct = custom_docker_container_tag(docker_name, container_name);
+                if (!ct.empty()) {
+                    run_special_tag_docker_container(docker_name, ct, container_name, false);
+                }
+            } else if (choice == "4") {
+                docker_attach_container(container_name, docker_name, tag1);
+            } else if (choice == "5") {
+                run_special_tag_docker_container(docker_name, tag1, container_name, true);
+            } else if (choice == "6") {
+                tmoe_docker_readme(container_name);
+            } else if (choice == "7") {
+                std::string confirm = cfg_.tui_bin +
+                                      " --title \"" + _("docker.mgt_reset") + "\""
+                                      " --yesno \"" + _("docker.reset_prompt") + "\" 0 50";
+                if (Executor::passthrough(confirm).exit_code == 0) {
+                    reset_docker_container(docker_name, tag1, container_name);
+                }
+            } else if (choice == "8") {
+                std::string del_menu = cfg_.tui_bin +
+                                       " --title \"" + _("docker.delete_title") + "\""
+                                       " --yes-button '" + _("docker.delete_container_only") + "'"
+                                       " --no-button '" + _("docker.delete_with_image") + "'"
+                                       " --yesno \"" + _("docker.delete_prompt") + "\" 0 50";
+                auto dc = Executor::passthrough(del_menu);
+                if (dc.exit_code == 0) {
+                    remove_container(container_name);
+                } else {
+                    delete_container_and_image(docker_name, tag1, "", container_name);
+                    Executor::passthrough("docker rmi " + docker_name2 + ":" + tag1 + " 2>/dev/null");
+                    Executor::passthrough("docker rmi " + docker_name2 + " 2>/dev/null");
+                }
+            }
+
+            if (choice != "6") Logger::press_enter();
+        }
+    }
+
+    void DockerManager::docker_management_menu_03(const std::string &docker_name,
+                                                  const std::string &container_name,
+                                                  const std::string &tag1) {
+        while (true) {
+            std::string menu = cfg_.tui_bin +
+                               " --title \"" + docker_name + " CONTAINER\""
+                               " --menu \"" + _("docker.mgt_menu_prompt") + "\" 0 0 0 "
+                               "\"1\" \"" + tag1 + " (" + _("docker.mgt_run_tag") + ")\" "
+                               "\"2\" \"" + _("docker.mgt_custom_tag") + "\" "
+                               "\"3\" \"" + "docker attach " + container_name + " (" + _("docker.mgt_attach_label") +
+                               ")\" "
+                               "\"4\" \"" + _("docker.mgt_systemd") + "\" "
                                "\"5\" \"" + _("docker.mgt_readme") + "\" "
                                "\"6\" \"" + _("docker.mgt_reset") + "\" "
                                "\"7\" \"" + _("docker.mgt_delete") + "\" "
@@ -431,25 +499,23 @@ namespace tmoe::domain {
             if (choice == "0" || choice.empty()) break;
 
             if (choice == "1") {
-                run_special_tag_docker_container(docker_name, tag1, container_name, systemd);
+                run_special_tag_docker_container(docker_name, tag1, container_name, false);
             } else if (choice == "2") {
-                run_special_tag_docker_container(docker_name2, tag1, container_name, systemd);
-            } else if (choice == "3") {
                 std::string ct = custom_docker_container_tag(docker_name, container_name);
                 if (!ct.empty()) {
-                    run_special_tag_docker_container(docker_name, ct, container_name, systemd);
+                    run_special_tag_docker_container(docker_name, ct, container_name, false);
                 }
+            } else if (choice == "3") {
+                docker_attach_container(container_name, docker_name, tag1);
             } else if (choice == "4") {
-                docker_attach_container(container_name, docker_name, tag1, systemd);
+                run_special_tag_docker_container(docker_name, tag1, container_name, true);
             } else if (choice == "5") {
                 tmoe_docker_readme(container_name);
             } else if (choice == "6") {
                 std::string confirm = cfg_.tui_bin +
-                                      " --title \"" + _("docker.mgt_reset") + "\""
-                                      " --yesno \"" + "\"reset " + container_name + " (" + docker_name + ":" + tag1 + ")?\"" +
-                                      "\" 0 50";
+                                      " --yesno \"" + _("docker.reset_prompt") + "\" 0 50";
                 if (Executor::passthrough(confirm).exit_code == 0) {
-                    reset_docker_container(docker_name, tag1, container_name, systemd);
+                    reset_docker_container(docker_name, tag1, container_name);
                 }
             } else if (choice == "7") {
                 std::string del_menu = cfg_.tui_bin +
@@ -462,68 +528,10 @@ namespace tmoe::domain {
                     remove_container(container_name);
                 } else {
                     delete_container_and_image(docker_name, tag1, "", container_name);
-                    // 也尝试删 docker_name2 的镜像
-                    Executor::passthrough("docker rmi " + docker_name2 + ":" + tag1 + " 2>/dev/null");
-                    Executor::passthrough("docker rmi " + docker_name2 + " 2>/dev/null");
                 }
             }
 
             if (choice != "5") Logger::press_enter();
-        }
-    }
-
-    void DockerManager::docker_management_menu_03(const std::string &docker_name,
-                                                  const std::string &container_name,
-                                                  const std::string &tag1,
-                                                  bool systemd) {
-        while (true) {
-            std::string menu = cfg_.tui_bin +
-                               " --title \"" + docker_name + " CONTAINER\""
-                               " --menu \"" + _("docker.mgt_menu_prompt") + "\" 0 0 0 "
-                               "\"1\" \"" + "\"" + tag1 + " (" + _("docker.mgt_run_tag") + ")\" " + "\" "
-                               "\"2\" \"" + _("docker.mgt_custom_tag") + "\" "
-                               "\"3\" \"" + "\"docker attach " + container_name + "\"" + "\" "
-                               "\"4\" \"" + _("docker.mgt_readme") + "\" "
-                               "\"5\" \"" + _("docker.mgt_reset") + "\" "
-                               "\"6\" \"" + _("docker.mgt_delete") + "\" "
-                               "\"0\" \"" + _("menu.tui.back_upper") + "\"";
-
-            std::string choice = Executor::tui_select(menu);
-            if (choice == "0" || choice.empty()) break;
-
-            if (choice == "1") {
-                run_special_tag_docker_container(docker_name, tag1, container_name, systemd);
-            } else if (choice == "2") {
-                std::string ct = custom_docker_container_tag(docker_name, container_name);
-                if (!ct.empty()) {
-                    run_special_tag_docker_container(docker_name, ct, container_name, systemd);
-                }
-            } else if (choice == "3") {
-                docker_attach_container(container_name, docker_name, tag1, systemd);
-            } else if (choice == "4") {
-                tmoe_docker_readme(container_name);
-            } else if (choice == "5") {
-                std::string confirm = cfg_.tui_bin +
-                                      " --yesno \"" + "\"reset " + container_name + " (" + docker_name + ":" + tag1 + ")?\"" +
-                                      "\" 0 50";
-                if (Executor::passthrough(confirm).exit_code == 0) {
-                    reset_docker_container(docker_name, tag1, container_name, systemd);
-                }
-            } else if (choice == "6") {
-                std::string del_menu = cfg_.tui_bin +
-                                       " --title \"" + _("docker.delete_title") + "\""
-                                       " --yes-button '" + _("docker.delete_container_only") + "'"
-                                       " --no-button '" + _("docker.delete_with_image") + "'"
-                                       " --yesno \"" + _("docker.delete_prompt") + "\" 0 50";
-                auto dc = Executor::passthrough(del_menu);
-                if (dc.exit_code == 0) {
-                    remove_container(container_name);
-                } else {
-                    delete_container_and_image(docker_name, tag1, "", container_name);
-                }
-            }
-
-            if (choice != "4") Logger::press_enter();
         }
     }
 
@@ -681,8 +689,7 @@ namespace tmoe::domain {
 
     bool DockerManager::docker_attach_container(const std::string &container_name,
                                                 const std::string &docker_name,
-                                                const std::string &docker_tag,
-                                                bool systemd) {
+                                                const std::string &docker_tag) {
         Logger::step(_("docker.attach_hint"));
         ensure_docker_running();
 
@@ -695,8 +702,7 @@ namespace tmoe::domain {
             std::string confirm = cfg_.tui_bin +
                                   " --yesno \"" + _f("docker.attach_pull_prompt", docker_name) + "\" 0 50";
             if (Executor::passthrough(confirm).exit_code == 0) {
-                run_special_tag_docker_container(docker_name, docker_tag, container_name,
-                                                 systemd);
+                run_special_tag_docker_container(docker_name, docker_tag, container_name, false);
                 return true;
             }
             return false;
@@ -713,21 +719,17 @@ namespace tmoe::domain {
 
     bool DockerManager::reset_docker_container(const std::string &docker_name,
                                                const std::string &docker_tag,
-                                               const std::string &container_name,
-                                               bool systemd) {
-        Logger::step(_f("docker.resetting_container", container_name));
+                                               const std::string &container_name) {
+        Logger::step("docker.resetting_container: " + container_name);
         ensure_docker_running();
 
-        // 删除容器和镜像
         delete_container_and_image(docker_name, docker_tag, "", container_name);
 
-        // 重新拉取
-        Logger::info(_f("docker.pulling_image", docker_name, docker_tag));
+        Logger::info("docker.pulling_image: " + docker_name + ":" + docker_tag);
         Executor::passthrough("docker pull " + docker_name + ":" + docker_tag);
 
-        // 重新运行
-        return run_special_tag_docker_container(docker_name, docker_tag, container_name,
-                                                systemd);
+        // reset 不走 systemd 路径
+        return run_special_tag_docker_container(docker_name, docker_tag, container_name, false);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1024,11 +1026,11 @@ namespace tmoe::domain {
         // 对应 Bash: 优先用 $SUDO_USER（sudo提权时的原始用户），
         // 其次从 $HOME 在 /etc/passwd 中反查，最后用 whoami
         std::string cur_user;
-        const char* sudo_user = std::getenv("SUDO_USER");
+        const char *sudo_user = std::getenv("SUDO_USER");
         if (sudo_user && sudo_user[0] != '\0') {
             cur_user = sudo_user;
         } else {
-            const char* home = std::getenv("HOME");
+            const char *home = std::getenv("HOME");
             if (home) {
                 auto result = Executor::shell(
                     std::string("grep \"") + home + "\" /etc/passwd | awk -F':' '{print $1}' | head -n 1");
