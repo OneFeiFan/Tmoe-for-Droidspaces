@@ -4,6 +4,8 @@
 #include "core/logger.h"
 #include "core/config.h"
 #include "package_manager.h"
+#include <algorithm>
+#include <sstream>
 
 namespace tmoe::domain {
     BetaFeaturesManager::BetaFeaturesManager(const TmoeConfig &cfg) : cfg_(cfg) {
@@ -93,29 +95,180 @@ namespace tmoe::domain {
             auto family = infer_family_from_config(cfg_.linux_distro);
 
             switch (std::stoi(ch)) {
-                case 1: placeholder_return("sudo user group management");
+                // ── 1. sudo 用户组管理 (对应 Bash tmoe_linux_sudo_user_group_management) ──
+                case 1: {
+                    // 读取 /etc/passwd，排除 nologin/halt/shutdown/0:0
+                    auto users_out = Executor::shell(
+                        "grep -Ev 'nologin|halt|shutdown|0:0' /etc/passwd | awk -F':' '{print $1}'");
+                    std::string user_list = users_out.ok() ? users_out.stdout_data : "";
+                    if (user_list.empty()) { placeholder_return("no users found"); break; }
+
+                    // 构建 whiptail 菜单
+                    std::string umenu = cfg_.tui_bin +
+                        " --title \"USER LIST\" --menu \"Which user to add/remove from sudo group?\" 0 0 0 ";
+                    int n = 1;
+                    std::vector<std::string> users;
+                    std::istringstream iss(user_list);
+                    std::string u;
+                    while (std::getline(iss, u)) {
+                        if (u.empty()) continue;
+                        u.erase(std::remove(u.begin(), u.end(), '\r'), u.end());
+                        users.push_back(u);
+                        umenu += "\"" + std::to_string(n++) + "\" \"" + u + "\" ";
+                    }
+                    umenu += "\"0\" \"" + _("menu.tui.back") + "\"";
+                    std::string pick = Executor::tui_select(umenu);
+                    if (pick == "0" || pick.empty()) break;
+                    int idx = std::stoi(pick) - 1;
+                    if (idx < 0 || idx >= (int)users.size()) break;
+                    std::string chosen = users[idx];
+
+                    // 检查是否已在 sudo 组
+                    bool in_sudo = Executor::shell(
+                        "grep -q '^" + chosen + ".*ALL' /etc/sudoers 2>/dev/null").ok() ||
+                        Executor::shell(
+                        "grep sudo /etc/group 2>/dev/null | grep -q '" + chosen + "'").ok();
+
+                    if (in_sudo) {
+                        // 移除
+                        Logger::info(chosen + " is in sudo group. Remove?");
+                        if (cfg_.linux_distro == "debian")
+                            Executor::passthrough("deluser " + chosen + " sudo 2>/dev/null");
+                        Executor::passthrough(
+                            "sed -i '/^" + chosen + ".*ALL/d' /etc/sudoers 2>/dev/null");
+                        Logger::ok(chosen + " removed from sudo");
+                    } else {
+                        // 添加
+                        Executor::passthrough(
+                            "sed -i '/^root.*ALL/a " + chosen + "    ALL=(ALL:ALL) ALL' /etc/sudoers 2>/dev/null");
+                        Logger::ok(chosen + " added to sudo");
+                    }
                     break;
-                case 2: placeholder_return("rc.local systemd script");
+                }
+
+                // ── 2. rc.local systemd (对应 Bash modify_rc_local_script) ──
+                case 2: {
+                    if (!Executor::shell("test -f /etc/rc.local").ok()) {
+                        Executor::shell(
+                            "cat >/etc/rc.local <<'EOF'\n#!/bin/sh -e\n# rc.local\n# Add your startup commands above exit 0\nexit 0\nEOF\n");
+                        Executor::shell("chmod a+rx /etc/rc.local");
+                    }
+                    if (!Executor::shell("test -f /etc/systemd/system/rc-local.service").ok()) {
+                        Executor::shell(
+                            "cat >/etc/systemd/system/rc-local.service <<'EOF'\n[Unit]\nDescription=/etc/rc.local\nConditionPathExists=/etc/rc.local\n[Service]\nType=forking\nExecStart=/etc/rc.local start\nTimeoutSec=0\nStandardOutput=tty\nRemainAfterExit=yes\nSysVStartPriority=99\n[Install]\nWantedBy=multi-user.target\nEOF\n");
+                    }
+                    Executor::passthrough("nano /etc/rc.local 2>/dev/null || vi /etc/rc.local");
+                    Executor::shell("systemctl daemon-reload 2>/dev/null");
+                    Executor::shell("systemctl enable rc-local.service 2>/dev/null");
+                    Logger::ok("rc.local configured & enabled");
                     break;
-                case 3: placeholder_return("UEFI boot manager");
+                }
+
+                // ── 3. UEFI 启动管理 (对应 Bash tmoe_uefi_boot_manager) ──
+                case 3: {
+                    if (!Executor::has("efibootmgr"))
+                        PackageManager::install("efibootmgr", family);
+                    if (!Executor::has("efibootmgr")) { placeholder_return("efibootmgr install failed"); break; }
+
+                    while (true) {
+                        std::string bmenu = cfg_.tui_bin +
+                            " --title \"UEFI BOOT MANAGER\" --menu \"\" 16 50 5 "
+                            "\"1\" \"modify first boot item\" "
+                            "\"2\" \"custom boot order\" "
+                            "\"3\" \"backup EFI\" "
+                            "\"4\" \"restore EFI\" "
+                            "\"5\" \"install refind\" "
+                            "\"0\" \"" + _("menu.tui.back") + "\"";
+                        std::string bpick = Executor::tui_select(bmenu);
+                        if (bpick == "0" || bpick.empty()) break;
+
+                        if (bpick == "1") {
+                            // 修改第一启动项
+                            auto out = Executor::shell("efibootmgr 2>/dev/null");
+                            Logger::info(out.ok() ? out.stdout_data : "efibootmgr failed");
+                            std::string input = Executor::tui_select(
+                                cfg_.tui_bin + " --title \"BOOT ITEM\" --inputbox \"Enter Boot number (e.g. 0001):\" 0 0");
+                            if (!input.empty())
+                                Executor::passthrough("efibootmgr -o " + input + " 2>/dev/null");
+                        } else if (bpick == "2") {
+                            std::string order = Executor::tui_select(
+                                cfg_.tui_bin + " --title \"BOOT ORDER\" --inputbox \"Enter order (comma separated, e.g. 0001,0002):\" 0 0");
+                            if (!order.empty())
+                                Executor::passthrough("efibootmgr -o " + order + " 2>/dev/null");
+                        } else if (bpick == "3") {
+                            std::string efi_disk = Executor::shell(
+                                "df -h | grep '/boot/efi' | awk '{print $1}' | head -n1").stdout_data;
+                            efi_disk.erase(std::remove(efi_disk.begin(), efi_disk.end(), '\n'), efi_disk.end());
+                            if (!efi_disk.empty())
+                                Executor::passthrough("dd if=" + efi_disk + " of=/tmp/efi_backup.img bs=4M 2>/dev/null");
+                            Logger::ok("EFI backed up to /tmp/efi_backup.img");
+                        } else if (bpick == "4") {
+                            Executor::passthrough("dd if=/tmp/efi_backup.img of=$(df -h | grep '/boot/efi' | awk '{print $1}' | head -n1) bs=4M 2>/dev/null");
+                            Logger::ok("EFI restored");
+                        } else if (bpick == "5") {
+                            PackageManager::install({"refind", "refind-install"}, family);
+                        }
+                        Logger::press_enter();
+                    }
                     break;
-                case 4: PackageManager::install("gnome-system-monitor", family);
+                }
+
+                // ── 4~6: 已实现 ──
+                case 4: PackageManager::install("gnome-system-monitor", family); break;
+                case 5: PackageManager::install("grub-customizer", family);       break;
+                case 6: PackageManager::install({"gnome-system-tools", "gnome-logs"}, family); break;
+
+                // ── 7. boot-repair (对应 Bash install_boot_repair) ──
+                case 7: {
+                    if (cfg_.linux_distro != "debian") {
+                        placeholder_return("boot-repair (Debian/Ubuntu only)");
+                        break;
+                    }
+                    Executor::passthrough("apt update 2>/dev/null");
+                    Executor::passthrough("apt install -y software-properties-common 2>/dev/null");
+                    Executor::passthrough("add-apt-repository -y ppa:yannubuntu/boot-repair 2>/dev/null");
+                    Executor::passthrough("apt update 2>/dev/null");
+                    Executor::passthrough("apt install -y boot-repair 2>/dev/null");
+                    Logger::ok("boot-repair installed");
                     break;
-                case 5: PackageManager::install("grub-customizer", family);
+                }
+
+                // ── 8. neofetch (对应 Bash start_neofetch) ──
+                case 8: {
+                    if (!Executor::has("neofetch")) {
+                        if (cfg_.linux_distro == "debian")
+                            Executor::passthrough("apt install -y --no-install-recommends neofetch 2>/dev/null");
+                        else
+                            PackageManager::install("neofetch", family);
+                    }
+                    // fallback: download from gitee
+                    if (!Executor::has("neofetch")) {
+                        Executor::passthrough(
+                            "curl -L -o /usr/local/bin/neofetch "
+                            "'https://gitee.com/mirrors/neofetch/raw/master/neofetch' 2>/dev/null");
+                        Executor::shell("chmod a+rx /usr/local/bin/neofetch");
+                    }
+                    // run with lolcat if available
+                    if (Executor::has("lolcat") || Executor::shell("test -f /usr/games/lolcat").ok())
+                        Executor::passthrough("neofetch | /usr/games/lolcat 2>/dev/null || neofetch | lolcat 2>/dev/null || neofetch");
+                    else
+                        Executor::passthrough("neofetch");
                     break;
-                case 6:
-                    PackageManager::install({"gnome-system-tools", "gnome-logs"}, family);
+                }
+
+                // ── 9. yasat (对应 Bash start_yasat) ──
+                case 9: {
+                    if (!Executor::has("yasat"))
+                        PackageManager::install("yasat", family);
+                    if (Executor::has("yasat"))
+                        Executor::passthrough("yasat --full-scan");
+                    else
+                        placeholder_return("yasat install failed");
                     break;
-                case 7: placeholder_return("boot-repair (ppa:yannubuntu)");
-                    break;
-                case 8: // neofetch
-                    placeholder("neofetch (will install & run)");
-                    break;
-                case 9: // yasat
-                    placeholder("yasat --full-scan");
-                    break;
-                case 10: placeholder_return("Tmoe-linux manager (old version)");
-                    break;
+                }
+
+                // ── 10. 保持占位 ──
+                case 10: placeholder_return("Tmoe-linux manager (old version)"); break;
                 default: break;
             }
             Logger::press_enter();
