@@ -179,6 +179,56 @@ namespace tmoe {
         return result;
     }
 
+    std::string Executor::tui_select(std::string_view whiptail_args, bool& cancelled) {
+        std::string args_str(whiptail_args);
+        std::string cmd;
+        bool is_dialog = (args_str.find("dialog") != std::string::npos &&
+                          args_str.find("whiptail") == std::string::npos);
+
+        if (is_dialog) {
+            if (args_str.find("--stdout") == std::string::npos) {
+                size_t first_dash = args_str.find(" --");
+                if (first_dash != std::string::npos)
+                    args_str.insert(first_dash, " --stdout");
+                else
+                    args_str += " --stdout";
+            }
+            if (args_str.find("--no-shadow") == std::string::npos) {
+                size_t fd = args_str.find(" --");
+                if (fd != std::string::npos) args_str.insert(fd, " --no-shadow");
+            }
+            if (args_str.find("--no-collapse") == std::string::npos) {
+                size_t fd = args_str.find(" --");
+                if (fd != std::string::npos) args_str.insert(fd, " --no-collapse");
+            }
+            cmd = args_str;
+        } else {
+            cmd = args_str + " 3>&1 1>&2 2>&3";
+        }
+
+        std::unique_ptr<FILE, decltype(&::pclose)> pipe(::popen(cmd.c_str(), "r"), ::pclose);
+        if (!pipe) { cancelled = true; return ""; }
+
+        std::string result;
+        try {
+            std::array<char, 512> buf;
+            while (std::fgets(buf.data(), buf.size(), pipe.get()))
+                result += buf.data();
+        } catch (...) { cancelled = true; return ""; }
+
+        int rc = ::pclose(pipe.release());
+#ifdef _WIN32
+        int exit_code = (rc >= 0) ? ((rc >> 8) & 0xFF) : -1;
+#else
+        int exit_code = WIFEXITED(rc) ? WEXITSTATUS(rc) : -1;
+#endif
+        cancelled = (exit_code != 0);
+
+        while (!result.empty() && (result.back() == '\n' || result.back() == '\r'))
+            result.pop_back();
+        return result;
+    }
+
     ExecResult Executor::passthrough(std::string_view cmd) {
         std::string full_cmd(cmd);
         int raw = std::system(full_cmd.c_str());

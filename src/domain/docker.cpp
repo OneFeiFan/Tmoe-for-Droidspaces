@@ -191,23 +191,14 @@ namespace tmoe::domain {
         }
 
         // 对应 Bash install_docker_portainer (1139-1158行): 默认端口39080
-        // 用 yesno 替代 inputbox — 避免 tui_select 无法区分 cancel 和空输入
-        int port = 39080;
-        std::string confirm = cfg_.tui_bin +
+        bool cancelled = false;
+        std::string port_str = Executor::tui_select(
+            cfg_.tui_bin +
             " --title \"" + _("docker.portainer_port_title") + "\""
-            " --yes-button \"" + _("docker.portainer_btn_default") + "\""
-            " --no-button \"" + _("docker.portainer_btn_custom") + "\""
-            " --yesno \"" + _("docker.portainer_port_input") + "\" 0 50";
-        auto choice = Executor::passthrough(confirm);
-        if (choice.exit_code == 255) return false;  // Esc pressed → cancel
-        if (choice.exit_code != 0) {
-            // 用户选了自定义端口
-            std::string port_str = Executor::tui_select(
-                cfg_.tui_bin +
-                " --title \"" + _("docker.portainer_port_title") + "\""
-                " --inputbox \"" + _("docker.portainer_custom_port_input") + "\" 0 0 \"39080\"");
-            if (!port_str.empty()) port = std::stoi(port_str);
-        }
+            " --inputbox \"" + _("docker.portainer_port_input") + "\" 0 50 \"39080\"",
+            cancelled);
+        if (cancelled) return false;
+        int port = port_str.empty() ? 39080 : std::stoi(port_str);
 
         Logger::step(_("docker.installing_portainer"));
         ensure_docker_running();

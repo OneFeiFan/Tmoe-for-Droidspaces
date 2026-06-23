@@ -62,6 +62,11 @@ namespace tmoe {
         /** 启动 whiptail 对话框并返回用户选中的标签。 */
         static std::string tui_select(std::string_view whiptail_args);
 
+        /** 同 tui_select，通过 cancelled 报告用户是否按了 Esc/Cancel。
+         *  cancelled=true  → 用户取消，返回值无效
+         *  cancelled=false → 用户确认，返回值为有效输入 */
+        static std::string tui_select(std::string_view whiptail_args, bool& cancelled);
+
         /** 直接透传终端给子进程（用于交互式命令）。
          *  底层使用 system() —— 子进程完全继承 stdin/stdout/stderr。
          *  适用于 dpkg-reconfigure、passwd、visudo 等需要终端交互的场景。
