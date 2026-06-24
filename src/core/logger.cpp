@@ -98,19 +98,18 @@ namespace tmoe {
         std::fprintf(stderr, "%s[?] %s (y/N) %s", ansi(WARN), question.data(), RESET);
         std::fflush(stderr);
 
+        int ch = EOF;
 #ifndef _WIN32
         tcflush(STDIN_FILENO, TCIFLUSH);
-        char dummy;
-        while (::read(STDIN_FILENO, &dummy, 1) == 1 && dummy != '\n') {}
-#endif
-
-        int ch = std::getchar();
-        // 消费该行剩余内容 (用户可能键入 "yes" + Enter)
-        if (ch != EOF && ch != '\n') {
-            int c;
-            while ((c = std::getchar()) != '\n' && c != EOF) {
-            }
+        // 全部走 read() — drain 残留同时捕获输入，记录新行前最后一个有效字符
+        char c;
+        while (::read(STDIN_FILENO, &c, 1) == 1 && c != '\n') {
+            if (c != ' ' && c != '\t' && c != '\r') ch = c;
         }
+#else
+        ch = std::getchar();
+        if (ch != '\n') { while (std::getchar() != '\n') {} }
+#endif
         return (ch == 'y' || ch == 'Y');
     }
 } // namespace tmoe

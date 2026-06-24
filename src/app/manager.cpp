@@ -1,4 +1,5 @@
 #include "manager.h"
+#include <algorithm>
 
 namespace tmoe::app {
     Manager::Manager(TmoeConfig cfg, LocaleSaveFunc save_locale)
@@ -111,20 +112,128 @@ namespace tmoe::app {
             Logger::press_enter();
         };
 
-        // 8. 常见问题
+        // 8. 常见问题 (对应 Bash frequently_asked_questions, 11项)
         tui_routes_["8"] = [this]() {
-            Logger::info("══════════ " + _("faq.title") + " ══════════");
-            Logger::info("");
-            Logger::info(_("faq.android12"));
-            Logger::info("");
-            Logger::info(_("faq.no_sound"));
-            Logger::info("");
-            Logger::info(_("faq.q3"));
-            Logger::info("");
-            Logger::info(_("faq.q4"));
-            Logger::info("");
-            Logger::info(_("faq.q5"));
-            Logger::press_enter();
+            while (true) {
+                std::string faq_menu = cfg_.tui_bin +
+                    " --title \"FAQ(よくある質問)\""
+                    " --menu \"" + _("faq.menu_prompt") + "\" 0 0 0 "
+                    "\"1\" \""  + _("faq.q1") + "\" "
+                    "\"2\" \""  + _("faq.q2") + "\" "
+                    "\"3\" \""  + _("faq.q3") + "\" "
+                    "\"4\" \""  + _("faq.q4") + "\" "
+                    "\"5\" \""  + _("faq.q5") + "\" "
+                    "\"6\" \""  + _("faq.q6") + "\" "
+                    "\"7\" \""  + _("faq.q7") + "\" "
+                    "\"8\" \""  + _("faq.q8") + "\" "
+                    "\"9\" \""  + _("faq.q9") + "\" "
+                    "\"10\" \"" + _("faq.q10") + "\" "
+                    "\"11\" \"" + _("faq.q11") + "\" "
+                    "\"0\" \""  + _("menu.tui.back_upper") + "\"";
+
+                std::string choice = Executor::tui_select(faq_menu);
+                if (choice == "0" || choice.empty()) break;
+
+                switch (std::stoi(choice)) {
+                case 1: // notes_of_tmoe_sudo_01 — 完整原文
+                    Logger::info(_("faq.a1"));
+                    break;
+                case 2: // notes_of_tmoe_sudo_02 — 完整原文
+                    Logger::info(_("faq.a2"));
+                    break;
+                case 3: // xfce permission — 确认后执行
+                    Logger::info(_("faq.a3"));
+                    if (!Logger::confirm(_("faq.confirm_exec"))) break;
+                    {
+                        // 从 HOME 反查真实用户 (和 docker add_user_to_docker_group 一致)
+                        std::string user;
+                        const char* sudo_u = std::getenv("SUDO_USER");
+                        if (sudo_u && sudo_u[0]) user = sudo_u;
+                        else {
+                            const char* home = std::getenv("HOME");
+                            if (home) {
+                                auto r = Executor::shell(
+                                    std::string("grep '") + home + "' /etc/passwd | awk -F':' '{print $1}' | head -n1");
+                                if (r.ok() && !r.stdout_data.empty()) {
+                                    user = r.stdout_data;
+                                    user.erase(std::remove(user.begin(), user.end(), '\n'), user.end());
+                                }
+                            }
+                        }
+                        if (user.empty() || user == "root") {
+                            Logger::warn("Could not determine real user — skipping chown");
+                            break;
+                        }
+                        const char* home = std::getenv("HOME");
+                        std::string homedir = home ? home : "/home/" + user;
+                        Logger::step("chown -R " + user + ":" + user + " " + homedir + "/.config/xfce4");
+                        auto r = Executor::passthrough(
+                            "chown -Rv " + user + ":" + user + " " + homedir + "/.config/xfce4");
+                        if (r.ok()) Logger::ok("xfce4 config ownership restored to " + user);
+                    }
+                    break;
+                case 4: // dbus/settings — 仅显示
+                    Logger::info(_("faq.a4"));
+                    break;
+                case 5: // gvfs/udisks2 — 确认后卸载
+                    Logger::info(_("faq.a5"));
+                    if (!Logger::confirm(_("faq.confirm_exec"))) break;
+                    Executor::passthrough(
+                        cfg_.remove_command + " --allow-change-held-packages ^udisks2 ^gvfs 2>/dev/null");
+                    break;
+                case 6: // QQ crash — 确认后删配置
+                    Logger::info(_("faq.a6"));
+                    if (!Logger::confirm(_("faq.confirm_exec"))) break;
+                    Executor::passthrough("rm -rf ~/.config/tencent-qq/ 2>/dev/null");
+                    break;
+                case 7: // VNC/X11 — 仅显示
+                    Logger::info(_("faq.a7"));
+                    break;
+                case 8: // Baidu Netdisk — 确认后删db
+                    Logger::info(_("faq.a8"));
+                    if (!Logger::confirm(_("faq.confirm_exec"))) break;
+                    Executor::passthrough("rm -vf ~/baidunetdisk/baidunetdiskdata.db 2>/dev/null");
+                    break;
+                case 9: // mlocate — 确认后卸载
+                    Logger::info(_("faq.a9"));
+                    if (!Logger::confirm(_("faq.confirm_exec"))) break;
+                    Executor::passthrough(cfg_.remove_command + " mlocate catfish 2>/dev/null");
+                    Executor::passthrough("apt autoremove --purge 2>/dev/null");
+                    break;
+                case 10: // TTY Chinese — whiptail yesno: fbterm vs LANG
+                    Logger::info(_("faq.a10"));
+                    {
+                        std::string tty_choice = cfg_.tui_bin +
+                            " --title \"TTY Chinese\""
+                            " --yes-button 'fbterm' --no-button 'export LANG'"
+                            " --yesno \"" + _("faq.a10") + "\" 11 45";
+                        auto tty_rc = Executor::passthrough(tty_choice);
+                        if (tty_rc.exit_code == 0) {
+                            if (!Executor::has("fbterm"))
+                                Executor::passthrough(cfg_.install_command + " fbterm 2>/dev/null");
+                            Executor::passthrough("fbterm 2>/dev/null");
+                        } else {
+                            Logger::info("export LANG=C.UTF-8");
+                        }
+                    }
+                    break;
+                case 11: // time sync — 确认后完整同步流程
+                    Logger::info(_("faq.a11"));
+                    if (!Logger::confirm(_("faq.a11_confirm"))) break;
+                    Executor::passthrough("timedatectl set-local-rtc 1 --adjust-system-clock 2>/dev/null");
+                    Executor::passthrough(cfg_.install_command + " ntpdate chrony 2>/dev/null");
+                    Executor::passthrough("ntpdate time.windows.com 2>/dev/null");
+                    Executor::passthrough("timedatectl set-ntp true 2>/dev/null");
+                    Executor::passthrough(
+                        "systemctl enable chrony 2>/dev/null || "
+                        "systemctl enable chronyd 2>/dev/null || "
+                        "rc-update add chrony 2>/dev/null");
+                    Executor::passthrough("chronyc sourcestats -v 2>/dev/null");
+                    break;
+                default: break;
+                }
+                Logger::press_enter();
+            }
         };
 
         // 9. 反馈 Bug
@@ -331,44 +440,117 @@ namespace tmoe::app {
         return Executor::tui_select(menu_cmd);
     }
 
-    int Manager::run_interactive() {
-        Logger::info(_("welcome"));
-        environment_->initialize();
+    // ── 容器管理界面 (对应 Bash: tmoe m → share/app/manager, 10项) ──
+    std::string Manager::render_manager_menu() {
+        std::string cur_lang = std::string(I18n::current_lang());
+        std::string title = _("menu.tui.title_bar") + " " + cfg_.os_pretty_name;
 
-        // 自动安装宿主机依赖 (此时已以 root 运行)
-        environment_->check_dependencies();
+        std::string menu_cmd = "LANG=" + cur_lang + ".UTF-8 " + cfg_.tui_bin +
+                               " --title \"" + title + "\" --menu \"" + _("menu.tui.manager_prompt") + "\" 0 0 0 ";
+        menu_cmd += "\"1\" \""  + _("menu.tui.proot") + "\" "
+                "\"2\" \""  + _("menu.tui.chroot") + "\" "
+                "\"3\" \""  + _("menu.tui.remove") + "\" "
+                "\"4\" \""  + _("menu.tui.locale") + "\" "
+                "\"5\" \""  + _("menu.tui.termux") + "\" "
+                "\"6\" \""  + _("menu.tui.zsh") + "\" "
+                "\"7\" \""  + _("menu.tui.update") + "\" "
+                "\"8\" \""  + _("menu.tui.faq") + "\" "
+                "\"9\" \""  + _("menu.tui.report") + "\" "
+                "\"10\" \"" + _("menu.tui.fix_signal9") + "\" "
+                "\"0\" \""  + _("menu.tui.exit") + "\"";
+        return Executor::tui_select(menu_cmd);
+    }
 
-        // 应用 Android TUI 兼容补丁并更新 tui_bin 路径
-        if (cfg_.is_termux) {
-            cfg_.tui_bin = termux_->check_and_patch_tui_env();
-        }
+    // ── Linux 工具箱界面 (对应 Bash: tmoe t → tools/app/tool, 9项) ──
+    std::string Manager::render_tool_menu() {
+        std::string cur_lang = std::string(I18n::current_lang());
+        std::string title = _("menu.tui.title_bar") + " " + cfg_.os_pretty_name;
 
-        // 首次启动：让用户选择语言
-        first_run_locale_setup();
+        std::string menu_cmd = "LANG=" + cur_lang + ".UTF-8 " + cfg_.tui_bin +
+                               " --title \"" + title + "\" --menu \"" + _("menu.tui.tool_prompt") + "\" 0 0 0 ";
+        menu_cmd += "\"1\" \""  + _("menu.tui.gui_de") + "\" "
+                "\"2\" \""  + _("menu.tui.software_center") + "\" "
+                "\"3\" \""  + _("menu.tui.secret_garden") + "\" "
+                "\"4\" \""  + _("menu.tui.gui_beautify") + "\" "
+                "\"5\" \""  + _("menu.tui.gui_remote") + "\" "
+                "\"6\" \""  + _("menu.tui.download_video") + "\" "
+                "\"7\" \""  + _("menu.tui.mirrors") + "\" "
+                "\"8\" \""  + _("menu.tui.update") + "\" "
+                "\"9\" \""  + _("menu.tui.faq") + "\" "
+                "\"0\" \""  + _("menu.tui.exit") + "\"";
+        return Executor::tui_select(menu_cmd);
+    }
 
-        // 环境前置检查 (配色方案、字体、崩溃修复)
-        termux_->check_and_init_environment();
-
+    // ── UI 公共驱动 ──
+    int Manager::run_menu_loop(std::function<std::string()> renderer,
+                               std::function<bool(const std::string&)> dispatcher) {
         while (true) {
-            std::string choice = render_and_get_choice();
+            std::string choice = renderer();
+            if (choice == "0" || choice.empty()) break;
 
-            if (choice == "0" || choice.empty()) {
-                break;
-            }
-
-            // 通过路由表分发
-            auto it = tui_routes_.find(choice);
-            if (it != tui_routes_.end()) {
-                it->second();
-                // press_enter 由各路由内部自行处理 — 避免子菜单返回后双重回车
-            } else {
+            if (!dispatcher(choice)) {
                 Logger::warn(_("menu.unimplemented") + ": " + choice);
                 Logger::press_enter();
             }
         }
-
         Logger::info(_("goodbye"));
         return 0;
+    }
+
+    // ── 容器管理 UI ──
+    int Manager::run_manager_ui() {
+        Logger::info(_("welcome"));
+        environment_->initialize();
+        environment_->check_dependencies();
+        if (cfg_.is_termux) cfg_.tui_bin = termux_->check_and_patch_tui_env();
+        first_run_locale_setup();
+        termux_->check_and_init_environment();
+
+        return run_menu_loop(
+            [this]() { return render_manager_menu(); },
+            [this](const std::string& c) -> bool {
+                if (c == "1")       { tui_routes_["1"](); return true; }
+                else if (c == "2")  { tui_routes_["2"](); return true; }
+                else if (c == "3")  { tui_routes_["3"](); return true; }
+                else if (c == "4")  { tui_routes_["4"](); return true; }
+                else if (c == "5")  { tui_routes_["5"](); return true; }
+                else if (c == "6")  { tui_routes_["6"](); return true; }
+                else if (c == "7")  { tui_routes_["7"](); return true; }
+                else if (c == "8")  { tui_routes_["8"](); return true; }
+                else if (c == "9")  { tui_routes_["9"](); return true; }
+                else if (c == "10") { tui_routes_["10"]();return true; }
+                return false;
+            });
+    }
+
+    // ── Linux 工具箱 UI ──
+    int Manager::run_tool_ui() {
+        Logger::info(_("welcome"));
+        environment_->initialize();
+        environment_->check_dependencies();
+        if (cfg_.is_termux) cfg_.tui_bin = termux_->check_and_patch_tui_env();
+        first_run_locale_setup();
+        termux_->check_and_init_environment();
+
+        return run_menu_loop(
+            [this]() { return render_tool_menu(); },
+            [this](const std::string& c) -> bool {
+                if (c == "1")       { tui_routes_["12"](); return true; }  // GUI
+                else if (c == "2")  { tui_routes_["18"](); return true; }  // software center
+                else if (c == "3")  { tui_routes_["16"](); return true; }  // secret garden
+                else if (c == "4")  { tui_routes_["14"](); return true; }  // beautify
+                else if (c == "5")  { tui_routes_["13"](); return true; }  // remote desktop
+                else if (c == "6")  { Logger::warn(_("misc.not_implemented") + ": download_video"); Logger::press_enter(); return true; }
+                else if (c == "7")  { tui_routes_["11"](); return true; }  // mirrors
+                else if (c == "8")  { tui_routes_["7"]();  return true; }  // update
+                else if (c == "9")  { tui_routes_["8"]();  return true; }  // faq
+                return false;
+            });
+    }
+
+    int Manager::run_interactive() {
+        // 对应 Bash: Android/Termux → 容器管理, Linux → 工具箱
+        return cfg_.is_termux ? run_manager_ui() : run_tool_ui();
     }
 
     /** 直接从命令行参数执行领域逻辑。 */
@@ -447,11 +629,10 @@ namespace tmoe::app {
             }
 
             case LaunchMode::ManagerMenu:
-                return run_interactive();
+                return run_manager_ui();
 
             case LaunchMode::ToolMenu:
-                dev_tools_->run_dev_tools_menu();
-                return 0;
+                return cfg_.is_termux ? run_manager_ui() : run_tool_ui();
 
             case LaunchMode::Aria2Manager:
                 return download_tools_->run_download_menu(), 0;

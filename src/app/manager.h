@@ -87,6 +87,18 @@ namespace tmoe::app {
 
         /** 渲染 whiptail 菜单并返回用户选择的标签。 */
         std::string render_and_get_choice();
+        std::string render_manager_menu();
+        std::string render_tool_menu();
+
+        /** 通用菜单循环驱动 */
+        int run_menu_loop(std::function<std::string()> renderer,
+                          std::function<bool(const std::string&)> dispatcher);
+
+        /** 容器管理 UI (对应 Bash tmoe m) */
+        int run_manager_ui();
+
+        /** Linux 工具箱 UI (对应 Bash tmoe t) */
+        int run_tool_ui();
 
         /** 通用容器启动辅助方法 (Proot/Chroot/Nspawn)。 */
         int launch_container(const LaunchContext& ctx, domain::ContainerMode mode,
