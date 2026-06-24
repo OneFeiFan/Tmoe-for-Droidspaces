@@ -7,7 +7,6 @@
 #include "core/i18n.h"
 #include "../gui_config/templates.h"
 #include "../gui_config/registries.h"
-#include "../package_manager.h"
 #include "vnc_manager.h"
 #include "desktop_manager.h"
 #include "remote_desktop_manager.h"

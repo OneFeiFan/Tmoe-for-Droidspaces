@@ -1,4 +1,4 @@
-#include "software_center.h"
+#include "app/software_center.h"
 #include "core/i18n.h"
 
 namespace tmoe::app {

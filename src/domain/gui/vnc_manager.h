@@ -10,7 +10,6 @@
 #include "core/logger.h"
 #include "core/i18n.h"
 #include "core/command_builder.hpp"
-#include "../package_manager.h"
 
 #include <algorithm>
 #include <ctime>

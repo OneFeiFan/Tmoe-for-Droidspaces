@@ -7,7 +7,7 @@
 #include "vnc_manager.h"
 #include "../gui_config/registries.h"
 #include "../gui_config/templates.h"
-#include "../package_manager.h"
+#include "domain/system/package_manager.h"
 
 namespace fs = std::filesystem;
 

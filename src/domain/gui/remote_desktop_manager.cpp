@@ -3,7 +3,6 @@
 #include "core/executor.h"
 #include "core/logger.h"
 #include "core/i18n.h"
-#include "../package_manager.h"
 #include "../gui_config/templates.h"
 #include <algorithm>
 #include <ctime>

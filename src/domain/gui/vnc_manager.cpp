@@ -1,5 +1,7 @@
 #include "vnc_manager.h"
 
+#include "domain/system/package_manager.h"
+
 namespace tmoe::domain {
     // ================================================================
     // VncConfig 实现

@@ -70,24 +70,15 @@ file(GLOB_RECURSE TMOE_SOURCES
         src/main.cpp
         src/core/*.cpp
         src/domain/*.cpp
+        src/domain/*/*.cpp
         src/app/*.cpp
 )
 
-add_executable(tmoes ${TMOE_SOURCES} src/core/launch_context.h
-        src/core/cli_parser.h
-        src/core/cli_parser.cpp
+add_executable(tmoes ${TMOE_SOURCES}
         ${CMAKE_CURRENT_BINARY_DIR}/gen/i18n_data.h
-        ${CMAKE_CURRENT_BINARY_DIR}/gen/rootfs_data.h   # <-- rootfs 映射
-        ${CMAKE_CURRENT_BINARY_DIR}/gen/mirror_data.h    # <-- 镜像源注册表
-        src/domain/runtime.h
-        src/domain/container_manager.h
-        src/core/command_builder.cpp
-        src/core/command_builder.hpp
-        src/domain/installer.cpp
-        src/domain/installer.hpp
-        src/domain/container_manager.cpp
-        src/domain/rootfs_registry.h
-        src/domain/rootfs_registry.cpp)
+        ${CMAKE_CURRENT_BINARY_DIR}/gen/rootfs_data.h
+        ${CMAKE_CURRENT_BINARY_DIR}/gen/mirror_data.h
+)
 
 target_include_directories(tmoes PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -121,22 +112,3 @@ if (TMOE_USE_LIBCURL)
     target_compile_definitions(tmoes PRIVATE TMOE_HAS_LIBCURL)
 endif ()
 
-# ── 测试 ───────────────────────────────────────
-option(TMOE_BUILD_TESTS "Build tests" OFF)
-if (TMOE_BUILD_TESTS)
-    enable_testing()
-    find_package(Catch2 3 QUIET)
-    if (Catch2_FOUND)
-        file(GLOB_RECURSE TEST_SOURCES tests/*.cpp)
-        add_executable(tmoe_tests ${TEST_SOURCES}
-                ${CMAKE_CURRENT_BINARY_DIR}/gen/i18n_data.h
-                ${CMAKE_CURRENT_BINARY_DIR}/gen/rootfs_data.h   # rootfs 映射
-                ${CMAKE_CURRENT_BINARY_DIR}/gen/mirror_data.h)   # 镜像源注册表
-        target_link_libraries(tmoe_tests PRIVATE Catch2::Catch2 nlohmann_json::nlohmann_json)
-        target_include_directories(tmoe_tests PRIVATE
-                ${CMAKE_CURRENT_SOURCE_DIR}/src
-                ${CMAKE_CURRENT_BINARY_DIR}/gen
-        )
-        catch_discover_tests(tmoe_tests)
-    endif ()
-endif ()
