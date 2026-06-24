@@ -90,6 +90,9 @@ namespace tmoe::app {
         std::string render_manager_menu();
         std::string render_tool_menu();
 
+        /** 首次启动初始化 (标记文件 ~/.config/tmoe-linux/.initialized_v2) */
+        void ensure_initialized();
+
         /** 通用菜单循环驱动 */
         int run_menu_loop(std::function<std::string()> renderer,
                           std::function<bool(const std::string&)> dispatcher);

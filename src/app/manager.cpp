@@ -1,5 +1,6 @@
 #include "manager.h"
 #include <algorithm>
+#include <fstream>
 
 namespace tmoe::app {
     Manager::Manager(TmoeConfig cfg, LocaleSaveFunc save_locale)
@@ -498,13 +499,36 @@ namespace tmoe::app {
     }
 
     // ── 容器管理 UI ──
-    int Manager::run_manager_ui() {
-        Logger::info(_("welcome"));
+    // ── 首次启动初始化 (仅执行一次) ──
+    void Manager::ensure_initialized() {
+        const char* home = std::getenv("HOME");
+        if (!home) return;
+        std::string marker = std::string(home) + "/.config/tmoe-linux/.initialized_v2";
+        if (fs::exists(marker)) {
+            first_run_locale_setup();  // locale 自己也有 guard，互补
+            return;
+        }
+
+        Logger::step(_("init.first_run"));
         environment_->initialize();
         environment_->check_dependencies();
-        if (cfg_.is_termux) cfg_.tui_bin = termux_->check_and_patch_tui_env();
         first_run_locale_setup();
-        termux_->check_and_init_environment();
+
+        if (cfg_.is_termux) {
+            cfg_.tui_bin = termux_->check_and_patch_tui_env();
+            termux_->check_and_init_environment();
+        }
+
+        // 写标记文件
+        fs::create_directories(fs::path(marker).parent_path());
+        std::ofstream ofs(marker);
+        if (ofs) ofs << "1\n";
+        Logger::ok(_("init.done"));
+    }
+
+    int Manager::run_manager_ui() {
+        Logger::info(_("welcome"));
+        ensure_initialized();
 
         return run_menu_loop(
             [this]() { return render_manager_menu(); },
@@ -526,11 +550,7 @@ namespace tmoe::app {
     // ── Linux 工具箱 UI ──
     int Manager::run_tool_ui() {
         Logger::info(_("welcome"));
-        environment_->initialize();
-        environment_->check_dependencies();
-        if (cfg_.is_termux) cfg_.tui_bin = termux_->check_and_patch_tui_env();
-        first_run_locale_setup();
-        termux_->check_and_init_environment();
+        ensure_initialized();
 
         return run_menu_loop(
             [this]() { return render_tool_menu(); },

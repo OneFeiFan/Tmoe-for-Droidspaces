@@ -1712,5 +1712,7 @@
   "faq.confirm_exec": "Execute this action?",
   "menu.tui.manager_prompt": "Please use Arrow Keys + Enter to operate:",
   "menu.tui.tool_prompt": "Please use the enter and arrow keys to operate.",
-  "menu.tui.download_video": "📺 Download video:Y2B"
+  "menu.tui.download_video": "📺 Download video:Y2B",
+  "init.first_run": "First run initialization...",
+  "init.done": "Initialization complete"
 }

@@ -1712,5 +1712,7 @@
   "faq.confirm_exec": "按回车键确认执行",
   "menu.tui.manager_prompt": "请使用方向键与回车键进行操作：",
   "menu.tui.tool_prompt": "请使用方向键与回车键进行操作：",
-  "menu.tui.download_video": "📺 Download video:解析视频链接(bili,Y2B)"
+  "menu.tui.download_video": "📺 Download video:解析视频链接(bili,Y2B)",
+  "init.first_run": "首次运行初始化...",
+  "init.done": "初始化完成"
 }
