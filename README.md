@@ -10,7 +10,7 @@
 
 ## 项目定位
 
-`tmoes` 是 [tmoe-linux](https://github.com/2moe/tmoe) 的一个**子集**，目标是在 Android [Droidspaces](https://github.com/nicholasgasior/droidspaces) 环境中运行。因此**不会 100% 移植 tmoe 的全部特性**，仅聚焦安卓容器场景的核心功能。
+`tmoes` 是 [tmoe-linux](https://github.com/2moe/tmoe) 的一个**子集**，目标是在 Android [Droidspaces](https://github.com/ravindu644/Droidspaces-OSS) 环境中运行。因此**不会 100% 移植 tmoe 的全部特性**，仅聚焦安卓容器场景的核心功能。
 
 ---
 
