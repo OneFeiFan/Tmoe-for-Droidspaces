@@ -1,4 +1,4 @@
-# tmoes — tmoe for Droidspaces ~~(划掉)~~
+# tmoes — tmoe for Droidspaces?
 
 > tmoe-linux 的 C++17 现代化子集。
 
