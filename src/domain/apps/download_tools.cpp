@@ -4,6 +4,7 @@
 #include "core/logger.h"
 #include "core/config.h"
 #include "domain/system/package_manager.h"
+#include "core/command_builder.hpp"
 
 namespace tmoe::domain {
     DownloadTools::DownloadTools(const TmoeConfig &cfg) : cfg_(cfg) {
@@ -25,12 +26,11 @@ namespace tmoe::domain {
             else if (ch == "2") {
                 Logger::info(_("download.thunder_info"));
                 Logger::info(_("download.thunder_install"));
-                Executor::shell(
-                    "wget -O /tmp/thunder.exe "
-                    "https://down.sandai.net/thunder11/XunLeiSetup11.4.8.2110.exe "
-                    "2>/dev/null || "
-                    "echo 'https://dl.xunlei.com/' || true"
-                );
+                CommandBuilder("wget")
+                    .add_opt("-O", "/tmp/thunder.exe")
+                    .add_arg("https://down.sandai.net/thunder11/XunLeiSetup11.4.8.2110.exe")
+                    .add_raw("2>/dev/null || echo 'https://dl.xunlei.com/' || true")
+                    .execute();
                 Logger::info(_("download.thunder_web") + ": https://dl.xunlei.com/");
             } else if (ch == "3") run_video_dl_menu();
             else if (ch == "4") run_crawler_menu();
@@ -82,7 +82,7 @@ listen-port=51413
 seed-time=0
 bt-tracker=udp://tracker.opentrackr.org:1337/announce,udp://tracker.openbittorrent.com:6969/announce
 )";
-        Executor::shell("mkdir -p ~/.aria2 2>/dev/null");
+        CommandBuilder("mkdir").add_flag("-p").add_arg("~/.aria2").add_raw("2>/dev/null").execute();
         Executor::shell("cat > ~/.aria2/aria2.conf << 'TMOE_EOF'\n" + aria2_conf + "\nTMOE_EOF");
         Logger::ok(_("download.aria2_configured"));
         Logger::info(_("download.aria2_rpc_port"));
@@ -105,7 +105,7 @@ bt-tracker=udp://tracker.opentrackr.org:1337/announce,udp://tracker.openbittorre
 
     void DownloadTools::stop_aria2() {
         Logger::step(_("download.aria2_stop"));
-        Executor::shell("pkill aria2c 2>/dev/null || true");
+        CommandBuilder("pkill").add_arg("aria2c").add_raw("2>/dev/null || true").execute();
         Logger::ok("aria2c");
     }
 

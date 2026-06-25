@@ -1,4 +1,5 @@
 #include "domain/runtime/runtime.h"
+#include "core/command_builder.hpp"
 #include "core/executor.h"
 #include "core/logger.h"
 #include <filesystem>
@@ -26,7 +27,7 @@ namespace tmoe::domain {
     // ── Args builder ──
 
     void NspawnRuntime::build_nspawn_args(const Container &container, const LaunchContext *ctx,
-                                          std::vector<std::string> &args) const {
+                                          CommandBuilder &cb) const {
         std::string rootfs = config_.rootfs_path;
         if (rootfs.empty()) {
             rootfs = container.rootfs_path();
@@ -34,69 +35,48 @@ namespace tmoe::domain {
 
         // 1. --boot 模式
         if (config_.systemd_boot) {
-            args.emplace_back("--boot");
+            cb.add_flag("--boot");
         }
 
         // 2. --user (非 root)
         if (!config_.systemd_boot && config_.chroot_user != "root" && !config_.chroot_user.empty()) {
-            args.emplace_back("--user");
-            args.emplace_back(config_.chroot_user);
+            cb.add_opt("--user", config_.chroot_user);
         }
 
         // 3. 基本参数
-        args.emplace_back("--directory");
-        args.emplace_back(rootfs);
+        cb.add_opt("--directory", rootfs);
 
         // 4. uuid
         auto r = Executor::shell("dbus-uuidgen");
         std::string uuid = r.ok() ? r.stdout_data : "";
         if (!uuid.empty()) {
             uuid.erase(std::remove(uuid.begin(), uuid.end(), '\n'), uuid.end());
-            args.emplace_back("--uuid");
-            args.emplace_back(uuid);
+            cb.add_opt("--uuid", uuid);
         }
 
-        args.emplace_back("--private-users=no");
-        args.emplace_back("--machine");
-        args.emplace_back(container.name());
+        cb.add_flag("--private-users=no");
+        cb.add_opt("--machine", container.name());
 
-        args.emplace_back("--link-journal");
-        args.emplace_back("auto");
-        args.emplace_back("--resolv-conf");
-        args.emplace_back("auto");
-        args.emplace_back("--timezone");
-        args.emplace_back("auto");
-        args.emplace_back("--register");
-        args.emplace_back("yes");
-        args.emplace_back("--notify-ready");
-        args.emplace_back("yes");
+        cb.add_opt("--link-journal", "auto");
+        cb.add_opt("--resolv-conf", "auto");
+        cb.add_opt("--timezone", "auto");
+        cb.add_opt("--register", "yes");
+        cb.add_opt("--notify-ready", "yes");
 
         // 5. 环境变量
-        args.emplace_back("--setenv");
-        args.emplace_back("TMOE_CHROOT=true");
-        args.emplace_back("--setenv");
-        args.emplace_back("TMOE_PROOT=false");
-        args.emplace_back("--setenv");
-        args.emplace_back("TMOE_DOCKER=false");
-        args.emplace_back("--setenv");
-        args.emplace_back("USER=" + config_.chroot_user);
+        cb.add_opt("--setenv", "TMOE_CHROOT=true");
+        cb.add_opt("--setenv", "TMOE_PROOT=false");
+        cb.add_opt("--setenv", "TMOE_DOCKER=false");
+        cb.add_opt("--setenv", "USER=" + config_.chroot_user);
 
-        args.emplace_back("--setenv");
-        args.emplace_back("PULSE_SERVER=tcp:127.0.0.1:4713");
-        args.emplace_back("--setenv");
-        args.emplace_back("DISPLAY=:2");
-        args.emplace_back("--setenv");
-        args.emplace_back("GTK_IM_MODULE=fcitx");
-        args.emplace_back("--setenv");
-        args.emplace_back("QT_IM_MODULE=fcitx");
-        args.emplace_back("--setenv");
-        args.emplace_back("XMODIFIERS=@im=fcitx");
-        args.emplace_back("--setenv");
-        args.emplace_back("SDL_IM_MODULE=fcitx");
-        args.emplace_back("--setenv");
-        args.emplace_back("CONTAINER_SYSTEMD=true");
-        args.emplace_back("--setenv");
-        args.emplace_back("TERM=xterm-256color");
+        cb.add_opt("--setenv", "PULSE_SERVER=tcp:127.0.0.1:4713");
+        cb.add_opt("--setenv", "DISPLAY=:2");
+        cb.add_opt("--setenv", "GTK_IM_MODULE=fcitx");
+        cb.add_opt("--setenv", "QT_IM_MODULE=fcitx");
+        cb.add_opt("--setenv", "XMODIFIERS=@im=fcitx");
+        cb.add_opt("--setenv", "SDL_IM_MODULE=fcitx");
+        cb.add_opt("--setenv", "CONTAINER_SYSTEMD=true");
+        cb.add_opt("--setenv", "TERM=xterm-256color");
 
         // LANG
         std::string locale_file = rootfs + "/usr/local/etc/tmoe-linux/locale.txt";
@@ -104,15 +84,12 @@ namespace tmoe::domain {
             std::ifstream lf(locale_file);
             std::string lang;
             if (lf.is_open() && std::getline(lf, lang)) {
-                args.emplace_back("--setenv");
-                args.emplace_back("LANG=" + lang);
+                cb.add_opt("--setenv", "LANG=" + lang);
             } else {
-                args.emplace_back("--setenv");
-                args.emplace_back("LANG=C.UTF-8");
+                cb.add_opt("--setenv", "LANG=C.UTF-8");
             }
         } else {
-            args.emplace_back("--setenv");
-            args.emplace_back("LANG=C.UTF-8");
+            cb.add_opt("--setenv", "LANG=C.UTF-8");
         }
 
         // 加载容器环境文件
@@ -127,8 +104,7 @@ namespace tmoe::domain {
                             line = line.substr(7);
                         }
                         if (line.rfind("PATH=", 0) != 0 && !line.empty()) {
-                            args.emplace_back("--setenv");
-                            args.emplace_back(line);
+                            cb.add_opt("--setenv", line);
                         }
                     }
                 }
@@ -156,8 +132,7 @@ namespace tmoe::domain {
             base_path = "/usr/local/bin:/bin:/usr/bin:/usr/games:/usr/local/games";
         }
         std::string full_path = container_bin_path.empty() ? base_path : container_bin_path + ":" + base_path;
-        args.emplace_back("--setenv");
-        args.emplace_back("PATH=" + full_path);
+        cb.add_opt("--setenv", "PATH=" + full_path);
 
         // 6. SD 卡挂载
         if (config_.mount_sd.empty() || config_.mount_sd == "true") {
@@ -173,38 +148,32 @@ namespace tmoe::domain {
                 }
             }
             if (!sd_dir.empty()) {
-                args.emplace_back("--bind");
-                args.emplace_back(sd_dir + ":" + config_.sd_mount_point);
+                cb.add_opt("--bind", sd_dir + ":" + config_.sd_mount_point);
             }
         }
 
         // 7. Docker 目录挂载
         if (config_.mount_docker_dir) {
             if (fs::exists(config_.docker_mount_point)) {
-                args.emplace_back("--bind");
-                args.emplace_back(config_.docker_mount_point);
+                cb.add_opt("--bind", config_.docker_mount_point);
             }
         }
 
         // 8. GPU 设备
         if (config_.mount_dev_dri && fs::exists(config_.dev_dri)) {
-            args.emplace_back("--bind");
-            args.emplace_back(config_.dev_dri);
+            cb.add_opt("--bind", config_.dev_dri);
         }
         if (config_.mount_nvidia_gpu && fs::exists(config_.nvidia_gpu)) {
-            args.emplace_back("--bind");
-            args.emplace_back(config_.nvidia_gpu);
+            cb.add_opt("--bind", config_.nvidia_gpu);
             if (fs::exists(config_.nvidia_ctl)) {
-                args.emplace_back("--bind");
-                args.emplace_back(config_.nvidia_ctl);
+                cb.add_opt("--bind", config_.nvidia_ctl);
             }
         }
 
         // 9. X11 unix socket
         if (config_.mount_x11_unix && fs::exists(config_.x11_unix_dir)) {
             std::string bind_arg = config_.x11_unix_ro ? "bind-ro" : "bind";
-            args.emplace_back("--" + bind_arg);
-            args.emplace_back(config_.x11_unix_dir);
+            cb.add_opt("--" + bind_arg, config_.x11_unix_dir);
         }
 
         // 10. 自定义挂载点（最多12个）
@@ -215,28 +184,17 @@ namespace tmoe::domain {
             if (!fs::exists(m.source)) continue;
 
             std::string bind_arg = m.readonly ? "bind-ro" : "bind";
-            args.emplace_back("--" + bind_arg);
-            args.emplace_back(m.source + ":" + m.dest);
+            cb.add_opt("--" + bind_arg, m.source + ":" + m.dest);
         }
     }
 
     // ── 命令生成 ──
 
     std::string NspawnRuntime::generate_launch_cmd(const Container &container, const LaunchContext *ctx) const {
-        std::vector<std::string> args;
         std::string nspawn_bin = detect_nspawn_bin();
-
-        args.emplace_back(nspawn_bin);
-        build_nspawn_args(container, ctx, args);
-
-        // 构建完整命令字符串
-        std::string cmd;
-        for (size_t i = 0; i < args.size(); i++) {
-            if (i > 0) cmd += " ";
-            cmd += args[i];
-        }
-
-        return cmd;
+        CommandBuilder cb(nspawn_bin);
+        build_nspawn_args(container, ctx, cb);
+        return cb.build_string();
     }
 
     // ── start/stop ──

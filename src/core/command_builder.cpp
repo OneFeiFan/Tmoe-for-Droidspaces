@@ -14,6 +14,40 @@ namespace tmoe {
         return *this;
     }
 
+    CommandBuilder &CommandBuilder::add_flag(std::string flag) {
+        args_.push_back(std::move(flag));
+        return *this;
+    }
+
+    CommandBuilder &CommandBuilder::add_flag_if(bool condition, std::string flag) {
+        if (condition) args_.push_back(std::move(flag));
+        return *this;
+    }
+
+    CommandBuilder &CommandBuilder::add_kv(std::string key, std::string value) {
+        args_.push_back(std::move(key) + "=" + std::move(value));
+        return *this;
+    }
+
+    CommandBuilder &CommandBuilder::add_kv_if(bool condition, std::string key, std::string value) {
+        if (condition) args_.push_back(std::move(key) + "=" + std::move(value));
+        return *this;
+    }
+
+    CommandBuilder &CommandBuilder::add_opt(std::string opt, std::string value) {
+        args_.push_back(std::move(opt));
+        args_.push_back(std::move(value));
+        return *this;
+    }
+
+    CommandBuilder &CommandBuilder::add_opt_if(bool condition, std::string opt, std::string value) {
+        if (condition) {
+            args_.push_back(std::move(opt));
+            args_.push_back(std::move(value));
+        }
+        return *this;
+    }
+
     CommandBuilder &CommandBuilder::add_bind(std::string_view source, std::string_view dest) {
         if (dest.empty()) {
             args_.emplace_back("-b");
@@ -32,8 +66,35 @@ namespace tmoe {
         return *this;
     }
 
+    CommandBuilder &CommandBuilder::add_bind_to(std::string prefix, std::string source, std::string dest) {
+        if (dest.empty()) {
+            args_.push_back(std::move(prefix) + std::move(source));
+        } else {
+            args_.push_back(std::move(prefix) + std::move(source) + ":" + std::move(dest));
+        }
+        return *this;
+    }
+
+    CommandBuilder &CommandBuilder::add_bind_to_if(bool condition, std::string prefix,
+                                                    std::string source, std::string dest) {
+        if (condition) {
+            add_bind_to(std::move(prefix), std::move(source), std::move(dest));
+        }
+        return *this;
+    }
+
     CommandBuilder &CommandBuilder::add_env(std::string key, std::string value) {
         envs_.push_back(std::move(key) + "=" + std::move(value));
+        return *this;
+    }
+
+    CommandBuilder &CommandBuilder::set_prefix(std::string prefix) {
+        prefix_ = std::move(prefix);
+        return *this;
+    }
+
+    CommandBuilder &CommandBuilder::add_raw(std::string text) {
+        raw_parts_.push_back(std::move(text));
         return *this;
     }
 
@@ -49,12 +110,18 @@ namespace tmoe {
 
     std::string CommandBuilder::build_string() const {
         std::string cmd;
+        if (!prefix_.empty()) {
+            cmd += prefix_ + " ";
+        }
         for (const auto &env: envs_) {
             cmd += env + " ";
         }
         cmd += bin_;
         for (const auto &arg: args_) {
             cmd += " " + shell_escape(arg);
+        }
+        for (const auto &raw: raw_parts_) {
+            cmd += " " + raw;
         }
         return cmd;
     }

@@ -3,6 +3,7 @@
 #include "core/executor.h"
 #include "core/logger.h"
 #include "core/config.h"
+#include "core/command_builder.hpp"
 #include "domain/system/package_manager.h"
 
 namespace tmoe::domain {
@@ -111,7 +112,7 @@ namespace tmoe::domain {
         if (fs::exists("/opt/electron/electron")) return;
 
         Logger::step("安装 Electron 运行时...");
-        Executor::shell("mkdir -pv /opt");
+        CommandBuilder("mkdir").add_flag("-pv").add_arg("/opt").execute();
 
         // 下载最新 Electron
         auto result = Executor::passthrough(
@@ -131,7 +132,7 @@ namespace tmoe::domain {
         } else {
             Logger::ok("Electron 运行时已安装到 /opt/electron");
         }
-        Executor::shell("rm -rf /tmp/.electron_tmp 2>/dev/null");
+        CommandBuilder("rm").add_flag("-rf").add_arg("/tmp/.electron_tmp").add_raw("2>/dev/null").execute();
     }
 
     // ═══════════════════════════════════
@@ -142,7 +143,7 @@ namespace tmoe::domain {
         std::string tmp_dir = "/tmp/." + app_name + "_TEMP_FOLDER";
 
         Executor::shell("rm -rf " + tmp_dir + " 2>/dev/null; mkdir -pv " + tmp_dir);
-        Executor::shell("mkdir -pv /opt");
+        CommandBuilder("mkdir").add_flag("-pv").add_arg("/opt").execute();
 
         Logger::step("正在下载 " + app_name + " ...");
         auto dl_ret = Executor::passthrough(
@@ -154,7 +155,7 @@ namespace tmoe::domain {
 
         if (!dl_ret.ok()) {
             Logger::error("下载 " + app_name + " 失败");
-            Executor::shell("rm -rf " + tmp_dir + " 2>/dev/null");
+            CommandBuilder("rm").add_flag("-rf").add_arg(tmp_dir).add_raw("2>/dev/null").execute();
             return;
         }
 
@@ -175,7 +176,7 @@ namespace tmoe::domain {
 
         if (!fs::exists("/opt/" + app_name)) {
             Logger::error("安装 " + app_name + " 失败，请检查网络或手动安装");
-            Executor::shell("rm -rf " + tmp_dir + " 2>/dev/null");
+            CommandBuilder("rm").add_flag("-rf").add_arg(tmp_dir).add_raw("2>/dev/null").execute();
             return;
         }
 
@@ -194,7 +195,7 @@ namespace tmoe::domain {
             "fi"
         );
 
-        Executor::shell("rm -rf " + tmp_dir + " 2>/dev/null");
+        CommandBuilder("rm").add_flag("-rf").add_arg(tmp_dir).add_raw("2>/dev/null").execute();
         Logger::ok(app_name + " 安装完成！请从应用菜单或命令行启动。");
     }
 
@@ -203,7 +204,10 @@ namespace tmoe::domain {
         Logger::warn("  rm -rv /opt/" + app_name + " " + apps_lnk_dir_ + "/" + app_name + ".desktop");
         if (!Logger::confirm("确认卸载 " + app_name + " ?"))
             return;
-        Executor::shell("rm -rf /opt/" + app_name + " " + apps_lnk_dir_ + "/" + app_name + ".desktop 2>/dev/null");
+        CommandBuilder("rm").add_flag("-rf")
+            .add_arg("/opt/" + app_name)
+            .add_arg(apps_lnk_dir_ + "/" + app_name + ".desktop")
+            .add_raw("2>/dev/null").execute();
         Logger::ok(app_name + " 已卸载");
     }
 
@@ -347,14 +351,17 @@ namespace tmoe::domain {
                 Logger::warn("卸载后将导致依赖electron的应用无法正常运行。");
                 Logger::warn("  rm -rvf /opt/electron /usr/bin/electron");
                 if (Logger::confirm("确认卸载 electron?")) {
-                    Executor::shell("rm -rf /opt/electron /usr/bin/electron 2>/dev/null");
+                    CommandBuilder("rm").add_flag("-rf")
+                        .add_arg("/opt/electron")
+                        .add_arg("/usr/bin/electron")
+                        .add_raw("2>/dev/null").execute();
                     Logger::ok("electron 已卸载");
                 }
             } else if (ch == "3") {
                 Logger::warn("部分软件依赖于旧版electron,卸载后将导致这些软件无法正常运行。");
                 Logger::warn("  rm -rvf /opt/electron-v8");
                 if (Logger::confirm("确认卸载 electron-v8?")) {
-                    Executor::shell("rm -rf /opt/electron-v8 2>/dev/null");
+                    CommandBuilder("rm").add_flag("-rf").add_arg("/opt/electron-v8").add_raw("2>/dev/null").execute();
                     Logger::ok("electron-v8 已卸载");
                 }
             }
@@ -387,7 +394,7 @@ namespace tmoe::domain {
 
         if (ch == "1") {
             Logger::step("batch-compress");
-            Executor::passthrough("apt install -y imagemagick || true");
+            PackageManager::install("imagemagick", family);
         } else if (ch == "2") PackageManager::install("mpv", family);
         else if (ch == "3") PackageManager::install("smplayer", family);
         else if (ch == "4") PackageManager::install("peek", family);
@@ -436,7 +443,7 @@ namespace tmoe::domain {
 
         if (Executor::shell("grep '\"Linux\"' " + tmp_json + " > /dev/null 2>&1").exit_code != 0) {
             Logger::error("获取 QQ 官方配置失败，请检查网络或防火墙。");
-            Executor::shell("rm -f " + tmp_json + " 2>/dev/null");
+            CommandBuilder("rm").add_flag("-f").add_arg(tmp_json).add_raw("2>/dev/null").execute();
             return;
         }
 
@@ -447,7 +454,7 @@ namespace tmoe::domain {
         if (version.empty()) version = "未知版本";
 
         if (!Logger::confirm("确认安装 LinuxQQ " + version + " ?")) {
-            Executor::shell("rm -f " + tmp_json + " 2>/dev/null");
+            CommandBuilder("rm").add_flag("-f").add_arg(tmp_json).add_raw("2>/dev/null").execute();
             return;
         }
 
@@ -480,7 +487,7 @@ namespace tmoe::domain {
             ext = ".deb"; // MIPS 目前官方仅供 deb
         } else {
             Logger::error("当前系统架构 (" + arch + ") 暂不支持官方 Linux QQ");
-            Executor::shell("rm -f " + tmp_json + " 2>/dev/null");
+            CommandBuilder("rm").add_flag("-f").add_arg(tmp_json).add_raw("2>/dev/null").execute();
             return;
         }
 
@@ -501,7 +508,7 @@ namespace tmoe::domain {
         }
 
         // 用完即焚，销毁临时 JSON
-        Executor::shell("rm -f " + tmp_json + " 2>/dev/null");
+        CommandBuilder("rm").add_flag("-f").add_arg(tmp_json).add_raw("2>/dev/null").execute();
 
         if (dl_url.empty() || dl_url == "null") {
             Logger::error("获取官方下载直链失败！官方可能调整了 API。");
@@ -574,7 +581,7 @@ namespace tmoe::domain {
 
         if (!fs::exists(tmp_html) || fs::file_size(tmp_html) == 0) {
             Logger::error("获取微信官网页面失败，请检查网络连接。");
-            Executor::shell("rm -f " + tmp_html + " 2>/dev/null");
+            CommandBuilder("rm").add_flag("-f").add_arg(tmp_html).add_raw("2>/dev/null").execute();
             return;
         }
 
@@ -597,7 +604,7 @@ namespace tmoe::domain {
             arch_grep = "mips64el";
         } else {
             Logger::error("当前系统架构 (" + arch + ") 暂不支持官方 Linux 微信");
-            Executor::shell("rm -f " + tmp_html + " 2>/dev/null");
+            CommandBuilder("rm").add_flag("-f").add_arg(tmp_html).add_raw("2>/dev/null").execute();
             return;
         }
 
@@ -618,7 +625,7 @@ namespace tmoe::domain {
         }
 
         // 阅后即焚
-        Executor::shell("rm -f " + tmp_html + " 2>/dev/null");
+        CommandBuilder("rm").add_flag("-f").add_arg(tmp_html).add_raw("2>/dev/null").execute();
 
         if (dl_url.empty()) {
             Logger::error("在官网未找到架构 " + arch + " 的原生安装包。");
@@ -659,7 +666,7 @@ namespace tmoe::domain {
 
         if (!Executor::passthrough(dl_cmd).ok() || !fs::exists(dest) || fs::file_size(dest) == 0) {
             Logger::error("官方微信下载失败，请检查网络环境。");
-            Executor::shell("rm -f '" + dest + "' 2>/dev/null");
+            CommandBuilder("rm").add_flag("-f").add_arg(dest).add_raw("2>/dev/null").execute();
             return;
         }
 
@@ -962,24 +969,22 @@ namespace tmoe::domain {
 
         switch (family) {
             case DistroFamily::Debian:
-                for (const auto &pkg: {
-                         "xfce4", "xfce4-terminal", "tightvncserver", "xfce4-goodies",
-                         "dbus-x11", "lxde-core", "lxterminal",
-                         "mate-desktop-environment-core", "mate-terminal",
-                         "kde-plasma-desktop", "dde", "dde-desktop",
-                         "cinnamon-desktop-environment", "gnome-session", "gnome-shell",
-                         "lxqt", "lxqt-qtplugin"
-                     })
-                    Executor::passthrough("apt purge -y " + std::string(pkg) + " 2>/dev/null || true");
+                PackageManager::remove({
+                    "xfce4", "xfce4-terminal", "tightvncserver", "xfce4-goodies",
+                    "dbus-x11", "lxde-core", "lxterminal",
+                    "mate-desktop-environment-core", "mate-terminal",
+                    "kde-plasma-desktop", "dde", "dde-desktop",
+                    "cinnamon-desktop-environment", "gnome-session", "gnome-shell",
+                    "lxqt", "lxqt-qtplugin"
+                }, family);
                 Executor::passthrough("apt autoremove --purge -y || apt autoremove -y");
                 break;
             case DistroFamily::Arch:
-                for (const auto &pkg: {
-                         "xfce4", "xfce4-goodies", "mate", "mate-extra",
-                         "lxde", "lxqt", "plasma-desktop", "gnome", "gnome-extra",
-                         "cinnamon", "deepin", "deepin-extra"
-                     })
-                    Executor::passthrough("pacman -Rsc " + std::string(pkg) + " --noconfirm 2>/dev/null || true");
+                PackageManager::remove({
+                    "xfce4", "xfce4-goodies", "mate", "mate-extra",
+                    "lxde", "lxqt", "plasma-desktop", "gnome", "gnome-extra",
+                    "cinnamon", "deepin", "deepin-extra"
+                }, family);
                 break;
             case DistroFamily::RedHat:
                 for (const auto &grp: {
@@ -987,20 +992,20 @@ namespace tmoe::domain {
                          "KDE", "GNOME", "Cinnamon Desktop"
                      })
                     Executor::passthrough("dnf groupremove -y \"" + std::string(grp) + "\" 2>/dev/null || true");
-                Executor::passthrough("dnf remove -y deepin-desktop 2>/dev/null || true");
+                PackageManager::remove("deepin-desktop", family);
                 break;
             default:
-                for (const auto &pkg: {
-                         "xfce4", "lxde", "lxqt", "mate-desktop",
-                         "kde-plasma-desktop", "gnome-session", "cinnamon", "dde"
-                     })
-                    Executor::passthrough(cfg_.remove_command + " " + pkg + " 2>/dev/null || true");
+                PackageManager::remove({
+                    "xfce4", "lxde", "lxqt", "mate-desktop",
+                    "kde-plasma-desktop", "gnome-session", "cinnamon", "dde"
+                }, family);
                 break;
         }
     }
 
     void SoftwareCenter::remove_browser() {
         // 对应旧 Bash: 火狐娘 vs chromium娘 二选一
+        auto family = infer_family_from_config(cfg_.linux_distro);
         std::string confirm = cfg_.tui_bin +
                               " --title \"请从两个小可爱中选择一个\" --yes-button \"Firefox\" --no-button \"chromium\""
                               " --yesno '火狐娘:\"虽然知道总有离别时，但我没想到这一天竟然会这么早。\""
@@ -1013,24 +1018,20 @@ namespace tmoe::domain {
             auto f_confirm = Executor::passthrough(cfg_.tui_bin +
                                                    " --yesno \"按回车键确认卸载 Firefox\" 0 0");
             if (f_confirm.exit_code != 0) return;
-            for (const auto &pkg: {
-                     "firefox-esr", "firefox-esr-l10n-zh-cn",
-                     "firefox", "firefox-l10n-zh-cn", "firefox-locale-zh-hans"
-                 })
-                Executor::passthrough(cfg_.remove_command + " " + pkg + " 2>/dev/null || true");
+            PackageManager::remove({
+                "firefox-esr", "firefox-esr-l10n-zh-cn",
+                "firefox", "firefox-l10n-zh-cn", "firefox-locale-zh-hans"
+            }, family);
         } else if (choice.exit_code == 1) {
             auto c_confirm = Executor::passthrough(cfg_.tui_bin +
                                                    " --yesno \"按回车键确认卸载 Chromium\" 0 0");
             if (c_confirm.exit_code != 0) return;
             Executor::passthrough(
                 "apt-mark unhold chromium-browser chromium-browser-l10n chromium-codecs-ffmpeg-extra 2>/dev/null || true");
-            for (const auto &pkg: {
-                     "chromium", "chromium-l10n",
-                     "chromium-browser", "chromium-browser-l10n"
-                 })
-                Executor::passthrough(cfg_.remove_command + " " + pkg + " 2>/dev/null || true");
-            Executor::passthrough("dnf remove -y chromium 2>/dev/null || true");
-            Executor::passthrough("pacman -Rsc chromium --noconfirm 2>/dev/null || true");
+            PackageManager::remove({
+                "chromium", "chromium-l10n",
+                "chromium-browser", "chromium-browser-l10n"
+            }, family);
         }
         Executor::passthrough("apt autoremove --purge -y 2>/dev/null || true");
     }
@@ -1043,15 +1044,27 @@ namespace tmoe::domain {
                                                 " --yesno \"确认卸载 tmoe-linux 管理器？\n此操作不可逆！\" 0 0");
         if (tm_confirm.exit_code != 0) return;
 
-        Executor::passthrough("rm -rfv /usr/local/bin/tmoe /usr/local/bin/tmoes "
-            "/usr/local/bin/tome /usr/local/bin/startvnc /usr/local/bin/stopvnc "
-            "/usr/local/bin/novnc /usr/local/bin/startx11vnc /usr/local/bin/startxsdl "
-            "/usr/local/bin/x11vncpasswd /usr/local/bin/debian /usr/local/bin/debian-i "
-            "/usr/local/share/tmoe-linux ~/.config/tmoe-linux 2>/dev/null || true");
+        CommandBuilder("rm")
+            .add_flag("-rfv")
+            .add_arg("/usr/local/bin/tmoe")
+            .add_arg("/usr/local/bin/tmoes")
+            .add_arg("/usr/local/bin/tome")
+            .add_arg("/usr/local/bin/startvnc")
+            .add_arg("/usr/local/bin/stopvnc")
+            .add_arg("/usr/local/bin/novnc")
+            .add_arg("/usr/local/bin/startx11vnc")
+            .add_arg("/usr/local/bin/startxsdl")
+            .add_arg("/usr/local/bin/x11vncpasswd")
+            .add_arg("/usr/local/bin/debian")
+            .add_arg("/usr/local/bin/debian-i")
+            .add_arg("/usr/local/share/tmoe-linux")
+            .add_arg("~/.config/tmoe-linux")
+            .add_raw("2>/dev/null || true")
+            .execute();
 
         // 移除依赖包
-        std::string deps = cfg_.remove_command + " git aria2 pv wget curl less xz-utils newt whiptail || true";
-        Executor::passthrough(deps);
+        auto family = infer_family_from_config(cfg_.linux_distro);
+        PackageManager::remove({"git", "aria2", "pv", "wget", "curl", "less", "xz-utils", "newt", "whiptail"}, family);
 
         Logger::warn("tmoe 工具已移除。容器数据保留在 ~/.local/share/tmoe");
     }

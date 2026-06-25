@@ -1,4 +1,5 @@
 #include "domain/system/backup.h"
+#include "core/command_builder.hpp"
 #include "core/i18n.h"
 #include <algorithm>
 #include <chrono>
@@ -1009,19 +1010,25 @@ bool BackupManager::run_tar_backup(std::string_view source_dir,
         fs::create_directories(out.parent_path());
     }
 
-    std::ostringstream cmd;
     std::string tar_prefix = get_tar_prefix();
+    CommandBuilder cb("tar");
+
+    if (!tar_prefix.empty()) {
+        std::string p = tar_prefix;
+        while (!p.empty() && p.back() == ' ') p.pop_back();
+        if (!p.empty()) cb.set_prefix(p);
+    }
 
     switch (format) {
         case ArchiveFormat::TarZst:
-            cmd << tar_prefix << "tar --use-compress-program zstd -Ppcvf \""
-                << output_file << "\"";
+            cb.add_opt("--use-compress-program", "zstd");
+            cb.add_flag("-Ppcvf").add_arg(std::string(output_file));
             break;
         case ArchiveFormat::TarXz:
-            cmd << tar_prefix << "tar -PJpcvf \"" << output_file << "\"";
+            cb.add_flag("-PJpcvf").add_arg(std::string(output_file));
             break;
         case ArchiveFormat::TarGz:
-            cmd << tar_prefix << "tar -Ppzcvf \"" << output_file << "\"";
+            cb.add_flag("-Ppzcvf").add_arg(std::string(output_file));
             break;
         default:
             Logger::error("Unsupported backup format");
@@ -1030,20 +1037,20 @@ bool BackupManager::run_tar_backup(std::string_view source_dir,
 
     // 排除路径
     for (const auto& ex : excludes) {
-        cmd << " --exclude=\"" << ex << "\"";
+        cb.add_kv("--exclude", ex);
     }
 
-    cmd << " \"" << source_dir << "\"";
+    cb.add_arg(std::string(source_dir));
 
     // 附加 include 路径
     for (const auto& inc : includes) {
         if (fs::exists(inc)) {
-            cmd << " \"" << inc << "\"";
+            cb.add_arg(inc);
         }
     }
 
-    Logger::debug("Executing: " + cmd.str());
-    return Executor::passthrough(cmd.str()).ok();
+    Logger::debug("Executing: " + cb.build_string());
+    return Executor::passthrough(cb.build_string()).ok();
 }
 
 bool BackupManager::run_tar_backup_with_progress(std::string_view source_dir,
@@ -1055,40 +1062,36 @@ bool BackupManager::run_tar_backup_with_progress(std::string_view source_dir,
         fs::create_directories(out.parent_path());
     }
 
-    std::ostringstream cmd;
     std::string tar_prefix = get_tar_prefix();
+    CommandBuilder cb("tar");
 
-    // 构建排除参数
-    std::ostringstream exclude_flags;
-    for (const auto& ex : excludes) {
-        exclude_flags << " --exclude=\"" << ex << "\"";
+    if (!tar_prefix.empty()) {
+        std::string p = tar_prefix;
+        while (!p.empty() && p.back() == ' ') p.pop_back();
+        if (!p.empty()) cb.set_prefix(p);
     }
 
     switch (format) {
         case ArchiveFormat::TarZst:
-            // zstd → pv 管道
-            cmd << tar_prefix << "tar --exclude=\""
-                << output_file << "\"" << exclude_flags.str()
-                << " -Ppcf - \"" << source_dir << "\" | "
-                << "pv -p --timer --rate --bytes | "
-                << "zstd -T0 > \"" << output_file << "\"";
+            cb.add_kv("--exclude", std::string(output_file));
+            for (const auto& ex : excludes) cb.add_kv("--exclude", ex);
+            cb.add_flag("-Ppcf").add_arg("-").add_arg(std::string(source_dir));
+            cb.add_raw("| pv -p --timer --rate --bytes | zstd -T0 > \"" + std::string(output_file) + "\"");
             break;
         case ArchiveFormat::TarXz:
-            cmd << tar_prefix << "tar -PpJcf - \"" << source_dir
-                << "\" | pv -p --timer --rate --bytes > \""
-                << output_file << "\"";
+            cb.add_flag("-PpJcf").add_arg("-").add_arg(std::string(source_dir));
+            cb.add_raw("| pv -p --timer --rate --bytes > \"" + std::string(output_file) + "\"");
             break;
         case ArchiveFormat::TarGz:
-            cmd << tar_prefix << "tar -Ppzcf - \"" << source_dir
-                << "\" | pv -p --timer --rate --bytes > \""
-                << output_file << "\"";
+            cb.add_flag("-Ppzcf").add_arg("-").add_arg(std::string(source_dir));
+            cb.add_raw("| pv -p --timer --rate --bytes > \"" + std::string(output_file) + "\"");
             break;
         default:
             return run_tar_backup(source_dir, output_file, format, excludes);
     }
 
-    Logger::debug("Executing: " + cmd.str());
-    return Executor::passthrough(cmd.str()).ok();
+    Logger::debug("Executing: " + cb.build_string());
+    return Executor::passthrough(cb.build_string()).ok();
 }
 
 ArchiveFormat BackupManager::tui_select_format() {

@@ -1,4 +1,5 @@
 #include "domain/apps/input_method.h"
+#include "core/command_builder.hpp"
 #include "core/i18n.h"
 #include "core/executor.h"
 #include "core/logger.h"
@@ -137,13 +138,13 @@ namespace tmoe::domain {
                 "QT_IM_MODULE=fcitx\n"
                 "XMODIFIERS=@im=fcitx\n"
                 "SDL_IM_MODULE=fcitx\n";
-        Executor::shell("echo '" + env_block + "' >> /etc/environment 2>/dev/null || true");
+        Executor::shell(CommandBuilder("echo").add_arg(env_block).add_raw(">> /etc/environment 2>/dev/null || true").build_string());
         Logger::ok(_("input.env_done"));
     }
 
     void InputMethodManager::setup_fcitx_autostart() {
         Logger::step(_("input.autostart"));
-        Executor::shell("mkdir -p /etc/xdg/autostart ~/.config/autostart 2>/dev/null");
+        Executor::shell(CommandBuilder("mkdir").add_flag("-p").add_arg("/etc/xdg/autostart").add_arg("~/.config/autostart").add_raw("2>/dev/null").build_string());
         // 复制 fcitx 自动启动到 XDG 目录（如果存在）
         Executor::shell(
             "if [ -f /etc/xdg/autostart/fcitx-autostart.desktop ]; then "

@@ -10,6 +10,7 @@
 
 #include "domain/runtime/container.h"
 #include "domain/runtime/runtime.h"
+#include "core/command_builder.hpp"
 #include "core/executor.h"
 #include "core/logger.h"
 #include "core/config.h"
@@ -39,23 +40,22 @@ namespace tmoe::domain {
                          const std::string &target,
                          bool readonly,
                          const std::string &prefix) {
-        std::string cmd = prefix;
-        if (!cmd.empty()) cmd += " ";
-        cmd += mount_bin;
+        tmoe::CommandBuilder cb(mount_bin);
         if (readonly)
-            cmd += " -o bind,ro";
+            cb.add_opt("-o", "bind,ro");
         else
-            cmd += " -o bind";
-        cmd += " " + source + " " + target;
-        Executor::shell(cmd);
+            cb.add_opt("-o", "bind");
+        cb.add_arg(source).add_arg(target);
+        if (!prefix.empty()) cb.set_prefix(prefix);
+        cb.execute();
     }
 
     /** 以 root 权限创建目录（对应 Bash 的 mkdir_01 / mkdir_dst） */
     static void mkdirp_as_root(const std::string &dir, const std::string &prefix) {
-        std::string cmd = prefix;
-        if (!cmd.empty()) cmd += " ";
-        cmd += "mkdir -p " + dir;
-        Executor::shell(cmd);
+        tmoe::CommandBuilder cb("mkdir");
+        cb.add_flag("-p").add_arg(dir);
+        if (!prefix.empty()) cb.set_prefix(prefix);
+        cb.execute();
     }
 
     /** 获取当前非 root 用户可用的特权前缀（sudo 或 su -c） */
@@ -150,14 +150,14 @@ namespace tmoe::domain {
         // 1. 自挂载（arch 自行处理，对应 Bash 的 MOUNT_ITSELF）
         if (config_.mount_itself) {
             if (!is_mounted(rootfs + "/")) {
-                std::string cmd = prefix;
-                if (!cmd.empty()) cmd += " ";
-                cmd += mount_bin + " --rbind " + rootfs + " " + rootfs + "/";
-                Executor::shell(cmd);
-                cmd = prefix;
-                if (!cmd.empty()) cmd += " ";
-                cmd += mount_bin + " -o remount,exec,suid,relatime,dev " + rootfs;
-                Executor::shell(cmd);
+                tmoe::CommandBuilder cb(mount_bin);
+                cb.add_opt("--rbind", rootfs).add_arg(rootfs + "/");
+                if (!prefix.empty()) cb.set_prefix(prefix);
+                cb.execute();
+                tmoe::CommandBuilder cb2(mount_bin);
+                cb2.add_opt("-o", "remount,exec,suid,relatime,dev").add_arg(rootfs);
+                if (!prefix.empty()) cb2.set_prefix(prefix);
+                cb2.execute();
             }
         }
 
@@ -166,10 +166,10 @@ namespace tmoe::domain {
             std::string target = rootfs + config_.tmp_mount_point;
             if (!is_mounted(target)) {
                 mkdirp_as_root(config_.tmp_mount_point, prefix);
-                std::string cmd = prefix;
-                if (!cmd.empty()) cmd += " ";
-                cmd += mount_bin + " -o bind " + config_.tmp_source_dir + " " + target;
-                Executor::shell(cmd);
+                tmoe::CommandBuilder cb(mount_bin);
+                cb.add_opt("-o", "bind").add_arg(config_.tmp_source_dir).add_arg(target);
+                if (!prefix.empty()) cb.set_prefix(prefix);
+                cb.execute();
             }
         }
 
@@ -195,21 +195,20 @@ namespace tmoe::domain {
 
             mkdirp_as_root(dm.dir, prefix);
 
-            std::string cmd = prefix;
-            if (!cmd.empty()) cmd += " ";
-            cmd += mount_bin;
+            tmoe::CommandBuilder cb(mount_bin);
 
             if (dm.extra_opts != nullptr && dm.extra_opts[0] != '\0') {
                 // 有特殊挂载选项（proc / sys / dev/pts / dev/shm）
                 if (std::string(dm.dir) == "proc" && !config_.unshare_enabled) {
-                    cmd += " -o " + std::string(dm.extra_opts) + " " + dm.dir + " " + target;
+                    cb.add_opt("-o", std::string(dm.extra_opts)).add_arg(dm.dir).add_arg(target);
                 } else if (std::string(dm.dir) != "proc") {
-                    cmd += " -o " + std::string(dm.extra_opts) + " " + dm.dir + " " + target;
+                    cb.add_opt("-o", std::string(dm.extra_opts)).add_arg(dm.dir).add_arg(target);
                 }
             } else {
-                cmd += " -o bind " + std::string(dm.dir) + " " + target;
+                cb.add_opt("-o", "bind").add_arg(dm.dir).add_arg(target);
             }
-            Executor::shell(cmd);
+            if (!prefix.empty()) cb.set_prefix(prefix);
+            cb.execute();
         }
 
         // 4. 自定义挂载点（对应 Bash 的 mount[] / mount_src[] / mount_dst[] / mount_ro[]）
@@ -248,10 +247,10 @@ namespace tmoe::domain {
             for (int i = 0; sd_dirs[i] != nullptr; i++) {
                 if (sd_dirs[i][0] == '\0') continue;
                 if (Executor::shell("test -d " + std::string(sd_dirs[i])).ok()) {
-                    std::string cmd = prefix;
-                    if (!cmd.empty()) cmd += " ";
-                    cmd += mount_bin + " -o bind " + std::string(sd_dirs[i]) + " " + sd_mount_point_path;
-                    Executor::shell(cmd);
+                    tmoe::CommandBuilder cb(mount_bin);
+                    cb.add_opt("-o", "bind").add_arg(std::string(sd_dirs[i])).add_arg(sd_mount_point_path);
+                    if (!prefix.empty()) cb.set_prefix(prefix);
+                    cb.execute();
                     sd_mounted = true;
                     break;
                 }
@@ -264,10 +263,10 @@ namespace tmoe::domain {
                 std::string target = rootfs + config_.termux_mount_point;
                 mkdirp_as_root(config_.termux_mount_point, prefix);
                 if (Executor::shell("test -d " + config_.termux_dir).ok()) {
-                    std::string cmd = prefix;
-                    if (!cmd.empty()) cmd += " ";
-                    cmd += mount_bin + " -o bind " + config_.termux_dir + " " + target;
-                    Executor::shell(cmd);
+                    tmoe::CommandBuilder cb(mount_bin);
+                    cb.add_opt("-o", "bind").add_arg(config_.termux_dir).add_arg(target);
+                    if (!prefix.empty()) cb.set_prefix(prefix);
+                    cb.execute();
                 }
             }
         }
@@ -287,10 +286,10 @@ namespace tmoe::domain {
                 if (fs::exists(resolved)) {
                     std::string target = rootfs + config_.tf_mount_point;
                     mkdirp_as_root(config_.tf_mount_point, prefix);
-                    std::string cmd = prefix;
-                    if (!cmd.empty()) cmd += " ";
-                    cmd += mount_bin + " -o bind " + resolved.string() + " " + target;
-                    Executor::shell(cmd);
+                    tmoe::CommandBuilder cb(mount_bin);
+                    cb.add_opt("-o", "bind").add_arg(resolved.string()).add_arg(target);
+                    if (!prefix.empty()) cb.set_prefix(prefix);
+                    cb.execute();
                 }
             }
         }
@@ -325,10 +324,10 @@ namespace tmoe::domain {
         for (const auto &link: links) {
             std::string full_path = rootfs + link.path;
             if (!fs::exists(full_path) && !fs::is_symlink(full_path)) {
-                std::string cmd = prefix;
-                if (!cmd.empty()) cmd += " ";
-                cmd += "ln -s " + std::string(link.target) + " " + full_path + " 2>/dev/null";
-                Executor::shell(cmd);
+                tmoe::CommandBuilder cb("ln");
+                cb.add_flag("-s").add_arg(link.target).add_arg(full_path).add_raw("2>/dev/null");
+                if (!prefix.empty()) cb.set_prefix(prefix);
+                cb.execute();
             }
         }
     }
@@ -382,42 +381,43 @@ namespace tmoe::domain {
                                  ? container.rootfs_path()
                                  : config_.rootfs_path;
 
-        std::vector<std::string> args;
+        std::string prefix = get_root_prefix();
+        bool use_sudo = !prefix.empty() && prefix == "sudo";
+        bool use_unshare = config_.unshare_enabled && !unshare_bin.empty();
+
+        tmoe::CommandBuilder cb(use_unshare ? unshare_bin : chroot_bin);
 
         // 如果启用了 unshare，则 unshare 是主程序
-        if (config_.unshare_enabled && !unshare_bin.empty()) {
-            args.emplace_back(unshare_bin);
-
+        if (use_unshare) {
             if (config_.share_proc && config_.unshare_enabled) {
                 // 需要 umount 旧 proc
-                std::string prefix = get_root_prefix();
+                std::string umount_prefix = get_root_prefix();
                 if (fs::exists(rootfs + "/proc/stat")) {
-                    std::string cmd = prefix;
-                    if (!cmd.empty()) cmd += " ";
-                    cmd += "umount -lf " + rootfs + "/proc || umount " + rootfs + "/proc";
-                    Executor::shell(cmd);
+                    tmoe::CommandBuilder umount_cb("umount");
+                    umount_cb.add_flag("-lf").add_arg(rootfs + "/proc").add_raw("|| umount " + rootfs + "/proc");
+                    if (!umount_prefix.empty()) umount_cb.set_prefix(umount_prefix);
+                    umount_cb.execute();
                 }
-                args.emplace_back("--mount-proc");
+                cb.add_flag("--mount-proc");
             }
-            if (config_.unshare_ipc) args.emplace_back("--ipc");
-            if (config_.unshare_pid) args.emplace_back("--pid");
-            if (config_.unshare_uts) args.emplace_back("--uts");
-            if (config_.unshare_mount) args.emplace_back("--mount");
+            if (config_.unshare_ipc) cb.add_flag("--ipc");
+            if (config_.unshare_pid) cb.add_flag("--pid");
+            if (config_.unshare_uts) cb.add_flag("--uts");
+            if (config_.unshare_mount) cb.add_flag("--mount");
             if (config_.kill_child && !config_.kill_child_signame.empty()) {
-                args.emplace_back("--kill-child=" + config_.kill_child_signame);
+                cb.add_kv("--kill-child", config_.kill_child_signame);
             }
-            args.emplace_back("-R");
-            args.emplace_back(rootfs);
+            cb.add_flag("-R");
+            cb.add_arg(rootfs);
             // chroot 作为 unshare 的参数
-            args.emplace_back(chroot_bin);
+            cb.add_arg(chroot_bin);
         } else {
-            args.emplace_back(chroot_bin);
-            args.emplace_back(rootfs);
+            cb.add_arg(rootfs);
         }
 
         // 设置环境变量（对应 Bash 的 set -- "$@" "VAR=value"）
-        args.emplace_back("/usr/bin/env");
-        args.emplace_back("-i");
+        cb.add_arg("/usr/bin/env");
+        cb.add_flag("-i");
 
         // HOSTNAME（对应 Bash 的 HOST_NAME 部分）
         std::string hostname = "localhost";
@@ -435,23 +435,23 @@ namespace tmoe::domain {
                 hostname.erase(std::remove(hostname.begin(), hostname.end(), '\r'), hostname.end());
             }
         }
-        args.emplace_back("HOSTNAME=" + hostname);
+        cb.add_arg("HOSTNAME=" + hostname);
 
         // 环境变量（对应 Bash 版）
-        args.emplace_back("TERM=xterm-256color");
-        args.emplace_back("SDL_IM_MODULE=fcitx");
-        args.emplace_back("XMODIFIERS=@im=fcitx");
-        args.emplace_back("QT_IM_MODULE=fcitx");
-        args.emplace_back("GTK_IM_MODULE=fcitx");
-        args.emplace_back("TMOE_CHROOT=true");
-        args.emplace_back("TMOE_PROOT=false");
-        args.emplace_back("TMPDIR=/tmp");
-        args.emplace_back("DISPLAY=:2");
-        args.emplace_back("PULSE_SERVER=tcp:127.0.0.1:4713");
+        cb.add_arg("TERM=xterm-256color");
+        cb.add_arg("SDL_IM_MODULE=fcitx");
+        cb.add_arg("XMODIFIERS=@im=fcitx");
+        cb.add_arg("QT_IM_MODULE=fcitx");
+        cb.add_arg("GTK_IM_MODULE=fcitx");
+        cb.add_arg("TMOE_CHROOT=true");
+        cb.add_arg("TMOE_PROOT=false");
+        cb.add_arg("TMPDIR=/tmp");
+        cb.add_arg("DISPLAY=:2");
+        cb.add_arg("PULSE_SERVER=tcp:127.0.0.1:4713");
 
         // Shell
         std::string shell = detect_shell(container);
-        args.emplace_back("SHELL=" + shell);
+        cb.add_arg("SHELL=" + shell);
 
         // LANG（对应 Bash 的 TMOE_LOCALE_FILE）
         std::string locale_file = rootfs + "/usr/local/etc/tmoe-linux/locale.txt";
@@ -461,12 +461,12 @@ namespace tmoe::domain {
             if (lf.is_open() && std::getline(lf, lang)) {
                 lang.erase(std::remove(lang.begin(), lang.end(), '\n'), lang.end());
                 lang.erase(std::remove(lang.begin(), lang.end(), '\r'), lang.end());
-                args.emplace_back("LANG=" + lang);
+                cb.add_arg("LANG=" + lang);
             } else {
-                args.emplace_back("LANG=en_US.UTF-8");
+                cb.add_arg("LANG=en_US.UTF-8");
             }
         } else {
-            args.emplace_back("LANG=en_US.UTF-8");
+            cb.add_arg("LANG=en_US.UTF-8");
         }
 
         // HOME（对应 Bash 的 HOME_DIR 部分）
@@ -488,8 +488,8 @@ namespace tmoe::domain {
         } else {
             home_dir = config_.home_dir;
         }
-        args.emplace_back("HOME=" + home_dir);
-        args.emplace_back("USER=" + config_.chroot_user);
+        cb.add_arg("HOME=" + home_dir);
+        cb.add_arg("USER=" + config_.chroot_user);
 
         // PATH（含 CONTAINER_BIN_PATH 前缀，对应 Bash 版）
         std::string container_bin_path;
@@ -512,9 +512,9 @@ namespace tmoe::domain {
             base_path = "/usr/local/bin:/bin:/usr/bin:/usr/games:/usr/local/games";
         }
         if (!container_bin_path.empty())
-            args.emplace_back("PATH=" + container_bin_path + ":" + base_path);
+            cb.add_arg("PATH=" + container_bin_path + ":" + base_path);
         else
-            args.emplace_back("PATH=" + base_path);
+            cb.add_arg("PATH=" + base_path);
 
         // 加载容器环境文件（对应 Bash 的 LOAD_ENV_FILE / CONTAINER_ENV_FILE）
         if (config_.load_env_file && !config_.container_env_file.empty()) {
@@ -529,46 +529,31 @@ namespace tmoe::domain {
                             line = line.substr(7);
                         }
                         if (!line.empty()) {
-                            args.emplace_back(line);
+                            cb.add_arg(line);
                         }
                     }
                 }
             }
         }
 
-        // ── 构建最终命令字符串 ──
-        // 对应 Bash 版：check_host_and_root → su -c "bash ..." 或 直接执行
-        std::string prefix = get_root_prefix();
-        bool use_sudo = !prefix.empty() && prefix == "sudo";
-
-        std::string final_cmd;
-        if (!prefix.empty() && !use_sudo) {
-            // su -c 需要整个命令作为一个字符串参数
-            std::string inner;
-            for (size_t i = 0; i < args.size(); i++) {
-                inner += "\"" + args[i] + "\" ";
-            }
-            // 添加 login shell 参数
-            inner += shell;
-            if (!config_.login_shell_arg.empty()) {
-                inner += " " + config_.login_shell_arg;
-            }
-            final_cmd = prefix + " \"" + inner + "\"";
-        } else {
-            // 直接执行或用 sudo
-            if (!prefix.empty()) {
-                final_cmd = prefix + " ";
-            }
-            for (size_t i = 0; i < args.size(); i++) {
-                final_cmd += args[i] + " ";
-            }
-            final_cmd += shell;
-            if (!config_.login_shell_arg.empty()) {
-                final_cmd += " " + config_.login_shell_arg;
-            }
+        // Add shell as the command to run inside the chroot
+        cb.add_arg(shell);
+        if (!config_.login_shell_arg.empty()) {
+            cb.add_arg(config_.login_shell_arg);
         }
 
-        return final_cmd;
+        // ── 构建最终命令字符串 ──
+        // 对应 Bash 版：check_host_and_root → su -c "bash ..." 或 直接执行
+        if (!prefix.empty() && !use_sudo) {
+            // su -c 需要整个命令作为一个字符串参数
+            std::string inner = cb.build_string();
+            return prefix + " \"" + inner + "\"";
+        } else {
+            if (!prefix.empty()) {
+                cb.set_prefix(prefix);
+            }
+            return cb.build_string();
+        }
     }
 
     // ── start/stop ──
@@ -637,20 +622,20 @@ namespace tmoe::domain {
         for (int i = 0; dirs_to_unmount[i] != nullptr; i++) {
             std::string target = rootfs + "/" + std::string(dirs_to_unmount[i]);
             if (is_mounted(target)) {
-                std::string cmd = prefix;
-                if (!cmd.empty()) cmd += " ";
-                cmd += "umount -lf " + target + " 2>/dev/null || true";
-                Executor::shell(cmd);
+                tmoe::CommandBuilder cb("umount");
+                cb.add_flag("-lf").add_arg(target).add_raw("2>/dev/null || true");
+                if (!prefix.empty()) cb.set_prefix(prefix);
+                cb.execute();
             }
         }
 
         // 卸载自挂载
         if (config_.mount_itself) {
             if (is_mounted(rootfs + "/")) {
-                std::string cmd = prefix;
-                if (!cmd.empty()) cmd += " ";
-                cmd += "umount -lf " + rootfs + "/ 2>/dev/null || true";
-                Executor::shell(cmd);
+                tmoe::CommandBuilder cb("umount");
+                cb.add_flag("-lf").add_arg(rootfs + "/").add_raw("2>/dev/null || true");
+                if (!prefix.empty()) cb.set_prefix(prefix);
+                cb.execute();
             }
         }
 
@@ -658,10 +643,10 @@ namespace tmoe::domain {
         if (!config_.sd_mount_point.empty()) {
             std::string target = rootfs + config_.sd_mount_point;
             if (is_mounted(target)) {
-                std::string cmd = prefix;
-                if (!cmd.empty()) cmd += " ";
-                cmd += "umount -lf " + target + " 2>/dev/null || true";
-                Executor::shell(cmd);
+                tmoe::CommandBuilder cb("umount");
+                cb.add_flag("-lf").add_arg(target).add_raw("2>/dev/null || true");
+                if (!prefix.empty()) cb.set_prefix(prefix);
+                cb.execute();
             }
         }
 
@@ -669,10 +654,10 @@ namespace tmoe::domain {
         if (!config_.termux_mount_point.empty()) {
             std::string target = rootfs + config_.termux_mount_point;
             if (is_mounted(target)) {
-                std::string cmd = prefix;
-                if (!cmd.empty()) cmd += " ";
-                cmd += "umount -lf " + target + " 2>/dev/null || true";
-                Executor::shell(cmd);
+                tmoe::CommandBuilder cb("umount");
+                cb.add_flag("-lf").add_arg(target).add_raw("2>/dev/null || true");
+                if (!prefix.empty()) cb.set_prefix(prefix);
+                cb.execute();
             }
         }
 
@@ -680,10 +665,10 @@ namespace tmoe::domain {
         if (!config_.tf_mount_point.empty()) {
             std::string target = rootfs + config_.tf_mount_point;
             if (is_mounted(target)) {
-                std::string cmd = prefix;
-                if (!cmd.empty()) cmd += " ";
-                cmd += "umount -lf " + target + " 2>/dev/null || true";
-                Executor::shell(cmd);
+                tmoe::CommandBuilder cb("umount");
+                cb.add_flag("-lf").add_arg(target).add_raw("2>/dev/null || true");
+                if (!prefix.empty()) cb.set_prefix(prefix);
+                cb.execute();
             }
         }
 

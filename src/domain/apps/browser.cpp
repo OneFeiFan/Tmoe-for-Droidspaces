@@ -3,6 +3,7 @@
 #include "core/executor.h"
 #include "core/logger.h"
 #include "core/config.h"
+#include "core/command_builder.hpp"
 #include "domain/system/package_manager.h"
 #include <fstream>
 
@@ -144,7 +145,7 @@ namespace tmoe::domain {
             case DistroFamily::Debian:
                 ensure_firefox_ppa();
                 ok = PackageManager::install("firefox-esr", family);
-                if (ok) Executor::passthrough(cfg_.install_command + " ffmpeg ^firefox-esr-locale-zh || true");
+                if (ok) PackageManager::install({"ffmpeg", "^firefox-esr-locale-zh"}, family);
                 break;
             case DistroFamily::Arch:
                 ok = PackageManager::install({"firefox-esr", "firefox-i18n-zh-cn"}, family);
@@ -214,15 +215,24 @@ namespace tmoe::domain {
                 ok = PackageManager::install("microsoft-edge-dev", family);
                 break;
             case DistroFamily::RedHat:
-                Executor::passthrough("rpm --import https://packages.microsoft.com/keys/microsoft.asc");
-                Executor::passthrough("dnf config-manager --add-repo "
-                    "https://packages.microsoft.com/yumrepos/edge");
-                ok = Executor::passthrough("dnf install -y microsoft-edge-dev").ok();
+                Executor::passthrough(
+                    CommandBuilder("rpm").add_flag("--import")
+                        .add_arg("https://packages.microsoft.com/keys/microsoft.asc").build_string());
+                Executor::passthrough(
+                    CommandBuilder("dnf").add_arg("config-manager").add_flag("--add-repo")
+                        .add_arg("https://packages.microsoft.com/yumrepos/edge").build_string());
+                ok = PackageManager::install("microsoft-edge-dev", family);
                 break;
             case DistroFamily::Suse:
-                Executor::passthrough("rpm --import https://packages.microsoft.com/keys/microsoft.asc");
-                Executor::passthrough("zypper ar https://packages.microsoft.com/yumrepos/edge microsoft-edge-dev");
-                ok = Executor::passthrough("zypper refresh && zypper install -y microsoft-edge-dev").ok();
+                Executor::passthrough(
+                    CommandBuilder("rpm").add_flag("--import")
+                        .add_arg("https://packages.microsoft.com/keys/microsoft.asc").build_string());
+                Executor::passthrough(
+                    CommandBuilder("zypper").add_flag("ar")
+                        .add_arg("https://packages.microsoft.com/yumrepos/edge")
+                        .add_arg("microsoft-edge-dev").build_string());
+                Executor::passthrough(CommandBuilder("zypper").add_arg("refresh").build_string());
+                ok = PackageManager::install("microsoft-edge-dev", family);
                 break;
             case DistroFamily::Arch:
                 ok = PackageManager::install("microsoft-edge-dev", family);
@@ -276,13 +286,19 @@ namespace tmoe::domain {
                                        " --yesno \"确认卸载 Chromium？\" 8 50");
         if (r.exit_code != 0) return;
         if (family == DistroFamily::Debian)
-            Executor::passthrough("apt-mark unhold chromium-browser chromium-browser-l10n "
-                "chromium-codecs-ffmpeg-extra 2>/dev/null || true");
+            Executor::passthrough(
+                CommandBuilder("apt-mark").add_flag("unhold")
+                    .add_arg("chromium-browser").add_arg("chromium-browser-l10n")
+                    .add_arg("chromium-codecs-ffmpeg-extra")
+                    .add_raw("2>/dev/null || true").build_string());
         for (const auto &pkg: {"chromium", "chromium-l10n", "chromium-browser", "chromium-browser-l10n"})
-            Executor::passthrough(cfg_.remove_command + " " + pkg + " 2>/dev/null || true");
-        Executor::passthrough("rm -vf /usr/local/bin/chromium--no-sandbox "
-            "/usr/local/share/applications/chromium-browser-no-sandbox.desktop "
-            "${HOME}/Desktop/chromium-browser-no-sandbox.desktop 2>/dev/null || true");
+            PackageManager::remove(pkg, family);
+        Executor::passthrough(
+            CommandBuilder("rm").add_flag("-vf")
+                .add_arg("/usr/local/bin/chromium--no-sandbox")
+                .add_arg("/usr/local/share/applications/chromium-browser-no-sandbox.desktop")
+                .add_arg("${HOME}/Desktop/chromium-browser-no-sandbox.desktop")
+                .add_raw("2>/dev/null || true").build_string());
     }
 
     void BrowserManager::remove_edge() {
@@ -290,24 +306,38 @@ namespace tmoe::domain {
                                        " --yesno \"确认卸载 Microsoft Edge？\" 8 50");
         if (r.exit_code != 0) return;
         auto family = infer_family_from_config(cfg_.linux_distro);
-        Executor::passthrough(cfg_.remove_command + " microsoft-edge-dev || true");
+        PackageManager::remove("microsoft-edge-dev", family);
         switch (family) {
             case DistroFamily::Debian:
-                Executor::passthrough("rm -vf /etc/apt/sources.list.d/microsoft-edge-dev.list 2>/dev/null || true");
-                Executor::passthrough("apt update 2>/dev/null || true");
+                Executor::passthrough(
+                    CommandBuilder("rm").add_flag("-vf")
+                        .add_arg("/etc/apt/sources.list.d/microsoft-edge-dev.list")
+                        .add_raw("2>/dev/null || true").build_string());
+                Executor::passthrough(
+                    CommandBuilder("apt").add_flag("update")
+                        .add_raw("2>/dev/null || true").build_string());
                 break;
             case DistroFamily::RedHat:
-                Executor::passthrough("rm -vf /etc/yum.repos.d/microsoft-edge-dev.repo 2>/dev/null || true");
+                Executor::passthrough(
+                    CommandBuilder("rm").add_flag("-vf")
+                        .add_arg("/etc/yum.repos.d/microsoft-edge-dev.repo")
+                        .add_raw("2>/dev/null || true").build_string());
                 break;
             case DistroFamily::Suse:
-                Executor::passthrough("zypper removerepo microsoft-edge-dev 2>/dev/null || true");
+                Executor::passthrough(
+                    CommandBuilder("zypper").add_flag("removerepo")
+                        .add_arg("microsoft-edge-dev")
+                        .add_raw("2>/dev/null || true").build_string());
                 break;
             default: break;
         }
         // 清理 no-sandbox 快捷方式 + 桌面副本
-        Executor::passthrough("rm -vf /usr/local/bin/microsoft-edge-dev--no-sandbox "
-            "/usr/local/share/applications/microsoft-edge-dev-no-sandbox.desktop "
-            "${HOME}/Desktop/microsoft-edge*.desktop 2>/dev/null || true");
+        Executor::passthrough(
+            CommandBuilder("rm").add_flag("-vf")
+                .add_arg("/usr/local/bin/microsoft-edge-dev--no-sandbox")
+                .add_arg("/usr/local/share/applications/microsoft-edge-dev-no-sandbox.desktop")
+                .add_arg("${HOME}/Desktop/microsoft-edge*.desktop")
+                .add_raw("2>/dev/null || true").build_string());
     }
 
     void BrowserManager::remove_falkon() {
@@ -316,8 +346,11 @@ namespace tmoe::domain {
         if (r.exit_code != 0) return;
         auto family = infer_family_from_config(cfg_.linux_distro);
         PackageManager::remove("falkon", family);
-        Executor::passthrough("rm -vf /usr/local/bin/falkon--no-sandbox "
-            "/usr/local/share/applications/falkon-no-sandbox.desktop 2>/dev/null || true");
+        Executor::passthrough(
+            CommandBuilder("rm").add_flag("-vf")
+                .add_arg("/usr/local/bin/falkon--no-sandbox")
+                .add_arg("/usr/local/share/applications/falkon-no-sandbox.desktop")
+                .add_raw("2>/dev/null || true").build_string());
     }
 
     void BrowserManager::remove_firefox() {
@@ -326,18 +359,27 @@ namespace tmoe::domain {
         if (r.exit_code != 0) return;
         auto family = infer_family_from_config(cfg_.linux_distro);
         if (family == DistroFamily::Debian) {
-            Executor::passthrough("apt purge -y firefox ^firefox-locale 2>/dev/null || true");
+            Executor::passthrough(
+                CommandBuilder("apt").add_flag("purge").add_flag("-y")
+                    .add_arg("firefox").add_arg("^firefox-locale")
+                    .add_raw("2>/dev/null || true").build_string());
             // 如果 Firefox ESR 也已卸载，清理 PPA apt pinning
             bool has_esr = Executor::shell("dpkg -l firefox-esr 2>/dev/null | grep -q '^ii'").ok();
             if (!has_esr)
-                Executor::passthrough("rm -vf /etc/apt/preferences.d/mozilla-firefox 2>/dev/null || true");
+                Executor::passthrough(
+                    CommandBuilder("rm").add_flag("-vf")
+                        .add_arg("/etc/apt/preferences.d/mozilla-firefox")
+                        .add_raw("2>/dev/null || true").build_string());
         } else {
-            Executor::passthrough(cfg_.remove_command + " firefox 2>/dev/null || true");
+            PackageManager::remove("firefox", family);
         }
         // 只清理 Firefox (非 ESR) 的 no-sandbox 快捷方式
-        Executor::passthrough("rm -vf /usr/local/bin/firefox--no-sandbox "
-            "/usr/local/share/applications/firefox-no-sandbox.desktop "
-            "${HOME}/Desktop/firefox-no-sandbox.desktop 2>/dev/null || true");
+        Executor::passthrough(
+            CommandBuilder("rm").add_flag("-vf")
+                .add_arg("/usr/local/bin/firefox--no-sandbox")
+                .add_arg("/usr/local/share/applications/firefox-no-sandbox.desktop")
+                .add_arg("${HOME}/Desktop/firefox-no-sandbox.desktop")
+                .add_raw("2>/dev/null || true").build_string());
     }
 
     void BrowserManager::remove_firefox_esr() {
@@ -346,18 +388,27 @@ namespace tmoe::domain {
         if (r.exit_code != 0) return;
         auto family = infer_family_from_config(cfg_.linux_distro);
         if (family == DistroFamily::Debian) {
-            Executor::passthrough("apt purge -y firefox-esr ^firefox-esr-locale 2>/dev/null || true");
+            Executor::passthrough(
+                CommandBuilder("apt").add_flag("purge").add_flag("-y")
+                    .add_arg("firefox-esr").add_arg("^firefox-esr-locale")
+                    .add_raw("2>/dev/null || true").build_string());
             // 如果同时卸载了两个版本，清理 PPA 和 apt pinning
             bool has_regular = Executor::shell("dpkg -l firefox 2>/dev/null | grep -q '^ii'").ok();
             if (!has_regular)
-                Executor::passthrough("rm -vf /etc/apt/preferences.d/mozilla-firefox 2>/dev/null || true");
+                Executor::passthrough(
+                    CommandBuilder("rm").add_flag("-vf")
+                        .add_arg("/etc/apt/preferences.d/mozilla-firefox")
+                        .add_raw("2>/dev/null || true").build_string());
         } else {
-            Executor::passthrough(cfg_.remove_command + " firefox-esr 2>/dev/null || true");
+            PackageManager::remove("firefox-esr", family);
         }
         // 只清理 Firefox ESR 的 no-sandbox 快捷方式
-        Executor::passthrough("rm -vf /usr/local/bin/firefox-esr--no-sandbox "
-            "/usr/local/share/applications/firefox-esr-no-sandbox.desktop "
-            "${HOME}/Desktop/firefox-esr-no-sandbox.desktop 2>/dev/null || true");
+        Executor::passthrough(
+            CommandBuilder("rm").add_flag("-vf")
+                .add_arg("/usr/local/bin/firefox-esr--no-sandbox")
+                .add_arg("/usr/local/share/applications/firefox-esr-no-sandbox.desktop")
+                .add_arg("${HOME}/Desktop/firefox-esr-no-sandbox.desktop")
+                .add_raw("2>/dev/null || true").build_string());
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -394,7 +445,8 @@ namespace tmoe::domain {
                 << "exec \"$BIN\" \"$@\"\n";
         wrapper.close();
 
-        Executor::shell("chmod 755 " + wrapper_path);
+        Executor::shell(
+            CommandBuilder("chmod").add_arg("755").add_arg(wrapper_path).build_string());
         Logger::ok(_("browser.wrapper_created") + ": " + wrapper_path);
 
         // 确定图标名 (匹配 /usr/share/icons 下的实际 icon 文件名)
@@ -406,7 +458,9 @@ namespace tmoe::domain {
 
         Logger::step(_("browser.no_sandbox_desktop"));
         std::string desktop_dir = "/usr/local/share/applications";
-        Executor::shell("mkdir -p " + desktop_dir + " 2>/dev/null");
+        Executor::shell(
+            CommandBuilder("mkdir").add_flag("-p").add_arg(desktop_dir)
+                .add_raw("2>/dev/null").build_string());
         std::string desktop_path = desktop_dir + "/" + bin_name + "-no-sandbox.desktop";
         std::ofstream desktop(desktop_path);
         desktop << "[Desktop Entry]\n"
@@ -417,15 +471,24 @@ namespace tmoe::domain {
                 << "Categories=Network;WebBrowser;\n"
                 << "Terminal=false\n";
         desktop.close();
-        Executor::shell("chmod 644 " + desktop_path + " 2>/dev/null");
+        Executor::shell(
+            CommandBuilder("chmod").add_arg("644").add_arg(desktop_path)
+                .add_raw("2>/dev/null").build_string());
 
         // 复制到所有用户的桌面 (proot 下可能是 root 或普通用户)
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
         std::string sudo_user = std::getenv("SUDO_USER") ? std::getenv("SUDO_USER") : "";
-        Executor::shell("mkdir -p " + home + "/Desktop 2>/dev/null; "
-                        "cp -f " + desktop_path + " " + home + "/Desktop/ 2>/dev/null || true");
+        Executor::shell(
+            CommandBuilder("mkdir").add_flag("-p").add_arg(home + "/Desktop")
+                .add_raw("2>/dev/null").build_string());
+        Executor::shell(
+            CommandBuilder("cp").add_flag("-f").add_arg(desktop_path).add_arg(home + "/Desktop/")
+                .add_raw("2>/dev/null || true").build_string());
         if (!sudo_user.empty() && sudo_user != "root") {
-            Executor::shell("cp -f " + desktop_path + " /home/" + sudo_user + "/Desktop/ 2>/dev/null || true");
+            Executor::shell(
+                CommandBuilder("cp").add_flag("-f").add_arg(desktop_path)
+                    .add_arg("/home/" + sudo_user + "/Desktop/")
+                    .add_raw("2>/dev/null || true").build_string());
         }
     }
 
@@ -470,7 +533,9 @@ namespace tmoe::domain {
 
         // 3. 如果新增了 PPA 或 pinning，刷新 apt 缓存
         if (needs_update) {
-            Executor::passthrough("apt update 2>/dev/null || true");
+            Executor::passthrough(
+                CommandBuilder("apt").add_flag("update")
+                    .add_raw("2>/dev/null || true").build_string());
         }
     }
 
@@ -509,6 +574,6 @@ namespace tmoe::domain {
         ofs.close();
 
         Logger::step(_("browser.edge_repo") + ": apt update");
-        Executor::passthrough("apt update");
+        Executor::passthrough(CommandBuilder("apt").add_flag("update").build_string());
     }
 } // namespace tmoe::domain

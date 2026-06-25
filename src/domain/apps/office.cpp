@@ -1,5 +1,6 @@
 #include "domain/apps/office.h"
 #include "core/i18n.h"
+#include "core/command_builder.hpp"
 #include "core/executor.h"
 #include "core/logger.h"
 #include "core/config.h"
@@ -106,11 +107,11 @@ namespace tmoe::domain {
         PackageManager::install("ttf-wps-fonts", family);
         // msttcorefonts 仅在 Debian 有
         if (PackageManager::is_command_available("apt"))
-            Executor::shell("apt install -y ttf-mscorefonts-installer 2>/dev/null || true");
+            PackageManager::install("ttf-mscorefonts-installer", DistroFamily::Debian);
     }
 
     void OfficeManager::refresh_font_cache() {
         Logger::step(_("office.font_cache"));
-        Executor::shell("fc-cache -fv 2>/dev/null || true");
+        Executor::shell(CommandBuilder("fc-cache").add_flag("-fv").add_raw("2>/dev/null || true").build_string());
     }
 } // namespace tmoe::domain

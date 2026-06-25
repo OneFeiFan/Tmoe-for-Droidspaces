@@ -1,4 +1,5 @@
 #include "domain/virtualization/docker.h"
+#include "core/command_builder.hpp"
 #include "core/i18n.h"
 #include <algorithm>
 #include <cstdio>
@@ -206,12 +207,14 @@ namespace tmoe::domain {
         Executor::passthrough("docker pull portainer/portainer-ce:latest");
         Executor::passthrough("docker rm portainer 2>/dev/null");
 
-        std::ostringstream cmd;
-        cmd << "docker run -d --name portainer --restart always "
-                << "-p " << port << ":9000 "
-                << "-v /var/run/docker.sock:/var/run/docker.sock "
-                << "-v portainer_data:/data portainer/portainer-ce:latest";
-        auto res = Executor::passthrough(cmd.str());
+        CommandBuilder cb("docker");
+        cb.add_flag("run").add_flag("-d").add_opt("--name", "portainer")
+          .add_opt("--restart", "always")
+          .add_opt("-p", std::to_string(port) + ":9000")
+          .add_bind_to("-v ", "/var/run/docker.sock", "/var/run/docker.sock")
+          .add_bind_to("-v ", "portainer_data", "/data")
+          .add_arg("portainer/portainer-ce:latest");
+        auto res = Executor::passthrough(cb.build_string());
         if (res.ok()) {
             Logger::ok(_("docker.portainer_started"));
             Logger::info(_("docker.portainer_url") + ": http://localhost:" + std::to_string(port));
@@ -472,8 +475,12 @@ namespace tmoe::domain {
                     remove_container(container_name);
                 } else {
                     delete_container_and_image(docker_name, tag1, "", container_name);
-                    Executor::passthrough("docker rmi " + docker_name2 + ":" + tag1 + " 2>/dev/null");
-                    Executor::passthrough("docker rmi " + docker_name2 + " 2>/dev/null");
+                    Executor::passthrough(
+                        CommandBuilder("docker").add_flag("rmi").add_arg(docker_name2 + ":" + tag1)
+                            .add_raw("2>/dev/null").build_string());
+                    Executor::passthrough(
+                        CommandBuilder("docker").add_flag("rmi").add_arg(docker_name2)
+                            .add_raw("2>/dev/null").build_string());
                 }
             }
 
@@ -549,37 +556,38 @@ namespace tmoe::domain {
         docker_init();
         ensure_docker_running();
 
-        std::ostringstream cmd;
-        cmd << "docker run -itd --name \"" << container_name << "\"";
+        CommandBuilder cb("docker");
+        cb.add_flag("run").add_flag("-itd").add_opt("--name", container_name);
 
         if (systemd) {
-            cmd << " --privileged=true";
-            cmd << " --env CONTAINER_SYSTEMD=true";
+            cb.add_flag("--privileged=true");
+            cb.add_opt("--env", "CONTAINER_SYSTEMD=true");
         }
 
-        cmd << " --env LANG=" << cfg_.locale;
-        cmd << " --env TMOE_CHROOT=true";
-        cmd << " --env TMOE_DOCKER=true";
-        cmd << " --env TMOE_PROOT=false";
-        cmd << " --restart on-failure";
+        cb.add_opt("--env", "LANG=" + cfg_.locale);
+        cb.add_opt("--env", "TMOE_CHROOT=true");
+        cb.add_opt("--env", "TMOE_DOCKER=true");
+        cb.add_opt("--env", "TMOE_PROOT=false");
+        cb.add_opt("--restart", "on-failure");
 
         // 挂载目录
         fs::path mount_dir = "/media/docker";
         if (fs::exists(mount_dir)) {
-            cmd << " -v " << mount_dir.string() << ":" << mount_dir.string();
+            cb.add_bind_to("-v ", mount_dir.string(), mount_dir.string());
         }
 
-        cmd << " \"" << docker_name << "\"";
+        std::string image = docker_name;
         if (!docker_tag.empty() && docker_tag != "latest") {
-            cmd << ":" << docker_tag;
+            image += ":" + docker_tag;
         }
+        cb.add_arg(image);
 
         if (systemd) {
-            cmd << " /sbin/init";
+            cb.add_arg("/sbin/init");
         }
 
         Logger::info("docker run -itd --name " + container_name + " ...");
-        auto result = Executor::passthrough(cmd.str());
+        auto result = Executor::passthrough(cb.build_string());
 
         if (result.ok()) {
             Logger::ok(_f("docker.container_started", container_name));
@@ -595,16 +603,24 @@ namespace tmoe::domain {
                                   " --yesno \"" + _("docker.start_configure_prompt") + "\" 0 50";
             if (Executor::passthrough(confirm).exit_code == 0) {
                 ensure_docker_running();
-                Executor::shell("docker start " + container_name);
+                Executor::shell(
+                    CommandBuilder("docker").add_flag("start").add_arg(container_name).build_string());
 
                 // 执行配置脚本
                 std::string config_file = mount_dir.string() + "/.tmoe-linux-docker.sh";
                 if (fs::exists(config_file)) {
-                    Executor::passthrough("docker exec -it " + container_name + " /bin/sh " + config_file);
+                    Executor::passthrough(
+                        CommandBuilder("docker").add_flag("exec").add_flag("-it")
+                            .add_arg(container_name).add_arg("/bin/sh")
+                            .add_arg(config_file).build_string());
                 } else {
                     Executor::passthrough(
-                        "docker exec -it " + container_name + " /bin/bash 2>/dev/null || docker attach " +
-                        container_name);
+                        CommandBuilder("docker").add_flag("exec").add_flag("-it")
+                            .add_arg(container_name).add_arg("/bin/bash")
+                            .add_raw("2>/dev/null").build_string()
+                        + " || " +
+                        CommandBuilder("docker").add_flag("attach")
+                            .add_arg(container_name).build_string());
                 }
             }
         }
@@ -617,24 +633,24 @@ namespace tmoe::domain {
                                       int host_port, int container_port) {
         Logger::step(_f("docker.running_container", std::string(name)));
 
-        std::ostringstream cmd;
-        cmd << "docker run -itd --name \"" << name << "\""
-                << " --privileged=true"
-                << " --env LANG=" << cfg_.locale
-                << " --restart on-failure";
+        CommandBuilder cb("docker");
+        cb.add_flag("run").add_flag("-itd").add_opt("--name", std::string(name));
+        cb.add_flag("--privileged=true");
+        cb.add_opt("--env", "LANG=" + cfg_.locale);
+        cb.add_opt("--restart", "on-failure");
 
         std::string mount = mount_path.empty() ? cfg_.container_root.string() : std::string(mount_path);
         if (!mount.empty() && fs::exists(mount)) {
-            cmd << " -v \"" << mount << "\":\"" << mount << "\"";
+            cb.add_bind_to("-v ", mount, mount);
         }
 
         if (host_port > 0 && container_port > 0) {
-            cmd << " -p " << host_port << ":" << container_port;
+            cb.add_opt("-p", std::to_string(host_port) + ":" + std::to_string(container_port));
         }
 
-        cmd << " \"" << image << "\"";
+        cb.add_arg(std::string(image));
 
-        auto result = Executor::passthrough(cmd.str());
+        auto result = Executor::passthrough(cb.build_string());
         if (result.ok()) {
             Logger::ok(_f("docker.container_started", std::string(name)));
         }
@@ -647,9 +663,12 @@ namespace tmoe::domain {
 
     std::vector<std::string> DockerManager::list_containers(bool all) const {
         std::vector<std::string> result;
-        std::string flag = all ? "-a" : "";
-        auto exec = Executor::shell(
-            "docker ps " + flag + " --format \"{{.Names}} [{{.Image}}] {{.Status}}\" 2>/dev/null");
+        CommandBuilder cb("docker");
+        cb.add_flag("ps");
+        if (all) cb.add_flag("-a");
+        cb.add_opt("--format", "{{.Names}} [{{.Image}}] {{.Status}}");
+        cb.add_raw("2>/dev/null");
+        auto exec = Executor::shell(cb.build_string());
         if (!exec.ok()) return result;
 
         std::istringstream iss(exec.stdout_data);
@@ -663,8 +682,11 @@ namespace tmoe::domain {
     bool DockerManager::remove_container(std::string_view name) {
         Logger::step(_f("docker.removing_container", std::string(name)));
         ensure_docker_running();
-        Executor::passthrough("docker stop \"" + std::string(name) + "\" 2>/dev/null");
-        return Executor::passthrough("docker rm \"" + std::string(name) + "\"").ok();
+        Executor::passthrough(
+            CommandBuilder("docker").add_flag("stop").add_arg(std::string(name))
+                .add_raw("2>/dev/null").build_string());
+        return Executor::passthrough(
+            CommandBuilder("docker").add_flag("rm").add_arg(std::string(name)).build_string()).ok();
     }
 
     bool DockerManager::delete_container_and_image(const std::string &docker_name,
@@ -675,17 +697,27 @@ namespace tmoe::domain {
         ensure_docker_running();
 
         if (!container_name.empty()) {
-            Executor::passthrough("docker stop " + container_name + " 2>/dev/null");
-            Executor::passthrough("docker rm " + container_name + " 2>/dev/null");
+            Executor::passthrough(
+                CommandBuilder("docker").add_flag("stop").add_arg(container_name)
+                    .add_raw("2>/dev/null").build_string());
+            Executor::passthrough(
+                CommandBuilder("docker").add_flag("rm").add_arg(container_name)
+                    .add_raw("2>/dev/null").build_string());
         }
 
         // 删除镜像
         Logger::info(_f("docker.delete_image_rmi", docker_name, docker_tag));
-        Executor::passthrough("docker rmi " + docker_name + ":" + docker_tag + " 2>/dev/null");
+        Executor::passthrough(
+            CommandBuilder("docker").add_flag("rmi").add_arg(docker_name + ":" + docker_tag)
+                .add_raw("2>/dev/null").build_string());
         if (!docker_tag2.empty() && docker_tag2 != docker_tag) {
-            Executor::passthrough("docker rmi " + docker_name + ":" + docker_tag2 + " 2>/dev/null");
+            Executor::passthrough(
+                CommandBuilder("docker").add_flag("rmi").add_arg(docker_name + ":" + docker_tag2)
+                    .add_raw("2>/dev/null").build_string());
         }
-        Executor::passthrough("docker rmi " + docker_name + " 2>/dev/null");
+        Executor::passthrough(
+            CommandBuilder("docker").add_flag("rmi").add_arg(docker_name)
+                .add_raw("2>/dev/null").build_string());
 
         return true;
     }
@@ -698,7 +730,10 @@ namespace tmoe::domain {
 
         // 检查容器是否存在
         auto check = Executor::shell(
-            "docker ps -a --format \"{{.Names}}\" 2>/dev/null | grep -q \"^" + container_name + "$\"");
+            CommandBuilder("docker").add_flag("ps").add_flag("-a")
+                .add_opt("--format", "{{.Names}}")
+                .add_raw("2>/dev/null | grep -q \"^" + container_name + "$\"")
+                .build_string());
         if (!check.ok()) {
             Logger::warn(_f("docker.attach_not_found", container_name));
             Logger::info(_f("docker.attach_pull_prompt", docker_name));
@@ -711,11 +746,16 @@ namespace tmoe::domain {
             return false;
         }
 
-        Executor::passthrough("docker start " + container_name);
+        Executor::passthrough(
+            CommandBuilder("docker").add_flag("start").add_arg(container_name).build_string());
         // 先尝试 bash，失败则 attach
-        auto r = Executor::passthrough("docker exec -it " + container_name + " /bin/bash 2>/dev/null");
+        auto r = Executor::passthrough(
+            CommandBuilder("docker").add_flag("exec").add_flag("-it")
+                .add_arg(container_name).add_arg("/bin/bash")
+                .add_raw("2>/dev/null").build_string());
         if (!r.ok()) {
-            Executor::passthrough("docker attach " + container_name);
+            Executor::passthrough(
+                CommandBuilder("docker").add_flag("attach").add_arg(container_name).build_string());
         }
         return true;
     }
@@ -729,7 +769,8 @@ namespace tmoe::domain {
         delete_container_and_image(docker_name, docker_tag, "", container_name);
 
         Logger::info("docker.pulling_image: " + docker_name + ":" + docker_tag);
-        Executor::passthrough("docker pull " + docker_name + ":" + docker_tag);
+        Executor::passthrough(
+            CommandBuilder("docker").add_flag("pull").add_arg(docker_name + ":" + docker_tag).build_string());
 
         // reset 不走 systemd 路径
         return run_special_tag_docker_container(docker_name, docker_tag, container_name, false);

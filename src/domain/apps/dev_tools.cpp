@@ -1,5 +1,6 @@
 #include "domain/apps/dev_tools.h"
 #include "core/i18n.h"
+#include "core/command_builder.hpp"
 #include "core/executor.h"
 #include "core/logger.h"
 #include "core/config.h"
@@ -292,7 +293,8 @@ namespace tmoe::domain {
             }
 
             // Symlink
-            Executor::shell("ln -sfv /usr/share/code/bin/code /usr/bin");
+            Executor::shell(CommandBuilder("ln").add_flag("-sfv")
+                .add_arg("/usr/share/code/bin/code").add_arg("/usr/bin").build_string());
             Logger::ok("安装完成,请输 code --user-data-dir=${HOME}/.vscode 启动");
         }
 
@@ -432,7 +434,9 @@ namespace tmoe::domain {
         std::string arch = cfg_.arch;
         std::string tmp_arch = (arch == "armhf") ? "armv7l" : arch;
 
-        Executor::shell("chmod a+rx /usr/local/bin/code-server-data/code-server 2>/dev/null || true");
+        Executor::shell(CommandBuilder("chmod").add_arg("a+rx")
+            .add_arg("/usr/local/bin/code-server-data/code-server")
+            .add_raw("2>/dev/null || true").build_string());
 
         if (arch == "arm64") {
             Executor::shell(
@@ -546,8 +550,11 @@ namespace tmoe::domain {
         if (!confirm("devtools.confirm_remove_vscode_server", "确认移除 VS Code Server?"))
             return;
 
-        Executor::shell(
-            "rm -rvf /usr/local/bin/code-server-data/ /usr/local/bin/code-server /tmp/sed-vscode.tmp 2>/dev/null");
+        Executor::shell(CommandBuilder("rm").add_flag("-rvf")
+            .add_arg("/usr/local/bin/code-server-data/")
+            .add_arg("/usr/local/bin/code-server")
+            .add_arg("/tmp/sed-vscode.tmp")
+            .add_raw("2>/dev/null").build_string());
         Logger::ok("移除成功");
     }
 
@@ -946,7 +953,8 @@ namespace tmoe::domain {
         auto check_ret = Executor::shell("grep '\"assets\"' " + tmp_json + " > /dev/null 2>&1");
         if (check_ret.exit_code != 0) {
             Logger::error("获取发布信息失败，可能触发了 GitHub API 速率限制。");
-            Executor::shell("rm -f " + tmp_json + " 2>/dev/null");
+            Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(tmp_json)
+                .add_raw("2>/dev/null").build_string());
             return;
         }
 
@@ -958,7 +966,8 @@ namespace tmoe::domain {
         show_ide_version_table(latest_ver, check_local_opt_version());
 
         if (!confirm("devtools.confirm_upgrade_ide", "是否安装/升级 GitHub Desktop?")) {
-            Executor::shell("rm -f " + tmp_json + " 2>/dev/null");
+            Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(tmp_json)
+                .add_raw("2>/dev/null").build_string());
             return;
         }
 
@@ -985,7 +994,8 @@ namespace tmoe::domain {
         }
 
         // 用完即焚，清理临时文件
-        Executor::shell("rm -f " + tmp_json + " 2>/dev/null");
+        Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(tmp_json)
+            .add_raw("2>/dev/null").build_string());
 
         if (dl_url.empty() || dl_url == "null") {
             Logger::error("未找到有效的 GitHub Desktop 下载链接");
@@ -1012,9 +1022,12 @@ namespace tmoe::domain {
             Executor::passthrough("sudo rpm -i '" + dest + "' || sudo yum localinstall -y '" + dest + "'");
         } else {
             // AppImage 通用策略
-            Executor::shell("mkdir -p /opt/github-desktop");
-            Executor::shell("cp -f '" + dest + "' /opt/github-desktop/GitHubDesktop.AppImage");
-            Executor::shell("chmod +x /opt/github-desktop/GitHubDesktop.AppImage");
+            Executor::shell(CommandBuilder("mkdir").add_flag("-p")
+                .add_arg("/opt/github-desktop").build_string());
+            Executor::shell(CommandBuilder("cp").add_flag("-f").add_arg(dest)
+                .add_arg("/opt/github-desktop/GitHubDesktop.AppImage").build_string());
+            Executor::shell(CommandBuilder("chmod").add_arg("+x")
+                .add_arg("/opt/github-desktop/GitHubDesktop.AppImage").build_string());
 
             // 创建桌面图标
             std::string desktop_content =
@@ -1161,7 +1174,8 @@ namespace tmoe::domain {
             Logger::info(size_result.stdout_data);
 
             if (confirm("devtools.confirm_delete_pkg", "Do you want to delete it?")) {
-                Executor::shell("rm -v " + download_path_.string() + "/" + local_pkg);
+                Executor::shell(CommandBuilder("rm").add_flag("-v")
+                    .add_arg(download_path_.string() + "/" + local_pkg).build_string());
             }
         }
     }
@@ -1214,44 +1228,53 @@ namespace tmoe::domain {
                     "  fi; "
                     "done";
             Executor::shell(clean_cmd);
-            Executor::shell("rm -f '" + manifest_file + "' 2>/dev/null");
+            Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(manifest_file)
+                .add_raw("2>/dev/null").build_string());
         }
 
         if (is_jetbrains) {
-            Executor::shell("rm -rf " + app_opt_dir_ + " 2>/dev/null");
-            Executor::shell("rm -f " + lnk_dir + "/" + lnk_file_ + " 2>/dev/null");
-            if (!cli_link.empty()) Executor::shell("rm -f " + cli_link + " 2>/dev/null");
-            Executor::shell("rm -f " + version_file + " 2>/dev/null");
+            Executor::shell(CommandBuilder("rm").add_flag("-rf").add_arg(app_opt_dir_)
+                .add_raw("2>/dev/null").build_string());
+            Executor::shell(CommandBuilder("rm").add_flag("-f")
+                .add_arg(lnk_dir + "/" + lnk_file_)
+                .add_raw("2>/dev/null").build_string());
+            if (!cli_link.empty()) Executor::shell(CommandBuilder("rm").add_flag("-f")
+                .add_arg(cli_link).add_raw("2>/dev/null").build_string());
+            Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(version_file)
+                .add_raw("2>/dev/null").build_string());
 
             if (grep_name_.find("intellij-idea-community") != std::string::npos) {
-                Executor::shell(
-                    "rm -rf /usr/share/licenses/idea /usr/share/icons/hicolor/scalable/apps/idea.svg 2>/dev/null");
+                Executor::shell(CommandBuilder("rm").add_flag("-rf")
+                    .add_arg("/usr/share/licenses/idea")
+                    .add_arg("/usr/share/icons/hicolor/scalable/apps/idea.svg")
+                    .add_raw("2>/dev/null").build_string());
             }
             if (grep_name_.find("pycharm-community") != std::string::npos) {
-                Executor::shell(
-                    "rm -rf /usr/share/licenses/pycharm /usr/share/icons/hicolor/scalable/apps/pycharm.svg 2>/dev/null");
+                Executor::shell(CommandBuilder("rm").add_flag("-rf")
+                    .add_arg("/usr/share/licenses/pycharm")
+                    .add_arg("/usr/share/icons/hicolor/scalable/apps/pycharm.svg")
+                    .add_raw("2>/dev/null").build_string());
             }
         } else if (grep_name_ == "github-desktop-bin") {
             Logger::step("正在移除 GitHub Desktop...");
-            auto family = PackageManager::detect_distro_family();
             // 如果是通过原生包安装的，需要用对应的包管理器踢掉
-            if (family == DistroFamily::Debian) {
-                Executor::passthrough("sudo apt-get remove -y github-desktop 2>/dev/null || true");
-            } else if (family == DistroFamily::RedHat) {
-                Executor::passthrough("sudo yum remove -y github-desktop 2>/dev/null || true");
-            }
+            PackageManager::remove("github-desktop", PackageManager::detect_distro_family());
 
             // 清理残余的 AppImage 配置和版本号文件
-            Executor::shell(
-                "rm -rvf /opt/github-desktop /usr/share/pixmaps/github-desktop.png "
-                + apps_lnk_dir_.string() + "/github-desktop.desktop "
-                + download_path_.string() + "/" + grep_name_ + "-version.txt 2>/dev/null"
-            );
+            Executor::shell(CommandBuilder("rm").add_flag("-rvf")
+                .add_arg("/opt/github-desktop")
+                .add_arg("/usr/share/pixmaps/github-desktop.png")
+                .add_arg(apps_lnk_dir_.string() + "/github-desktop.desktop")
+                .add_arg(download_path_.string() + "/" + grep_name_ + "-version.txt")
+                .add_raw("2>/dev/null").build_string());
         } else {
-            Executor::shell(
-                "rm -rvf " + app_opt_dir_ + " " + lnk_dir + "/" + lnk_file_ +
-                " /usr/share/pixmaps/" + icon_name_ + " " + bin_file_ + " " + version_file + " 2>/dev/null"
-            );
+            Executor::shell(CommandBuilder("rm").add_flag("-rvf")
+                .add_arg(app_opt_dir_)
+                .add_arg(lnk_dir + "/" + lnk_file_)
+                .add_arg("/usr/share/pixmaps/" + icon_name_)
+                .add_arg(bin_file_)
+                .add_arg(version_file)
+                .add_raw("2>/dev/null").build_string());
         }
 
         Logger::ok(grep_name_ + " 已彻底卸载");
@@ -1276,9 +1299,13 @@ namespace tmoe::domain {
             return;
 
         // 主目录 + 桌面图标 + 版本记录
-        Executor::shell("rm -rf " + app_opt_dir_ + " 2>/dev/null");
-        Executor::shell("rm -f " + lnk_dir + "/" + lnk_file_ + " 2>/dev/null");
-        Executor::shell("rm -f " + version_file + " 2>/dev/null");
+        Executor::shell(CommandBuilder("rm").add_flag("-rf").add_arg(app_opt_dir_)
+            .add_raw("2>/dev/null").build_string());
+        Executor::shell(CommandBuilder("rm").add_flag("-f")
+            .add_arg(lnk_dir + "/" + lnk_file_)
+            .add_raw("2>/dev/null").build_string());
+        Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(version_file)
+            .add_raw("2>/dev/null").build_string());
 
         Logger::ok(grep_name_ + " 已卸载");
     }
@@ -1327,7 +1354,7 @@ namespace tmoe::domain {
                     "https://download.sublimetext.com/ apt/stable/' | "
                     "sudo tee /etc/apt/sources.list.d/sublime-text.list"
                 );
-                Executor::shell("apt update 2>/dev/null || true");
+                PackageManager::update(family);
                 PackageManager::install("sublime-text", family);
                 break;
             }
@@ -1344,7 +1371,7 @@ namespace tmoe::domain {
                     "echo -e '\\n[sublime-text]\\nServer = https://download.sublimetext.com/arch/stable/x86_64' | "
                     "sudo tee -a /etc/pacman.conf; fi"
                 );
-                Executor::shell("pacman -Syu --noconfirm 2>/dev/null || true");
+                PackageManager::update(family);
                 PackageManager::install("sublime-text", family);
                 break;
             }
@@ -1540,7 +1567,8 @@ namespace tmoe::domain {
         if (!extract_ret.ok()) {
             Logger::error("解压失败: tar.zst 返回错误码 " + std::to_string(extract_ret.exit_code));
             // 解压失败时删掉不完整的清单文件
-            Executor::shell("rm -f '" + manifest_path + "' 2>/dev/null");
+            Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(manifest_path)
+                .add_raw("2>/dev/null").build_string());
             return false;
         }
 
@@ -1695,7 +1723,10 @@ namespace tmoe::domain {
             cli_name = "goland";
 
         if (!cli_name.empty()) {
-            Executor::shell("ln -sf " + exec_path + " /usr/local/bin/" + cli_name + " 2>/dev/null || true");
+            Executor::shell(CommandBuilder("ln").add_flag("-sf")
+                .add_arg(exec_path)
+                .add_arg("/usr/local/bin/" + cli_name)
+                .add_raw("2>/dev/null || true").build_string());
             Logger::info("命令行启动: " + cli_name);
         }
 
@@ -1756,15 +1787,21 @@ namespace tmoe::domain {
 
         if (!extract_ret.ok()) {
             Logger::error("解压失败，正在执行回滚清理...");
-            Executor::shell("rm -rf '/opt/" + extracted_dir + "' 2>/dev/null");
+            Executor::shell(CommandBuilder("rm").add_flag("-rf")
+                .add_arg("/opt/" + extracted_dir)
+                .add_raw("2>/dev/null").build_string());
             return false;
         }
 
         // 重命名为标准名称以便后续管理
         if (extracted_dir != grep_name_) {
             Logger::info("配置目录: /opt/" + extracted_dir + " → /opt/" + grep_name_);
-            Executor::shell("rm -rf '/opt/" + grep_name_ + "' 2>/dev/null; "
-                            "mv '/opt/" + extracted_dir + "' '/opt/" + grep_name_ + "'");
+            Executor::shell(CommandBuilder("rm").add_flag("-rf")
+                .add_arg("/opt/" + grep_name_)
+                .add_raw("2>/dev/null").build_string());
+            Executor::shell(CommandBuilder("mv")
+                .add_arg("/opt/" + extracted_dir)
+                .add_arg("/opt/" + grep_name_).build_string());
         }
 
         // 创建桌面图标
@@ -1855,15 +1892,21 @@ namespace tmoe::domain {
         if (!extract_ret.ok()) {
             Logger::error("解压失败，正在执行回滚清理...");
             if (!extracted_dir.empty()) {
-                Executor::shell("rm -rf '/opt/" + extracted_dir + "' 2>/dev/null");
+                Executor::shell(CommandBuilder("rm").add_flag("-rf")
+                .add_arg("/opt/" + extracted_dir)
+                .add_raw("2>/dev/null").build_string());
             }
             return false;
         }
 
         // 标准化目录名
         if (!extracted_dir.empty() && extracted_dir != "android-studio") {
-            Executor::shell("rm -rf /opt/android-studio 2>/dev/null; "
-                            "mv '/opt/" + extracted_dir + "' /opt/android-studio");
+            Executor::shell(CommandBuilder("rm").add_flag("-rf")
+                .add_arg("/opt/android-studio")
+                .add_raw("2>/dev/null").build_string());
+            Executor::shell(CommandBuilder("mv")
+                .add_arg("/opt/" + extracted_dir)
+                .add_arg("/opt/android-studio").build_string());
         }
 
         return fs::exists(app_opt_dir_);

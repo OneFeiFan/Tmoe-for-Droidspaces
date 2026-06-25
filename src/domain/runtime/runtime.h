@@ -4,6 +4,8 @@
 #include <string>
 #include "core/launch_context.h"
 
+namespace tmoe { class CommandBuilder; }
+
 namespace tmoe::domain {
     class Container; // 前置声明
 
@@ -180,7 +182,7 @@ namespace tmoe::domain {
     private:
         ProotConfig config_;
 
-        void apply_proot_args(const Container &container, std::vector<std::string> &args) const;
+        void apply_proot_args(const Container &container, CommandBuilder &cb) const;
     };
 
     /** Chroot 运行时策略（对应 old/share/container/chroot/startup）。
@@ -370,7 +372,7 @@ namespace tmoe::domain {
         std::string detect_nspawn_bin() const;
 
         void build_nspawn_args(const Container &container, const LaunchContext *ctx,
-                               std::vector<std::string> &args) const;
+                               tmoe::CommandBuilder &cb) const;
     };
 
     // 待办: class DockerRuntime : public IContainerRuntime { ... };
