@@ -297,24 +297,30 @@ namespace tmoe::app {
         using namespace domain;
 
         while (true) {
-            // 第一级：镜像源管理主菜单
+            // 第一级：镜像源管理主菜单 (对应 Bash tmoe_sources_list_manager, 12项)
+            std::string extra_label = _("mirror.extra_unsupported");
+            if (cfg_.linux_distro == "debian") extra_label = _("mirror.extra_debian_kali");
+            else if (cfg_.linux_distro == "arch") extra_label = _("mirror.extra_archlinuxcn");
+            else if (cfg_.linux_distro == "alpine") extra_label = _("mirror.extra_alpine");
+            else if (cfg_.linux_distro == "redhat")
+                extra_label = (cfg_.sub_distro == "fedora") ? _("mirror.extra_rpmfusion") : _("mirror.extra_epel");
+
             std::string menu_cmd = cfg_.tui_bin +
-                                   " --title \"" + _("mirror.title") + " " + cfg_.os_pretty_name + "\"" +
-                                   " --menu \"" + _("mirror.menu_prompt") + " " + cfg_.linux_distro + ")\" 0 0 0 "
-                                   "\"1\" \"" + _("mirror.cat_business") + "\" "
-                                   "\"2\" \"" + _("mirror.cat_university") + "\" "
-                                   "\"3\" \"" + _("mirror.cat_worldwide") + "\" "
-                                   "\"4\" \"" + _("mirror.auto_select") + "\" "
-                                   "\"5\" \"" + _("mirror.restore_official") + "\" "
-                                   "\"6\" \"" + _("mirror.edit_manual") + "\" "
-                                   "\"7\" \"" + _("mirror.toggle_protocol") + "\" "
-                                   "\"8\" \"" + _("mirror.clean_sources") + "\" "
-                                   "\"9\" \"" + _("mirror.trust_sources") + "\" "
-                                   "\"A\" \"" + _("mirror.speed_test") + "\" "
-                                   "\"B\" \"" + _("mirror.extra_sources") + "\" "
-                                   "\"C\" \"" + _("mirror.ping_test") + "\" "
-                                   "\"D\" \"" + _("mirror.faq") + "\" "
-                                   "\"0\" \"" + _("menu.tui.back_upper") + "\"";
+                " --title \"" + _("mirror.title") + "\"" +
+                " --menu \"" + _("mirror.menu_prompt") + "\" 17 50 9 "
+                "\"1\" \"" + _("mirror.cat_business") + "\" "
+                "\"2\" \"" + _("mirror.cat_university") + "\" "
+                "\"3\" \"" + _("mirror.cat_worldwide") + "\" "
+                "\"4\" \"" + _("mirror.ping_test") + "\" "
+                "\"5\" \"" + _("mirror.speed_test") + "\" "
+                "\"6\" \"" + _("mirror.restore_official") + "\" "
+                "\"7\" \"" + _("mirror.edit_manual") + "\" "
+                "\"8\" \"" + extra_label + "\" "
+                "\"9\" \"" + _("mirror.faq") + "\" "
+                "\"10\" \"" + _("mirror.toggle_protocol") + "\" "
+                "\"11\" \"" + _("mirror.clean_sources") + "\" "
+                "\"12\" \"" + _("mirror.trust_sources") + "\" "
+                "\"0\" \"" + _("menu.tui.back") + "\"";
 
             std::string choice = Executor::tui_select(menu_cmd);
             if (choice == "0" || choice.empty()) break;
@@ -361,51 +367,44 @@ namespace tmoe::app {
                 }
                 Logger::press_enter();
             } else if (choice == "4") {
-                mirror_mgr_->auto_select();
+                mirror_mgr_->run_ping_latency_test();
                 Logger::press_enter();
             } else if (choice == "5") {
+                mirror_mgr_->run_download_speed_test();
+                Logger::press_enter();
+            } else if (choice == "6") {
                 if (Logger::confirm(_("mirror.confirm_restore_official"))) {
                     mirror_mgr_->restore_official();
                 }
                 Logger::press_enter();
-            } else if (choice == "6") {
+            } else if (choice == "7") {
                 mirror_mgr_->edit_manually();
                 Logger::press_enter();
-            } else if (choice == "7") {
-                std::string toggle_cmd = cfg_.tui_bin +
-                                         " --title \"" + _("mirror.protocol_title") + "\" --yes-button \"" +
-                                         _("mirror.btn_switch_https") + "\" --no-button \"" + _(
-                                             "mirror.btn_switch_http") + "\""
-                                         " --yesno \"" + _("mirror.select_protocol") + "\" 0 0";
-                auto result = Executor::passthrough(toggle_cmd);
-                bool use_https = result.exit_code == 0;
-                mirror_mgr_->toggle_http_https(use_https);
-                Logger::press_enter();
             } else if (choice == "8") {
+                mirror_mgr_->manage_extra_sources();
+                Logger::press_enter();
+            } else if (choice == "9") {
+                mirror_mgr_->show_mirror_faq();
+                Logger::press_enter();
+            } else if (choice == "10") {
+                std::string toggle_cmd = cfg_.tui_bin +
+                    " --title \"" + _("mirror.protocol_title") + "\" --yes-button 'https' --no-button 'http'"
+                    " --yesno \"" + _("mirror.select_protocol") + "\" 0 50";
+                auto result = Executor::passthrough(toggle_cmd);
+                mirror_mgr_->toggle_http_https(result.exit_code == 0);
+                Logger::press_enter();
+            } else if (choice == "11") {
                 if (Logger::confirm(_("mirror.confirm_clean_sources"))) {
                     mirror_mgr_->clean_sources_list();
                 }
                 Logger::press_enter();
-            } else if (choice == "9") {
+            } else if (choice == "12") {
                 std::string trust_cmd = cfg_.tui_bin +
-                                        " --title \"" + _("mirror.trust_title") + "\" --yes-button \"" +
-                                        _("mirror.btn_trust") + "\" --no-button \"" + _("mirror.btn_untrust") + "\""
-                                        " --yesno \"" + _("mirror.trust_warning") + "\" 0 0";
+                    " --title \"" + _("mirror.trust_title") + "\" --yes-button 'trust' --no-button 'untrust'"
+                    " --yesno \"" + _("mirror.trust_warning") + "\" 0 50";
                 auto result = Executor::passthrough(trust_cmd);
                 bool trust = result.exit_code == 0;
                 mirror_mgr_->trust_sources(trust);
-                Logger::press_enter();
-            } else if (choice == "A") {
-                mirror_mgr_->run_download_speed_test();
-                Logger::press_enter();
-            } else if (choice == "B") {
-                mirror_mgr_->manage_extra_sources();
-                Logger::press_enter();
-            } else if (choice == "C") {
-                mirror_mgr_->run_ping_latency_test();
-                Logger::press_enter();
-            } else if (choice == "D") {
-                mirror_mgr_->show_mirror_faq();
                 Logger::press_enter();
             }
         }
@@ -474,9 +473,9 @@ namespace tmoe::app {
                 "\"3\" \""  + _("menu.tui.secret_garden") + "\" "
                 "\"4\" \""  + _("menu.tui.gui_beautify") + "\" "
                 "\"5\" \""  + _("menu.tui.gui_remote") + "\" "
-                "\"6\" \""  + _("menu.tui.download_video") + "\" "
+                // "\"6\" \""  + _("menu.tui.download_video") + "\" "
                 "\"7\" \""  + _("menu.tui.mirrors") + "\" "
-                "\"8\" \""  + _("menu.tui.update") + "\" "
+                // "\"8\" \""  + _("menu.tui.update") + "\" "
                 "\"9\" \""  + _("menu.tui.faq") + "\" "
                 "\"0\" \""  + _("menu.tui.exit") + "\"";
         return Executor::tui_select(menu_cmd);

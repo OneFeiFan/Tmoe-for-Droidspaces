@@ -1,5 +1,8 @@
 #include "domain/system/mirrors.h"
 #include "core/i18n.h"
+#include <algorithm>
+#include <cctype>
+#include <string>
 
 namespace fs = std::filesystem;
 
@@ -480,48 +483,25 @@ namespace tmoe::domain {
             return false;
         }
 
-        // 检查 aria2c
-        if (!Executor::has("aria2c")) {
-            Logger::step(_("mirror.installing_aria2"));
-            if (cfg_.linux_distro == "debian" || cfg_.linux_distro == "ubuntu" || cfg_.linux_distro == "kali")
-                Executor::shell("apt install -y aria2 2>/dev/null || true");
-            else if (cfg_.linux_distro == "arch")
-                Executor::shell("pacman -S --noconfirm aria2 2>/dev/null || true");
-            else if (cfg_.linux_distro == "redhat")
-                Executor::shell("dnf install -y aria2 2>/dev/null || true");
-        }
-
-        if (!Executor::has("aria2c")) {
-            Logger::error(_("mirror.speedtest_no_aria2"));
-            return false;
-        }
-
-        // 选取中国区镜像站 + Debian 全球镜像站测试
+        // 选取中国区镜像站 + Debian 全球镜像站
         auto cn_mirrors = MirrorRegistry::instance().by_region("cn");
         auto global = MirrorRegistry::instance().by_region("global");
 
-        struct SpeedTarget {
-            std::string name;
-            std::string host;
-        };
+        struct SpeedTarget { std::string name; std::string host; };
         std::vector<SpeedTarget> targets;
 
-        for (const auto &m: cn_mirrors) {
+        auto add_target = [&](const auto& m) {
             std::string host = m.url;
             auto pos = host.find("://");
             if (pos != std::string::npos) host = host.substr(pos + 3);
             pos = host.find('/');
             if (pos != std::string::npos) host = host.substr(0, pos);
+            // 去重
+            for (auto& t : targets) if (t.host == host) return;
             targets.push_back({m.name, host});
-        }
-        for (const auto &m: global) {
-            std::string host = m.url;
-            auto pos = host.find("://");
-            if (pos != std::string::npos) host = host.substr(pos + 3);
-            pos = host.find('/');
-            if (pos != std::string::npos) host = host.substr(0, pos);
-            targets.push_back({m.name, host});
-        }
+        };
+        for (const auto &m: cn_mirrors) add_target(m);
+        for (const auto &m: global) add_target(m);
 
         if (targets.empty()) {
             Logger::error(_("mirror.no_mirrors_available"));
@@ -532,42 +512,50 @@ namespace tmoe::domain {
         Logger::info(_f("mirror.speedtest_mirror_count", std::to_string(targets.size())));
         Logger::info("---------------------------");
 
-        struct SpeedResult {
-            std::string name;
-            std::string speed_str;
-        };
-        std::vector<SpeedResult> speed_results;
+        std::vector<std::pair<std::string, std::string>> results;
 
         for (const auto &t: targets) {
+            // 用 curl -w 取下载速度: %{speed_download} = bytes/sec
+            // --max-time 8 防止卡死, -o /dev/null 不存文件
             std::string test_url = "https://" + t.host + "/debian/ls-lR.gz";
-            std::string tmpfile = "/tmp/.tmoe_speedtest_" + std::to_string(std::hash<std::string>{}(t.host));
-
             Logger::info(_f("mirror.speedtest_checking", t.name, t.host));
+
             auto r = Executor::shell(
-                "aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
-                "--summary-interval=0 "
-                "-o \"" + tmpfile + "\" \"" + test_url + "\" 2>&1 | "
-                "grep -oE '[0-9.]+ [KM]iB/s' | tail -1 || echo 'N/A'");
+                "curl -sL --max-time 8 -o /dev/null -w '%{speed_download}' "
+                "\"" + test_url + "\" 2>/dev/null");
             if (r.ok() && !r.stdout_data.empty()) {
-                auto s = r.stdout_data;
-                while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
-                if (!s.empty() && s != "N/A") {
-                    speed_results.push_back({t.name, s});
-                    Logger::info(_f("mirror.speedtest_result", s));
+                std::string s = r.stdout_data;
+                // 提取纯数字和小数点，去掉所有空白和垃圾字符
+                s.erase(std::remove_if(s.begin(), s.end(),
+                    [](unsigned char c){ return !std::isdigit(c) && c != '.'; }), s.end());
+                if (!s.empty() && s != "0" && s != "0.000") {
+                    double bps = 0;
+                    try { bps = std::stod(s); } catch (...) {}
+                    std::string human;
+                    if (bps > 1048576) {
+                        human = std::to_string((int)(bps / 1048576)) + " MiB/s";
+                    } else if (bps > 1024) {
+                        human = std::to_string((int)(bps / 1024)) + " KiB/s";
+                    } else {
+                        human = std::to_string((int)bps) + " B/s";
+                    }
+                    results.push_back({t.name, human});
+                    Logger::info(_f("mirror.speedtest_result", human));
                 } else {
-                    Logger::warn(_("mirror.speedtest_unstable"));
+                    Logger::warn(_("mirror.speedtest_failed_single"));
                 }
             } else {
                 Logger::warn(_("mirror.speedtest_failed_single"));
             }
-            Executor::shell("rm -f \"" + tmpfile + "\" 2>/dev/null || true");
         }
 
-        // 清理残留
-        Executor::shell("rm -f /tmp/.tmoe_speedtest_* 2>/dev/null || true");
-
         Logger::info("---------------------------");
-        Logger::ok(_("mirror.speedtest_complete"));
+        if (!results.empty()) {
+            // 按速度排序（简单提取数值比较）
+            Logger::ok(_("mirror.speedtest_complete"));
+            for (const auto& x : results)
+                Logger::info("  " + x.first + " — " + x.second);
+        }
         Logger::info(_("mirror.speedtest_tip"));
         return true;
     }
@@ -851,30 +839,11 @@ namespace tmoe::domain {
 
     // ── 镜像源 FAQ ──
     void MirrorManager::show_mirror_faq() const {
-        Logger::info(_("mirror.faq_header"));
-        Logger::info(_("mirror.faq_step1_title"));
-        Logger::info(_("mirror.faq_step1_detail1"));
-        Logger::info(_("mirror.faq_step1_detail2"));
-        Logger::info("");
-        if (cfg_.linux_distro == "debian" || cfg_.linux_distro == "arch") {
-            Logger::info(_("mirror.faq_step2_title"));
-            Logger::info(_("mirror.faq_step2_detail1"));
-            if (cfg_.linux_distro == "debian")
-                Logger::info(_("mirror.faq_step2_debian"));
-            else
-                Logger::info(_("mirror.faq_step2_arch"));
-            Logger::info("");
-        }
-        Logger::info(_("mirror.faq_step3_title"));
-        Logger::info(_("mirror.faq_step3_detail1"));
-        Logger::info(_("mirror.faq_step3_detail2"));
-        Logger::info("");
-        Logger::info(_("mirror.faq_tips_title"));
-        Logger::info(_("mirror.faq_tip1"));
-        Logger::info(_("mirror.faq_tip2"));
-        Logger::info(_("mirror.faq_tip3"));
-        Logger::info(_("mirror.faq_tip4"));
-        Logger::info(_("mirror.faq_footer"));
+        // 对应 Bash sources_list_faq (478-484行) — 3行简单建议
+        Logger::info(_("mirror.faq_content"));
+        if (cfg_.linux_distro == "debian" || cfg_.linux_distro == "arch")
+            Logger::info(_("mirror.faq_trust_hint"));
+        Logger::info(_("mirror.faq_change_hint"));
     }
 
     // ── 顶层 API: switch_to / auto_select / restore_official ──
