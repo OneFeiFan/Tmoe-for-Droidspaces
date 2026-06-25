@@ -77,7 +77,3 @@ tmoes            # 自动检测平台 (Termux→容器管理 / Linux→工具箱
 tmoes m          # 容器管理界面
 tmoes t          # Linux 工具箱界面
 ```
-
-## 许可证
-
-与原 tmoe-linux 保持一致。
