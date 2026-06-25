@@ -959,87 +959,34 @@ namespace tmoe::domain {
     }
 
     void GUIManager::run_beautification_menu() {
+        // 对应 Bash: tmoe_desktop_beautification — 6项菜单
         while (true) {
-            std::string menu_cmd = CommandBuilder(cfg_.tui_bin)
-                    .add_arg("--title").add_arg(std::string(_("gui.beautify_title")))
-                    .add_arg("--menu").add_arg(std::string(_("gui.beautify_prompt")))
-                    .add_arg("0").add_arg("0").add_arg("0")
-                    .add_arg("1").add_arg(std::string(_("gui.beautify_gtk_theme")))
-                    .add_arg("2").add_arg(std::string(_("gui.beautify_icon_theme")))
-                    .add_arg("3").add_arg(std::string(_("gui.beautify_wallpaper")))
-                    .add_arg("4").add_arg(std::string(_("gui.beautify_plank")))
-                    .add_arg("5").add_arg(std::string(_("gui.beautify_compiz")))
-                    .add_arg("6").add_arg(std::string(_("gui.beautify_conky")))
-                    .add_arg("7").add_arg(std::string(_("gui.beautify_cursor")))
-                    .add_arg("8").add_arg(std::string(_("gui.beautify_xfce_panel")))
-                    .add_arg("9").add_arg(std::string(_("gui.beautify_iosevka")))
-                    .add_arg("0").add_arg(std::string(_("menu.tui.back")))
-                    .build_string();
+            std::string menu_cmd = cfg_.tui_bin +
+                " --title \"beautification\""
+                " --menu \"" + _("gui.beautify_prompt") + "\" 0 0 0 "
+                "\"1\" \"🍨 themes:主题(你有一双善于发现美的眼睛)\" "
+                "\"2\" \"🎀 icon-theme:图标包(点缀出惊艳绝伦)\" "
+                "\"3\" \"🍹 wallpaper:壁纸(感受万物之息)\" "
+                "\"4\" \"↗ mouse cursor(璀璨夺目的鼠标指针)\" "
+                "\"5\" \"💫 dock栏(plank)\" "
+                "\"6\" \"🎇 compiz(如花火般绚烂)\" "
+                "\"0\" \"" + _("menu.tui.back_upper") + "\"";
 
             std::string choice = Executor::tui_select(menu_cmd);
             if (choice == "0" || choice.empty()) break;
 
             if (choice == "1") {
-                std::string theme_menu = CommandBuilder(cfg_.tui_bin)
-                        .add_arg("--title").add_arg(std::string(_("gui.gtk_theme_title")))
-                        .add_arg("--menu").add_arg(std::string(_("gui.gtk_theme_prompt")))
-                        .add_arg("0").add_arg("0").add_arg("0")
-                        .add_arg("arc").add_arg(std::string(_("gui.gtk_theme_arc")))
-                        .add_arg("adapta").add_arg(std::string(_("gui.gtk_theme_adapta")))
-                        .add_arg("numix").add_arg(std::string(_("gui.gtk_theme_numix")))
-                        .add_arg("materia").add_arg(std::string(_("gui.gtk_theme_materia")))
-                        .add_arg("breeze").add_arg(std::string(_("gui.gtk_theme_breeze")))
-                        .build_string();
-                std::string t = Executor::tui_select(theme_menu);
-                if (!t.empty() && t != "0") install_theme(t);
+                configure_theme_menu();
             } else if (choice == "2") {
-                std::string icon_menu = CommandBuilder(cfg_.tui_bin)
-                        .add_arg("--title").add_arg(std::string(_("gui.icon_theme_title")))
-                        .add_arg("--menu").add_arg(std::string(_("gui.icon_theme_prompt")))
-                        .add_arg("0").add_arg("0").add_arg("0")
-                        .add_arg("papirus").add_arg(std::string(_("gui.icon_papirus")))
-                        .add_arg("numix").add_arg(std::string(_("gui.icon_numix")))
-                        .add_arg("breeze").add_arg(std::string(_("gui.icon_breeze")))
-                        .add_arg("elementary").add_arg(std::string(_("gui.icon_elementary")))
-                        .add_arg("tango").add_arg(std::string(_("gui.icon_tango")))
-                        .add_arg("moka").add_arg(std::string(_("gui.icon_moka")))
-                        .add_arg("faenza").add_arg(std::string(_("gui.icon_faenza")))
-                        .build_string();
-                std::string i = Executor::tui_select(icon_menu);
-                if (!i.empty() && i != "0") install_icon_theme(i);
+                download_icon_themes_menu();
             } else if (choice == "3") {
-                std::string wp_menu = CommandBuilder(cfg_.tui_bin)
-                        .add_arg("--title").add_arg(std::string(_("gui.wallpaper_title")))
-                        .add_arg("--menu").add_arg(std::string(_("gui.wallpaper_prompt")))
-                        .add_arg("0").add_arg("0").add_arg("0")
-                        .add_arg("gnome").add_arg(std::string(_("gui.wp_gnome")))
-                        .add_arg("xfce").add_arg(std::string(_("gui.wp_xfce")))
-                        .add_arg("mate").add_arg(std::string(_("gui.wp_mate")))
-                        .add_arg("deepin").add_arg(std::string(_("gui.wp_deepin")))
-                        .add_arg("kde").add_arg(std::string(_("gui.wp_kde")))
-                        .build_string();
-                std::string wp = Executor::tui_select(wp_menu);
-                if (!wp.empty() && wp != "0") download_wallpaper(wp);
+                download_wallpapers_menu();
             } else if (choice == "4") {
-                install_dock();
+                download_chameleon_cursor_theme();
             } else if (choice == "5") {
-                install_compiz();
+                install_dock();
             } else if (choice == "6") {
-                install_conky();
-            } else if (choice == "7") {
-                std::string cursor_menu = CommandBuilder(cfg_.tui_bin)
-                        .add_arg("--title").add_arg(std::string(_("gui.cursor_title")))
-                        .add_arg("--menu").add_arg(std::string(_("gui.cursor_prompt")))
-                        .add_arg("0").add_arg("0").add_arg("0")
-                        .add_arg("breeze").add_arg(std::string(_("gui.cursor_breeze")))
-                        .add_arg("chameleon").add_arg(std::string(_("gui.cursor_chameleon")))
-                        .build_string();
-                std::string c = Executor::tui_select(cursor_menu);
-                if (!c.empty() && c != "0") install_cursor_theme(c);
-            } else if (choice == "8") {
-                deploy_xfce_panel_config();
-            } else if (choice == "9") {
-                install_iosevka_font();
+                install_compiz();
             }
             Logger::press_enter();
         }

@@ -445,7 +445,7 @@
   "gui.beautify_icon_theme": "Install icon theme",
   "gui.beautify_iosevka": "Install the Iosevka programming font",
   "gui.beautify_plank": "Install plank dock",
-  "gui.beautify_prompt": "Please select:",
+  "gui.beautify_prompt": "How do you want to beautify the DE?\n你想要如何美化桌面？",
   "gui.beautify_title": "desktop beautification",
   "gui.beautify_wallpaper": "Download/set wallpaper",
   "gui.beautify_xfce_panel": "Deploy XFCE4 panel configuration",
