@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.12)
 project(tmoe VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -22,47 +22,83 @@ FetchContent_MakeAvailable(nlohmann_json)
 option(TMOE_USE_LIBARCHIVE "Use libarchive for tar operations" OFF)
 option(TMOE_USE_LIBCURL "Use libcurl for downloads" OFF)
 
-# ── i18n & 数据驱动嵌入 ────────────────────────
+# ── i18n & 数据驱动嵌入 (纯 CMake 零依赖架构) ────
+# 先确保输出目录存在
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/gen)
 
-file(GLOB LOCALE_JSON_FILES "${CMAKE_CURRENT_SOURCE_DIR}/locales/*.json")
-# 用 Python 脚本将 JSON 转为 C++ 头文件
-find_package(Python3 COMPONENTS Interpreter)
-if (Python3_FOUND)
-    # 1. 生成 i18n 语言包数据
-    add_custom_command(
-            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gen/i18n_data.h
-            COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_i18n.py
-            ${CMAKE_CURRENT_SOURCE_DIR}/locales
-            ${CMAKE_CURRENT_BINARY_DIR}/gen/i18n_data.h
-            DEPENDS tools/embed_i18n.py ${LOCALE_JSON_FILES}
-            COMMENT "Embedding locale data"
-    )
+# 在 locales 目录下新增或删除了 .json 文件，CMake 会自动触发重新初始化
+file(GLOB LOCALE_JSON_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/locales/*.json")
+set(ROOTFS_MAP "${CMAKE_CURRENT_SOURCE_DIR}/data/rootfs_map.json")
+set(MIRROR_REG_MAP "${CMAKE_CURRENT_SOURCE_DIR}/data/mirror_registry.json")
 
-    # 2. 生成 rootfs 容器镜像映射数据
-    add_custom_command(
-            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gen/rootfs_data.h
-            COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_json.py
-            ${CMAKE_CURRENT_SOURCE_DIR}/data/rootfs_map.json
-            ${CMAKE_CURRENT_BINARY_DIR}/gen/rootfs_data.h
-            "ROOTFS_MAP_JSON" # 传入生成变量名
-            DEPENDS tools/embed_json.py ${CMAKE_CURRENT_SOURCE_DIR}/data/rootfs_map.json
-            COMMENT "Embedding rootfs map data"
-    )
 
-    # 3. 生成镜像源注册表数据
-    add_custom_command(
-            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gen/mirror_data.h
-            COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_json.py
-            ${CMAKE_CURRENT_SOURCE_DIR}/data/mirror_registry.json
-            ${CMAKE_CURRENT_BINARY_DIR}/gen/mirror_data.h
-            "MIRROR_REGISTRY_JSON"
-            DEPENDS tools/embed_json.py ${CMAKE_CURRENT_SOURCE_DIR}/data/mirror_registry.json
-            COMMENT "Embedding mirror registry data"
-    )
-endif ()
+# 利用 execute_process 在执行 cmake .. 初始化时立刻运行脚本。
+message(STATUS "Pre-generating embedded data headers for IDE indexing...")
+
+execute_process(
+        COMMAND ${CMAKE_COMMAND}
+        -DLOCALES_DIR=${CMAKE_CURRENT_SOURCE_DIR}/locales
+        -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/gen/i18n_data.h
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_i18n.cmake"
+)
+execute_process(
+        COMMAND ${CMAKE_COMMAND}
+        -DINPUT_FILE=${ROOTFS_MAP}
+        -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/gen/rootfs_data.h
+        -DVAR_NAME=ROOTFS_MAP_JSON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_json.cmake"
+)
+execute_process(
+        COMMAND ${CMAKE_COMMAND}
+        -DINPUT_FILE=${MIRROR_REG_MAP}
+        -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/gen/mirror_data.h
+        -DVAR_NAME=MIRROR_REGISTRY_JSON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_json.cmake"
+)
+
+# 利用 add_custom_command 与 DEPENDS 将脚本与源文件绑定。
+# 修改了某个 json 里面的文字，点击 Build 或 Make 时，能自动触发增量重新生成。
+add_custom_command(
+        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gen/i18n_data.h
+        COMMAND ${CMAKE_COMMAND}
+        -DLOCALES_DIR=${CMAKE_CURRENT_SOURCE_DIR}/locales
+        -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/gen/i18n_data.h
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_i18n.cmake"
+        DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_i18n.cmake" ${LOCALE_JSON_FILES}
+        COMMENT "Re-embedding locale data..."
+)
+
+add_custom_command(
+        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gen/rootfs_data.h
+        COMMAND ${CMAKE_COMMAND}
+        -DINPUT_FILE=${ROOTFS_MAP}
+        -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/gen/rootfs_data.h
+        -DVAR_NAME=ROOTFS_MAP_JSON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_json.cmake"
+        DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_json.cmake" "${ROOTFS_MAP}"
+        COMMENT "Re-embedding rootfs map data..."
+)
+
+add_custom_command(
+        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gen/mirror_data.h
+        COMMAND ${CMAKE_COMMAND}
+        -DINPUT_FILE=${MIRROR_REG_MAP}
+        -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/gen/mirror_data.h
+        -DVAR_NAME=MIRROR_REGISTRY_JSON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_json.cmake"
+        DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_json.cmake" "${MIRROR_REG_MAP}"
+        COMMENT "Re-embedding mirror registry data..."
+)
+
+# 统一管理生成的头文件
+set(GENERATED_HEADERS
+        ${CMAKE_CURRENT_BINARY_DIR}/gen/i18n_data.h
+        ${CMAKE_CURRENT_BINARY_DIR}/gen/rootfs_data.h
+        ${CMAKE_CURRENT_BINARY_DIR}/gen/mirror_data.h
+)
+
+# 自定义目标：把三个生成文件打包成一个构建步骤
+add_custom_target(gen_embedded_data DEPENDS ${GENERATED_HEADERS})
 
 
 # ── 源文件 ─────────────────────────────────────
@@ -74,22 +110,20 @@ file(GLOB_RECURSE TMOE_SOURCES
         src/app/*.cpp
 )
 
-add_executable(tmoes ${TMOE_SOURCES}
-        ${CMAKE_CURRENT_BINARY_DIR}/gen/i18n_data.h
-        ${CMAKE_CURRENT_BINARY_DIR}/gen/rootfs_data.h
-        ${CMAKE_CURRENT_BINARY_DIR}/gen/mirror_data.h
-)
+add_executable(tmoes ${TMOE_SOURCES} ${GENERATED_HEADERS})
 
 target_include_directories(tmoes PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${CMAKE_CURRENT_BINARY_DIR}/gen  # <-- 这个设置非常棒，编译期文件和源码分离了
+        ${CMAKE_CURRENT_BINARY_DIR}/gen
 )
+
+# 确保编译可执行文件前，必定先执行嵌入数据的生成
+add_dependencies(tmoes gen_embedded_data)
 
 # 链接 nlohmann_json
 target_link_libraries(tmoes PRIVATE nlohmann_json::nlohmann_json)
 
-
-# 平台相关
+# 平台相关宏定义
 if (WIN32)
     target_compile_definitions(tmoes PRIVATE TMOE_PLATFORM_WINDOWS)
 elseif (APPLE)
@@ -97,7 +131,6 @@ elseif (APPLE)
 else ()
     target_compile_definitions(tmoes PRIVATE TMOE_PLATFORM_LINUX)
 endif ()
-
 
 # ── 可选依赖链接 ───────────────────────────────
 if (TMOE_USE_LIBARCHIVE)
@@ -111,4 +144,3 @@ if (TMOE_USE_LIBCURL)
     target_link_libraries(tmoes PRIVATE CURL::libcurl)
     target_compile_definitions(tmoes PRIVATE TMOE_HAS_LIBCURL)
 endif ()
-
