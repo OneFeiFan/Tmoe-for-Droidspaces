@@ -25,7 +25,7 @@ namespace tmoe::domain {
         vnc_home_dir = home_dir / ".vnc";
         xstartup_file = vnc_home_dir / "xstartup";
         passwd_file = vnc_home_dir / "passwd";
-        xsession_file = "/etc/X11/xinit/Xsession";
+        xsession_file = vnc_home_dir / "Xsession";
         tigervnc_config = "/etc/tigervnc/vncserver-config-tmoe";
         vnc_pid_file = vnc_home_dir / "vnc.pid";
         x_pid_file = vnc_home_dir / "x.pid";
@@ -627,15 +627,16 @@ namespace tmoe::domain {
     std::string VncManager::generate_xstartup_content() const {
         std::ostringstream script;
         script << "#!/bin/bash\n"
-                << "# tmoe-linux VNC xstartup — link to Xsession\n\n"
+                << "# tmoe-linux VNC xstartup — 参考 xrdp startwm.sh\n\n"
                 << "unset SESSION_MANAGER\n"
                 << "unset DBUS_SESSION_BUS_ADDRESS\n"
+                << "unset XDG_RUNTIME_DIR\n"
                 << "export XDG_SESSION_TYPE=x11\n"
                 << "export XDG_CURRENT_DESKTOP=XFCE\n"
-                << "export XDG_RUNTIME_DIR=/tmp/runtime-${USER:-root}\n"
                 << "export DESKTOP_SESSION=tmoe_linux\n"
-                << "[ -d \"$XDG_RUNTIME_DIR\" ] || mkdir -p \"$XDG_RUNTIME_DIR\" 2>/dev/null\n"
-                << "[ -w \"$XDG_RUNTIME_DIR\" ] || chmod 700 \"$XDG_RUNTIME_DIR\" 2>/dev/null\n\n"
+                << "export PULSE_SERVER=127.0.0.1\n\n"
+                << "# 加载系统环境（确保桌面命令在 PATH 中）\n"
+                << "[ -r /etc/profile ] && . /etc/profile\n\n"
                 << "if command -v fcitx >/dev/null 2>&1; then\n"
                 << "    fcitx-autostart >/dev/null 2>&1 &\n"
                 << "fi\n"
@@ -660,7 +661,7 @@ namespace tmoe::domain {
             Logger::error(_f("gui.vnc.xsession_write_failed", vnc_config_.xsession_file.string()));
             return false;
         }
-        run_shell_command(CommandBuilder("chmod").add_arg("777").add_arg(vnc_config_.xsession_file.string()).build_string());
+        run_shell_command(CommandBuilder("chmod").add_arg("755").add_arg(vnc_config_.xsession_file.string()).add_raw("2>/dev/null || true").build_string());
 
         // 2. 确保 DBus 环境
         run_shell_command("mkdir -p /run/dbus /var/lib/dbus 2>/dev/null");
@@ -797,12 +798,24 @@ namespace tmoe::domain {
             return true;
         }
 
+        // 确保 X11 socket 目录存在且权限正确 (1777)
+        // X Server 内部的 _XSERVTransmkdir 在目录权限不对时会直接失败
+        // WSL: Plan 9/WSLg 挂载点可能是只读的 → 先尝试 remount rw
+        if (cfg_.is_wsl) {
+            run_shell_command(
+                "sudo mount -o remount,rw /tmp/.X11-unix 2>/dev/null || true");
+        }
+        run_shell_command(
+            "[ -f /tmp/.X11-unix ] && rm -f /tmp/.X11-unix; "
+            "mkdir -p /tmp/.X11-unix; "
+            "chmod 1777 /tmp/.X11-unix 2>/dev/null || true");
+
         // 清理残留锁
         std::string lock_path = "/tmp/.X" + std::to_string(vnc_config_.display) + "-lock";
         std::string socket_path = "/tmp/.X11-unix/X" + std::to_string(vnc_config_.display);
         run_shell_command(CommandBuilder("rm").add_flag("-f").add_arg(lock_path).add_arg(socket_path).add_raw("2>/dev/null").build_string());
 
-        // WSL 处理
+        // WSL 环境准备 (VNC 以普通用户运行，无需 sudo)
         std::string env_prefix;
         if (cfg_.is_wsl) {
             detect_wsl_environment();
@@ -813,10 +826,20 @@ namespace tmoe::domain {
             }
         }
 
+        // 禁用 OpenGL: VNC 无硬件 GPU，避免 llvmpipe 软件回退
+        // 写入 ~/.vnc/config — TigerVNC 在启动 Xvnc 前读取此文件
+        {
+            std::string vnc_home = vnc_config_.vnc_home_dir.string();
+            run_shell_command(
+                "mkdir -p " + vnc_home + " && "
+                "grep -q extension=GLX " + vnc_home + "/config 2>/dev/null || "
+                "echo extension=GLX >> " + vnc_home + "/config");
+        }
+
         launch_dbus_daemon();
 
         std::string cmd = build_vnc_start_command(display, width, height);
-        ExecResult result = Executor::passthrough(env_prefix + cmd + " > /tmp/tmoe_vnc_startup.log 2>&1");
+        ExecResult result = Executor::passthrough(env_prefix + cmd);
 
         if (result.ok()) {
             Logger::ok(_f("gui.vnc.started",
@@ -873,6 +896,18 @@ namespace tmoe::domain {
         Logger::step(_("gui.x11vnc.starting"));
 
         int x11_display = (display > 0) ? display : 233;
+
+        // 确保 X11 socket 目录存在且权限正确 (1777)
+        // X Server 内部的 _XSERVTransmkdir 在目录权限不对时会直接失败
+        // WSL: Plan 9/WSLg 挂载点可能是只读的 → 先尝试 remount rw
+        if (cfg_.is_wsl) {
+            run_shell_command(
+                "sudo mount -o remount,rw /tmp/.X11-unix 2>/dev/null || true");
+        }
+        run_shell_command(
+            "[ -f /tmp/.X11-unix ] && rm -f /tmp/.X11-unix; "
+            "mkdir -p /tmp/.X11-unix; "
+            "chmod 1777 /tmp/.X11-unix 2>/dev/null || true");
 
         // 1. Xvfb
         std::string xvfb_cmd = build_xvfb_command(x11_display, 0, 0);

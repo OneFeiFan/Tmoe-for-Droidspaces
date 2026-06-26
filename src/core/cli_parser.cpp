@@ -40,8 +40,10 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
         ctx.mode = LaunchMode::Proot;
     } else if (arg1.rfind("c", 0) == 0 || arg1 == "chroot") {
         ctx.mode = LaunchMode::Chroot;
+        ctx.needs_root = true;
     } else if (arg1 == "systemd" || arg1 == "sd" || arg1 == "systemctl" || arg1 == "ns" || arg1 == "nspawn") {
         ctx.mode = LaunchMode::Nspawn;
+        ctx.needs_root = true;
     } else if (arg1 == "ls") {
         ctx.mode = LaunchMode::ListContainers;
         return ctx;
@@ -56,12 +58,14 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
         return ctx;
     } else if (arg1 == "i" || arg1 == "-i") {
         ctx.mode = LaunchMode::DebianInstall;
+        ctx.needs_root = true;
         return ctx;
     } else if (arg1 == "m" || arg1 == "manager") {
         ctx.mode = LaunchMode::ManagerMenu;
         return ctx;
     } else if (arg1 == "-m" || arg1 == "mirror" || arg1 == "-mirror" || arg1 == "-tuna") {
         ctx.mode = LaunchMode::MirrorManager;
+        ctx.needs_root = true;  // 修改 apt sources.list
         return ctx;
     } else if (arg1 == "t" || arg1 == "tool") {
         ctx.mode = LaunchMode::ToolMenu;
@@ -70,9 +74,32 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
                arg1 == "--install-gui" || arg1 == "install-gui" ||
                arg1 == "-b" || arg1 == "-c" || arg1 == "-x" ||
                arg1 == "--vncpasswd" || arg1 == "--choose-vnc-port" ||
-               arg1 == "--fix-dbus" || arg1 == "gui") {
+               arg1 == "--fix-dbus" ||
+               arg1 == "--start-vnc" || arg1 == "--stop-vnc" ||
+               arg1 == "--start-xsdl" || arg1 == "--start-x11vnc" ||
+               arg1 == "--start-novnc" || arg1 == "--auto-install-vscode" ||
+               arg1 == "gui") {
         ctx.mode = LaunchMode::GuiManager;
-        ctx.gui_flag = arg1;
+        // ./tmoes gui --start-novnc → gui_flag 应为 "--start-novnc"
+        if (arg1 == "gui" && pos_args.size() > 1) {
+            std::string_view second = pos_args[1];
+            if (!second.empty() && (second.rfind("--", 0) == 0 || second[0] == '-')) {
+                ctx.gui_flag = second;
+            } else {
+                ctx.gui_flag = arg1;
+            }
+        } else {
+            ctx.gui_flag = arg1;
+        }
+
+        // 按需提权: 仅安装/系统级配置操作需要 root
+        if (ctx.gui_flag.rfind("--auto-install-gui-", 0) == 0 ||
+            ctx.gui_flag == "--install-gui" ||
+            ctx.gui_flag == "install-gui" ||
+            ctx.gui_flag == "--auto-install-vscode" ||
+            ctx.gui_flag == "--fix-dbus") {
+            ctx.needs_root = true;
+        }
         return ctx;
     } else {
         ctx.mode = LaunchMode::Help;
