@@ -1,4 +1,5 @@
 #include "desktop_manager.h"
+#include <sstream>
 
 namespace tmoe::domain {
     DesktopManager::DesktopManager(const TmoeConfig &cfg, VncManager &vnc_manager)
@@ -94,60 +95,331 @@ namespace tmoe::domain {
         DesktopInfo info = get_desktop_info(desktop);
         Logger::step(_f("gui.install.desktop", info.name));
 
-        // 前置依赖 (对应旧 Bash preconfigure_gui_dependecies_02)
-        preconfigure_gui_dependencies();
-
         // 检查是否需要 root 权限
         if (info.requires_root && cfg_.is_termux) {
             Logger::warn(_f("gui.desktop.systemd_warn", info.name));
         }
 
-        // 提示即将安装的软件包
+        // ── 阶段1: 提问（装包前）— 对齐 Bash do_you_want_to_install_fcitx4 ──
+        if (!auto_install_mode_) {
+            post_desktop_install_prompts();
+        }
+
+        // ── 阶段2: 装包 ──
+        preconfigure_gui_dependencies();
         will_be_installed_for_you(info.name);
 
-        // 安装桌面环境包
         std::vector<std::string> pkgs;
-
-        // 先检查是否有当前发行版的特定包名覆盖
         auto family = resolved_family();
         std::string distro_key = PackageManager::family_key(family);
 
-        std::string pkg_list = info.pkg_group; // 默认包名
-        if (!info.distro_pkgs.empty()) {
-            auto it = info.distro_pkgs.find(distro_key);
-            if (it != info.distro_pkgs.end()) {
-                pkg_list = it->second;
+        // 桌面专属的装包前版本选择（bash: choose_* 系列函数修改 DEPENDENCY_01）
+        std::string d_lower(desktop);
+        std::transform(d_lower.begin(), d_lower.end(), d_lower.begin(), ::tolower);
+        bool use_no_recommends = false;
+        std::string pkg_list;
+
+        // lxqt debian 版本选择（bash: choose_lxqt_or_lubuntu + choose_debian_lxqt_core_or_lite）
+        if (d_lower == "lxqt" && family == DistroFamily::Debian && !auto_install_mode_) {
+            bool is_ubuntu = (cfg_.sub_distro == "ubuntu");
+            bool is_lubuntu = false;
+            if (is_ubuntu) {
+                auto r = Executor::passthrough(cfg_.tui_bin +
+                    " --title \"Lxqt or Lubuntu-desktop\""
+                    " --yes-button \"lxqt\" --no-button \"lubuntu\""
+                    " --yesno '前者为普通lxqt,后者为lubuntu' 0 0");
+                if (r.exit_code == 1) {
+                    is_lubuntu = true;
+                    pkg_list = "lubuntu-desktop";
+                }
+            }
+            if (!is_lubuntu) {
+                // choose_debian_lxqt_core_or_lite
+                auto r = Executor::passthrough(cfg_.tui_bin +
+                    " --title \"LXQT-CORE or LXQT-LITE\""
+                    " --yes-button \"core\" --no-button \"lite\""
+                    " --yesno '前者为普通lxqt,后者为精简版lxqt' 0 0");
+                if (r.exit_code != 0) {  // lite
+                    use_no_recommends = true;
+                    pkg_list = "pcmanfm-qt pcmanfm-qt-l10n qterminal qterminal-l10n "
+                               "openbox lxqt-theme-debian lxqt-panel lxqt-config "
+                               "lxqt-session-l10n lxqt-session";
+                }
+            }
+        }
+
+        // xfce ubuntu 版本选择（bash: choose_xfce_or_xubuntu）
+        // 注意: xfce-lite 没有这个选择（bash: install_xfce4_lite_desktop 跳过了）
+        if ((d_lower == "xfce" || d_lower == "xfce-lite") && family == DistroFamily::Debian
+            && cfg_.sub_distro == "ubuntu" && !auto_install_mode_) {
+            auto r = Executor::passthrough(cfg_.tui_bin +
+                " --title \"Xfce or Xubuntu-desktop\""
+                " --yes-button \"xfce\" --no-button \"xubuntu\""
+                " --yesno '前者为普通xfce,后者为xubuntu' 0 0");
+            if (r.exit_code == 1) {
+                pkg_list = "xubuntu-desktop";
+            }
+        }
+
+        // mate debian 版本选择（bash: choose_mate_or_ubuntu_mate + choose_debian_mate_core_or_lite）
+        if (d_lower == "mate" && family == DistroFamily::Debian && !auto_install_mode_) {
+            // Linux Mint 优先检测（bash 中在 choose_mate_or_ubuntu_mate 之前）
+            auto issue = SystemHelper::read_file("/etc/issue");
+            if (issue.find("Linux Mint") != std::string::npos) {
+                pkg_list = "mint-meta-mate mint-meta-core mint-artwork";
+            }
+            bool is_ubuntu = (cfg_.sub_distro == "ubuntu");
+            if (is_ubuntu && pkg_list.empty()) {
+                auto r = Executor::passthrough(cfg_.tui_bin +
+                    " --title \"Mate or Ubuntu-MATE\""
+                    " --yes-button \"mate\" --no-button \"ubuntu-mate\""
+                    " --yesno '前者为普通mate,后者为ubuntu-mate' 0 0");
+                if (r.exit_code == 1) {
+                    pkg_list = "ubuntu-mate-desktop";
+                }
+            }
+            if (pkg_list.empty()) {
+                // choose_debian_mate_core_or_lite
+                auto r = Executor::passthrough(cfg_.tui_bin +
+                    " --title \"MATE-CORE or MATE-LITE\""
+                    " --yes-button \"core\" --no-button \"lite\""
+                    " --yesno '前者为普通mate,后者为精简版mate' 0 0");
+                if (r.exit_code != 0) {  // lite
+                    use_no_recommends = true;
+                    pkg_list = "mate-session-manager mate-settings-daemon marco mate-terminal mate-panel";
+                }
+            }
+        }
+
+        // gnome 会话选择 + 版本选择（bash: choose_gnome_session + set_gnome_desktop_deps）
+        // gnome 是 rootful DE, 由 info.requires_root 标记
+        if (d_lower == "gnome" && family == DistroFamily::Debian && !auto_install_mode_) {
+            auto session_ch = Executor::tui_select(cfg_.tui_bin +
+                " --title \"gnome-session\""
+                " --menu \"请选择 GNOME 会话类型\\nWhich gnome session do you prefer?\" 0 0 0 "
+                "\"1\" \"gnome-shell-x11 (推荐)\" "
+                "\"2\" \"gnome-flashback (经典Flashback)\" "
+                "\"3\" \"gnome-session (标准)\" "
+                "\"4\" \"gnome-session-ubuntu (Ubuntu风格)\" "
+                "\"5\" \"gnome-session-classic (经典风格)\" "
+                "\"0\" \"Back\"");
+            gnome_session_type_ = session_ch;
+
+            if (session_ch == "2") {
+                // Bash: set_gnome_flashback_desktop
+                pkg_list = "gnome-panel gnome-menus gnome-shell gnome-session-flashback gnome-session";
+            } else if (session_ch == "1" || session_ch == "3" || session_ch == "4" || session_ch == "5") {
+                // Bash: set_gnome_desktop_deps
+                bool is_ubuntu = (cfg_.sub_distro == "ubuntu");
+                if (is_ubuntu) {
+                    auto r = Executor::passthrough(cfg_.tui_bin +
+                        " --title \"gnome or ubuntu-desktop\""
+                        " --yes-button \"gnome\" --no-button \"ubuntu-desktop\""
+                        " --yesno '前者为gnome基础桌面,后者为ubuntu-desktop' 0 0");
+                    if (r.exit_code == 1) {
+                        pkg_list = "ubuntu-desktop";
+                    }
+                }
+                if (pkg_list.empty()) {
+                    // choose_debian_gnome_shell_or_gnome_core
+                    auto r = Executor::passthrough(cfg_.tui_bin +
+                        " --title \"gnome-shell or gnome-core\""
+                        " --yes-button \"gnome-shell\" --no-button \"gnome-core\""
+                        " --yesno '前者更精简,后者包含额外组件' 0 0");
+                    if (r.exit_code == 0) {
+                        pkg_list = "xorg gnome-panel gnome-menus gnome-shell gnome-session";
+                    } else {
+                        pkg_list = "gnome-core";
+                    }
+                }
+            }
+        } else if (d_lower == "gnome" && family == DistroFamily::Arch && !auto_install_mode_) {
+            auto r = Executor::passthrough(cfg_.tui_bin +
+                " --title \"gnome or gnome-extra\""
+                " --yes-button \"gnome\" --no-button \"gnome-extra\""
+                " --yesno '前者为gnome基础包,后者包含gnome-extra' 0 0");
+            pkg_list = (r.exit_code == 0) ? "gnome-tweaks gnome" : "gnome-extra gnome";
+        }
+
+        // ukui debian 版本选择（bash: ukui_or_kylin_desktop）
+        if (d_lower == "ukui" && family == DistroFamily::Debian && !auto_install_mode_) {
+            auto r = Executor::passthrough(cfg_.tui_bin +
+                " --title \"ukui or ubuntukylin-desktop\""
+                " --yes-button \"ukui\" --no-button \"kylin\""
+                " --yesno '前者为普通ukui,后者为ubuntukylin-desktop' 0 0");
+            if (r.exit_code == 0) {
+                pkg_list = "ukui-session-manager ukui-menu ukui-control-center ukui-screensaver ukui-themes peony";
+            } else {
+                pkg_list = "ubuntukylin-desktop";
+            }
+        }
+
+        // cutefish: 无版本选择, 用 registry 默认包 (bash: install_cutefish_desktop 仅一行 DEPENDENCY_01="cutefish")
+
+        // dde/deepin debian 版本选择（bash: ubuntu_dde_or_dde_extras）
+        if ((d_lower == "dde" || d_lower == "deepin") && family == DistroFamily::Debian && !auto_install_mode_) {
+            if (cfg_.sub_distro == "deepin") {
+                pkg_list = "dde";  // bash: deepin distro 直接用 dde
+            } else {
+                // bash: ubuntu_dde_or_dde_extras
+                auto r = Executor::passthrough(cfg_.tui_bin +
+                    " --title \"UbuntuDDE or UbuntuDDE-extras\""
+                    " --yes-button \"dde\" --no-button \"dde-extras\""
+                    " --yesno '前者为普通dde,后者包含dde额外软件包' 0 0");
+                pkg_list = (r.exit_code == 0)
+                    ? "ubuntudde-dde deepin-terminal"
+                    : "ubuntudde-dde ubuntudde-dde-extras";
+            }
+        }
+
+        // budgie debian 版本选择（bash: choose_budgie_or_ubuntu_budgie + choose_debian_budgie_core_or_desktop）
+        if (d_lower == "budgie" && family == DistroFamily::Debian && !auto_install_mode_) {
+            bool is_ubuntu = (cfg_.sub_distro == "ubuntu");
+            bool is_ubuntu_budgie = false;
+            if (is_ubuntu) {
+                auto r = Executor::passthrough(cfg_.tui_bin +
+                    " --title \"budgie or ubuntu-budgie-desktop\""
+                    " --yes-button \"budgie\" --no-button \"ubuntu-budgie\""
+                    " --yesno '前者为budgie基础桌面,后者为ubuntu-budgie-desktop' 0 0");
+                if (r.exit_code == 1) {
+                    is_ubuntu_budgie = true;
+                    pkg_list = "ubuntu-budgie-desktop";
+                }
+            }
+            if (!is_ubuntu_budgie) {
+                // choose_debian_budgie_core_or_desktop
+                auto r = Executor::passthrough(cfg_.tui_bin +
+                    " --title \"budgie-core or budgie-desktop\""
+                    " --yes-button \"core\" --no-button \"desktop\""
+                    " --yesno '前者更精简,后者包含额外组件' 0 0");
+                if (r.exit_code == 0) {
+                    use_no_recommends = true;
+                    pkg_list = "budgie-core";
+                } else {
+                    pkg_list = "budgie-desktop";
+                }
+            }
+        }
+
+        // cinnamon debian lite/standard 选择（bash: 无独立 choose 函数，内嵌在 install_cinnamon_desktop）
+        if (d_lower == "cinnamon" && family == DistroFamily::Debian && !auto_install_mode_) {
+            // Linux Mint 优先检测
+            auto issue = SystemHelper::read_file("/etc/issue");
+            if (issue.find("Linux Mint") != std::string::npos) {
+                pkg_list = "mint-meta-cinnamon mint-meta-core mint-artwork";
+            } else {
+                auto r = Executor::passthrough(cfg_.tui_bin +
+                    " --title \"Lite or standard\""
+                    " --yes-button \"lite\" --no-button \"standard\""
+                    " --yesno '前者更精简,后者包含额外组件\\nThe former is more streamlined' 0 0");
+                if (r.exit_code == 0) {
+                    use_no_recommends = true;
+                    pkg_list = "cinnamon-l10n cinnamon";
+                } else {
+                    pkg_list = "cinnamon-l10n cinnamon-desktop-environment cinnamon";
+                }
+            }
+        }
+
+        // lxde debian core/lite 选择（bash: choose_debian_lxde_core_or_lite）
+        if (d_lower == "lxde" && family == DistroFamily::Debian && !auto_install_mode_) {
+            auto r = Executor::passthrough(cfg_.tui_bin +
+                " --title \"LXDE-CORE or LXDE-LITE\""
+                " --yes-button \"core\" --no-button \"lite\""
+                " --yesno '前者为普通lxde(包含额外组件),后者为精简版\\n"
+                "The former includes extra software of lxde.' 0 0");
+            if (r.exit_code != 0) {  // no-button = lite
+                use_no_recommends = true;
+            }
+        }
+
+        if (use_no_recommends && d_lower == "lxde") {
+            pkg_list = "pcmanfm lxterminal openbox-lxde-session lxde-icon-theme lxpanel";
+        } else if (d_lower == "kde") {
+            // ── KDE 版本选择（bash: choose_kde_or_kubuntu + choose_kde_plasma_or_standard）──
+            if (family == DistroFamily::Debian && !auto_install_mode_) {
+                bool is_ubuntu = (cfg_.sub_distro == "ubuntu");
+                if (is_ubuntu) {
+                    auto r = Executor::passthrough(cfg_.tui_bin +
+                        " --title \"KDE-plasma or Kubuntu-desktop\""
+                        " --yes-button \"KDE\" --no-button \"kubuntu\""
+                        " --yesno '前者为普通KDE,后者为kubuntu' 0 0");
+                    if (r.exit_code == 1) {
+                        pkg_list = "kubuntu-desktop";  // bash: UBUNTU_DESKTOP=true
+                    }
+                }
+                if (pkg_list.empty()) {
+                    // choose_kde_plasma_or_standard
+                    auto r = Executor::passthrough(cfg_.tui_bin +
+                        " --title \"kde-plasma or kde-standard\""
+                        " --yes-button \"plasma\" --no-button \"standard\""
+                        " --yesno '前者为精简安装,后者为标准安装' 0 0");
+                    if (r.exit_code == 0) {
+                        pkg_list = "kde-plasma-desktop";
+                    } else {
+                        auto r2 = Executor::passthrough(cfg_.tui_bin +
+                            " --title \"kde-standard or kde-full\""
+                            " --yes-button \"standard\" --no-button \"full\""
+                            " --yesno '前者包含KDE标准套件,后者为KDE全家桶' 0 0");
+                        pkg_list = (r2.exit_code == 0) ? "kde-standard" : "kde-full";
+                    }
+                }
+            } else if (family == DistroFamily::Arch && !auto_install_mode_) {
+                // choose_arch_kde_lite_or_full
+                auto r = Executor::passthrough(cfg_.tui_bin +
+                    " --title \"kde-plasma or plasma-meta\""
+                    " --yes-button \"plasma\" --no-button \"plasma+apps\""
+                    " --yesno '前者为plasma基础桌面,后者包含kde全家桶' 0 0");
+                pkg_list = (r.exit_code == 0)
+                    ? "plasma-desktop dolphin konsole discover"
+                    : "plasma-meta kde-applications-meta plasma-wayland-session sddm sddm-kcm";
+            }
+        }
+
+        if (pkg_list.empty()) {
+            pkg_list = info.pkg_group;
+            if (!info.distro_pkgs.empty()) {
+                auto it = info.distro_pkgs.find(distro_key);
+                if (it != info.distro_pkgs.end()) {
+                    pkg_list = it->second;
+                }
             }
         }
 
         std::istringstream iss(pkg_list);
         std::string pkg;
         while (iss >> pkg) pkgs.emplace_back(pkg);
-
-        // 附加通用包
         pkgs.emplace_back("dbus-x11");
 
-        if (!install_packages(pkgs)) {
+        bool pkg_ok;
+        if (use_no_recommends) {
+            std::string cmd = "apt install -y --no-install-recommends";
+            for (const auto& p : pkgs) cmd += " " + p;
+            pkg_ok = Executor::passthrough(cmd + " 2>/dev/null").ok();
+        } else {
+            pkg_ok = install_packages(pkgs);
+        }
+
+        if (!pkg_ok) {
             Logger::error(_f("gui.install.fail", info.name));
             return false;
         }
 
-        // 桌面专属 post-install (xfce/kde/gnome/mate/lxde/lxqt/cinnamon/budgie/dde/deepin/ukui)
+        // ── 阶段3: 桌面专属扩展（wallpapers/themes/panel等） ──
         post_install_desktop_config(desktop);
+        post_install_desktop_extras(desktop);
 
-        // 配置 VNC xstartup
+        // ── 阶段4: VNC 配置（xstartup + 服务端推荐） ──
         if (!vnc_manager_.configure_xstartup(desktop)) {
             Logger::warn(_("gui.desktop.xstartup_warn"));
         }
 
         Logger::ok(_f("gui.install.success", info.name));
 
-        // 显示兼容性说明
         if (!info.compat_notes.empty()) {
             Logger::info(_f("gui.desktop.compat_notes", info.compat_notes));
         }
 
-        // 根据桌面类型推荐 VNC 服务端
         std::string desktop_lower(desktop);
         std::transform(desktop_lower.begin(), desktop_lower.end(), desktop_lower.begin(), ::tolower);
 
@@ -158,8 +430,8 @@ namespace tmoe::domain {
             vnc_manager_.config().server_bin = "tigervnc";
         }
 
-        // ── 对应旧 Bash do_you_want_to_install_fcitx4 追问链 ──
-        post_desktop_install_prompts();
+        // ── 阶段5: 执行可选安装（fcitx/chromium/electron/kali/vscode） ──
+        execute_optional_installs();
 
         return true;
     }
@@ -213,37 +485,46 @@ namespace tmoe::domain {
         bool want_electron = auto_install_electron_;
         bool want_kali = auto_install_kali_;
 
-        // 1. fcitx: 中文环境, 仅 debian/arch, 非 WSL
-        if ((family == DistroFamily::Debian || family == DistroFamily::Arch) && !cfg_.is_wsl &&
-            lang.find("zh") == 0 && !Executor::has("fcitx") && !Executor::has("fcitx5")) {
-            if (interactive) {
-                auto r = Executor::passthrough(cfg_.tui_bin +
-                                               " --title \"input method\""
-                                               " --yesno '检测到您当前的语言环境为中文，是否需要安装中文输入法？\\n"
-                                               "安装完成后，在桌面环境下按Ctrl+空格切换输入法\\n"
-                                               "你也可以选择NO跳过，之后可以单独安装fcitx5' 0 0");
-                want_fcitx = (r.exit_code == 0);
-            } else {
-                want_fcitx = auto_install_fcitx4_;
+        // 1. fcitx: 中文环境, debian/arch
+        // Bash: WSL 用 fcitx_pinyin，其他用 fcitx4
+        if (family == DistroFamily::Debian || family == DistroFamily::Arch) {
+            bool is_zh = (lang.find("zh") == 0);
+            if ((is_zh || cfg_.is_wsl) &&
+                !Executor::has("fcitx") && !Executor::has("fcitx5")) {
+                if (interactive) {
+                    auto r = Executor::passthrough(cfg_.tui_bin +
+                        " --title \"input method\""
+                        " --defaultno"
+                        " --yesno '" + std::string(cfg_.is_wsl
+                            ? "检测到WSL环境,是否需要安装中文输入法(fcitx-pinyin)？"
+                            : "检测到您当前的语言环境为中文，是否需要安装中文输入法？") + "\\n"
+                        "安装完成后，在桌面环境下按Ctrl+空格切换输入法\\n"
+                        "你也可以选择NO跳过，之后可以单独安装fcitx5' 0 0");
+                    want_fcitx = (r.exit_code == 0);
+                } else {
+                    want_fcitx = auto_install_fcitx4_;
+                }
             }
         }
 
-        // 2. Chromium
+        // 2. Chromium（bash: 已安装则跳过提示）
         if (!Executor::has("chromium") && !Executor::has("chromium-browser")
             && !Executor::has("google-chrome") && !Executor::has("google-chrome-stable")) {
             if (interactive) {
                 auto r = Executor::passthrough(cfg_.tui_bin +
                                                " --title \"CHROMIUM-BROWSER\""
+                                               " --defaultno"
                                                " --yesno 'Do you want to install Google Chromium browser?' 0 0");
                 want_chromium = (r.exit_code == 0);
             }
         }
 
-        // 3. Electron 应用合集 (alpine 排除)
+        // 3. Electron 应用合集（bash: alpine 排除，已安装则跳过）
         if (family != DistroFamily::Alpine && !Executor::has("electron")) {
             if (interactive) {
                 auto r = Executor::passthrough(cfg_.tui_bin +
                                                " --title \"Electron apps\""
+                                               " --defaultno"
                                                " --yesno '请问您是否需要安装开发者推荐的electron软件包合集？\\n"
                                                "该合集包含哔哩哔哩客户端，obsidian(markdown编辑器)，\\n"
                                                "网易云音乐第三方electron版，listen1，\\n"
@@ -259,27 +540,95 @@ namespace tmoe::domain {
             select_kali_tools();
         }
 
-        // ── 执行安装 ──
-        if (want_fcitx) install_fcitx();
+        // ── 保存选择（后续由 execute_optional_installs() 统一安装） ──
+        auto_install_fcitx4_  = want_fcitx;
+        auto_install_chromium_ = want_chromium;
+        auto_install_electron_ = want_electron;
+    }
 
-        if (want_chromium) {
-            install_packages({"chromium-browser", "chromium"});
+
+    void DesktopManager::post_install_desktop_extras(std::string_view desktop) {
+        // 对齐 Bash 各桌面专属的 post-install（壁纸/主题/面板等）
+        std::string d(desktop);
+        std::transform(d.begin(), d.end(), d.begin(), ::tolower);
+
+        if (d == "xfce" || d == "xfce-lite") {
+            auto family = resolved_family();
+
+            // Bash: debian_xfce4_extras — 已在 post_install_xfce() 中处理 ✅
+
+            // Bash: download_arch_breeze_adapta_cursor_theme
+            if (family != DistroFamily::Alpine) {
+                download_arch_breeze_adapta_cursor_theme();
+            }
+
+            // Bash: xfce_papirus_icon_theme + icon theme switch
+            if (family != DistroFamily::Alpine) {
+                xfce_papirus_icon_theme_ext();
+            }
+
+            // Bash: auto_configure_xfce4_panel
+            auto_configure_xfce4_panel();
+
+            // Bash: xfce4_color_scheme + terminalrc
+            xfce4_color_scheme();
+
+            if (d == "xfce") {
+                // Bash: modify_the_default_xfce_wallpaper (xfce-lite skips)
+                debian_xfce_wallpaper();
+            }
+        } else if (d == "lxde") {
+            // fonts-noto-cjk: 在 post_install_lxde() 中处理
+            // apt_purge_libfprint: 在 post_install_desktop_config 公共部分处理
+            // core/lite 选择: 在 install_desktop() 阶段2装包前处理
+        } else if (d == "lxqt") {
+            // fonts-noto-cjk: 在 post_install_lxqt() 中处理
+            // apt_purge_libfprint: 在 post_install_desktop_config 公共部分处理
+            // 版本选择 (lxqt/lubuntu/core/lite): 在 install_desktop() 装包前处理
+        } else if (d == "mate") {
+            // Bash: ubuntu_mate_wallpaper（壁纸下载，按需实现）
+            // Bash: fonts-noto-cjk 在 post_install_mate() 中处理
+            // 版本选择 (mate/ubuntu-mate/core/lite) 在 install_desktop() 装包前处理
+        } else if (d == "kde" || d == "plasma") {
+            // Bash: plasma_wayland_env 已在 post_install_kde() 中处理
+            // Bash: kde_warning 已在 post_install_kde() 中处理
+            // Bash: apt_purge_libfprint 已在 post_install_desktop_config 公共部分处理
+            // 版本选择 (plasma/standard/full/kubuntu) 已在 install_desktop() 装包前处理
+        }
+        // gnome, cinnamon, budgie, dde, deepin, ukui: bash has per-desktop configs
+    }
+
+    void DesktopManager::execute_optional_installs() {
+        // 对齐 Bash auto_install_and_configure_fcitx4()
+        // 执行 post_desktop_install_prompts 中用户确认的可选安装
+
+        bool interactive = !auto_install_mode_;
+
+        if (auto_install_fcitx4_) {
+            install_fcitx();
         }
 
-        if (want_electron) {
+        if (auto_install_chromium_) {
+            auto family = resolved_family();
+            std::vector<std::string> chromium_pkgs;
+            if (family == DistroFamily::Debian) {
+                chromium_pkgs = {"chromium-browser", "chromium"};
+            } else if (family == DistroFamily::Arch) {
+                chromium_pkgs = {"chromium"};
+            } else {
+                chromium_pkgs = {"chromium-browser", "chromium", "google-chrome-stable"};
+            }
+            install_packages(chromium_pkgs);
+        }
+
+        if (auto_install_electron_) {
             install_packages({
                 "bilibili", "electron-netease-cloud-music",
                 "obsidian", "listen1", "yesplaymusic", "petal", "zy-player"
             });
         }
 
-        if (is_kali && !interactive && auto_install_kali_) {
-            // 静默模式安装 kali 工具
-            install_packages({kali_tools_});
-        }
-
-        // VSCode 自动安装
-        if (!interactive && auto_install_vscode_) {
+        if (auto_install_vscode_ && !interactive) {
             Executor::passthrough(cfg_.install_command + " code 2>/dev/null || "
                                   "snap install code --classic 2>/dev/null || true");
         }
@@ -289,7 +638,6 @@ namespace tmoe::domain {
             Executor::passthrough("apt install -y $(check-language-support) 2>/dev/null || true");
         }
     }
-
 
     void DesktopManager::plasma_wayland_env() {
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
@@ -379,17 +727,11 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
 
     void DesktopManager::post_install_xfce(DistroFamily family, bool is_debian, bool is_ubuntu, bool is_proot) {
+        // bash: xfce_warning — 显示 XFCE 介绍 + 继续确认
         xfce_warning();
-        if (is_ubuntu) {
-            auto r = Executor::passthrough(cfg_.tui_bin +
-                                           " --title \"Xfce or Xubuntu-desktop\" --yes-button \"xfce\" --no-button \"xubuntu\""
-                                           " --yesno '前者为普通xfce,后者为xubuntu' 0 0");
-            if (r.exit_code == 1) {
-                install_packages({"xubuntu-desktop", "xubuntu-default-settings"});
-                if (cfg_.is_termux && is_debian) vnc_manager_.fix_mlocate();
-            }
-        }
-        // debian_xfce4_extras
+        // choose_xfce_or_xubuntu 已移至 install_desktop() 装包前
+
+        // bash: debian_xfce4_extras — 安装额外包 (qt5ct/mugshot/breeze-theme/panel-profiles等)
         if (is_debian) {
             install_packages({
                 "xfce4-whiskermenu-plugin", "xfce4-taskmanager",
@@ -495,96 +837,62 @@ namespace tmoe::domain {
     }
 
     void DesktopManager::post_install_kde(DistroFamily family, bool is_debian, bool is_ubuntu, bool is_proot) {
+        // bash: kde_warning — 显示 KDE 兼容性表格 + 确认
         kde_warning();
-        if (is_debian) {
-            auto r = Executor::passthrough(cfg_.tui_bin +
-                                           " --title \"kde-plasma or kde-standard\" --yes-button \"plasma\" --no-button \"standard\""
-                                           " --yesno '前者为精简安装,后者为标准安装' 0 0");
-            if (r.exit_code == 1) {
-                auto r2 = Executor::passthrough(cfg_.tui_bin +
-                                                " --title \"kde-standard or kde-full\" --yes-button \"standard\" --no-button \"full\""
-                                                " --yesno '前者包含KDE标准套件,后者为KDE全家桶' 0 0");
-                if (r2.exit_code == 0) install_packages({"kde-standard"});
-                else if (r2.exit_code == 1) install_packages({"kde-full"});
-            }
-            if (is_ubuntu) {
-                auto r3 = Executor::passthrough(cfg_.tui_bin +
-                                                " --title \"KDE-plasma or Kubuntu-desktop\" --yes-button \"KDE\" --no-button \"kubuntu\""
-                                                " --yesno '前者为普通KDE,后者为kubuntu' 0 0");
-                if (r3.exit_code == 1) install_packages({"kubuntu-desktop"});
-            }
-        }
-        if (family == DistroFamily::Arch) {
-            auto r = Executor::passthrough(cfg_.tui_bin +
-                                           " --title \"kde-plasma or kde-standard\" --yes-button \"plasma\" --no-button \"plasma+apps\""
-                                           " --yesno '前者为精简安装,后者包含kde-applications' 0 0");
-            if (r.exit_code == 1) PackageManager::install("kde-applications", DistroFamily::Arch);
-        }
+
+        // bash: proot 环境下去掉 systemd 相关组件
         if (is_proot) {
             remove_packages({
                 "plasma-powerdevil", "plasma-discover",
                 "plasma-discover-backend-flatpak", "plasma-discover-backend-snap"
             });
         }
-        if (is_debian) {
+
+        // bash: choose_plasma_wayland_or_x11
+        if (is_debian && !auto_install_mode_) {
             auto wayland_r = Executor::passthrough(cfg_.tui_bin +
-                                                   " --title \"x11 or wayland\" --yes-button \"x11\" --no-button \"wayland\""
-                                                   " --yesno '默认推荐x11, wayland尚在实验阶段' 0 0");
+                " --title \"x11 or wayland\" --yes-button \"x11\" --no-button \"wayland\""
+                " --yesno '默认推荐x11, wayland尚在实验阶段' 0 0");
             if (wayland_r.exit_code == 1) {
                 plasma_wayland_env();
                 Logger::info(_("gui.plasma_wayland.selected"));
             }
         }
+
+        // 版本选择 (plasma/standard/full/kubuntu) 已移至 install_desktop() 装包前
     }
 
     void DesktopManager::post_install_gnome(DistroFamily family, bool is_debian, bool is_ubuntu) {
+        // bash: gnome3_warning + print_gnome_ascii
         gnome3_warning();
         print_gnome_ascii();
         if (is_ubuntu) get_ubuntu_desktop_language_pack();
+
+        // bash: 根据装包前选择的会话类型创建包装脚本
+        // 会话+版本选择 已移至 install_desktop() 装包前
         if (is_debian) {
-            auto r = Executor::passthrough(cfg_.tui_bin +
-                                           " --title \"gnome-shell or gnome-core\" --yes-button \"gnome-shell\" --no-button \"gnome-core\""
-                                           " --yesno '前者更精简,后者包含额外组件' 0 0");
-            if (r.exit_code == 1) install_packages({"gnome-core"});
-            if (is_ubuntu) {
-                auto r2 = Executor::passthrough(cfg_.tui_bin +
-                                                " --title \"gnome or ubuntu-desktop\" --yes-button \"gnome\" --no-button \"ubuntu-desktop\""
-                                                " --yesno '前者为gnome基础桌面,后者为ubuntu-desktop' 0 0");
-                if (r2.exit_code == 1) install_packages({"ubuntu-desktop"});
-            }
-            std::string session_menu = cfg_.tui_bin +
-                                       " --title \"gnome-session\""
-                                       " --menu \"请选择 GNOME 会话类型\\nWhich gnome session do you prefer?\" 0 0 0 "
-                                       "\"1\" \"gnome-shell-x11 (推荐)\" "
-                                       "\"2\" \"gnome-flashback (经典Flashback)\" "
-                                       "\"3\" \"gnome-session (标准)\" "
-                                       "\"4\" \"gnome-session-ubuntu (Ubuntu风格)\" "
-                                       "\"5\" \"gnome-session-classic (经典风格)\" "
-                                       "\"0\" \"Back\"";
-            auto session_ch = Executor::tui_select(session_menu);
-            if (session_ch == "1") {
+            if (gnome_session_type_ == "1") {
                 SystemHelper::write_file("/usr/local/bin/gnome-shell-x11", generate_gnome_shell_x11());
                 CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/gnome-shell-x11").execute();
-            } else if (session_ch == "2") {
+            } else if (gnome_session_type_ == "2") {
                 SystemHelper::write_file("/usr/local/bin/gnome-flashback-metacity",
                                          generate_gnome_flashback_metacity());
                 CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/gnome-flashback-metacity").execute();
-            } else if (session_ch == "3") {
-                /* uses default gnome-session */
-            } else if (session_ch == "4") {
+            } else if (gnome_session_type_ == "4") {
                 SystemHelper::write_file("/usr/local/bin/gnome-session-ubuntu", generate_gnome_session_ubuntu());
                 CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/gnome-session-ubuntu").execute();
-            } else if (session_ch == "5") {
+            } else if (gnome_session_type_ == "5") {
                 SystemHelper::write_file("/usr/local/bin/gnome-session-classic", generate_gnome_session_classic());
                 CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/gnome-session-classic").execute();
             }
+            // session 3 uses default gnome-session (no wrapper needed)
         }
-        if (family == DistroFamily::Arch) {
-            auto r = Executor::passthrough(cfg_.tui_bin +
-                                           " --title \"gnome or gnome-extra\" --yes-button \"gnome\" --no-button \"gnome-extra\""
-                                           " --yesno '前者为gnome基础包,后者包含gnome-extra' 0 0");
-            if (r.exit_code == 1) PackageManager::install("gnome-extra", DistroFamily::Arch);
+
+        // fonts-noto-cjk + fonts-noto-color-emoji (bash: debian 装后)
+        if (is_debian) {
+            PackageManager::install("fonts-noto-cjk fonts-noto-color-emoji", family);
         }
+
         if (family == DistroFamily::RedHat)
             Executor::passthrough(cfg_.install_command + " @'GNOME Desktop' 2>/dev/null || true");
 
@@ -593,60 +901,44 @@ namespace tmoe::domain {
     }
 
     void DesktopManager::post_install_mate(DistroFamily family, bool is_debian, bool is_ubuntu) {
+        // bash: arch proot warning
         if (family == DistroFamily::Arch && cfg_.is_termux) arch_linux_mate_warning();
+        // bash: fonts-noto-cjk + fonts-noto-color-emoji (debian)
         if (is_debian) {
-            auto r = Executor::passthrough(cfg_.tui_bin +
-                                           " --title \"MATE-CORE or MATE-LITE\" --yes-button \"core\" --no-button \"lite\""
-                                           " --yesno '前者为普通mate,后者为精简版mate' 0 0");
-            if (r.exit_code == 0) install_packages({"mate-desktop-environment"});
-            else install_packages({"mate-desktop-environment-core"});
-            if (is_ubuntu) {
-                auto r2 = Executor::passthrough(cfg_.tui_bin +
-                                                " --title \"Mate or Ubuntu-MATE\" --yes-button \"mate\" --no-button \"ubuntu-mate\""
-                                                " --yesno '前者为普通mate,后者为ubuntu-mate' 0 0");
-                if (r2.exit_code == 1) install_packages({"ubuntu-mate-desktop"});
-            }
+            PackageManager::install("fonts-noto-cjk fonts-noto-color-emoji", family);
             Executor::passthrough("apt clean 2>/dev/null || true");
             Executor::passthrough("apt autoclean 2>/dev/null || true");
         }
+        // 版本选择 (mate/ubuntu-mate/core/lite) 已移至 install_desktop() 装包前
     }
 
     void DesktopManager::post_install_lxqt(bool is_debian, bool is_ubuntu) {
+        // bash: fonts-noto-cjk + fonts-noto-color-emoji
         if (is_debian) {
-            Executor::passthrough(cfg_.tui_bin +
-                                  " --title \"LXQT-CORE or LXQT-LITE\" --yes-button \"core\" --no-button \"lite\""
-                                  " --yesno '前者为普通lxqt,后者为精简版lxqt' 0 0");
-            if (is_ubuntu) {
-                auto r2 = Executor::passthrough(cfg_.tui_bin +
-                                                " --title \"Lxqt or Lubuntu-desktop\" --yes-button \"lxqt\" --no-button \"lubuntu\""
-                                                " --yesno '前者为普通lxqt,后者为lubuntu' 0 0");
-                if (r2.exit_code == 1) install_packages({"lubuntu-desktop"});
-            }
+            auto family = resolved_family();
+            PackageManager::install("fonts-noto-cjk fonts-noto-color-emoji", family);
         }
+        // 版本选择 (lxqt/lubuntu/core/lite) 已移至 install_desktop() 装包前
     }
 
     void DesktopManager::post_install_lxde(bool is_debian) {
+        // bash: apt_purge_libfprint 已在 post_install_desktop_config 公共部分处理
+        // bash: fonts-noto-cjk + fonts-noto-color-emoji
         if (is_debian) {
-            Executor::passthrough(cfg_.tui_bin +
-                                  " --title \"LXDE-CORE or LXDE-LITE\" --yes-button \"core\" --no-button \"lite\""
-                                  " --yesno '前者包含额外组件,后者更精简' 0 0");
+            auto family = resolved_family();
+            PackageManager::install("fonts-noto-cjk fonts-noto-color-emoji", family);
         }
     }
 
     void DesktopManager::post_install_cinnamon(DistroFamily family, bool is_debian) {
+        // bash: cinnamon_warning (proot/chroot 警告)
         cinnamon_warning();
+
+        // lite/standard 选择 + Linux Mint 检测 已移至 install_desktop() 装包前
+
         if (is_debian) {
-            auto r = Executor::passthrough(cfg_.tui_bin +
-                                           " --title \"Lite or standard\" --yes-button \"lite\" --no-button \"standard\""
-                                           " --yesno '前者更精简,后者包含额外组件\\nThe former is more streamlined' 0 0");
-            if (r.exit_code == 0)
-                Executor::passthrough(
-                    cfg_.install_command + " --no-install-recommends cinnamon-l10n cinnamon 2>/dev/null || true");
-            else
-                install_packages({"cinnamon-l10n", "cinnamon-desktop-environment", "cinnamon"});
-            auto issue_content = SystemHelper::read_file("/etc/issue");
-            if (issue_content.find("Linux Mint") != std::string::npos)
-                install_packages({"mint-meta-cinnamon", "mint-meta-core", "mint-artwork"});
+            // bash: fonts-noto-cjk + dpkg --configure
+            PackageManager::install("fonts-noto-cjk fonts-noto-color-emoji", family);
             Executor::passthrough("dpkg --configure -a 2>/dev/null || true");
         } else if (family == DistroFamily::RedHat) {
             Executor::passthrough(cfg_.install_command + " @'Cinnamon Desktop' 2>/dev/null || true");
@@ -665,41 +957,43 @@ namespace tmoe::domain {
     }
 
     void DesktopManager::post_install_budgie(bool is_debian, bool is_ubuntu) {
+        // bash: tmoe_desktop_warning (通用桌面警告)
         tmoe_desktop_warning();
-        if (is_debian) {
-            Executor::passthrough(cfg_.tui_bin +
-                                  " --title \"budgie-core or budgie-desktop\" --yes-button \"core\" --no-button \"desktop\""
-                                  " --yesno '前者更精简,后者包含额外组件' 0 0");
-            if (is_ubuntu) {
-                auto r2 = Executor::passthrough(cfg_.tui_bin +
-                                                " --title \"budgie or ubuntu-budgie-desktop\" --yes-button \"budgie\" --no-button \"ubuntu-budgie\""
-                                                " --yesno '前者为budgie基础桌面,后者为ubuntu-budgie-desktop' 0 0");
-                if (r2.exit_code == 1) install_packages({"ubuntu-budgie-desktop"});
-            }
+
+        // 版本选择 (budgie/ubuntu-budgie/core/desktop) 已移至 install_desktop() 装包前
+
+        // bash: choose_budgie_panel_or_desktop — 会话类型 (不影响包列表)
+        if (is_debian && !auto_install_mode_) {
             auto panel_r = Executor::passthrough(cfg_.tui_bin +
-                                                 " --title \"budgie session\" --yes-button \"panel\" --no-button \"desktop\""
-                                                 " --yesno 'budgie-panel + budgie-wm or budgie-desktop?' 0 0");
+                " --title \"budgie session\" --yes-button \"panel\" --no-button \"desktop\""
+                " --yesno 'budgie-panel + budgie-wm or budgie-desktop?' 0 0");
             if (panel_r.exit_code == 0) set_budgie_desktop_session("panel");
         }
+
+        // bash: cat_budgie_desktop_builtin_session
         SystemHelper::write_file("/usr/local/bin/budgie-desktop-builtin", generate_budgie_desktop_builtin());
         CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/budgie-desktop-builtin").execute();
+
+        // bash: fonts-noto-cjk
+        if (is_debian) {
+            auto family = resolved_family();
+            PackageManager::install("fonts-noto-cjk fonts-noto-color-emoji", family);
+        }
     }
 
     void DesktopManager::post_install_dde_or_deepin(DistroFamily family, bool is_debian) {
+        // bash: dde_warning / deepin_desktop_warning
         deepin_desktop_warning();
+
+        // DDE/UbuntuDDE 版本选择 已移至 install_desktop() 装包前
+
         if (is_debian) {
-            if (cfg_.sub_distro == "deepin") {
-                install_packages({"dde"});
-            } else {
+            // bash: non-deepin debian 需要先注册 UbuntuDDE PPA
+            if (cfg_.sub_distro != "deepin") {
                 deepin_desktop_debian();
-                auto r = Executor::passthrough(cfg_.tui_bin +
-                                               " --title \"DDE or DDE-extras\" --yes-button \"dde\" --no-button \"dde-extras\""
-                                               " --yesno '前者更精简,后者包含dde额外软件包' 0 0");
-                if (r.exit_code == 1)
-                    install_packages({"ubuntudde-dde-extras"});
-                else
-                    install_packages({"ubuntudde-dde", "deepin-terminal"});
             }
+            // bash: fonts-noto-cjk + dpkg configure
+            PackageManager::install("fonts-noto-cjk fonts-noto-color-emoji", family);
             Executor::passthrough("dpkg --configure -a 2>/dev/null || true");
             Executor::passthrough("apt clean 2>/dev/null || true"); {
                 const char *postinst_files[] = {
@@ -729,34 +1023,22 @@ namespace tmoe::domain {
     }
 
     void DesktopManager::post_install_ukui(bool is_ubuntu) {
+        // bash: tmoe_desktop_warning (已在公共部分处理)
+        // ukui/kylin 版本选择 已移至 install_desktop() 装包前
         if (is_ubuntu) {
-            auto r = Executor::passthrough(cfg_.tui_bin +
-                                           " --title \"ukui or ubuntukylin-desktop\" --yes-button \"ukui\" --no-button \"kylin\""
-                                           " --yesno '前者为普通ukui,后者为ubuntukylin-desktop' 0 0");
-            if (r.exit_code == 1) install_packages({"ubuntukylin-desktop"});
+            auto family = resolved_family();
+            PackageManager::install("fonts-noto-cjk fonts-noto-color-emoji", family);
         }
     }
 
     void DesktopManager::post_install_cutefish(DistroFamily family, bool is_debian, bool is_ubuntu, bool is_proot) {
+        // bash: 无版本选择，仅 DEPENDENCY_01="cutefish"。包列表由 registry + install_desktop 装包前管理
         Logger::info(_("gui.cutefish.intro"));
         if (is_proot) {
-        Logger::warn(_("gui.cutefish.systemd_warn"));
+            Logger::warn(_("gui.cutefish.systemd_warn"));
         }
-        if (is_debian) {
-            // Cutefish 在 Debian/Ubuntu 上需要从社区源安装
-            auto r = Executor::passthrough(cfg_.tui_bin +
-                                           " --title \"Cutefish install type\" --yes-button \"core\" --no-button \"full\""
-                                           " --yesno '前者为 cutefish 核心桌面, 后者包含额外组件' 0 0");
-            if (r.exit_code == 0) {
-                install_packages({"cutefish", "cutefish-core"});
-            } else {
-                install_packages({
-                    "cutefish", "cutefish-core", "cutefish-settings",
-                    "cutefish-dock", "cutefish-launcher", "cutefish-filemanager",
-                    "cutefish-terminal", "cutefish-texteditor"
-                });
-            }
-        } else if (family == DistroFamily::Arch) {
+        // 额外包按发行版补充 (bash 中 beta_features_quick_install 仅装 DEPENDENCY_01)
+        if (family == DistroFamily::Arch) {
             PackageManager::install({
                                         "cutefish", "cutefish-core", "cutefish-settings",
                                         "cutefish-dock", "cutefish-launcher", "cutefish-filemanager",
@@ -995,6 +1277,44 @@ namespace tmoe::domain {
         }
     }
 
+
+    void DesktopManager::auto_configure_xfce4_panel() {
+        // 对应旧 Bash auto_configure_xfce4_panel (gui:2167-2174)
+        const char* home = std::getenv("HOME");
+        if (!home) return;
+        fs::path panel_dir = fs::path(home) / ".config/xfce4/xfconf/xfce-perchannel-xml";
+        if (fs::exists(panel_dir / "xfce4-panel.xml")) return;  // 已配置，跳过
+
+        fs::create_directories(panel_dir);
+
+        // 生成默认 panel 配置
+        std::ostringstream xml;
+        xml << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            << "<channel name=\"xfce4-panel\" version=\"1.0\">\n"
+            << "  <property name=\"configver\" type=\"int\" value=\"2\"/>\n"
+            << "  <property name=\"panels\" type=\"array\">\n"
+            << "    <value type=\"int\" value=\"1\"/>\n"
+            << "    <property name=\"dark-mode\" type=\"bool\" value=\"false\"/>\n"
+            << "    <property name=\"panel-1\" type=\"empty\">\n"
+            << "      <property name=\"position\" type=\"string\" value=\"p=6;x=0;y=0\"/>\n"
+            << "      <property name=\"length\" type=\"uint\" value=\"100\"/>\n"
+            << "      <property name=\"size\" type=\"uint\" value=\"26\"/>\n"
+            << "      <property name=\"plugin-ids\" type=\"array\">\n"
+            << "        <value type=\"int\" value=\"1\"/>\n"
+            << "        <value type=\"int\" value=\"2\"/>\n"
+            << "        <value type=\"int\" value=\"3\"/>\n"
+            << "        <value type=\"int\" value=\"4\"/>\n"
+            << "        <value type=\"int\" value=\"5\"/>\n"
+            << "        <value type=\"int\" value=\"6\"/>\n"
+            << "        <value type=\"int\" value=\"7\"/>\n"
+            << "      </property>\n"
+            << "    </property>\n"
+            << "  </property>\n"
+            << "</channel>\n";
+
+        SystemHelper::write_file(panel_dir / "xfce4-panel.xml", xml.str());
+        Logger::info("XFCE panel config created at " + (panel_dir / "xfce4-panel.xml").string());
+    }
 
     void DesktopManager::xfce4_color_scheme() {
         // 对应旧 Bash xfce4_color_scheme (gui:1379-1429)

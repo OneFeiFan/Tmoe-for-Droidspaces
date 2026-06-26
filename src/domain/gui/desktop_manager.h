@@ -40,6 +40,10 @@ namespace tmoe::domain {
 
         void post_desktop_install_prompts();
 
+        void post_install_desktop_extras(std::string_view desktop);
+
+        void execute_optional_installs();
+
         // ---------- 输入法 ----------
         bool install_fcitx();
 
@@ -82,6 +86,8 @@ namespace tmoe::domain {
         void touch_xfce4_terminal_rc_ext();
 
         void xfce4_color_scheme();
+
+        void auto_configure_xfce4_panel();
 
         void choose_plasma_wayland_or_x11();
 
@@ -198,10 +204,11 @@ namespace tmoe::domain {
         VncManager &vnc_manager_;
 
         bool auto_install_mode_ = false;
+        std::string gnome_session_type_;  // GNOME 会话选择结果 (1-5)
         bool auto_install_fcitx4_ = false;
         bool auto_install_electron_ = false;
         bool auto_install_vscode_ = false;
-        bool auto_install_chromium_ = true;
+        bool auto_install_chromium_ = false;  // 默认不装，由用户选择
         bool auto_install_kali_ = false;
         std::string kali_tools_ = "kali-linux-arm";
 
