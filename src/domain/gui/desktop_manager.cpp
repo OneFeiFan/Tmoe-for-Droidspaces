@@ -634,10 +634,8 @@ namespace tmoe::domain {
                                   "snap install code --classic 2>/dev/null || true");
         }
 
-        // Ubuntu language support
-        if (cfg_.sub_distro == "ubuntu") {
-            Executor::passthrough("apt install -y $(check-language-support) 2>/dev/null || true");
-        }
+        // Ubuntu language support 已在 get_ubuntu_desktop_language_pack() 中处理
+        // (language-pack-zh-hans, language-pack-gnome-zh-hans 直接装，不走 check-language-support)
     }
 
     void DesktopManager::plasma_wayland_env() {
