@@ -305,9 +305,10 @@ namespace tmoe::domain {
         Logger::info(_("gui.vnc.configured_x11vnc_next"));
         Logger::info("------------------------");
 
-        Logger::info(std::string(_("gui.section_three")) + "：");
+        Logger::info(std::string(_("gui.section_three")));
         vnc_manager_.check_xvnc_command();
         remote_desktop_manager_.x11vnc_warning();
+        Logger::press_enter();
         auto x11vnc_confirm = Executor::passthrough(CommandBuilder(cfg_.tui_bin)
             .add_arg("--yesno")
             .add_arg(std::string(_("gui.confirm_x11vnc")))
@@ -320,6 +321,7 @@ namespace tmoe::domain {
 
         Logger::info(std::string(_("gui.section_four")) + "：");
         Logger::info(_("gui.vnc.unlock_achievement_hint"));
+        Logger::press_enter();
         remote_desktop_manager_.do_you_want_to_configure_novnc();
     }
 
