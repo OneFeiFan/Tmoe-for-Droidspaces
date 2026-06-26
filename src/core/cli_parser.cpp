@@ -36,36 +36,43 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
 
     // 阶段1: 解析 $1 — 核心路由状态机
     std::string_view arg1 = pos_args[0];
+    // needs_root 默认为 true（安全优先），以下白名单显式关闭：
+    //   proot、ls、zsh、theme、aria2、Help、
+    //   --start-vnc/--stop-vnc/--start-novnc/--start-xsdl/--start-x11vnc、
+    //   --vncpasswd/--choose-vnc-port、
+    //   -novnc/-vnc/-stop 快捷方式
+
     if (arg1.rfind("p", 0) == 0 || arg1 == "proot") {
         ctx.mode = LaunchMode::Proot;
+        ctx.needs_root = false;  // proot 非特权
     } else if (arg1.rfind("c", 0) == 0 || arg1 == "chroot") {
         ctx.mode = LaunchMode::Chroot;
-        ctx.needs_root = true;
     } else if (arg1 == "systemd" || arg1 == "sd" || arg1 == "systemctl" || arg1 == "ns" || arg1 == "nspawn") {
         ctx.mode = LaunchMode::Nspawn;
-        ctx.needs_root = true;
     } else if (arg1 == "ls") {
         ctx.mode = LaunchMode::ListContainers;
+        ctx.needs_root = false;
         return ctx;
     } else if (arg1 == "zsh") {
         ctx.mode = LaunchMode::ZshManager;
+        ctx.needs_root = false;
         return ctx;
     } else if (arg1 == "theme") {
         ctx.mode = LaunchMode::ThemeManager;
+        ctx.needs_root = false;
         return ctx;
     } else if (arg1 == "aria2") {
         ctx.mode = LaunchMode::Aria2Manager;
+        ctx.needs_root = false;
         return ctx;
     } else if (arg1 == "i" || arg1 == "-i") {
         ctx.mode = LaunchMode::DebianInstall;
-        ctx.needs_root = true;
         return ctx;
     } else if (arg1 == "m" || arg1 == "manager") {
         ctx.mode = LaunchMode::ManagerMenu;
         return ctx;
     } else if (arg1 == "-m" || arg1 == "mirror" || arg1 == "-mirror" || arg1 == "-tuna") {
         ctx.mode = LaunchMode::MirrorManager;
-        ctx.needs_root = true;  // 修改 apt sources.list
         return ctx;
     } else if (arg1 == "t" || arg1 == "tool") {
         ctx.mode = LaunchMode::ToolMenu;
@@ -92,17 +99,18 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
             ctx.gui_flag = arg1;
         }
 
-        // 按需提权: 仅安装/系统级配置操作需要 root
-        if (ctx.gui_flag.rfind("--auto-install-gui-", 0) == 0 ||
-            ctx.gui_flag == "--install-gui" ||
-            ctx.gui_flag == "install-gui" ||
-            ctx.gui_flag == "--auto-install-vscode" ||
-            ctx.gui_flag == "--fix-dbus") {
-            ctx.needs_root = true;
+        // 白名单: VNC 启动/停止/密码/端口操作无需 root
+        if (ctx.gui_flag == "--start-vnc" || ctx.gui_flag == "--stop-vnc" ||
+            ctx.gui_flag == "--start-novnc" || ctx.gui_flag == "--start-xsdl" ||
+            ctx.gui_flag == "--start-x11vnc" ||
+            ctx.gui_flag == "--vncpasswd" || ctx.gui_flag == "--choose-vnc-port") {
+            ctx.needs_root = false;
         }
+        // 其他 GUI 操作（安装、配置、交互菜单）保持默认 true
         return ctx;
     } else {
         ctx.mode = LaunchMode::Help;
+        ctx.needs_root = false;
         return ctx;
     }
 
@@ -113,16 +121,19 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
         if (first == "-novnc" || first == "-n" || (first == "m" && pos_args.size() > 1 && pos_args[1] == "-n")) {
             ctx.mode = LaunchMode::Proot;
             ctx.exec_program = "novnc";
+            ctx.needs_root = false;
             return ctx;
         }
         if (first == "-v" || first == "-vnc") {
             ctx.mode = LaunchMode::Proot;
             ctx.exec_program = "startvnc";
+            ctx.needs_root = false;
             return ctx;
         }
         if (first == "-s" || first == "-stop") {
             ctx.mode = LaunchMode::Proot;
             ctx.exec_program = "stopvnc";
+            ctx.needs_root = false;
             return ctx;
         }
     }

@@ -27,7 +27,7 @@ namespace tmoe {
     /** 强类型启动上下文（高内聚）。 */
     struct LaunchContext {
         LaunchMode mode = LaunchMode::Interactive;
-        bool needs_root = false;    // 是否需要 root 权限（按需提权）
+        bool needs_root = true;     // 默认需要 root（安全优先）；白名单操作显式关闭
 
         std::string distro_name;    // 发行版名称 (对应原 $2)
         std::string distro_code;    // 版本代号 (对应原 $3)

@@ -89,8 +89,8 @@ int main(int argc, char *argv[]) {
         ctx = tmoe::CliParser::parse(pos_args);
     }
 
-    // 阶段4: 按需提权 — 仅对需要 root 的操作调用 sudo
-    //        VNC 启动/停止、容器列表、主题等操作无需 root
+    // 阶段4: 按需提权 — 默认需要 root，白名单操作（VNC 启动/proot等）跳过
+    //        ctx.needs_root 由 CliParser 根据操作类型设定
     if (!cfg.is_termux && !cfg.is_root && ctx.needs_root) {
         // escalate_privileges 调用 execvp —— 以 root 重新执行，永不返回
         tmoe::Executor::escalate_privileges(argc, argv);

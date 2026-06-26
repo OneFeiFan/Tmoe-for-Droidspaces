@@ -97,7 +97,19 @@ namespace tmoe::domain {
         // 5c. 设置 VNC 密码
         bool passwd_exists = fs::exists(vnc_manager_.config().passwd_file) &&
                              fs::file_size(vnc_manager_.config().passwd_file) > 0;
-        if (!passwd_exists) {
+        if (passwd_exists) {
+            // 已有密码 → 询问是否修改
+            auto keep = Executor::passthrough(cfg_.tui_bin +
+                " --title \"VNC PASSWORD\""
+                " --yes-button \"Keep\""
+                " --no-button \"Change\""
+                " --yesno \"VNC password already exists.\\n\\n"
+                "Choose Keep to retain the existing password,\\n"
+                "or Change to set a new one.\" 0 0");
+            if (keep.exit_code != 0) {  // 用户选了 Change
+                vnc_manager_.configure_vnc_password();
+            }
+        } else {
             vnc_manager_.configure_vnc_password();
         }
 
@@ -752,6 +764,7 @@ namespace tmoe::domain {
                     ++i;
                     if (i == sel) {
                         desktop_manager_.install_desktop(d.id);
+                        first_configure_vnc(d.id);
                         desktop_manager_.after_desktop_install_hint();
                         break;
                     }
@@ -783,6 +796,7 @@ namespace tmoe::domain {
                     ++i;
                     if (i == sel) {
                         desktop_manager_.install_desktop(d.id);
+                        first_configure_vnc(d.id);
                         desktop_manager_.after_desktop_install_hint();
                         break;
                     }
@@ -819,6 +833,7 @@ namespace tmoe::domain {
                         } else {
                             desktop_manager_.install_window_manager(d.id);
                         }
+                        first_configure_vnc(d.id);
                         desktop_manager_.after_desktop_install_hint();
                         break;
                     }
