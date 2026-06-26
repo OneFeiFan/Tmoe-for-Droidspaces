@@ -199,7 +199,7 @@ namespace tmoe::app {
                 case 9: // mlocate — 确认后卸载
                     Logger::info(_("faq.a9"));
                     if (!Logger::confirm(_("faq.confirm_exec"))) break;
-                    PackageManager::remove({"mlocate", "catfish"}, domain::infer_family_from_config(cfg_.linux_distro));
+                    domain::PackageManager::remove({"mlocate", "catfish"}, domain::infer_family_from_config(cfg_.linux_distro));
                     Executor::passthrough("apt autoremove --purge 2>/dev/null");
                     break;
                 case 10: // TTY Chinese — whiptail yesno: fbterm vs LANG
@@ -212,7 +212,7 @@ namespace tmoe::app {
                         auto tty_rc = Executor::passthrough(tty_choice);
                         if (tty_rc.exit_code == 0) {
                             if (!Executor::has("fbterm"))
-                                PackageManager::install("fbterm", domain::infer_family_from_config(cfg_.linux_distro));
+                                domain::PackageManager::install("fbterm", domain::infer_family_from_config(cfg_.linux_distro));
                             Executor::passthrough("fbterm 2>/dev/null");
                         } else {
                             Logger::info("export LANG=C.UTF-8");
@@ -223,7 +223,7 @@ namespace tmoe::app {
                     Logger::info(_("faq.a11"));
                     if (!Logger::confirm(_("faq.a11_confirm"))) break;
                     Executor::passthrough("timedatectl set-local-rtc 1 --adjust-system-clock 2>/dev/null");
-                    PackageManager::install({"ntpdate", "chrony"}, domain::infer_family_from_config(cfg_.linux_distro));
+                    domain::PackageManager::install({"ntpdate", "chrony"}, domain::infer_family_from_config(cfg_.linux_distro));
                     Executor::passthrough("ntpdate time.windows.com 2>/dev/null");
                     Executor::passthrough("timedatectl set-ntp true 2>/dev/null");
                     Executor::passthrough(

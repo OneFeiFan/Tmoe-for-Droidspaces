@@ -77,7 +77,7 @@ namespace tmoe::domain {
 
         if (is_arch()) {
             auto result = PackageManager::install("wine", DistroFamily::Arch);
-            if (result.ok()) {
+            if (result) {
                 Logger::ok(_("virt.wine_installed_simple"));
                 return true;
             }
