@@ -30,8 +30,7 @@ namespace tmoe::domain {
         std::string t = target;
         // 移除尾部斜杠（对应 Bash 的 ${var%/}）
         while (!t.empty() && t.back() == '/') t.pop_back();
-        std::string cmd = "grep -qs ' " + t + " ' /proc/mounts";
-        return Executor::shell(cmd).ok();
+        return tmoe::CommandBuilder("grep").add_flag("-qs").add_arg(" " + t + " ").add_arg("/proc/mounts").execute().ok();
     }
 
     /** 执行挂载（对应 Bash 的 mount_01 / mount_ro_or_rw） */
@@ -428,7 +427,7 @@ namespace tmoe::domain {
                 // 成功读取
             }
         } else if (Executor::shell("command -v hostname").ok()) {
-            auto r = Executor::shell("hostname -f");
+            auto r = tmoe::CommandBuilder("hostname").add_flag("-f").execute();
             if (r.ok() && !r.stdout_data.empty()) {
                 hostname = r.stdout_data;
                 hostname.erase(std::remove(hostname.begin(), hostname.end(), '\n'), hostname.end());
@@ -569,7 +568,7 @@ namespace tmoe::domain {
         {
             std::string conf_dir_path = rootfs + "/usr/local/etc/tmoe-linux/config";
             std::string conf_path = conf_dir_path + "/chroot.conf";
-            Executor::shell("mkdir -p " + conf_dir_path);
+            tmoe::CommandBuilder("mkdir").add_flag("-p").add_arg(conf_dir_path).execute();
             std::ofstream cf(conf_path);
             if (cf.is_open()) {
                 cf << "CHROOT_ENABLED=true\n";

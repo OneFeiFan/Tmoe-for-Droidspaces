@@ -8,7 +8,7 @@ namespace tmoe::domain {
         Logger::step(_f("container.preparing_dir", rootfs_path));
 
         // 1. 确保目标目录存在
-        Executor::shell("mkdir -p " + rootfs_path);
+        CommandBuilder("mkdir").add_flag("-p").add_arg(rootfs_path).execute();
 
         // 2. 从数据驱动注册表查询 rootfs 下载地址
         auto rootfs_opt = RootfsRegistry::get_instance().query_rootfs(
@@ -57,7 +57,7 @@ namespace tmoe::domain {
         }
 
         Logger::ok(_f("container.install_complete", container.name(), container.distro()));
-        Executor::shell("rm -f " + tar_file);
+        CommandBuilder("rm").add_flag("-f").add_arg(tar_file).execute();
         return true;
     }
 } // namespace tmoe::domain

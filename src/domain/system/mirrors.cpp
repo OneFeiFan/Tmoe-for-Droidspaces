@@ -1,4 +1,6 @@
 #include "domain/system/mirrors.h"
+#include "domain/system/package_manager.h"
+#include "core/command_builder.hpp"
 #include "core/i18n.h"
 #include <algorithm>
 #include <cctype>
@@ -94,7 +96,7 @@ namespace tmoe::domain {
             Logger::step(_("mirror.backing_up_redhat"));
             auto r = Executor::shell("mkdir -p \"$(dirname " + backup_path + ")\" && "
                                      "tar -Ppzcvf " + backup_path + " " + compat->source_dir);
-            Logger::ok_or_fail(r.ok(), "备份 yum.repos.d");
+            Logger::ok_or_fail(r.ok(), _("mirror.backup_redhat_ok"));
             return r.ok();
         }
 
@@ -102,7 +104,7 @@ namespace tmoe::domain {
         Logger::step(_("mirror.backing_up"));
         auto r = Executor::shell("mkdir -p \"$(dirname " + backup_path + ")\" && "
                                  "cp -pf " + source_file + " " + backup_path);
-        Logger::ok_or_fail(r.ok(), "备份 " + source_file);
+        Logger::ok_or_fail(r.ok(), _f("mirror.backup_file_status", source_file));
 
         // Arch: 额外备份 pacman.conf
         if (cfg_.linux_distro == "arch" && compat && !compat->backup_conf.empty()) {
@@ -111,7 +113,7 @@ namespace tmoe::domain {
                 bc = std::string(std::getenv("HOME") ? std::getenv("HOME") : "/root") + bc.substr(1);
             }
             if (!fs::exists(bc)) {
-                Executor::shell("cp -pf " + compat->source_conf + " " + bc);
+                CommandBuilder("cp").add_flag("-pf").add_arg(compat->source_conf).add_arg(bc).execute();
             }
         }
         return r.ok();
@@ -120,16 +122,9 @@ namespace tmoe::domain {
     // ── 软件包数据库更新与升级 ──
     bool MirrorManager::run_update() const {
         Logger::step(_("mirror.updating"));
-        if (cfg_.linux_distro == "debian" || cfg_.linux_distro == "ubuntu" || cfg_.linux_distro == "kali") {
-            return Executor::passthrough("apt update").ok();
-        }
-        if (cfg_.linux_distro == "arch") {
-            return Executor::passthrough("pacman -Syyu --noconfirm").ok();
-        }
-        if (cfg_.linux_distro == "alpine") {
-            return Executor::passthrough("apk update").ok();
-        }
-        return true;
+        auto family = infer_family_from_config(cfg_.linux_distro);
+        if (family == DistroFamily::Unknown) return true;
+        return PackageManager::update(family);
     }
 
     bool MirrorManager::run_dist_upgrade() const {
@@ -168,7 +163,8 @@ namespace tmoe::domain {
         if (pos != std::string::npos) host = host.substr(0, pos);
 
         // 方法1: getent hosts (glibc 内置，依赖最少)
-        auto r = Executor::shell("getent hosts " + host + " 2>/dev/null | awk '{print $1; exit}'");
+        auto r = CommandBuilder("getent").add_arg("hosts").add_arg(host)
+                     .add_raw("2>/dev/null | awk '{print $1; exit}'").execute();
         if (r.ok() && !r.stdout_data.empty()) {
             auto ip = r.stdout_data;
             while (!ip.empty() && (ip.back() == '\n' || ip.back() == '\r')) ip.pop_back();
@@ -176,8 +172,9 @@ namespace tmoe::domain {
         }
 
         // 方法2: python3 socket.gethostbyname 回退方案
-        r = Executor::shell(
-            "python3 -c \"import socket; print(socket.gethostbyname('" + host + "'))\" 2>/dev/null");
+        r = CommandBuilder("python3").add_arg("-c")
+                .add_arg("import socket; print(socket.gethostbyname('" + host + "'))")
+                .add_raw("2>/dev/null").execute();
         if (r.ok() && !r.stdout_data.empty()) {
             auto ip = r.stdout_data;
             while (!ip.empty() && (ip.back() == '\n' || ip.back() == '\r')) ip.pop_back();
@@ -395,10 +392,12 @@ namespace tmoe::domain {
 
     void MirrorManager::fedora_31_repos(const std::string &url) {
         // 直接从镜像站下载官方 repo 文件
-        Executor::shell("curl -o /etc/yum.repos.d/fedora.repo http://" + url + "/repo/fedora.repo 2>/dev/null || true");
-        Executor::shell(
-            "curl -o /etc/yum.repos.d/fedora-updates.repo http://" + url +
-            "/repo/fedora-updates.repo 2>/dev/null || true");
+        CommandBuilder("curl").add_flag("-o").add_arg("/etc/yum.repos.d/fedora.repo")
+            .add_arg("http://" + url + "/repo/fedora.repo")
+            .add_raw("2>/dev/null || true").execute();
+        CommandBuilder("curl").add_flag("-o").add_arg("/etc/yum.repos.d/fedora-updates.repo")
+            .add_arg("http://" + url + "/repo/fedora-updates.repo")
+            .add_raw("2>/dev/null || true").execute();
     }
 
     void MirrorManager::fedora_32_repos(const std::string &url) {
@@ -462,7 +461,8 @@ namespace tmoe::domain {
         Executor::shell("eopkg remove-repo mirror 2>/dev/null || true");
 
         Logger::step(_("mirror.adding_solus_new"));
-        auto r = Executor::shell("eopkg add-repo mirror " + repo_url);
+        auto r = CommandBuilder("eopkg").add_arg("add-repo").add_arg("mirror")
+                     .add_arg(repo_url).execute();
         if (!r.ok()) {
             Logger::error(_("mirror.solus_add_failed"));
             return false;
@@ -520,9 +520,10 @@ namespace tmoe::domain {
             std::string test_url = "https://" + t.host + "/debian/ls-lR.gz";
             Logger::info(_f("mirror.speedtest_checking", t.name, t.host));
 
-            auto r = Executor::shell(
-                "curl -sL --max-time 8 -o /dev/null -w '%{speed_download}' "
-                "\"" + test_url + "\" 2>/dev/null");
+            auto r = CommandBuilder("curl").add_flag("-sL").add_flag("--max-time")
+                          .add_arg("8").add_flag("-o").add_arg("/dev/null")
+                          .add_flag("-w").add_arg("%{speed_download}")
+                          .add_arg(test_url).add_raw("2>/dev/null").execute();
             if (r.ok() && !r.stdout_data.empty()) {
                 std::string s = r.stdout_data;
                 // 提取纯数字和小数点，去掉所有空白和垃圾字符
@@ -613,9 +614,10 @@ namespace tmoe::domain {
         std::vector<PingResult> results;
 
         for (const auto &rt: resolved) {
-            auto r = Executor::shell(
-                "ping -c 3 -W 2 " + rt.ip +
-                " 2>/dev/null | grep 'rtt min/avg/max' | cut -d/ -f5");
+            auto r = CommandBuilder("ping").add_arg("-c").add_arg("3")
+                         .add_arg("-W").add_arg("2")
+                         .add_arg(rt.ip)
+                         .add_raw("2>/dev/null | grep 'rtt min/avg/max' | cut -d/ -f5").execute();
             if (r.ok() && !r.stdout_data.empty()) {
                 try {
                     double avg = std::stod(r.stdout_data);
@@ -706,11 +708,11 @@ namespace tmoe::domain {
         if (fs::exists(kali_list)) {
             Logger::warn(_("mirror.kali_list_detected"));
             if (!Logger::confirm(_("mirror.confirm_remove_kali_reconfig"))) return false;
-            Executor::shell("rm -fv " + kali_list + " " + keyring);
+            CommandBuilder("rm").add_flag("-fv").add_arg(kali_list).add_arg(keyring).execute();
         }
 
         Logger::step(_("mirror.kali_install_gnupg"));
-        Executor::passthrough("apt install -y gnupg || true");
+        PackageManager::install("gnupg", DistroFamily::Debian);
 
         Logger::step(_("mirror.kali_downloading_key"));
         auto r = Executor::passthrough("curl -L https://archive.kali.org/archive-key.asc | "
@@ -720,7 +722,10 @@ namespace tmoe::domain {
             return false;
         }
 
-        Executor::shell("install -o root -g root -m 644 /tmp/kali.gpg " + keyring);
+        CommandBuilder("install").add_flag("-o").add_arg("root")
+            .add_flag("-g").add_arg("root")
+            .add_flag("-m").add_arg("644")
+            .add_arg("/tmp/kali.gpg").add_arg(keyring).execute();
 
         Logger::step(_("mirror.kali_writing_list"));
         std::ofstream ofs(kali_list);
@@ -738,8 +743,8 @@ namespace tmoe::domain {
         ofs.close();
 
         Logger::step(_("mirror.updating"));
-        Executor::passthrough("apt update");
-        Executor::shell("apt install -y kali-menu 2>/dev/null || true");
+        PackageManager::update(DistroFamily::Debian);
+        PackageManager::install("kali-menu", DistroFamily::Debian);
 
         Logger::ok(_("mirror.kali_switch_ok"));
         return true;
@@ -767,10 +772,10 @@ namespace tmoe::domain {
 
         Logger::step(_("mirror.archlinuxcn_installing_paru"));
         if (!Executor::has("paru")) {
-            Executor::shell("pacman -S --noconfirm paru 2>/dev/null || true");
+            PackageManager::install("paru", DistroFamily::Arch);
         }
         if (!Executor::has("fakeroot")) {
-            Executor::shell("pacman -S --noconfirm fakeroot 2>/dev/null || true");
+            PackageManager::install("fakeroot", DistroFamily::Arch);
         }
 
         Logger::ok(_("mirror.archlinuxcn_ok"));
@@ -780,8 +785,7 @@ namespace tmoe::domain {
     // ── EPEL 源 (RHEL/CentOS) ──
     bool MirrorManager::add_epel_source() {
         Logger::step(_("mirror.epel_installing"));
-        auto r = Executor::shell("yes | yum install -y epel-release 2>/dev/null || "
-            "yes | dnf install -y epel-release 2>/dev/null || true");
+        auto r = PackageManager::install("epel-release", DistroFamily::RedHat);
 
         if (!fs::exists("/etc/yum.repos.d/epel.repo")) {
             Logger::error(_("mirror.epel_failed"));
@@ -789,9 +793,14 @@ namespace tmoe::domain {
         }
 
         // 备份
-        Executor::shell("cp -pvf /etc/yum.repos.d/epel.repo /etc/yum.repos.d/epel.repo.backup 2>/dev/null || true");
-        Executor::shell(
-            "cp -pvf /etc/yum.repos.d/epel-testing.repo /etc/yum.repos.d/epel-testing.repo.backup 2>/dev/null || true");
+        CommandBuilder("cp").add_flag("-pvf")
+            .add_arg("/etc/yum.repos.d/epel.repo")
+            .add_arg("/etc/yum.repos.d/epel.repo.backup")
+            .add_raw("2>/dev/null || true").execute();
+        CommandBuilder("cp").add_flag("-pvf")
+            .add_arg("/etc/yum.repos.d/epel-testing.repo")
+            .add_arg("/etc/yum.repos.d/epel-testing.repo.backup")
+            .add_raw("2>/dev/null || true").execute();
 
         // 替换为 OpenTUNA 镜像
         Logger::step(_("mirror.epel_replacing"));
@@ -959,16 +968,17 @@ namespace tmoe::domain {
 
         // 第二步: ping 已解析的 IP 地址（零 DNS 开销）
         for (const auto &rm: resolved) {
-            auto r = Executor::shell(
-                "ping -c 3 -W 2 " + rm.ip +
-                " 2>/dev/null | grep 'rtt min/avg/max' | cut -d/ -f5");
+            auto r = CommandBuilder("ping").add_arg("-c").add_arg("3")
+                         .add_arg("-W").add_arg("2")
+                         .add_arg(rm.ip)
+                         .add_raw("2>/dev/null | grep 'rtt min/avg/max' | cut -d/ -f5").execute();
             if (r.ok() && !r.stdout_data.empty()) {
                 try {
                     double avg = std::stod(r.stdout_data);
                     results.push_back({rm.id, rm.name, avg});
                     std::string color = (avg < 30) ? "🟢" : (avg < 80) ? "🟡" : "🔴";
-                    Logger::info("  " + color + " " + rm.name + ": " +
-                                 std::to_string(avg).substr(0, 6) + " ms");
+                    Logger::info("  " + color + " " + _f("mirror.ping_result_entry", rm.name, rm.ip,
+                                                         std::to_string(avg).substr(0, 6)));
                 } catch (...) {
                     Logger::warn(_f("mirror.ping_result_parse_failed", rm.name));
                 }
@@ -1019,17 +1029,19 @@ namespace tmoe::domain {
         Logger::step(_("mirror.restoring_backup"));
 
         if (cfg_.linux_distro == "redhat") {
-            Executor::shell("tar -Ppzxvf " + backup_path);
+            CommandBuilder("tar").add_flag("-Ppzxvf").add_arg(backup_path).execute();
             return true;
         }
 
         // 非 RedHat: 普通文件拷贝
         std::string source = compat->source_file;
-        auto r = Executor::shell("cp -pfv " + backup_path + " " + source);
-        Logger::ok_or_fail(r.ok(), "还原 " + source);
+        auto r = CommandBuilder("cp").add_flag("-pfv").add_arg(backup_path).add_arg(source).execute();
+        Logger::ok_or_fail(r.ok(), _f("mirror.restore_file_status", source));
 
         // 显示新旧对比
-        Executor::shell("diff " + backup_path + " " + source + " -y --color 2>/dev/null || true");
+        CommandBuilder("diff").add_arg(backup_path).add_arg(source)
+            .add_flag("-y").add_flag("--color")
+            .add_raw("2>/dev/null || true").execute();
 
         // Arch: 额外还原 pacman.conf
         if (cfg_.linux_distro == "arch" && !compat->backup_conf.empty()) {
@@ -1038,7 +1050,7 @@ namespace tmoe::domain {
                 bc = std::string(std::getenv("HOME") ? std::getenv("HOME") : "/root") + bc.substr(1);
             }
             if (fs::exists(bc)) {
-                Executor::shell("cp -pf " + bc + " " + compat->source_conf);
+                CommandBuilder("cp").add_flag("-pf").add_arg(bc).add_arg(compat->source_conf).execute();
             }
         }
 
@@ -1115,7 +1127,8 @@ namespace tmoe::domain {
         }
 
         // 去重 (sort -u)
-        Executor::shell("sort -u " + compat->source_file + " -o " + compat->source_file);
+        CommandBuilder("sort").add_flag("-u").add_arg(compat->source_file)
+            .add_flag("-o").add_arg(compat->source_file).execute();
 
         run_update();
         Logger::ok(_("mirror.clean_complete"));

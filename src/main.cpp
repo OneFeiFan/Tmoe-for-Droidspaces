@@ -107,10 +107,14 @@ int main(int argc, char *argv[]) {
     // 复刻原版 Bash 行为：位置参数过多时发出警告
     if (pos_args.size() >= 7) {
         tmoe::Logger::error(_("cli.too_many_args"));
-        std::fprintf(stderr, "%s tmoe %s %s %s %s %s %s\n",
-                     _("cli.retype_hint").c_str(),
-                     pos_args[0].data(), pos_args[1].data(), pos_args[2].data(),
-                     pos_args[3].data(), pos_args[4].data(), pos_args[5].data());
+        auto retype_hint = _("cli.retype_hint");
+        tmoe::Logger::info(retype_hint + " tmoe "
+                          + std::string(pos_args[0]) + " "
+                          + std::string(pos_args[1]) + " "
+                          + std::string(pos_args[2]) + " "
+                          + std::string(pos_args[3]) + " "
+                          + std::string(pos_args[4]) + " "
+                          + std::string(pos_args[5]));
     }
 
     return manager.run_launch_context(ctx);

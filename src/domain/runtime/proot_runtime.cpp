@@ -287,7 +287,10 @@ bool ProotRuntime::start(const Container &container, const LaunchContext *ctx) {
 
 bool ProotRuntime::stop(const Container &container) {
     Logger::step(_f("proot.stopping", container.name()));
-    return Executor::shell("pkill -f 'proot.*" + container.rootfs_path() + "'").ok();
+    CommandBuilder cb("pkill");
+    cb.add_flag("-f");
+    cb.add_arg("proot.*" + container.rootfs_path());
+    return Executor::shell(cb.build_string()).ok();
 }
 
 } // namespace tmoe::domain

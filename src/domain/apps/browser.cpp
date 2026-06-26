@@ -13,14 +13,14 @@ namespace tmoe::domain {
 
     void BrowserManager::run_browser_menu() {
         while (true) {
-            std::string menu = cfg_.tui_bin + " --title \"Browsers\""
-                               " --menu \"Which browser do you want to install?\" 0 50 0 "
-                               "\"1\" \"Mozilla Firefox & Google Chromium\" "
-                               "\"2\" \"Microsoft Edge (x64,享受出色的浏览体验)\" "
-                               "\"3\" \"Falkon (Qupzilla的前身,来自KDE,使用QtWebEngine)\" "
-                               "\"4\" \"Vivaldi (一切皆可定制)\" "
-                               "\"5\" \"Epiphany (GNOME默认浏览器,基于Mozilla的Gecko)\" "
-                               "\"6\" \"Midori (轻量级,开源浏览器)\" "
+            std::string menu = cfg_.tui_bin + " --title \"" + _("browser.menu_title") + "\""
+                               " --menu \"" + _("browser.menu_prompt") + "\" 0 50 0 "
+                               "\"1\" \"" + _("browser.menu_item_firefox_chromium") + "\" "
+                               "\"2\" \"" + _("browser.menu_item_edge") + "\" "
+                               "\"3\" \"" + _("browser.menu_item_falkon") + "\" "
+                               "\"4\" \"" + _("browser.menu_item_vivaldi") + "\" "
+                               "\"5\" \"" + _("browser.menu_item_epiphany") + "\" "
+                               "\"6\" \"" + _("browser.menu_item_midori") + "\" "
                                "\"0\" \"" + _("menu.tui.back_upper") + "\"";
 
             auto ch = Executor::tui_select(menu);
@@ -41,10 +41,8 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
     void BrowserManager::firefox_or_chromium() {
         std::string cmd = cfg_.tui_bin +
-                          " --title \"请从两个小可爱中选择一个\" --yes-button \"chromium\" --no-button \"Firefox\""
-                          " --yesno 'I am Firefox, choose me. 我是火狐娘，选我啦！\n"
-                          "妾身乃chrome娘的姐姐chromium娘，妾身和那些妖艳的货色不一样，\n"
-                          "选择妾身就没错呢！请做出您的选择！' 15 50";
+                          " --title \"" + _("browser.firefox_chromium_select_title") + "\" --yes-button \"chromium\" --no-button \"Firefox\""
+                          " --yesno '" + _("browser.firefox_chromium_select_yesno") + "' 15 50";
         auto r = Executor::passthrough(cmd);
         if (r.exit_code == 0) chromium_browser_menu(); // yes=chromium
         else if (r.exit_code == 1) firefox_or_firefoxesr(); // no=Firefox
@@ -54,17 +52,15 @@ namespace tmoe::domain {
     void BrowserManager::firefox_or_firefoxesr() {
         // 先问安装还是卸载
         std::string cmd = cfg_.tui_bin +
-                          " --title \"FIREFOX 安装与卸载\" --yes-button \"install 安装\" --no-button \"remove 卸载\""
-                          " --yesno \"Do you want to install or remove Firefox?\" 8 50";
+                          " --title \"" + _("browser.firefox_install_remove_title") + "\" --yes-button \"install 安装\" --no-button \"remove 卸载\""
+                          " --yesno \"" + _("browser.firefox_install_remove_yesno") + "\" 8 50";
         auto r = Executor::passthrough(cmd);
         bool do_remove = (r.exit_code == 1);
 
         // 再选版本
         cmd = cfg_.tui_bin +
-              " --title \"请从两个小可爱中选择一个\" --yes-button \"Firefox\" --no-button \"ESR\""
-              " --yesno 'I am Firefox,I have a younger sister called ESR.\n"
-              "我是火狐娘，其实我还有个妹妹叫esr，您是选她还是选我?\n"
-              "躲在姐姐背后的esr略带羞愤地说。请做出您的选择！' 12 53";
+              " --title \"" + _("browser.firefox_chromium_select_title") + "\" --yes-button \"Firefox\" --no-button \"ESR\""
+              " --yesno '" + _("browser.firefox_esr_select_yesno") + "' 12 53";
         r = Executor::passthrough(cmd);
 
         if (do_remove) {
@@ -78,8 +74,8 @@ namespace tmoe::domain {
 
     void BrowserManager::chromium_browser_menu() {
         std::string cmd = cfg_.tui_bin +
-                          " --title \"CHROMIUM安装与卸载\" --yes-button \"install\" --no-button \"remove\""
-                          " --yesno \"Do you want to install chromium or remove it?\" 8 50";
+                          " --title \"" + _("browser.chromium_install_remove_title") + "\" --yes-button \"install\" --no-button \"remove\""
+                          " --yesno \"" + _("browser.chromium_install_remove_yesno") + "\" 8 50";
         auto r = Executor::passthrough(cmd);
         if (r.exit_code == 0) install_chromium();
         else if (r.exit_code == 1) remove_chromium();
@@ -87,9 +83,9 @@ namespace tmoe::domain {
 
     void BrowserManager::microsoft_edge_menu() {
         std::string cmd = cfg_.tui_bin +
-                          " --title \"Do you want to install or remove edge?\""
+                          " --title \"" + _("browser.edge_install_remove_title") + "\""
                           " --yes-button \"install安装\" --no-button \"remove移除\""
-                          " --yesno \"Microsoft Edge is a cross-platform web browser developed by Microsoft.\" 10 50";
+                          " --yesno \"" + _("browser.edge_install_remove_yesno") + "\" 10 50";
         auto r = Executor::passthrough(cmd);
         if (r.exit_code == 0) install_edge();
         else if (r.exit_code == 1) remove_edge();
@@ -97,8 +93,8 @@ namespace tmoe::domain {
 
     void BrowserManager::falkon_browser_menu() {
         std::string cmd = cfg_.tui_bin +
-                          " --title \"FALKON安装与卸载\" --yes-button \"install\" --no-button \"remove\""
-                          " --yesno \"Do you want to install falkon or remove it?\" 8 50";
+                          " --title \"" + _("browser.falkon_install_remove_title") + "\" --yes-button \"install\" --no-button \"remove\""
+                          " --yesno \"" + _("browser.falkon_install_remove_yesno") + "\" 8 50";
         auto r = Executor::passthrough(cmd);
         if (r.exit_code == 0) install_falkon();
         else if (r.exit_code == 1) remove_falkon();
@@ -161,7 +157,7 @@ namespace tmoe::domain {
         }
 
         if (!ok) {
-            Logger::warn("Firefox ESR 安装失败，尝试安装普通 Firefox...");
+            Logger::warn(_("browser.firefox_esr_failed_fallback"));
             install_firefox();
             return;
         }
@@ -283,7 +279,7 @@ namespace tmoe::domain {
     void BrowserManager::remove_chromium() {
         auto family = infer_family_from_config(cfg_.linux_distro);
         auto r = Executor::passthrough(cfg_.tui_bin +
-                                       " --yesno \"确认卸载 Chromium？\" 8 50");
+                                       " --yesno \"" + _("browser.confirm_remove_chromium") + "\" 8 50");
         if (r.exit_code != 0) return;
         if (family == DistroFamily::Debian)
             Executor::passthrough(
@@ -303,7 +299,7 @@ namespace tmoe::domain {
 
     void BrowserManager::remove_edge() {
         auto r = Executor::passthrough(cfg_.tui_bin +
-                                       " --yesno \"确认卸载 Microsoft Edge？\" 8 50");
+                                       " --yesno \"" + _("browser.confirm_remove_edge") + "\" 8 50");
         if (r.exit_code != 0) return;
         auto family = infer_family_from_config(cfg_.linux_distro);
         PackageManager::remove("microsoft-edge-dev", family);
@@ -313,9 +309,7 @@ namespace tmoe::domain {
                     CommandBuilder("rm").add_flag("-vf")
                         .add_arg("/etc/apt/sources.list.d/microsoft-edge-dev.list")
                         .add_raw("2>/dev/null || true").build_string());
-                Executor::passthrough(
-                    CommandBuilder("apt").add_flag("update")
-                        .add_raw("2>/dev/null || true").build_string());
+                PackageManager::update(DistroFamily::Debian);
                 break;
             case DistroFamily::RedHat:
                 Executor::passthrough(
@@ -342,7 +336,7 @@ namespace tmoe::domain {
 
     void BrowserManager::remove_falkon() {
         auto r = Executor::passthrough(cfg_.tui_bin +
-                                       " --yesno \"确认卸载 Falkon？\" 8 50");
+                                       " --yesno \"" + _("browser.confirm_remove_falkon") + "\" 8 50");
         if (r.exit_code != 0) return;
         auto family = infer_family_from_config(cfg_.linux_distro);
         PackageManager::remove("falkon", family);
@@ -355,7 +349,7 @@ namespace tmoe::domain {
 
     void BrowserManager::remove_firefox() {
         auto r = Executor::passthrough(cfg_.tui_bin +
-                                       " --yesno \"确认卸载 Firefox？\" 8 50");
+                                       " --yesno \"" + _("browser.confirm_remove_firefox") + "\" 8 50");
         if (r.exit_code != 0) return;
         auto family = infer_family_from_config(cfg_.linux_distro);
         if (family == DistroFamily::Debian) {
@@ -384,7 +378,7 @@ namespace tmoe::domain {
 
     void BrowserManager::remove_firefox_esr() {
         auto r = Executor::passthrough(cfg_.tui_bin +
-                                       " --yesno \"确认卸载 Firefox ESR？\" 8 50");
+                                       " --yesno \"" + _("browser.confirm_remove_firefox_esr") + "\" 8 50");
         if (r.exit_code != 0) return;
         auto family = infer_family_from_config(cfg_.linux_distro);
         if (family == DistroFamily::Debian) {
@@ -526,16 +520,14 @@ namespace tmoe::domain {
                         << "Pin: version 1:1snap1-0ubuntu2\n"
                         << "Pin-Priority: -1\n";
                 prefs.close();
-                Logger::info("已设置 Firefox apt pinning 优先级");
+                Logger::info(_("browser.firefox_apt_pinning_set"));
                 needs_update = true;
             }
         }
 
         // 3. 如果新增了 PPA 或 pinning，刷新 apt 缓存
         if (needs_update) {
-            Executor::passthrough(
-                CommandBuilder("apt").add_flag("update")
-                    .add_raw("2>/dev/null || true").build_string());
+            PackageManager::update(DistroFamily::Debian);
         }
     }
 
@@ -574,6 +566,6 @@ namespace tmoe::domain {
         ofs.close();
 
         Logger::step(_("browser.edge_repo") + ": apt update");
-        Executor::passthrough(CommandBuilder("apt").add_flag("update").build_string());
+        PackageManager::update(DistroFamily::Debian);
     }
 } // namespace tmoe::domain

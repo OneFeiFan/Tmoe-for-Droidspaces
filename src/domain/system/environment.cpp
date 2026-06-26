@@ -1,4 +1,6 @@
 #include "domain/system/environment.h"
+#include "domain/system/package_manager.h"
+#include "core/command_builder.hpp"
 #include "core/i18n.h"
 
 namespace tmoe::domain {
@@ -52,7 +54,7 @@ namespace tmoe::domain {
                 }
 
                 if (has_issue && Logger::confirm(_("env.confirm_repair_dpkg"))) {
-                    Logger::step("正在尝试自动修复包管理器状态...");
+                    Logger::step(_("env.repairing_dpkg"));
                     // 先清理残留锁文件（无进程持有时）
                     Executor::shell("fuser /var/lib/dpkg/lock 2>/dev/null || "
                         "rm -f /var/lib/dpkg/lock /var/lib/dpkg/lock-frontend 2>/dev/null || true");
@@ -131,7 +133,7 @@ namespace tmoe::domain {
             } else {
                 Logger::error(_("env.deps_failed"));
                 // 阻断前给出确切的排查提示
-                Logger::info("请检查您的网络连接或软件源配置。");
+                Logger::info(_("env.check_network"));
                 return false;
             }
         } else {
@@ -223,9 +225,9 @@ namespace tmoe::domain {
             } else {
                 Logger::warn(_("env.font_install_failed"));
                 if (needs_cjk(lang)) {
-                    Logger::info("Please manually install CJK font packages (e.g., fonts-noto-cjk / noto-fonts-cjk)");
+                    Logger::info(_("env.manual_cjk_fonts"));
                 } else if (needs_cyrillic(lang)) {
-                    Logger::info("Please manually install Cyrillic-capable font packages (e.g., fonts-noto)");
+                    Logger::info(_("env.manual_cyrillic_fonts"));
                 }
             }
         }
@@ -313,15 +315,17 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
 
     bool Environment::is_locale_generated(std::string_view lang) const {
-        std::string cmd = "locale -a 2>/dev/null | grep -qi '^" + std::string(lang) + "'";
-        return Executor::shell(cmd).ok();
+        return CommandBuilder("locale").add_flag("-a")
+            .add_raw("2>/dev/null | grep -qi '^" + std::string(lang) + "'")
+            .execute().ok();
     }
 
     bool Environment::generate_locale_auto(std::string_view lang) {
         std::string locale_str = std::string(lang) + ".UTF-8";
 
         if (cfg_.linux_distro == "debian") {
-            return Executor::shell("locale-gen " + locale_str + " 2>/dev/null").ok();
+            return CommandBuilder("locale-gen").add_arg(locale_str)
+                .add_raw("2>/dev/null").execute().ok();
         } else if (cfg_.linux_distro == "arch" || cfg_.linux_distro == "gentoo") {
             return generate_locale_via_locale_gen(lang);
         } else if (cfg_.linux_distro == "alpine") {
@@ -358,8 +362,8 @@ namespace tmoe::domain {
 
         if (!Executor::has("fc-list")) return false;
 
-        auto result = Executor::shell(
-            "fc-list :lang=" + fc_code + " 2>/dev/null | head -1");
+        auto result = CommandBuilder("fc-list").add_arg(":lang=" + fc_code)
+            .add_raw("2>/dev/null | head -1").execute();
         return result.ok() && !result.stdout_data.empty();
     }
 
@@ -396,12 +400,9 @@ namespace tmoe::domain {
                      "emerge --ask=n media-fonts/noto-cjk 2>/dev/null").ok();
         } else {
             // 未知发行版：尝试常见包管理器
-            ok = Executor::passthrough(
-                     "apt install -y fonts-noto-cjk fonts-noto 2>/dev/null").ok() ||
-                 Executor::passthrough(
-                     "pacman -Syu --noconfirm --needed noto-fonts-cjk noto-fonts 2>/dev/null").ok() ||
-                 Executor::passthrough(
-                     "apk add font-noto-cjk font-noto 2>/dev/null").ok();
+            ok = PackageManager::install({"fonts-noto-cjk", "fonts-noto"}, DistroFamily::Debian) ||
+                 PackageManager::install({"noto-fonts-cjk", "noto-fonts"}, DistroFamily::Arch) ||
+                 PackageManager::install({"font-noto-cjk", "font-noto"}, DistroFamily::Alpine);
         }
 
         if (ok) {

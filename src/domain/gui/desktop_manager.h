@@ -8,6 +8,7 @@
 #include "../gui_config/registries.h"
 #include "../gui_config/templates.h"
 #include "domain/system/package_manager.h"
+#include "core/command_builder.hpp"
 
 namespace fs = std::filesystem;
 

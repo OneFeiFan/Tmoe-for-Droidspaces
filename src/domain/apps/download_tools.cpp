@@ -100,13 +100,13 @@ bt-tracker=udp://tracker.opentrackr.org:1337/announce,udp://tracker.openbittorre
             "    -D >/dev/null 2>&1 & "
             "  sleep 1; fi"
         );
-        Logger::ok("aria2c");
+        Logger::ok(_("download.aria2_started"));
     }
 
     void DownloadTools::stop_aria2() {
         Logger::step(_("download.aria2_stop"));
         CommandBuilder("pkill").add_arg("aria2c").add_raw("2>/dev/null || true").execute();
-        Logger::ok("aria2c");
+        Logger::ok(_("download.aria2_stopped"));
     }
 
     void DownloadTools::install_aria_webui() {

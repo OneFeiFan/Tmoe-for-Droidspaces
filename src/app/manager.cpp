@@ -1,4 +1,6 @@
 #include "manager.h"
+#include "domain/system/package_manager.h"
+#include "core/command_builder.hpp"
 #include <algorithm>
 #include <fstream>
 
@@ -76,7 +78,7 @@ namespace tmoe::app {
 
             Logger::info(_("container.list_header"));
             for (const auto &c: containers) {
-                Logger::info(" - " + c.name() + " (" + c.distro() + ")");
+                Logger::info(_f("container.list_item", c.name(), c.distro()));
             }
             // TODO: 扩展 whiptail 多选清单功能
             if (Logger::confirm(_("container.confirm_remove_default"))) {
@@ -105,7 +107,7 @@ namespace tmoe::app {
         // 7. 通过 git pull 自更新
         tui_routes_["7"] = [this]() {
             Logger::step(_("update.fetching"));
-            if (Executor::passthrough("git -C " + cfg_.work_dir.string() + " pull").ok()) {
+            if (CommandBuilder("git").add_flag("-C").add_arg(cfg_.work_dir.string()).add_arg("pull").execute().ok()) {
                 Logger::ok(_("update.success"));
             } else {
                 Logger::error(_("update.failed"));
@@ -117,7 +119,7 @@ namespace tmoe::app {
         tui_routes_["8"] = [this]() {
             while (true) {
                 std::string faq_menu = cfg_.tui_bin +
-                    " --title \"FAQ(よくある質問)\""
+                    " --title \"" + _("faq.title") + "\""
                     " --menu \"" + _("faq.menu_prompt") + "\" 0 0 0 "
                     "\"1\" \""  + _("faq.q1") + "\" "
                     "\"2\" \""  + _("faq.q2") + "\" "
@@ -162,15 +164,14 @@ namespace tmoe::app {
                             }
                         }
                         if (user.empty() || user == "root") {
-                            Logger::warn("Could not determine real user — skipping chown");
+                            Logger::warn(_("faq.cannot_determine_user"));
                             break;
                         }
                         const char* home = std::getenv("HOME");
                         std::string homedir = home ? home : "/home/" + user;
                         Logger::step("chown -R " + user + ":" + user + " " + homedir + "/.config/xfce4");
-                        auto r = Executor::passthrough(
-                            "chown -Rv " + user + ":" + user + " " + homedir + "/.config/xfce4");
-                        if (r.ok()) Logger::ok("xfce4 config ownership restored to " + user);
+                        auto r = CommandBuilder("chown").add_flag("-Rv").add_arg(user + ":" + user).add_arg(homedir + "/.config/xfce4").execute();
+                        if (r.ok()) Logger::ok(_f("faq.xfce_ownership_restored", user));
                     }
                     break;
                 case 4: // dbus/settings — 仅显示
@@ -198,7 +199,7 @@ namespace tmoe::app {
                 case 9: // mlocate — 确认后卸载
                     Logger::info(_("faq.a9"));
                     if (!Logger::confirm(_("faq.confirm_exec"))) break;
-                    Executor::passthrough(cfg_.remove_command + " mlocate catfish 2>/dev/null");
+                    PackageManager::remove({"mlocate", "catfish"}, domain::infer_family_from_config(cfg_.linux_distro));
                     Executor::passthrough("apt autoremove --purge 2>/dev/null");
                     break;
                 case 10: // TTY Chinese — whiptail yesno: fbterm vs LANG
@@ -211,7 +212,7 @@ namespace tmoe::app {
                         auto tty_rc = Executor::passthrough(tty_choice);
                         if (tty_rc.exit_code == 0) {
                             if (!Executor::has("fbterm"))
-                                Executor::passthrough(cfg_.install_command + " fbterm 2>/dev/null");
+                                PackageManager::install("fbterm", domain::infer_family_from_config(cfg_.linux_distro));
                             Executor::passthrough("fbterm 2>/dev/null");
                         } else {
                             Logger::info("export LANG=C.UTF-8");
@@ -222,7 +223,7 @@ namespace tmoe::app {
                     Logger::info(_("faq.a11"));
                     if (!Logger::confirm(_("faq.a11_confirm"))) break;
                     Executor::passthrough("timedatectl set-local-rtc 1 --adjust-system-clock 2>/dev/null");
-                    Executor::passthrough(cfg_.install_command + " ntpdate chrony 2>/dev/null");
+                    PackageManager::install({"ntpdate", "chrony"}, domain::infer_family_from_config(cfg_.linux_distro));
                     Executor::passthrough("ntpdate time.windows.com 2>/dev/null");
                     Executor::passthrough("timedatectl set-ntp true 2>/dev/null");
                     Executor::passthrough(
@@ -619,7 +620,7 @@ namespace tmoe::app {
                 auto list = container_mgr_->list_all();
                 Logger::info(_("container.list_title"));
                 for (const auto &c: list) {
-                    std::fprintf(stderr, "  - %s [%s]\n", c.name().c_str(), c.rootfs_path().c_str());
+                    Logger::info(_f("container.list_item_path", c.name(), c.rootfs_path()));
                 }
                 break;
             }

@@ -99,7 +99,7 @@ namespace tmoe::domain {
 
         // 检查是否需要 root 权限
         if (info.requires_root && cfg_.is_termux) {
-            Logger::warn(info.name + " 需要 systemd 支持，当前 proot 环境可能无法正常运行");
+            Logger::warn(_f("gui.desktop.systemd_warn", info.name));
         }
 
         // 提示即将安装的软件包
@@ -315,9 +315,9 @@ namespace tmoe::domain {
             Executor::shell("export GDK_BACKEND=wayland 2>/dev/null || true");
             Executor::shell("export QT_QPA_PLATFORM=wayland 2>/dev/null || true");
             Executor::shell("export MOZ_ENABLE_WAYLAND=1 2>/dev/null || true");
-            Logger::ok("Plasma Wayland 环境变量已配置");
+            Logger::ok(_("gui.plasma_wayland.configured"));
         } else {
-            Logger::info("Wayland 环境变量已存在，跳过配置");
+            Logger::info(_("gui.plasma_wayland.exists"));
         }
     }
 
@@ -418,21 +418,12 @@ namespace tmoe::domain {
                     auto os_release = SystemHelper::read_file("/etc/os-release");
                     bool is_bionic = (os_release.find("Bionic") != std::string::npos);
                     if (is_bionic)
-                        Executor::passthrough("apt install -y xfpanel-switch 2>/dev/null || true");
+                        PackageManager::install("xfpanel-switch", DistroFamily::Debian);
                     else
-                        Executor::passthrough("apt install -y xfce4-panel-profiles 2>/dev/null || true");
+                        PackageManager::install("xfce4-panel-profiles", DistroFamily::Debian);
                 } else {
-                    Executor::passthrough(
-                        "REPO_URL='https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/x/xfce4-panel-profiles/' && "
-                        "cd /tmp && "
-                        "THE_LATEST_DEB_VERSION=$(curl -L \"$REPO_URL\" 2>/dev/null | grep '\\.deb' | "
-                        "grep 'xfce4-panel-profiles' | grep -v '1.0.9' | tail -n 1 | "
-                        "cut -d '=' -f 3 | cut -d '\"' -f 2) && "
-                        "[ -n \"$THE_LATEST_DEB_VERSION\" ] && "
-                        "(aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
-                        "-o 'xfce4-panel-profiles.deb' \"$REPO_URL$THE_LATEST_DEB_VERSION\" 2>/dev/null || "
-                        "curl -L -o 'xfce4-panel-profiles.deb' \"$REPO_URL$THE_LATEST_DEB_VERSION\") && "
-                        "dpkg -i xfce4-panel-profiles.deb 2>/dev/null || true");
+                    // 非 Ubuntu 分支: 通过 apt 安装
+                    PackageManager::install("xfce4-panel-profiles", DistroFamily::Debian);
                 }
             }
         }
@@ -474,7 +465,7 @@ namespace tmoe::domain {
         // xfce4 config
         std::string xfce_conf = std::string(std::getenv("HOME") ? std::getenv("HOME") : "/root")
                                 + "/.config/xfce4/xfconf/xfce-perchannel-xml/";
-        Executor::shell("mkdir -p " + xfce_conf + " 2>/dev/null");
+        CommandBuilder("mkdir").add_flag("-p").add_arg(xfce_conf).add_raw("2>/dev/null").execute();
         if (!fs::exists(xfce_conf + "xfce4-desktop.xml"))
             Executor::shell("cp -f /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml "
                             + xfce_conf + " 2>/dev/null || true");
@@ -541,7 +532,7 @@ namespace tmoe::domain {
                                                    " --yesno '默认推荐x11, wayland尚在实验阶段' 0 0");
             if (wayland_r.exit_code == 1) {
                 plasma_wayland_env();
-                Logger::info("已选择 Wayland 会话");
+                Logger::info(_("gui.plasma_wayland.selected"));
             }
         }
     }
@@ -573,19 +564,19 @@ namespace tmoe::domain {
             auto session_ch = Executor::tui_select(session_menu);
             if (session_ch == "1") {
                 SystemHelper::write_file("/usr/local/bin/gnome-shell-x11", generate_gnome_shell_x11());
-                Executor::shell("chmod a+rx /usr/local/bin/gnome-shell-x11");
+                CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/gnome-shell-x11").execute();
             } else if (session_ch == "2") {
                 SystemHelper::write_file("/usr/local/bin/gnome-flashback-metacity",
                                          generate_gnome_flashback_metacity());
-                Executor::shell("chmod a+rx /usr/local/bin/gnome-flashback-metacity");
+                CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/gnome-flashback-metacity").execute();
             } else if (session_ch == "3") {
                 /* uses default gnome-session */
             } else if (session_ch == "4") {
                 SystemHelper::write_file("/usr/local/bin/gnome-session-ubuntu", generate_gnome_session_ubuntu());
-                Executor::shell("chmod a+rx /usr/local/bin/gnome-session-ubuntu");
+                CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/gnome-session-ubuntu").execute();
             } else if (session_ch == "5") {
                 SystemHelper::write_file("/usr/local/bin/gnome-session-classic", generate_gnome_session_classic());
-                Executor::shell("chmod a+rx /usr/local/bin/gnome-session-classic");
+                CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/gnome-session-classic").execute();
             }
         }
         if (family == DistroFamily::Arch) {
@@ -691,7 +682,7 @@ namespace tmoe::domain {
             if (panel_r.exit_code == 0) set_budgie_desktop_session("panel");
         }
         SystemHelper::write_file("/usr/local/bin/budgie-desktop-builtin", generate_budgie_desktop_builtin());
-        Executor::shell("chmod a+rx /usr/local/bin/budgie-desktop-builtin");
+        CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/budgie-desktop-builtin").execute();
     }
 
     void DesktopManager::post_install_dde_or_deepin(DistroFamily family, bool is_debian) {
@@ -730,8 +721,8 @@ namespace tmoe::domain {
         } else if (family == DistroFamily::RedHat) {
             PackageManager::install("deepin-desktop", DistroFamily::RedHat);
         } else if (family == DistroFamily::Arch) {
-            Logger::warn("clutter 与 deepin-clutter 有冲突; cogl 与 deepin-cogl 有冲突。");
-            Logger::info("您可以使用 pacman -Rs clutter cogl 来解决");
+        Logger::warn(_("gui.deepin.clutter_conflict"));
+        Logger::info(_("gui.deepin.clutter_fix"));
             PackageManager::install({"deepin", "xorg", "deepin-extra", "lightdm", "lightdm-deepin-greeter"},
                                     DistroFamily::Arch);
         }
@@ -747,9 +738,9 @@ namespace tmoe::domain {
     }
 
     void DesktopManager::post_install_cutefish(DistroFamily family, bool is_debian, bool is_ubuntu, bool is_proot) {
-        Logger::info("Cutefish 桌面 — 简洁美观的现代化桌面环境");
+        Logger::info(_("gui.cutefish.intro"));
         if (is_proot) {
-            Logger::warn("Cutefish 需要 systemd 支持，proot 环境下可能无法正常运行");
+        Logger::warn(_("gui.cutefish.systemd_warn"));
         }
         if (is_debian) {
             // Cutefish 在 Debian/Ubuntu 上需要从社区源安装
@@ -800,18 +791,7 @@ namespace tmoe::domain {
 
 
     void DesktopManager::after_desktop_install_hint() const {
-        // 对应旧 Bash first_configure_startvnc 末尾的使用说明
-        Logger::info("------------------------");
-        Logger::info("关于 VNC 和 X 的启动说明:");
-        Logger::info("您可以在容器里输 startvnc 启动 vnc 服务端，输 stopvnc 停止");
-        Logger::info("You can type startvnc to start vncserver, type stopvnc to stop it.");
-        Logger::info("You can also type startxsdl to start X client and server.");
-        Logger::info("------------------------");
-        Logger::info("关于音频服务:");
-        Logger::info("若您的音频服务端为 Android 系统，请在图形界面启动完成后，");
-        Logger::info("新建一个 termux 会话窗口，输 pulseaudio --start 来启动音频服务。");
-        Logger::info("若音频服务端为 Windows 系统，请手动运行 pulseaudio.bat。");
-        Logger::info("------------------------");
+        Logger::info(_("gui.after_install.hint"));
     }
 
 
@@ -821,13 +801,13 @@ namespace tmoe::domain {
         if (fs::exists(iosevka_file)) return;
 
         Logger::info(_("gui.installing_iosevka"));
-        Executor::shell("mkdir -pv /usr/share/fonts/truetype/iosevka/ 2>/dev/null");
+        CommandBuilder("mkdir").add_flag("-pv").add_arg("/usr/share/fonts/truetype/iosevka/").add_raw("2>/dev/null").execute();
 
         // 检查 /tmp/font.ttf 是否已存在且 sha256 匹配
         auto sha_check = Executor::shell("cd /tmp && [ -e font.ttf ] && sha256sum font.ttf 2>/dev/null");
         std::string expected_sha = "cb4f09f9ec1b0d21021dce6c6dbe4f7ecb4930cbea0c766da1fe478111a5844e";
         if (sha_check.ok() && sha_check.stdout_data.find(expected_sha) != std::string::npos) {
-            Executor::shell("cp -fv /tmp/font.ttf " + std::string(iosevka_file));
+            CommandBuilder("cp").add_flag("-fv").add_arg("/tmp/font.ttf").add_arg(iosevka_file).execute();
             return;
         } else if (fs::exists("/tmp/font.ttf")) {
             Executor::shell("mv -vf /tmp/font.ttf /usr/share/fonts/truetype/iosevka/Iosevka.ttf 2>/dev/null || true");
@@ -838,12 +818,12 @@ namespace tmoe::domain {
         if (fs::exists("/etc/gitstatus")) {
             if (fs::exists("/root/.cache/gitstatus")) {
                 Executor::shell("cp -f /root/.cache/gitstatus/* /etc/gitstatus 2>/dev/null || true");
-                Executor::shell("chmod -R a+rx /etc/gitstatus/ 2>/dev/null || true");
+                CommandBuilder("chmod").add_flag("-R").add_arg("a+rx").add_arg("/etc/gitstatus/").add_raw("2>/dev/null || true").execute();
             }
             font_dir = "/etc/gitstatus";
         } else {
             font_dir = "/root/.cache/gitstatus";
-            Executor::shell("mkdir -pv " + font_dir + " 2>/dev/null");
+            CommandBuilder("mkdir").add_flag("-pv").add_arg(font_dir).add_raw("2>/dev/null").execute();
         }
 
         // 从缓存解压
@@ -900,7 +880,7 @@ namespace tmoe::domain {
 
 
     bool DesktopManager::install_fcitx() {
-        Logger::step("安装 fcitx 中文输入法...");
+        Logger::step(_("gui.fcitx.install"));
 
         // fcitx + 拼音 + 配置工具
         std::vector<std::string> pkgs = {
@@ -909,7 +889,7 @@ namespace tmoe::domain {
         };
 
         if (!install_packages(pkgs)) {
-            Logger::warn("部分 fcitx 组件安装失败");
+        Logger::warn(_("gui.fcitx.partial_fail"));
         }
 
         // 配置环境变量
@@ -925,7 +905,7 @@ namespace tmoe::domain {
 
         // 创建 fcitx 自启动
         std::string autostart_dir = home + "/.config/autostart";
-        Executor::shell("mkdir -p " + autostart_dir);
+        CommandBuilder("mkdir").add_flag("-p").add_arg(autostart_dir).execute();
         std::string fcitx_desktop = autostart_dir + "/fcitx.desktop";
         std::string desktop_content =
                 "[Desktop Entry]\n"
@@ -935,7 +915,7 @@ namespace tmoe::domain {
                 "X-GNOME-Autostart-enabled=true\n";
         SystemHelper::write_file(fs::path(fcitx_desktop), desktop_content);
 
-        Logger::ok("fcitx 中文输入法安装完成，重新登录后生效");
+        Logger::ok(_("gui.fcitx.install_ok"));
         return true;
     }
 
@@ -956,11 +936,11 @@ namespace tmoe::domain {
                 Executor::shell("rm -vf /usr/local/bin/gnome-flashback-metacity 2>/dev/null || true");
                 SystemHelper::write_file("/usr/local/bin/gnome-flashback-metacity",
                                          generate_gnome_flashback_metacity());
-                Executor::shell("chmod a+rx /usr/local/bin/gnome-flashback-metacity");
+                CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/gnome-flashback-metacity").execute();
             }
         } else {
             SystemHelper::write_file("/usr/local/bin/gnome-flashback-metacity", generate_gnome_flashback_metacity());
-            Executor::shell("chmod a+rx /usr/local/bin/gnome-flashback-metacity");
+            CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/gnome-flashback-metacity").execute();
         }
     }
 
@@ -992,8 +972,8 @@ namespace tmoe::domain {
         if (cfg_.sub_distro != "ubuntu") return;
         auto lang = std::string(I18n::current_lang());
         if (lang.find("zh") == 0) {
-            Executor::passthrough(
-                "apt install -y language-pack-zh-hans language-pack-gnome-zh-hans 2>/dev/null || true");
+            PackageManager::install({"language-pack-zh-hans", "language-pack-gnome-zh-hans"},
+                                    DistroFamily::Debian);
         }
     }
 
@@ -1001,7 +981,7 @@ namespace tmoe::domain {
     void DesktopManager::set_budgie_desktop_session(const std::string &session_type) {
         if (session_type == "panel") {
             SystemHelper::write_file("/usr/local/bin/budgie-desktop-builtin", generate_budgie_desktop_builtin());
-            Executor::shell("chmod a+rx /usr/local/bin/budgie-desktop-builtin");
+            CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/budgie-desktop-builtin").execute();
         }
     }
 
@@ -1009,7 +989,7 @@ namespace tmoe::domain {
     void DesktopManager::touch_xfce4_terminal_rc_ext() {
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
         std::string term_dir = home + "/.config/xfce4/terminal";
-        Executor::shell("mkdir -p " + term_dir + " 2>/dev/null");
+        CommandBuilder("mkdir").add_flag("-p").add_arg(term_dir).add_raw("2>/dev/null").execute();
         if (!fs::exists(term_dir + "/terminalrc")) {
             SystemHelper::write_file(fs::path(term_dir + "/terminalrc"), generate_xfce_terminal_rc());
         }
@@ -1019,7 +999,7 @@ namespace tmoe::domain {
     void DesktopManager::xfce4_color_scheme() {
         // 对应旧 Bash xfce4_color_scheme (gui:1379-1429)
         if (!fs::exists("/usr/share/xfce4/terminal/colorschemes/Monokai Remastered.theme")) {
-            Logger::info("正在配置 xfce4 终端配色...");
+        Logger::info(_("gui.xfce4.color_scheme_config"));
             Executor::shell("cd /usr/share/xfce4/terminal && "
                 "curl -Lo 'colorschemes.tar.xz' "
                 "'https://gitee.com/mo2/xfce-themes/raw/terminal/colorschemes.tar.xz' 2>/dev/null && "
@@ -1090,10 +1070,10 @@ namespace tmoe::domain {
 
     void DesktopManager::install_kali_undercover() {
         if (fs::exists("/usr/share/icons/Windows-10-Icons")) {
-            Logger::info("检测到已安装 kali-undercover 主题");
+        Logger::info(_("gui.kali.undercover_exists"));
             return;
         }
-        Logger::step("安装 Kali Undercover (Win10伪装主题)...");
+        Logger::step(_("gui.kali.undercover_install"));
         Executor::shell("mkdir -pv /tmp/.kali-undercover-win10-theme && cd /tmp/.kali-undercover-win10-theme");
         std::string repo = "https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-undercover";
         Executor::shell("cd /tmp/.kali-undercover-win10-theme && "
@@ -1107,14 +1087,14 @@ namespace tmoe::domain {
                         "mv -f /usr/bin/kali-undercover /usr/local/bin/ 2>/dev/null; "
                         "update-icon-caches /usr/share/icons/Windows-10-Icons 2>/dev/null &");
         Executor::shell("rm -rfv /tmp/.kali-undercover-win10-theme 2>/dev/null || true");
-        Logger::ok("Kali Undercover 安装完成");
+        Logger::ok(_("gui.kali.undercover_ok"));
     }
 
 
     void DesktopManager::download_macos_mojave_theme() {
-        Logger::step("下载 macOS Mojave 主题...");
+        Logger::step(_("gui.macos_mojave.install"));
         if (fs::exists("/usr/share/themes/Mojave-dark")) {
-            Logger::info("检测到已安装, 跳过");
+            Logger::info(_("gui.theme.already_installed"));
             return;
         }
         Executor::shell("cd /tmp && [ -d McMojave ] && rm -rf McMojave; "
@@ -1125,14 +1105,14 @@ namespace tmoe::domain {
             "update-icon-caches /usr/share/icons/McMojave-circle-dark /usr/share/icons/McMojave-circle 2>/dev/null &");
         Executor::shell("rm -rf /tmp/McMojave 2>/dev/null || true");
         set_default_xfce_icon_theme("McMojave-circle");
-        Logger::ok("macOS Mojave 主题安装完成");
+        Logger::ok(_("gui.macos_mojave.ok"));
     }
 
 
     void DesktopManager::download_macos_bigsur_theme() {
-        Logger::step("下载 macOS Big Sur 主题...");
+        Logger::step(_("gui.macos_bigsur.install"));
         if (fs::exists("/usr/share/icons/WhiteSur-dark")) {
-            Logger::info("检测到已安装, 跳过");
+            Logger::info(_("gui.theme.already_installed"));
             return;
         }
         Executor::shell("cd /tmp && [ -d BIGSUR_TEMP_FOLDER ] && rm -rvf BIGSUR_TEMP_FOLDER; "
@@ -1145,23 +1125,23 @@ namespace tmoe::domain {
             "update-icon-caches /usr/share/icons/WhiteSur /usr/share/icons/WhiteSur-dark 2>/dev/null &");
         Executor::shell("rm -rvf /tmp/BIGSUR_TEMP_FOLDER 2>/dev/null || true");
         set_default_xfce_icon_theme("WhiteSur");
-        Logger::ok("macOS Big Sur 主题安装完成");
+        Logger::ok(_("gui.macos_bigsur.ok"));
     }
 
 
     void DesktopManager::install_breeze_theme_ext() {
-        Logger::step("安装 Breeze 主题包...");
+        Logger::step(_("gui.breeze.install"));
         download_arch_breeze_adapta_cursor_theme();
         auto family = resolved_family();
         if (family == DistroFamily::Arch) {
-            Executor::passthrough(
-                "pacman -S --noconfirm breeze-icons breeze-gtk xfwm4-theme-breeze capitaine-cursors 2>/dev/null || true");
+            PackageManager::install({"breeze-icons", "breeze-gtk", "xfwm4-theme-breeze", "capitaine-cursors"},
+                                    DistroFamily::Arch);
         } else {
             Executor::passthrough(
                 cfg_.install_command +
                 " breeze-icon-theme breeze-cursor-theme breeze-gtk-theme xfwm4-theme-breeze 2>/dev/null || true");
         }
-        Logger::ok("Breeze 主题安装完成");
+        Logger::ok(_("gui.breeze.ok"));
     }
 
 
@@ -1182,14 +1162,14 @@ namespace tmoe::domain {
             std::string group = Executor::shell("id -gn").stdout_data;
             while (!user.empty() && (user.back() == '\n' || user.back() == '\r')) user.pop_back();
             while (!group.empty() && (group.back() == '\n' || group.back() == '\r')) group.pop_back();
-            Executor::shell("chown -Rv " + user + ":" + group + " " + home + "/.config/xfce4 2>/dev/null || true");
+            CommandBuilder("chown").add_flag("-Rv").add_arg(user + ":" + group).add_arg(home + "/.config/xfce4").add_raw("2>/dev/null || true").execute();
         }
     }
 
 
     void DesktopManager::create_update_icon_caches() {
         SystemHelper::write_file("/usr/local/bin/update-icon-caches", generate_update_icon_caches_script());
-        Executor::shell("chmod a+rx /usr/local/bin/update-icon-caches");
+        CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/update-icon-caches").execute();
     }
 
 
@@ -1201,7 +1181,7 @@ namespace tmoe::domain {
     void DesktopManager::git_clone_kali_themes_common() {
         if (fs::exists("/usr/share/desktop-base/kali-theme")) return;
         check_update_icon_caches_sh();
-        Logger::step("克隆 Kali 主题...");
+        Logger::step(_("gui.kali.clone_theme"));
         Executor::shell(
             "TEMP_FOLDER=/tmp/.KALI_THEME_COMMON_TEMP_FOLDER && [ -d \"$TEMP_FOLDER\" ] && rm -rvf \"$TEMP_FOLDER\"; "
             "git clone --depth=1 https://gitee.com/ak2/kali-theme.git \"$TEMP_FOLDER\" 2>/dev/null && "
@@ -1234,7 +1214,7 @@ namespace tmoe::domain {
         if (!fs::exists("/usr/share/desktop-base/kali-theme")) {
             download_kali_themes_common();
         } else {
-            Logger::info("检测到 kali_themes_common 已下载");
+        Logger::info(_("gui.kali.themes_downloaded"));
             download_kali_themes_common();
         }
         set_default_xfce_icon_theme("Flat-Remix-Blue-Light");
@@ -1243,7 +1223,7 @@ namespace tmoe::domain {
 
     void DesktopManager::download_arch_breeze_adapta_cursor_theme() {
         if (fs::exists("/usr/share/icons/Breeze-Adapta-Cursor")) return;
-        Logger::step("下载 Breeze-Adapta-Cursor 主题...");
+        Logger::step(_("gui.breeze.cursor_download"));
         Executor::shell("mkdir -pv /tmp/.breeze_theme && cd /tmp/.breeze_theme && "
             "THEME_URL='https://mirrors.bfsu.edu.cn/archlinuxcn/any/' && "
             "curl -Lo index.html \"$THEME_URL\" 2>/dev/null && "
@@ -1273,132 +1253,54 @@ namespace tmoe::domain {
 
 
     void DesktopManager::xfce_warning() const {
-        Logger::info("xfce4桌面支持表格:");
-        Logger::info("Debian/Kali/Ubuntu: x11vnc ✓ | tigervnc ✓ | xserver ✓");
-        Logger::info("Fedora/CentOS:       x11vnc ✓ | tigervnc ✓ | xserver ✓");
-        Logger::info("ArchLinux/Manjaro:   x11vnc ✓ | tigervnc ✓ | xserver ✓");
-        Logger::info("Alpine:              x11vnc ? | tigervnc ? | xserver ✓");
-        Logger::info("Void:                x11vnc ? | tigervnc ✓ | xserver ✓");
-        Logger::info("OpenSUSE:            x11vnc ✓ | tigervnc ✓ | xserver ✓");
+        Logger::info(_("gui.xfce4.warning"));
     }
 
 
     void DesktopManager::kde_warning() const {
-        Logger::info("KDE Plasma 5 桌面支持表格:");
-        Logger::info("Debian/Ubuntu: x11vnc ✓ | tigervnc ✓ | xserver ✓");
-        Logger::info("Fedora:        x11vnc ? | tigervnc ? | xserver ?");
-        Logger::info("ArchLinux:     x11vnc ? | tigervnc ? | xserver ?");
-        Logger::info("注意: proot 容器中 KDE 可能不稳定");
+        Logger::info(_("gui.kde.warning"));
     }
 
 
     void DesktopManager::gnome3_warning() const {
-        Logger::info("GNOME 3 桌面支持表格:");
-        Logger::info("注意: proot 容器中 GNOME 可能无法正常运行");
-        Logger::info("建议在虚拟机或实体机中安装");
+        Logger::info(_("gui.gnome.warning"));
     }
 
 
     void DesktopManager::cinnamon_warning() const {
         auto family = resolved_family();
         if (cfg_.is_termux) {
-            Logger::warn("检测到 proot 容器环境, cinnamon 可能无法正常运行, 建议换用虚拟机或实体机");
+            Logger::warn(_("gui.cinnamon.proot_warn"));
         }
     }
 
 
     void DesktopManager::deepin_desktop_warning() const {
-        Logger::info("Deepin桌面支持表格:");
-        Logger::info("注意: 仅支持 x86_64 和 i386 架构");
-        Logger::info("Ubuntu 20.04:  x11vnc ✓ | tigervnc ? | xserver ?");
-        Logger::info("Fedora 32:     x11vnc ✓ | tigervnc ✓ | xserver ?");
-        Logger::info("ArchLinux:     x11vnc ✓(amd64) / X(arm64)");
-        Logger::info("Deepin arm64:  x11vnc ✓ | tigervnc ✓ | xserver ?");
+        Logger::info(_("gui.deepin.warning"));
         if (cfg_.is_termux) {
-            Logger::warn("proot 容器中 DDE 可能无法正常运行,建议换用 deepin 或 fedora chroot 容器");
+            Logger::warn(_("gui.deepin.proot_warn"));
         }
     }
 
 
     void DesktopManager::arch_linux_mate_warning() const {
-        // 对应旧 Bash arch_linux_mate_warning
-        Logger::warn("------------------------");
-        Logger::warn("Arch Linux proot + MATE 桌面兼容性警告:");
-        Logger::warn("在 Arch Linux proot 容器中运行 MATE 桌面可能存在兼容性问题。");
-        Logger::warn("如果遇到启动失败，建议尝试以下方案:");
-        Logger::warn("  1. 使用 Xfce 桌面替代 MATE");
-        Logger::warn("  2. 使用 x11vnc 替代 tightvnc");
-        Logger::warn("  3. 检查 dbus 服务是否正常启动");
-        Logger::warn("------------------------");
+        Logger::warn(_("gui.mate.warning"));
     }
 
 
     void DesktopManager::tmoe_desktop_warning() const {
-        // 对应旧 Bash tmoe_desktop_warning: 通用 proot 桌面警告
-        Logger::warn("------------------------");
-        Logger::warn("Proot 容器桌面环境通用警告:");
-        Logger::warn("由于 proot 环境的限制，部分桌面功能可能无法正常工作。");
-        Logger::warn("已知问题包括但不限于:");
-        Logger::warn("  - 电源管理/屏保无法使用 (已自动卸载)");
-        Logger::warn("  - udisks2/gvfs 可能导致卡顿 (已自动卸载)");
-        Logger::warn("  - 部分桌面特效可能无法启用");
-        Logger::warn("  - systemd 相关服务可能无法正常使用");
-        Logger::warn("推荐使用 xfce 或 lxde 以获得最佳体验。");
-        Logger::warn("------------------------");
+        Logger::warn(_("gui.proot.warning"));
     }
 
 
     void DesktopManager::tips_of_tiger_vnc_server() const {
-        // 对应旧 Bash: 推荐 tiger vnc 用于特定 DE
-        Logger::info("------------------------");
-        Logger::info("TigerVNC 服务端推荐:");
-        Logger::info("以下桌面环境推荐使用 tigervnc (而非 tightvnc):");
-        Logger::info("  - KDE Plasma (startplasma-x11)");
-        Logger::info("  - GNOME (gnome-session)");
-        Logger::info("  - Cinnamon (cinnamon-session)");
-        Logger::info("  - DDE / Deepin (dde-desktop / startdde)");
-        Logger::info("  - UKUI (ukui-session)");
-        Logger::info("  - Budgie (budgie-desktop)");
-        Logger::info("tigervnc 支持更多的特效和选项，例如鼠标指针透明和背景透明。");
-        Logger::info("tightvnc 在无法硬件加速时可能更流畅。");
-        Logger::info("您可以通过 startvnc 脚本随时修改 VNC 服务端。");
-        Logger::info("------------------------");
+        Logger::info(_("gui.tiger_vnc.tips"));
     }
 
 
     void DesktopManager::tmoe_desktop_faq() const {
         // 对应旧 Bash tmoe_desktop_faq: 显示 tmoe 桌面 FAQ (source 旧 faq 文件内容)
-        Logger::info("==============================");
-        Logger::info("  tmoe-linux 桌面环境 FAQ");
-        Logger::info("==============================");
-        Logger::info("Q: 如何启动 VNC 服务?");
-        Logger::info("A: 在终端输入 startvnc 即可启动。");
-        Logger::info("");
-        Logger::info("Q: 如何停止 VNC 服务?");
-        Logger::info("A: 输入 stopvnc 停止。");
-        Logger::info("");
-        Logger::info("Q: 如何修改 VNC 分辨率?");
-        Logger::info("A: 在 VNC 配置菜单中修改，或直接编辑 startvnc 脚本中的 VNC_RESOLUTION 变量。");
-        Logger::info("");
-        Logger::info("Q: 如何配置音频?");
-        Logger::info("A: Android 端请在 Termux 输 pulseaudio --start;");
-        Logger::info("   Windows 端请运行 pulseaudio.bat;");
-        Logger::info("   Linux 实体机默认使用 127.0.0.1。");
-        Logger::info("");
-        Logger::info("Q: 推荐哪个 VNC 客户端?");
-        Logger::info("A: Android 推荐 bVNC 或 RealVNC;");
-        Logger::info("   Windows 推荐 TigerVNC Viewer;");
-        Logger::info("   浏览器可使用 noVNC (输 novnc 启动)。");
-        Logger::info("");
-        Logger::info("Q: 支持哪些桌面环境?");
-        Logger::info("A: Xfce, LXDE, LXQt, MATE, KDE Plasma, GNOME,");
-        Logger::info("   Cinnamon, Budgie, DDE/Deepin, UKUI 等。");
-        Logger::info("");
-        Logger::info("Q: 如何在桌面中切换输入法?");
-        Logger::info("A: Ctrl+空格 切换 fcitx 中文输入法。");
-        Logger::info("");
-        Logger::info("更多信息请访问: https://github.com/2moe/tmoe-linux");
-        Logger::info("==============================");
+        Logger::info(_("gui.faq.content"));
     }
 
 
@@ -1419,8 +1321,8 @@ namespace tmoe::domain {
 
     void DesktopManager::deepin_desktop_debian() {
         if (!Executor::has("add-apt-repository")) {
-            Executor::passthrough(
-                "apt update 2>/dev/null; apt install -y software-properties-common gnupg 2>/dev/null || true");
+            PackageManager::update(DistroFamily::Debian);
+            PackageManager::install({"software-properties-common", "gnupg"}, DistroFamily::Debian);
         }
         Executor::passthrough("yes | add-apt-repository ppa:ubuntudde-dev/stable 2>/dev/null || true");
         if (cfg_.sub_distro != "ubuntu") {
@@ -1576,9 +1478,9 @@ namespace tmoe::domain {
 
 
     void DesktopManager::download_xubuntu_wallpaper(const std::string &code_name, const std::string & /*folder_name*/) {
-        Logger::step("下载 Xubuntu 壁纸: " + code_name);
+        Logger::step(_f("gui.wallpaper.xubuntu", code_name));
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
-        Executor::shell("mkdir -pv " + home + "/Pictures/xubuntu-community-artwork 2>/dev/null");
+        CommandBuilder("mkdir").add_flag("-pv").add_arg(home + "/Pictures/xubuntu-community-artwork").add_raw("2>/dev/null").execute();
         // 从 Ubuntu 镜像下载
         std::string repo = "https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/x/xubuntu-community-artwork/";
         Executor::shell("cd " + home + "/Pictures/xubuntu-community-artwork && "
@@ -1592,10 +1494,10 @@ namespace tmoe::domain {
 
 
     void DesktopManager::download_mint_backgrounds(const std::string &mint_code) {
-        Logger::step("下载 Mint 壁纸: " + mint_code);
+        Logger::step(_f("gui.wallpaper.mint", mint_code));
         std::string repo = "https://mirrors.bfsu.edu.cn/linuxmint/pool/main/m/mint-backgrounds-" + mint_code + "/";
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
-        Executor::shell("mkdir -pv " + home + "/Pictures/mint-backgrounds 2>/dev/null");
+        CommandBuilder("mkdir").add_flag("-pv").add_arg(home + "/Pictures/mint-backgrounds").add_raw("2>/dev/null").execute();
         Executor::shell("cd " + home + "/Pictures/mint-backgrounds && "
                         "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'mint-backgrounds' | grep all.deb | "
                         "tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2) && "
@@ -1606,7 +1508,7 @@ namespace tmoe::domain {
 
 
     void DesktopManager::download_ubuntu_mate_wallpaper() {
-        Logger::step("下载 Ubuntu MATE 壁纸...");
+        Logger::step(_("gui.wallpaper.ubuntu_mate"));
         std::string repo = "https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/u/ubuntu-mate-artwork/";
         Executor::shell("cd /tmp && "
                         "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'ubuntu-mate-wallpapers-photos' | "
@@ -1618,7 +1520,7 @@ namespace tmoe::domain {
 
 
     void DesktopManager::install_fvwm_ext() {
-        Logger::step("安装 FVWM 窗口管理器...");
+        Logger::step(_("gui.fvwm.install"));
         auto family = resolved_family();
         if (family == DistroFamily::Debian) {
             auto os_rel = SystemHelper::read_file("/etc/os-release");
@@ -1648,13 +1550,13 @@ namespace tmoe::domain {
     void DesktopManager::tmoe_display_manager_systemctl(const std::string &dm_pkg, const std::string &dm_service) {
         while (true) {
             std::string menu = cfg_.tui_bin +
-                               " --title \"你想要对这个小可爱做什么？\" --menu \"显示管理器软件包基础配置\" 0 50 0 "
-                               "\"1\" \"install/remove 安装/卸载\" "
-                               "\"2\" \"start 启动\" "
-                               "\"3\" \"stop 停止\" "
-                               "\"4\" \"systemctl enable 开机自启\" "
-                               "\"5\" \"systemctl disable 禁用自启\" "
-                               "\"0\" \"🌚 Return to previous menu 返回上级菜单\"";
+                               " --title \"" + _("gui.dm.menu_title") + "\" --menu \"" + _("gui.dm.menu_prompt") + "\" 0 50 0 "
+                               "\"1\" \"" + _("gui.dm.opt_install") + "\" "
+                               "\"2\" \"" + _("gui.dm.opt_start") + "\" "
+                               "\"3\" \"" + _("gui.dm.opt_stop") + "\" "
+                               "\"4\" \"" + _("gui.dm.opt_enable") + "\" "
+                               "\"5\" \"" + _("gui.dm.opt_disable") + "\" "
+                               "\"0\" \"" + _("gui.dm.opt_back") + "\"";
             auto ch = Executor::tui_select(menu);
             if (ch == "0" || ch.empty()) return;
             if (ch == "1") {
@@ -1693,7 +1595,7 @@ namespace tmoe::domain {
 
 
     void DesktopManager::download_papirus_icon_theme() {
-        Logger::step("下载 Papirus 图标主题...");
+        Logger::step(_("gui.papirus.install"));
         std::string repo = "https://mirrors.bfsu.edu.cn/debian/pool/main/p/papirus-icon-theme/";
         Executor::shell("cd /tmp && "
                         "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'papirus-icon-theme' | grep all.deb | "

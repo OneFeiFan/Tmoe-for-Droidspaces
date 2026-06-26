@@ -1,5 +1,6 @@
 #include "domain/virtualization/virtualization.h"
 #include "core/i18n.h"
+#include "domain/system/package_manager.h"
 #include <algorithm>
 
 namespace tmoe::domain {
@@ -38,9 +39,9 @@ namespace tmoe::domain {
     std::vector<std::pair<std::string, std::string> >
     VirtualizationManager::wine_branches() {
         return {
-            {"devel", "Wine 开发版 — 最新特性"},
-            {"staging", "Wine Staging — 实验补丁"},
-            {"stable", "Wine 稳定版"},
+            {"devel", _("virt.wine_branch_devel")},
+            {"staging", _("virt.wine_branch_staging")},
+            {"stable", _("virt.wine_stable")},
         };
     }
 
@@ -75,7 +76,7 @@ namespace tmoe::domain {
         }
 
         if (is_arch()) {
-            auto result = Executor::passthrough("pacman -S --noconfirm wine");
+            auto result = PackageManager::install("wine", DistroFamily::Arch);
             if (result.ok()) {
                 Logger::ok(_("virt.wine_installed_simple"));
                 return true;
@@ -84,7 +85,7 @@ namespace tmoe::domain {
 
         auto result = Executor::passthrough(cfg_.install_command + " wine 2>/dev/null");
         if (result.ok()) {
-            Logger::ok("Wine 已安装");
+            Logger::ok(_("virt.wine_installed_simple"));
             return true;
         }
 

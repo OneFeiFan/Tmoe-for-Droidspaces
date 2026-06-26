@@ -57,20 +57,21 @@ namespace tmoe::domain {
     void SoftwareCenter::run_electron_apps_menu() {
         while (true) {
             if (!fs::exists("/opt/electron/electron")) {
-                Logger::info("本electron仓库由2moe进行维护，感谢各个项目的原开发者。");
-                Logger::info("要求:gnu libc, 支持arch/manjaro,debian/ubuntu,fedora,opensuse,void等");
-                Logger::info("暂不支持alpine(musl libc)");
+                Logger::info(_("swcenter.electron.repo_maintained_by"));
+                Logger::info(_("swcenter.electron.requirements"));
+                Logger::info(_("swcenter.electron.no_alpine"));
                 Logger::press_enter();
             }
 
             std::string menu = cfg_.tui_bin + " --title \"ELECTRON APPS\""
-                               " --menu \"electron:Build cross-platform desktop apps with JavaScript,HTML,and CSS\" 0 0 0 "
-                               "\"1\" \"🎵 music:以雅以南,以龠不僭\" "
-                               "\"2\" \"📺 videos视频:全网影视搜索,无损切割视频\" "
-                               "\"3\" \"📝 notes笔记:记录灵感,撰写文档,整理材料,回顾日记\" "
-                               "\"4\" \"🍎 virtual machine虚拟机:win95,macos8\" "
-                               "\"5\" \"👾 development程序开发:神经网络,深度学习\" "
-                               "\"6\" \"⚛️ electron manager\" "
+                               " --menu \""
+                               + _("swcenter.electron.menu_prompt") + "\" 0 0 0 "
+                               "\"1\" \"" + _("swcenter.electron.music_item") + "\" "
+                               "\"2\" \"" + _("swcenter.electron.video_item") + "\" "
+                               "\"3\" \"" + _("swcenter.electron.note_item") + "\" "
+                               "\"4\" \"" + _("swcenter.electron.vm_item") + "\" "
+                               "\"5\" \"" + _("swcenter.electron.dev_item") + "\" "
+                               "\"6\" \"" + _("swcenter.electron.manager_item") + "\" "
                                "\"0\" \"" + _("menu.tui.back") + "\"";
             auto ch = Executor::tui_select(menu);
             if (ch == "0" || ch.empty()) return;
@@ -90,9 +91,9 @@ namespace tmoe::domain {
     // ═══════════════════════════════════
     void SoftwareCenter::electron_install_or_remove(const std::string &app_name) {
         std::string menu = cfg_.tui_bin + " --title \"" + app_name + " manager\""
-                           " --menu \"您要对 " + app_name + " 小可爱做什么?\" 0 0 0 "
-                           "\"1\" \"install/upgrade 安装/更新\" "
-                           "\"2\" \"remove 卸载\" "
+                           " --menu \"" + _f("swcenter.electron.what_to_do", app_name) + "\" 0 0 0 "
+                           "\"1\" \"" + _("swcenter.electron.install_upgrade") + "\" "
+                           "\"2\" \"" + _("swcenter.electron.remove") + "\" "
                            "\"0\" \"" + _("menu.tui.back") + "\"";
         auto ch = Executor::tui_select(menu);
         if (ch == "0" || ch.empty()) return;
@@ -111,7 +112,7 @@ namespace tmoe::domain {
     void SoftwareCenter::ensure_electron_runtime() {
         if (fs::exists("/opt/electron/electron")) return;
 
-        Logger::step("安装 Electron 运行时...");
+        Logger::step(_("swcenter.electron.install_runtime"));
         CommandBuilder("mkdir").add_flag("-pv").add_arg("/opt").execute();
 
         // 下载最新 Electron
@@ -128,9 +129,9 @@ namespace tmoe::domain {
         );
 
         if (!result.ok() || !fs::exists("/opt/electron/electron")) {
-            Logger::warn("Electron 运行时安装失败，部分应用可能无法启动");
+            Logger::warn(_("swcenter.electron.runtime_failed"));
         } else {
-            Logger::ok("Electron 运行时已安装到 /opt/electron");
+            Logger::ok(_("swcenter.electron.runtime_installed"));
         }
         CommandBuilder("rm").add_flag("-rf").add_arg("/tmp/.electron_tmp").add_raw("2>/dev/null").execute();
     }
@@ -142,10 +143,11 @@ namespace tmoe::domain {
         const std::string pkg_url = "https://packages.tmoe.me";
         std::string tmp_dir = "/tmp/." + app_name + "_TEMP_FOLDER";
 
-        Executor::shell("rm -rf " + tmp_dir + " 2>/dev/null; mkdir -pv " + tmp_dir);
+        CommandBuilder("rm").add_flag("-rf").add_arg(tmp_dir).add_raw("2>/dev/null").execute();
+        CommandBuilder("mkdir").add_flag("-pv").add_arg(tmp_dir).execute();
         CommandBuilder("mkdir").add_flag("-pv").add_arg("/opt").execute();
 
-        Logger::step("正在下载 " + app_name + " ...");
+        Logger::step(_f("swcenter.electron.downloading", app_name));
         auto dl_ret = Executor::passthrough(
             "cd " + tmp_dir + " && "
             "aria2c --console-log-level=warn --no-conf --continue=true "
@@ -154,16 +156,16 @@ namespace tmoe::domain {
         );
 
         if (!dl_ret.ok()) {
-            Logger::error("下载 " + app_name + " 失败");
+            Logger::error(_f("swcenter.electron.download_failed", app_name));
             CommandBuilder("rm").add_flag("-rf").add_arg(tmp_dir).add_raw("2>/dev/null").execute();
             return;
         }
 
-        Logger::step("正在解压 " + app_name + " ...");
+        Logger::step(_f("swcenter.electron.extracting", app_name));
         Executor::passthrough("cd " + tmp_dir + " && tar -Jxvf app.tar.xz -C /opt");
 
         if (!fs::exists("/opt/" + app_name)) {
-            Logger::warn(app_name + " 解压后未找到，重试中...");
+            Logger::warn(_f("swcenter.electron.extract_not_found", app_name));
             // 重试一次
             Executor::passthrough(
                 "cd " + tmp_dir + " && "
@@ -175,7 +177,7 @@ namespace tmoe::domain {
         }
 
         if (!fs::exists("/opt/" + app_name)) {
-            Logger::error("安装 " + app_name + " 失败，请检查网络或手动安装");
+            Logger::error(_f("swcenter.electron.install_failed", app_name));
             CommandBuilder("rm").add_flag("-rf").add_arg(tmp_dir).add_raw("2>/dev/null").execute();
             return;
         }
@@ -196,19 +198,19 @@ namespace tmoe::domain {
         );
 
         CommandBuilder("rm").add_flag("-rf").add_arg(tmp_dir).add_raw("2>/dev/null").execute();
-        Logger::ok(app_name + " 安装完成！请从应用菜单或命令行启动。");
+        Logger::ok(_f("swcenter.electron.install_done", app_name));
     }
 
     void SoftwareCenter::remove_electron_app(const std::string &app_name) {
-        Logger::warn("即将卸载 " + app_name + ":");
+        Logger::warn(_f("swcenter.electron.will_remove", app_name));
         Logger::warn("  rm -rv /opt/" + app_name + " " + apps_lnk_dir_ + "/" + app_name + ".desktop");
-        if (!Logger::confirm("确认卸载 " + app_name + " ?"))
+        if (!Logger::confirm(_f("swcenter.electron.confirm_remove", app_name)))
             return;
         CommandBuilder("rm").add_flag("-rf")
             .add_arg("/opt/" + app_name)
             .add_arg(apps_lnk_dir_ + "/" + app_name + ".desktop")
             .add_raw("2>/dev/null").execute();
-        Logger::ok(app_name + " 已卸载");
+        Logger::ok(_f("swcenter.electron.removed", app_name));
     }
 
     // ═══════════════════════════════════
@@ -216,11 +218,11 @@ namespace tmoe::domain {
     // ═══════════════════════════════════
     void SoftwareCenter::run_electron_music_menu() {
         while (true) {
-            std::string menu = cfg_.tui_bin + " --title \"Music\" --menu \"Music\" 0 0 0 "
-                               "\"1\" \"electron-netease-cloud-music (云音乐)\" "
-                               "\"2\" \"YesPlayMusic (高颜值的第三方网易云播放器)\" "
-                               "\"3\" \"LISTEN1 (免费音乐聚合)\" "
-                               "\"4\" \"petal (第三方豆瓣FM客户端)\" "
+            std::string menu = cfg_.tui_bin + " --title \"" + _("swcenter.electron.music_menu_title") + "\" --menu \"Music\" 0 0 0 "
+                               "\"1\" \"" + _("swcenter.electron.music_ncm") + "\" "
+                               "\"2\" \"" + _("swcenter.electron.music_yesplay") + "\" "
+                               "\"3\" \"" + _("swcenter.electron.music_listen1") + "\" "
+                               "\"4\" \"" + _("swcenter.electron.music_petal") + "\" "
                                "\"0\" \"" + _("menu.tui.back") + "\"";
             auto ch = Executor::tui_select(menu);
             if (ch == "0" || ch.empty()) return;
@@ -234,11 +236,11 @@ namespace tmoe::domain {
 
     void SoftwareCenter::run_electron_video_menu() {
         while (true) {
-            std::string menu = cfg_.tui_bin + " --title \"VIDEO APP\" --menu \"影視\" 0 0 0 "
-                               "\"1\" \"📺 bilibili 哔哩哔哩PC客户端\" "
-                               "\"2\" \"zy-player (搜索全网影视)\" "
-                               "\"3\" \"🎬 腾讯视频 (Linux在线视频软件)\" "
-                               "\"4\" \"lossless-cut (无损剪切音视频工具)\" "
+            std::string menu = cfg_.tui_bin + " --title \"" + _("swcenter.electron.video_menu_title") + "\" --menu \"" + _("swcenter.electron.video_menu_prompt") + "\" 0 0 0 "
+                               "\"1\" \"" + _("swcenter.electron.video_bilibili") + "\" "
+                               "\"2\" \"" + _("swcenter.electron.video_zyplayer") + "\" "
+                               "\"3\" \"" + _("swcenter.electron.video_tencent") + "\" "
+                               "\"4\" \"" + _("swcenter.electron.video_lossless_cut") + "\" "
                                "\"0\" \"" + _("menu.tui.back") + "\"";
             auto ch = Executor::tui_select(menu);
             if (ch == "0" || ch.empty()) return;
@@ -257,11 +259,11 @@ namespace tmoe::domain {
 
     void SoftwareCenter::run_electron_note_menu() {
         while (true) {
-            std::string menu = cfg_.tui_bin + " --title \"NOTE APP\" --menu \"筆記\" 0 0 0 "
-                               "\"1\" \"obsidian (a wonderful markdown app)\" "
-                               "\"2\" \"gridea (静态博客写作app)\" "
-                               "\"3\" \"draw.io (思维导图绘制工具)\" "
-                               "\"4\" \"simplenote (轻量级开源跨平台云笔记)\" "
+            std::string menu = cfg_.tui_bin + " --title \"" + _("swcenter.electron.note_menu_title") + "\" --menu \"" + _("swcenter.electron.note_menu_prompt") + "\" 0 0 0 "
+                               "\"1\" \"" + _("swcenter.electron.note_obsidian") + "\" "
+                               "\"2\" \"" + _("swcenter.electron.note_gridea") + "\" "
+                               "\"3\" \"" + _("swcenter.electron.note_drawio") + "\" "
+                               "\"4\" \"" + _("swcenter.electron.note_simplenote") + "\" "
                                "\"0\" \"" + _("menu.tui.back") + "\"";
             auto ch = Executor::tui_select(menu);
             if (ch == "0" || ch.empty()) return;
@@ -278,17 +280,18 @@ namespace tmoe::domain {
 
     void SoftwareCenter::run_electron_vm_menu() {
         while (true) {
-            std::string menu = cfg_.tui_bin + " --title \"VIRTUAL MACHINE APP\""
-                               " --menu \"Javascript vm is not qemu\" 0 0 0 "
-                               "\"1\" \"MacOS8 (上古时期苹果Macintosh系统)\" "
-                               "\"2\" \"Win95 (微软windows操作系统)\" "
+            std::string menu = cfg_.tui_bin + " --title \""
+                               + _("swcenter.electron.vm_title") + "\""
+                               " --menu \"" + _("swcenter.electron.vm_prompt") + "\" 0 0 0 "
+                               "\"1\" \"" + _("swcenter.electron.vm_macos8") + "\" "
+                               "\"2\" \"" + _("swcenter.electron.vm_win95") + "\" "
                                "\"0\" \"" + _("menu.tui.back") + "\"";
             auto ch = Executor::tui_select(menu);
             if (ch == "0" || ch.empty()) return;
 
             if (ch == "1") {
-                Logger::info("下载大小约131.09MiB,解压后约占658M");
-                if (!Logger::confirm("确认安装 macintosh.js ?")) continue;
+                Logger::info(_("swcenter.electron.vm_macos8_size"));
+                if (!Logger::confirm(_("swcenter.electron.vm_confirm_macos8"))) continue;
                 ensure_electron_runtime();
                 Executor::passthrough(
                     "cd /tmp && "
@@ -300,10 +303,10 @@ namespace tmoe::domain {
                     "tar -PpJxvf vm.tar.xz && "
                     "cd .. && rm -rf ${TEMP_FOLDER}"
                 );
-                Logger::ok("MacOS8 安装完成");
+                Logger::ok(_("swcenter.electron.vm_macos8_done"));
             } else if (ch == "2") {
-                Logger::info("下载大小约166.19MiB,解压后约占1.2G");
-                if (!Logger::confirm("确认安装 windows95 ?")) continue;
+                Logger::info(_("swcenter.electron.vm_win95_size"));
+                if (!Logger::confirm(_("swcenter.electron.vm_confirm_win95"))) continue;
                 ensure_electron_runtime();
                 Executor::passthrough(
                     "cd /tmp && "
@@ -315,7 +318,7 @@ namespace tmoe::domain {
                     "tar -PpJxvf vm.tar.xz && "
                     "cd .. && rm -rf ${TEMP_FOLDER}"
                 );
-                Logger::ok("Windows 95 安装完成");
+                Logger::ok(_("swcenter.electron.vm_win95_done"));
             }
             Logger::press_enter();
         }
@@ -323,9 +326,10 @@ namespace tmoe::domain {
 
     void SoftwareCenter::run_electron_dev_menu() {
         while (true) {
-            std::string menu = cfg_.tui_bin + " --title \"DEVELOPMENT\""
-                               " --menu \"Which software do you want to install?\" 0 0 0 "
-                               "\"1\" \"netron (神经网络,深度学习和机器学习模型的可视化工具)\" "
+            std::string menu = cfg_.tui_bin + " --title \""
+                               + _("swcenter.electron.dev_title") + "\""
+                               " --menu \"" + _("swcenter.electron.dev_prompt") + "\" 0 0 0 "
+                               "\"1\" \"" + _("swcenter.electron.dev_netron") + "\" "
                                "\"0\" \"" + _("menu.tui.back") + "\"";
             auto ch = Executor::tui_select(menu);
             if (ch == "0" || ch.empty()) return;
@@ -336,11 +340,12 @@ namespace tmoe::domain {
 
     void SoftwareCenter::run_electron_manager() {
         while (true) {
-            std::string menu = cfg_.tui_bin + " --title \"electron manager\""
-                               " --menu \"您要对electron小可爱做什么?\" 0 0 0 "
-                               "\"1\" \"install/upgrade 安装/更新 electron\" "
-                               "\"2\" \"remove electron (稳定版)\" "
-                               "\"3\" \"remove electron-v8.x\" "
+            std::string menu = cfg_.tui_bin + " --title \""
+                               + _("swcenter.electron.title_manager") + "\""
+                               " --menu \"" + _("swcenter.electron.mgr_prompt") + "\" 0 0 0 "
+                               "\"1\" \"" + _("swcenter.electron.mgr_install") + "\" "
+                               "\"2\" \"" + _("swcenter.electron.mgr_remove_stable") + "\" "
+                               "\"3\" \"" + _("swcenter.electron.mgr_remove_v8") + "\" "
                                "\"0\" \"" + _("menu.tui.back") + "\"";
             auto ch = Executor::tui_select(menu);
             if (ch == "0" || ch.empty()) return;
@@ -348,21 +353,21 @@ namespace tmoe::domain {
             if (ch == "1") {
                 ensure_electron_runtime();
             } else if (ch == "2") {
-                Logger::warn("卸载后将导致依赖electron的应用无法正常运行。");
-                Logger::warn("  rm -rvf /opt/electron /usr/bin/electron");
-                if (Logger::confirm("确认卸载 electron?")) {
+                Logger::warn(_("swcenter.electron.mgr_remove_warn"));
+                Logger::warn(_("swcenter.electron.runtime_rm_path_warn"));
+                if (Logger::confirm(_("swcenter.electron.mgr_confirm_remove"))) {
                     CommandBuilder("rm").add_flag("-rf")
                         .add_arg("/opt/electron")
                         .add_arg("/usr/bin/electron")
                         .add_raw("2>/dev/null").execute();
-                    Logger::ok("electron 已卸载");
+                    Logger::ok(_("swcenter.electron.mgr_removed"));
                 }
             } else if (ch == "3") {
-                Logger::warn("部分软件依赖于旧版electron,卸载后将导致这些软件无法正常运行。");
-                Logger::warn("  rm -rvf /opt/electron-v8");
-                if (Logger::confirm("确认卸载 electron-v8?")) {
+                Logger::warn(_("swcenter.electron.mgr_remove_v8_warn"));
+                Logger::warn(_("swcenter.electron.runtime_rm_v8_path_warn"));
+                if (Logger::confirm(_("swcenter.electron.mgr_confirm_remove_v8"))) {
                     CommandBuilder("rm").add_flag("-rf").add_arg("/opt/electron-v8").add_raw("2>/dev/null").execute();
-                    Logger::ok("electron-v8 已卸载");
+                    Logger::ok(_("swcenter.electron.mgr_removed_v8"));
                 }
             }
             Logger::press_enter();
@@ -375,7 +380,7 @@ namespace tmoe::domain {
     void SoftwareCenter::run_media_menu() {
         auto family = infer_family_from_config(cfg_.linux_distro);
         std::string menu = cfg_.tui_bin + " --title \"" + _("swcenter.media_menu")
-                           + "\" --menu \"Which software do you want to install?\" 0 0 0 "
+                           + "\" --menu \"" + _("swcenter.media.menu_prompt") + "\" 0 0 0 "
                            "\"1\"  \"🗜️ " + _("swcenter.batch_compress") + "\" "
                            "\"2\"  \"📽️ " + _("swcenter.mpv") + "\" "
                            "\"3\"  \"🎥 " + _("swcenter.smplayer") + "\" "
@@ -393,7 +398,7 @@ namespace tmoe::domain {
         if (ch == "0" || ch.empty()) return;
 
         if (ch == "1") {
-            Logger::step("batch-compress");
+            Logger::step(_("swcenter.media.batch_compress_step"));
             PackageManager::install("imagemagick", family);
         } else if (ch == "2") PackageManager::install("mpv", family);
         else if (ch == "3") PackageManager::install("smplayer", family);
@@ -419,16 +424,16 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
 
     void SoftwareCenter::install_linux_qq() {
-        Logger::step("正在通过腾讯官方 API 获取 LinuxQQ 最新版本...");
-        Logger::info("若安装失败，请前往官网手动下载安装: https://im.qq.com/linuxqq/download.html");
+        Logger::step(_("swcenter.qq.fetching_version"));
+        Logger::info(_("swcenter.qq.manual_download_hint"));
 
         auto family = PackageManager::detect_distro_family();
 
         // 1. Arch Linux 专属特权：直接走官方包管理器 (AUR) 最为优雅稳定
         if (family == DistroFamily::Arch) {
-            Logger::info("检测到 Arch Linux，将通过包管理器直接安装...");
+            Logger::info(_("swcenter.qq.arch_detected"));
             PackageManager::install("linuxqq", family);
-            Logger::ok("LinuxQQ 安装流程已移交包管理器");
+            Logger::ok(_("swcenter.qq.transferred"));
             return;
         }
 
@@ -437,23 +442,25 @@ namespace tmoe::domain {
         const char *curl_opts = "-4 --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 30 -sL "
                 "-A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'";
 
-        Executor::shell(
-            "curl " + std::string(curl_opts) +
-            " 'https://cdn-go.cn/qq-web/im.qq.com_new/latest/rainbow/pcConfig.json' -o " + tmp_json);
+        CommandBuilder("curl")
+            .add_raw(std::string(curl_opts))
+            .add_arg("https://cdn-go.cn/qq-web/im.qq.com_new/latest/rainbow/pcConfig.json")
+            .add_opt("-o", tmp_json)
+            .execute();
 
         if (Executor::shell("grep '\"Linux\"' " + tmp_json + " > /dev/null 2>&1").exit_code != 0) {
-            Logger::error("获取 QQ 官方配置失败，请检查网络或防火墙。");
+            Logger::error(_("swcenter.qq.fetch_config_failed"));
             CommandBuilder("rm").add_flag("-f").add_arg(tmp_json).add_raw("2>/dev/null").execute();
             return;
         }
 
         // 3. 提取版本号
-        std::string version = Executor::shell("jq -r '.Linux.version' " + tmp_json).stdout_data;
+        std::string version = CommandBuilder("jq").add_flag("-r").add_arg(".Linux.version").add_arg(tmp_json).execute().stdout_data;
         while (!version.empty() && (version.back() == '\n' || version.back() == '\r')) version.pop_back();
 
-        if (version.empty()) version = "未知版本";
+        if (version.empty()) version = _("swcenter.qq.unknown_version");
 
-        if (!Logger::confirm("确认安装 LinuxQQ " + version + " ?")) {
+        if (!Logger::confirm(_f("swcenter.qq.confirm_install", version))) {
             CommandBuilder("rm").add_flag("-f").add_arg(tmp_json).add_raw("2>/dev/null").execute();
             return;
         }
@@ -486,7 +493,7 @@ namespace tmoe::domain {
             format_key = "deb";
             ext = ".deb"; // MIPS 目前官方仅供 deb
         } else {
-            Logger::error("当前系统架构 (" + arch + ") 暂不支持官方 Linux QQ");
+            Logger::error(_f("swcenter.qq.arch_unsupported", arch));
             CommandBuilder("rm").add_flag("-f").add_arg(tmp_json).add_raw("2>/dev/null").execute();
             return;
         }
@@ -496,7 +503,7 @@ namespace tmoe::domain {
 
         // 柔性降级策略：如果当前架构缺失指定的 deb/rpm，自动降级为全系统通用的 AppImage
         if (dl_url.empty() || dl_url == "null") {
-            Logger::warn("官方尚未提供当前环境的 " + format_key + " 原生包，尝试降级为通用 AppImage...");
+            Logger::warn(_f("swcenter.qq.no_native_pkg", format_key));
             format_key = "appimage";
             ext = ".AppImage";
 
@@ -511,12 +518,12 @@ namespace tmoe::domain {
         CommandBuilder("rm").add_flag("-f").add_arg(tmp_json).add_raw("2>/dev/null").execute();
 
         if (dl_url.empty() || dl_url == "null") {
-            Logger::error("获取官方下载直链失败！官方可能调整了 API。");
+            Logger::error(_("swcenter.qq.fetch_dl_failed"));
             return;
         }
 
-        Logger::info("直链解析成功: " + dl_url);
-        Logger::step("正在下载安装包...");
+        Logger::info(_f("swcenter.qq.dl_link_resolved", dl_url));
+        Logger::step(_("swcenter.qq.downloading_pkg"));
 
         // 5. 下载包体 (使用独立 -o 避免路径拼接陷阱)
         std::string dest_file = "LINUXQQ" + ext;
@@ -524,12 +531,12 @@ namespace tmoe::domain {
                                    "--allow-overwrite=true -s 5 -x 5 -k 1M -o " + dest_file + " '" + dl_url + "'";
 
         if (!Executor::passthrough(download_cmd).ok()) {
-            Logger::error("下载失败，请检查网络环境。");
+            Logger::error(_("swcenter.qq.dl_failed"));
             return;
         }
 
         // 6. 执行系统级原生安装
-        Logger::step("正在执行安装部署...");
+        Logger::step(_("swcenter.qq.installing"));
         if (ext == ".deb") {
             Executor::passthrough(
                 "cd /tmp && apt-cache show ./" + dest_file + " 2>/dev/null; apt install -y ./" + dest_file +
@@ -555,20 +562,20 @@ namespace tmoe::domain {
             Executor::shell("cat > /usr/share/applications/linuxqq.desktop <<'EOF'\n" + desktop_content + "EOF\n");
         }
 
-        Logger::ok("LinuxQQ " + version + " 安装完成！");
+        Logger::ok(_f("swcenter.qq.install_done", version));
     }
 
     void SoftwareCenter::install_wechat() {
-        Logger::step("正在通过微信官方网站获取最新原生版本...");
-        Logger::info("数据源: https://linux.weixin.qq.com/");
+        Logger::step(_("swcenter.wechat.fetching_version"));
+        Logger::info(_("swcenter.wechat.data_source"));
 
         auto family = PackageManager::detect_distro_family();
 
         // 1. Arch Linux 专属特权：AUR 的 linux-weixin 是由社区维护的官方重打包版本
         if (family == DistroFamily::Arch) {
-            Logger::info("检测到 Arch Linux，将通过包管理器直接安装官方原生微信...");
+            Logger::info(_("swcenter.wechat.arch_detected"));
             PackageManager::install("linux-weixin", family);
-            Logger::ok("微信安装流程已移交包管理器");
+            Logger::ok(_("swcenter.wechat.transferred"));
             return;
         }
 
@@ -577,10 +584,14 @@ namespace tmoe::domain {
         const char *curl_opts = "-4 --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 30 -sL "
                 "-A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'";
 
-        Executor::shell("curl " + std::string(curl_opts) + " 'https://linux.weixin.qq.com/' -o " + tmp_html);
+        CommandBuilder("curl")
+            .add_raw(std::string(curl_opts))
+            .add_arg("https://linux.weixin.qq.com/")
+            .add_opt("-o", tmp_html)
+            .execute();
 
         if (!fs::exists(tmp_html) || fs::file_size(tmp_html) == 0) {
-            Logger::error("获取微信官网页面失败，请检查网络连接。");
+            Logger::error(_("swcenter.wechat.fetch_page_failed"));
             CommandBuilder("rm").add_flag("-f").add_arg(tmp_html).add_raw("2>/dev/null").execute();
             return;
         }
@@ -603,7 +614,7 @@ namespace tmoe::domain {
         } else if (arch == "mips64el") {
             arch_grep = "mips64el";
         } else {
-            Logger::error("当前系统架构 (" + arch + ") 暂不支持官方 Linux 微信");
+            Logger::error(_f("swcenter.wechat.arch_unsupported", arch));
             CommandBuilder("rm").add_flag("-f").add_arg(tmp_html).add_raw("2>/dev/null").execute();
             return;
         }
@@ -628,7 +639,7 @@ namespace tmoe::domain {
         CommandBuilder("rm").add_flag("-f").add_arg(tmp_html).add_raw("2>/dev/null").execute();
 
         if (dl_url.empty()) {
-            Logger::error("在官网未找到架构 " + arch + " 的原生安装包。");
+            Logger::error(_f("swcenter.wechat.not_found", arch));
             return;
         }
 
@@ -637,15 +648,15 @@ namespace tmoe::domain {
             else dl_url = "https://linux.weixin.qq.com/" + dl_url;
         }
 
-        Logger::info("解析到官方原生下载直链: " + dl_url);
-        if (!Logger::confirm("确认下载并安装官方原生版 Linux 微信吗？")) {
+        Logger::info(_f("swcenter.wechat.dl_link_resolved", dl_url));
+        if (!Logger::confirm(_("swcenter.wechat.confirm_dl"))) {
             return;
         }
 
-        Logger::step("正在下载原生安装包...");
+        Logger::step(_("swcenter.wechat.downloading"));
 
         // 5. 提取文件名并设定独立的下载路径
-        std::string filename = Executor::shell("basename '" + dl_url + "'").stdout_data;
+        std::string filename = CommandBuilder("basename").add_arg(dl_url).execute().stdout_data;
         while (!filename.empty() && (filename.back() == '\n' || filename.back() == '\r')) filename.pop_back();
 
         if (filename.empty() || filename.find('?') != std::string::npos) {
@@ -665,13 +676,13 @@ namespace tmoe::domain {
                              "-d '" + download_dir + "' -o '" + filename + "' '" + dl_url + "'";
 
         if (!Executor::passthrough(dl_cmd).ok() || !fs::exists(dest) || fs::file_size(dest) == 0) {
-            Logger::error("官方微信下载失败，请检查网络环境。");
+            Logger::error(_("swcenter.wechat.dl_failed"));
             CommandBuilder("rm").add_flag("-f").add_arg(dest).add_raw("2>/dev/null").execute();
             return;
         }
 
         // 6. 执行原生统级部署
-        Logger::step("正在部署官方原生版微信...");
+        Logger::step(_("swcenter.wechat.installing"));
 
         // 脱离 DeveloperTools 的 apps_lnk_dir_，直接使用标准系统路径
         std::string app_lnk_dir = "/usr/share/applications";
@@ -696,13 +707,13 @@ namespace tmoe::domain {
             Executor::shell("cat > " + app_lnk_dir + "/wechat.desktop <<'EOF'\n" + desktop_content + "EOF\n");
         }
 
-        Logger::ok("官方原生版 Linux WeChat 安装完成！");
+        Logger::ok(_("swcenter.wechat.install_done"));
     }
 
     void SoftwareCenter::install_skype() {
         std::string arch = cfg_.arch;
         if (arch != "amd64") {
-            Logger::error("Skype 仅支持 x86_64 架构");
+            Logger::error(_("swcenter.skype.x64_only"));
             return;
         }
 
@@ -722,11 +733,11 @@ namespace tmoe::domain {
             dl_file = "SKYPE.deb";
         }
 
-        Logger::info("下载链接: " + dl_url);
-        if (!Logger::confirm("确认安装 Skype ?"))
+        Logger::info(_f("swcenter.skype.dl_link", dl_url));
+        if (!Logger::confirm(_("swcenter.skype.confirm_install")))
             return;
 
-        Logger::step("正在下载 Skype ...");
+        Logger::step(_("swcenter.skype.downloading"));
         auto dl_ret = Executor::passthrough(
             "cd /tmp && "
             "aria2c --console-log-level=warn --no-conf --continue=true "
@@ -734,7 +745,7 @@ namespace tmoe::domain {
         );
 
         if (!dl_ret.ok()) {
-            Logger::error("Skype 下载失败");
+            Logger::error(_("swcenter.skype.dl_failed"));
             return;
         }
 
@@ -746,11 +757,11 @@ namespace tmoe::domain {
                 "apt install -y ./" + dl_file + "; rm -vf " + dl_file
             );
         }
-        Logger::ok("Skype 安装完成");
+        Logger::ok(_("swcenter.skype.install_done"));
     }
 
     void SoftwareCenter::install_mitalk() {
-        Logger::step("正在获取米聊下载信息...");
+        Logger::step(_("swcenter.mitalk.fetching"));
         auto family = PackageManager::detect_distro_family();
 
         // 从 AUR 抓取最新 deb 链接
@@ -764,7 +775,7 @@ namespace tmoe::domain {
             dl_url.pop_back();
 
         if (dl_url.empty()) {
-            Logger::error("无法获取米聊下载链接");
+            Logger::error(_("swcenter.mitalk.fetch_failed"));
             return;
         }
 
@@ -776,8 +787,8 @@ namespace tmoe::domain {
                 dl_url.replace(pos, 4, ".AppImage");
         }
 
-        Logger::info("下载链接: " + dl_url);
-        if (!Logger::confirm("确认安装 米聊 ?"))
+        Logger::info(_f("swcenter.mitalk.dl_link", dl_url));
+        if (!Logger::confirm(_("swcenter.mitalk.confirm_install")))
             return;
 
         std::string dl_file = "mitalk.deb";
@@ -793,24 +804,24 @@ namespace tmoe::domain {
                 "rm -vf " + dl_file
             );
         }
-        Logger::ok("米聊安装完成");
+        Logger::ok(_("swcenter.mitalk.install_done"));
     }
 
     void SoftwareCenter::run_sns_menu() {
         while (true) {
             auto family = infer_family_from_config(cfg_.linux_distro);
             std::string menu = cfg_.tui_bin + " --title \"" + _("swcenter.sns_menu")
-                               + "\" --menu \"Which software do you want to install?\" 0 0 0 "
-                               "\"1\"  \"LinuxQQ (腾讯开发的IM软件,从心出发,趣无止境)\" "
-                               "\"2\"  \"Wechat (arm64,x64)\" "
-                               "\"3\"  \"Thunderbird (雷鸟,Mozilla开发的email客户端)\" "
-                               "\"4\"  \"Kmail (KDE邮件客户端)\" "
-                               "\"5\"  \"Evolution (GNOME邮件客户端)\" "
-                               "\"6\"  \"Empathy (GNOME多协议语音视频聊天)\" "
-                               "\"7\"  \"Pidgin (IM即时通讯软件)\" "
-                               "\"8\"  \"Xchat (IRC客户端,类似Amiga的AmIRC)\" "
-                               "\"9\"  \"Skype (x64,微软出品的IM软件)\" "
-                               "\"10\" \"米聊 (x64,小米科技出品的即时通讯工具)\" "
+                               + "\" --menu \"" + _("swcenter.sns.menu_prompt") + "\" 0 0 0 "
+                               "\"1\"  \"" + _("swcenter.sns.linuxqq") + "\" "
+                               "\"2\"  \"" + _("swcenter.sns.wechat") + "\" "
+                               "\"3\"  \"" + _("swcenter.sns.thunderbird") + "\" "
+                               "\"4\"  \"" + _("swcenter.sns.kmail") + "\" "
+                               "\"5\"  \"" + _("swcenter.sns.evolution") + "\" "
+                               "\"6\"  \"" + _("swcenter.sns.empathy") + "\" "
+                               "\"7\"  \"" + _("swcenter.sns.pidgin") + "\" "
+                               "\"8\"  \"" + _("swcenter.sns.xchat") + "\" "
+                               "\"9\"  \"" + _("swcenter.sns.skype") + "\" "
+                               "\"10\" \"" + _("swcenter.sns.mitalk") + "\" "
                                "\"0\"  \"" + _("menu.tui.back") + "\"";
             auto ch = Executor::tui_select(menu);
             if (ch == "0" || ch.empty()) return;
@@ -835,15 +846,15 @@ namespace tmoe::domain {
     void SoftwareCenter::run_games_menu() {
         auto family = infer_family_from_config(cfg_.linux_distro);
         std::string menu = cfg_.tui_bin + " --title \"" + _("swcenter.games_menu")
-                           + "\" --menu \"Which game do you want to install?\" 0 0 0 "
-                           "\"1\" \"🎮 KDE-games (KDE项目的小游戏合集)\" "
-                           "\"2\" \"👣 GNOME-games\" "
-                           "\"3\" \"🤓 Steam-x86_64 (蒸汽游戏平台)\" "
-                           "\"4\" \"cataclysm-大灾变 (末日幻想探索生存游戏)\" "
-                           "\"5\" \"wesnoth韦诺之战 (奇幻回合制策略战棋)\" "
-                           "\"6\" \"retroarch (全能复古游戏模拟器)\" "
-                           "\"7\" \"dolphin-emu (任天堂wii模拟器)\" "
-                           "\"8\" \"SuperTuxKart (3D卡丁车)\" "
+                           + "\" --menu \"" + _("swcenter.games.menu_prompt") + "\" 0 0 0 "
+                           "\"1\" \"" + _("swcenter.games.kde_games") + "\" "
+                           "\"2\" \"" + _("swcenter.games.gnome_games") + "\" "
+                           "\"3\" \"" + _("swcenter.games.steam") + "\" "
+                           "\"4\" \"" + _("swcenter.games.cataclysm") + "\" "
+                           "\"5\" \"" + _("swcenter.games.wesnoth") + "\" "
+                           "\"6\" \"" + _("swcenter.games.retroarch") + "\" "
+                           "\"7\" \"" + _("swcenter.games.dolphin") + "\" "
+                           "\"8\" \"" + _("swcenter.games.supertuxkart") + "\" "
                            "\"0\" \"" + _("menu.tui.back") + "\"";
         auto ch = Executor::tui_select(menu);
         if (ch == "0" || ch.empty()) return;
@@ -864,22 +875,23 @@ namespace tmoe::domain {
     // 8. 🏤 Debian Opt Repo — 对应旧 Bash explore_debian_opt_repo
     // ═══════════════════════════════════════════════════════════════
     void SoftwareCenter::run_debian_opt_menu() {
-        std::string menu = cfg_.tui_bin + " --title \"🏤 DEBIAN OPT REPO\""
-                           " --menu \"Only supports DEBIAN-based distros\" 0 0 0 "
-                           "\"1\"  \"🎶 music: vocal, flacon\" "
-                           "\"2\"  \"📝 notes笔记: markdown编辑器\" "
-                           "\"3\"  \"📺 videos视频: 多媒体音视频转换\" "
-                           "\"4\"  \"🖼️ pictures图像: bing壁纸\" "
-                           "\"5\"  \"📖 reader: 悦享生活,品味阅读\" "
-                           "\"6\"  \"🎮 games游戏: Minecraft启动器\" "
-                           "\"7\"  \"👾 development: GUI设计\" "
-                           "\"8\"  \"💠 tools工具: winetricks-zh\" "
-                           "\"9\"  \"🔯 internet: motrix, freechat\" "
+        std::string menu = cfg_.tui_bin + " --title \""
+                           + _("swcenter.debian_opt.menu_title") + "\""
+                           " --menu \"" + _("swcenter.debian_opt.menu_prompt") + "\" 0 0 0 "
+                           "\"1\"  \"" + _("swcenter.debian_opt.music") + "\" "
+                           "\"2\"  \"" + _("swcenter.debian_opt.notes") + "\" "
+                           "\"3\"  \"" + _("swcenter.debian_opt.videos") + "\" "
+                           "\"4\"  \"" + _("swcenter.debian_opt.pictures") + "\" "
+                           "\"5\"  \"" + _("swcenter.debian_opt.reader") + "\" "
+                           "\"6\"  \"" + _("swcenter.debian_opt.games_item") + "\" "
+                           "\"7\"  \"" + _("swcenter.debian_opt.development") + "\" "
+                           "\"8\"  \"" + _("swcenter.debian_opt.tools") + "\" "
+                           "\"9\"  \"" + _("swcenter.debian_opt.internet") + "\" "
                            "\"0\"  \"" + _("menu.tui.back") + "\"";
         auto ch = Executor::tui_select(menu);
         if (ch == "0" || ch.empty()) return;
 
-        Logger::info("Debian Opt Repo: 功能待细化 (对应旧 Bash deprecated/debian-opt)");
+        Logger::info(_("swcenter.debian_opt.not_implemented"));
         // 旧 Bash 中每个子项有独立的 install_* 函数，包名待补全
         Logger::press_enter();
     }
@@ -937,8 +949,9 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
     void SoftwareCenter::run_cleanup_menu() {
         while (true) {
-            std::string menu = cfg_.tui_bin + " --title \"Removable items\""
-                               " --menu \"Which item do you want to remove?\" 0 0 0 "
+            std::string menu = cfg_.tui_bin + " --title \""
+                               + _("swcenter.cleanup.menu_title") + "\""
+                               " --menu \"" + _("swcenter.cleanup.menu_prompt") + "\" 0 0 0 "
                                "\"1\" \"" + _("swcenter.cleanup_rm_gui") + "\" "
                                "\"2\" \"" + _("swcenter.cleanup_rm_browser") + "\" "
                                "\"3\" \"" + _("swcenter.cleanup_rm_tmoe") + "\" "
@@ -962,9 +975,9 @@ namespace tmoe::domain {
         if (family == DistroFamily::Unknown)
             family = PackageManager::detect_distro_family();
 
-        Logger::step("Removing GUI desktop environments...");
+        Logger::step(_("swcenter.cleanup.remove_gui_step"));
         auto confirm = Executor::passthrough(cfg_.tui_bin +
-                                             " --yesno \"按回车键确认卸载所有桌面环境\" 0 0");
+                                             " --yesno \"" + _("swcenter.cleanup.remove_gui_confirm") + "\" 0 0");
         if (confirm.exit_code != 0) return;
 
         switch (family) {
@@ -1007,16 +1020,14 @@ namespace tmoe::domain {
         // 对应旧 Bash: 火狐娘 vs chromium娘 二选一
         auto family = infer_family_from_config(cfg_.linux_distro);
         std::string confirm = cfg_.tui_bin +
-                              " --title \"请从两个小可爱中选择一个\" --yes-button \"Firefox\" --no-button \"chromium\""
-                              " --yesno '火狐娘:\"虽然知道总有离别时，但我没想到这一天竟然会这么早。\""
-                              "chromium娘:\"哼，负心人，走了之后就别回来了！\""
-                              " 请做出您的选择！' 10 60";
+                              " --title \"" + _("swcenter.cleanup.browser_title") + "\" --yes-button \"Firefox\" --no-button \"chromium\""
+                              " --yesno '" + _("swcenter.cleanup.browser_dialog_text") + "' 10 60";
         auto choice = Executor::passthrough(confirm);
         // exit_code: 0=Firefox(yes), 1=chromium(no), 255=ESC
 
         if (choice.exit_code == 0) {
             auto f_confirm = Executor::passthrough(cfg_.tui_bin +
-                                                   " --yesno \"按回车键确认卸载 Firefox\" 0 0");
+                                                   " --yesno \"" + _("swcenter.cleanup.browser_firefox_confirm") + "\" 0 0");
             if (f_confirm.exit_code != 0) return;
             PackageManager::remove({
                 "firefox-esr", "firefox-esr-l10n-zh-cn",
@@ -1024,7 +1035,7 @@ namespace tmoe::domain {
             }, family);
         } else if (choice.exit_code == 1) {
             auto c_confirm = Executor::passthrough(cfg_.tui_bin +
-                                                   " --yesno \"按回车键确认卸载 Chromium\" 0 0");
+                                                   " --yesno \"" + _("swcenter.cleanup.browser_chromium_confirm") + "\" 0 0");
             if (c_confirm.exit_code != 0) return;
             Executor::passthrough(
                 "apt-mark unhold chromium-browser chromium-browser-l10n chromium-codecs-ffmpeg-extra 2>/dev/null || true");
@@ -1037,11 +1048,11 @@ namespace tmoe::domain {
     }
 
     void SoftwareCenter::remove_tmoe_tools() {
-        Logger::step("Removing tmoe tools...");
-        Logger::warn("WARNING！删除 ~/.config/tmoe-linux 将导致容器无法正常移除，建议先移除容器再删配置。");
+        Logger::step(_("swcenter.cleanup.remove_tmoe_step"));
+        Logger::warn(_("swcenter.cleanup.remove_tmoe_warn"));
 
         auto tm_confirm = Executor::passthrough(cfg_.tui_bin +
-                                                " --yesno \"确认卸载 tmoe-linux 管理器？\n此操作不可逆！\" 0 0");
+                                                " --yesno \"" + _("swcenter.cleanup.remove_tmoe_confirm") + "\" 0 0");
         if (tm_confirm.exit_code != 0) return;
 
         CommandBuilder("rm")
@@ -1066,6 +1077,6 @@ namespace tmoe::domain {
         auto family = infer_family_from_config(cfg_.linux_distro);
         PackageManager::remove({"git", "aria2", "pv", "wget", "curl", "less", "xz-utils", "newt", "whiptail"}, family);
 
-        Logger::warn("tmoe 工具已移除。容器数据保留在 ~/.local/share/tmoe");
+        Logger::warn(_("swcenter.cleanup.remove_tmoe_done"));
     }
 } // namespace tmoe::domain

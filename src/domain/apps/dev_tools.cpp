@@ -163,12 +163,12 @@ namespace tmoe::domain {
 
         // Check if already installed
         if (fs::exists("/usr/share/code/.electron")) {
-            Logger::info("检测到您已安装VSCode (官方tar.gz版)");
-            Logger::info("请输 code --user-data-dir=${HOME}/.vscode 启动");
-            Logger::info("如需卸载: rm -rvf /usr/share/code /usr/share/applications/code.desktop ...");
+            Logger::info(_("devtools.status.vscode_tar_detected"));
+            Logger::info(_("devtools.hint.vscode_launch"));
+            Logger::info(_("devtools.hint.vscode_uninstall"));
         } else if (fs::exists("/usr/bin/code")) {
-            Logger::info("检测到您已安装VSCode (包管理器版)");
-            Logger::info("请输 code --user-data-dir=${HOME}/.vscode 启动");
+            Logger::info(_("devtools.status.vscode_pkg_detected"));
+            Logger::info(_("devtools.hint.vscode_launch"));
         }
 
         // Try running code if available
@@ -176,7 +176,7 @@ namespace tmoe::domain {
             Executor::shell("code --version --user-data-dir=/tmp/.code 2>/dev/null || true");
         }
 
-        Logger::step("正在准备下载最新版 VS Code...");
+        Logger::step(_("devtools.step.prepare_download_vscode"));
         if (!confirm("devtools.confirm_download_vscode", "是否下载最新版安装包?"))
             return;
 
@@ -216,11 +216,11 @@ namespace tmoe::domain {
                 code_bin_folder = "VSCode-linux-armhf";
             }
         } else {
-            Logger::error("当前架构 " + arch + " 暂不支持VS Code官方版");
+            Logger::error(_("devtools.error.vscode_arch_not_supported") + ": " + arch);
             return;
         }
 
-        Logger::info("下载链接: " + code_bin_url);
+        Logger::info(_("devtools.hint.download_url") + code_bin_url);
 
         // ── 公共 aria2c 标志：断点续传 + 实时进度 ──
         const char *aria2_flags = "--console-log-level=warn --no-conf --continue=true "
@@ -233,7 +233,7 @@ namespace tmoe::domain {
                 "aria2c " + std::string(aria2_flags) + " -o 'VSCODE.deb' '" + code_bin_url + "'"
             );
             if (!dl_ret.ok() || !fs::exists("/tmp/VSCODE.deb") || fs::file_size("/tmp/VSCODE.deb") == 0) {
-                Logger::error("VSCode 下载失败或文件不完整");
+                Logger::error(_("devtools.error.vscode_download_failed"));
                 return;
             }
             Executor::passthrough(
@@ -242,18 +242,18 @@ namespace tmoe::domain {
                 "dpkg -i ./VSCODE.deb || apt install -y ./VSCODE.deb; "
                 "rm -vf VSCODE.deb"
             );
-            Logger::ok("安装完成,请输 code --user-data-dir=${HOME}/.vscode 启动");
+            Logger::ok(_("devtools.ok.vscode_install_done"));
         } else if (family == DistroFamily::RedHat) {
             auto dl_ret = Executor::passthrough(
                 "cd /tmp && "
                 "aria2c " + std::string(aria2_flags) + " -o 'VSCODE.rpm' '" + code_bin_url + "'"
             );
             if (!dl_ret.ok() || !fs::exists("/tmp/VSCODE.rpm") || fs::file_size("/tmp/VSCODE.rpm") == 0) {
-                Logger::error("VSCode 下载失败或文件不完整");
+                Logger::error(_("devtools.error.vscode_download_failed"));
                 return;
             }
             Executor::passthrough("cd /tmp && yum install -y ./VSCODE.rpm; rm -vf VSCODE.rpm");
-            Logger::ok("安装完成,请输 code --user-data-dir=${HOME}/.vscode 启动");
+            Logger::ok(_("devtools.ok.vscode_install_done"));
         } else {
             // Generic tar.gz install
             auto dl_ret = Executor::passthrough(
@@ -261,7 +261,7 @@ namespace tmoe::domain {
                 "aria2c " + std::string(aria2_flags) + " -o 'VSCODE.tar.gz' '" + code_bin_url + "'"
             );
             if (!dl_ret.ok() || !fs::exists("/tmp/VSCODE.tar.gz") || fs::file_size("/tmp/VSCODE.tar.gz") == 0) {
-                Logger::error("VSCode 下载失败或文件不完整");
+                Logger::error(_("devtools.error.vscode_download_failed"));
                 return;
             }
             Executor::passthrough(
@@ -285,7 +285,7 @@ namespace tmoe::domain {
                 "https://github.com/2moe/vscode-share/raw/master/code.tar.xz"
             );
             if (!share_ret.ok()) {
-                Logger::warn("VSCode share 文件下载失败，但主程序已安装");
+                Logger::warn(_("devtools.warn.vscode_share_failed"));
             } else {
                 Executor::passthrough(
                     "cd /tmp && tar -Jxvf .VSCODE_USR_SHARE.tar.xz -C /; rm -vf .VSCODE_USR_SHARE.tar.xz"
@@ -295,7 +295,7 @@ namespace tmoe::domain {
             // Symlink
             Executor::shell(CommandBuilder("ln").add_flag("-sfv")
                 .add_arg("/usr/share/code/bin/code").add_arg("/usr/bin").build_string());
-            Logger::ok("安装完成,请输 code --user-data-dir=${HOME}/.vscode 启动");
+            Logger::ok(_("devtools.ok.vscode_install_done"));
         }
 
         // Install code-no-sandbox.desktop if code exists
@@ -334,8 +334,8 @@ namespace tmoe::domain {
 
         // Check arch support
         if (arch != "arm64" && arch != "amd64" && arch != "armhf") {
-            Logger::error("非常抱歉，Tmoe-linux的开发者未对您的架构进行适配。");
-            Logger::info("请选择其它版本");
+            Logger::error(_("devtools.error.codeserver_no_arch"));
+            Logger::info(_("devtools.hint.choose_other_version"));
             return;
         }
 
@@ -393,7 +393,7 @@ namespace tmoe::domain {
             else if (ch == "2") vscode_server_password();
             else if (ch == "3") Executor::passthrough("nano ~/.config/code-server/config.yaml");
             else if (ch == "4") {
-                Logger::info("正在停止服务进程...");
+                Logger::info(_("devtools.status.stopping_service"));
                 Executor::shell("pkill node 2>/dev/null || true");
             } else if (ch == "5") vscode_server_remove();
 
@@ -402,7 +402,7 @@ namespace tmoe::domain {
     }
 
     void DeveloperTools::vscode_server_upgrade() {
-        Logger::step("正在检测版本信息...");
+        Logger::step(_("devtools.step.checking_version"));
 
         std::string local_ver = "NOT-INSTALLED";
         if (Executor::has("code-server")) {
@@ -421,12 +421,12 @@ namespace tmoe::domain {
 
         Logger::info("╔═══╦══════════╦═══════════════════╦════════════════════");
         Logger::info("║   ║          ║                   ║");
-        Logger::info("║   ║ software ║    ✨最新版本     ║   本地版本 🎪");
+        Logger::info("║   ║ software ║    ✨" + _("devtools.table.latest_version") + "     ║   " + _("devtools.table.local_version") + " 🎪");
         Logger::info("║---║----------║-------------------║--------------------");
         Logger::info("║ 1 ║ vscode   ║ " + latest_ver + " ║ " + local_ver);
         Logger::info("║   ║ server   ║                   ║");
         Logger::info("");
-        Logger::info("您可以输入 code-server 来启动vscode web服务器。");
+        Logger::info(_("devtools.hint.start_codeserver"));
 
         if (!confirm("devtools.confirm_upgrade", "是否继续升级?"))
             return;
@@ -460,12 +460,12 @@ namespace tmoe::domain {
                 server_url.pop_back();
 
             if (server_url.empty()) {
-                Logger::error("无法获取 code-server 下载链接");
+                Logger::error(_("devtools.error.codeserver_link_failed"));
                 return;
             }
 
-            Logger::info("code-server 下载链接: " + server_url);
-            Logger::step("正在下载 code-server ...");
+            Logger::info(_("devtools.hint.download_url") + server_url);
+            Logger::step(_("devtools.step.downloading_codeserver"));
 
             // 用 passthrough 显示实时进度
             auto dl_ret = Executor::passthrough(
@@ -477,14 +477,14 @@ namespace tmoe::domain {
             );
 
             if (!dl_ret.ok()) {
-                Logger::error("code-server 下载失败");
+                Logger::error(_("devtools.error.codeserver_download_failed"));
                 return;
             }
 
             // 验证下载后文件存在且非空
             if (!fs::exists("/tmp/.VSCODE_SERVER_TEMP_FOLDER/.VSCODE_SERVER.tar.gz") ||
                 fs::file_size("/tmp/.VSCODE_SERVER_TEMP_FOLDER/.VSCODE_SERVER.tar.gz") == 0) {
-                Logger::error("code-server 下载文件不完整");
+                Logger::error(_("devtools.error.codeserver_download_incomplete"));
                 return;
             }
 
@@ -502,7 +502,7 @@ namespace tmoe::domain {
         vscode_server_restart();
         vscode_server_password();
 
-        Logger::info("若您是初次安装，则请重启code-server");
+        Logger::info(_("devtools.hint.codeserver_first_install"));
 
         // Fix bind address
         Executor::shell(
@@ -514,8 +514,8 @@ namespace tmoe::domain {
     }
 
     void DeveloperTools::vscode_server_restart() {
-        Logger::info("即将为您启动code-server");
-        Logger::info("您之后可以输 code-server 来启动Code Server.");
+        Logger::info(_("devtools.status.starting_codeserver"));
+        Logger::info(_("devtools.hint.codeserver_usage"));
         Executor::shell("/usr/local/bin/code-server-data/bin/code-server &");
 
         auto port_result = Executor::shell(
@@ -524,14 +524,14 @@ namespace tmoe::domain {
         std::string port = port_result.stdout_data;
         if (port.empty()) port = "18080";
 
-        Logger::info("正在为您启动code-server，本机默认访问地址为 localhost:" + port);
+        Logger::info(_("devtools.status.codeserver_local_addr") + port);
 
         auto ip_result = Executor::shell("ip -4 -br -c a 2>/dev/null | tail -n 1 | cut -d '/' -f 1 | cut -d 'P' -f 2");
         std::string ip = ip_result.stdout_data;
         if (!ip.empty())
-            Logger::info("局域网地址: " + ip + ":" + port);
+            Logger::info(_("devtools.status.lan_addr") + ip + ":" + port);
 
-        Logger::info("您可以输 pkill node 来停止进程");
+        Logger::info(_("devtools.hint.stop_node"));
     }
 
     void DeveloperTools::vscode_server_password() {
@@ -539,14 +539,14 @@ namespace tmoe::domain {
                           " --inputbox \"请设定访问密码\\nPlease enter the password.\" 12 50 --title \"PASSWORD\"";
         auto result = Executor::passthrough(cmd + " 2>/tmp/vscode_passwd_out");
         // whiptail inputbox is tricky with passthrough; use a simpler approach
-        Logger::info("请手动执行: sed -i 's@^password:.*@password: YOUR_PASS@' ~/.config/code-server/config.yaml");
+        Logger::info(_("devtools.hint.manual_set_password"));
     }
 
     void DeveloperTools::vscode_server_remove() {
-        Logger::info("正在停止code-server进程...");
+        Logger::info(_("devtools.status.stopping_codeserver"));
         Executor::shell("pkill node 2>/dev/null || true");
 
-        Logger::info("按回车键确认移除");
+        Logger::info(_("devtools.hint.press_enter_remove"));
         if (!confirm("devtools.confirm_remove_vscode_server", "确认移除 VS Code Server?"))
             return;
 
@@ -555,7 +555,7 @@ namespace tmoe::domain {
             .add_arg("/usr/local/bin/code-server")
             .add_arg("/tmp/sed-vscode.tmp")
             .add_raw("2>/dev/null").build_string());
-        Logger::ok("移除成功");
+        Logger::ok(_("devtools.ok.remove_success"));
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -569,24 +569,24 @@ namespace tmoe::domain {
         else if (arch == "armhf") codium_arch = "arm";
         else if (arch == "amd64") codium_arch = "x64";
         else {
-            Logger::error("暂不支持 " + arch + " 架构");
+            Logger::error(_("devtools.error.codium_arch_not_supported") + ": " + arch);
             return;
         }
 
         // Check existing installation
         if (fs::exists("/usr/bin/codium")) {
-            Logger::info("检测到您已安装VSCodium (包管理器版)");
-            Logger::info("请输 codium --user-data-dir=${HOME}/.codium 启动");
+            Logger::info(_("devtools.detected.codium_pkg"));
+            Logger::info(_("devtools.hint.codium_launch_pkg"));
         } else if (fs::exists("/opt/vscodium-data/codium")) {
-            Logger::info("检测到您已安装VSCodium (tar包版)");
-            Logger::info("请输 codium 启动");
+            Logger::info(_("devtools.detected.codium_tar"));
+            Logger::info(_("devtools.hint.codium_launch"));
         }
 
         // Try to run
         if (Executor::has("codium"))
             Executor::shell("codium --no-sandbox 2>/dev/null &");
 
-        Logger::info("是否下载最新版 VSCodium?");
+        Logger::info(_("devtools.hint.download_codium"));
         if (!confirm("devtools.confirm_download", "是否下载最新版安装包?"))
             return;
 
@@ -608,18 +608,18 @@ namespace tmoe::domain {
                 codium_url.pop_back();
 
             if (codium_url.empty()) {
-                Logger::error("无法获取 VSCodium 下载链接");
+                Logger::error(_("devtools.error.codium_link_failed"));
                 return;
             }
 
-            Logger::info("VSCodium 下载链接: " + codium_url);
+            Logger::info(_("devtools.hint.download_url") + codium_url);
 
             // 下载 (实时进度)
             auto dl_ret = Executor::passthrough(
                 "cd /tmp && aria2c " + std::string(aria2_flags) + " -o 'VSCodium.deb' '" + codium_url + "'"
             );
             if (!dl_ret.ok() || !fs::exists("/tmp/VSCodium.deb") || fs::file_size("/tmp/VSCodium.deb") == 0) {
-                Logger::error("VSCodium 下载失败或文件不完整");
+                Logger::error(_("devtools.error.codium_download_failed"));
                 return;
             }
 
@@ -628,7 +628,7 @@ namespace tmoe::domain {
                 "cd /tmp && apt-cache show ./VSCodium.deb 2>/dev/null; "
                 "dpkg -i ./VSCodium.deb; rm -vf VSCodium.deb"
             );
-            Logger::ok("安装完成,请输 codium --user-data-dir=${HOME}/.codium 启动");
+            Logger::ok(_("devtools.ok.codium_install_done_pkg"));
         } else {
             // 抓取下载链接
             auto link_result = Executor::shell(
@@ -642,18 +642,18 @@ namespace tmoe::domain {
                 codium_url.pop_back();
 
             if (codium_url.empty()) {
-                Logger::error("无法获取 VSCodium 下载链接");
+                Logger::error(_("devtools.error.codium_link_failed"));
                 return;
             }
 
-            Logger::info("VSCodium 下载链接: " + codium_url);
+            Logger::info(_("devtools.hint.download_url") + codium_url);
 
             // 下载 (实时进度)
             auto dl_ret = Executor::passthrough(
                 "cd /tmp && aria2c " + std::string(aria2_flags) + " -o 'VSCodium.tar.gz' '" + codium_url + "'"
             );
             if (!dl_ret.ok() || !fs::exists("/tmp/VSCodium.tar.gz") || fs::file_size("/tmp/VSCodium.tar.gz") == 0) {
-                Logger::error("VSCodium 下载失败或文件不完整");
+                Logger::error(_("devtools.error.codium_download_failed"));
                 return;
             }
 
@@ -714,7 +714,7 @@ namespace tmoe::domain {
                 );
             }
 
-            Logger::ok("安装完成，请输 codium 启动");
+            Logger::ok(_("devtools.ok.codium_install_done"));
         }
     }
 
@@ -722,14 +722,14 @@ namespace tmoe::domain {
     // 修复 tightvnc 下 vscode 无法启动
     // ═══════════════════════════════════════════════════════════════════
     void DeveloperTools::fix_tightvnc_vscode() {
-        Logger::info("本功能仅支持deb系发行版。");
-        Logger::info("若无法自动修复，则请手动使用以下命令来启动:");
+        Logger::info(_("devtools.hint.deb_only"));
+        Logger::info(_("devtools.hint.manual_fix_cmd"));
         Logger::info("env LD_LIBRARY_PATH=${TMOE_LINUX_DIR}/lib codium --user-data-dir=${HOME}/.codium");
         Logger::info("env LD_LIBRARY_PATH=${TMOE_LINUX_DIR}/lib code --user-data-dir=${HOME}/.vscode");
 
         auto family = PackageManager::detect_distro_family();
         if (family != DistroFamily::Debian) {
-            Logger::warn("非Debian系发行版，跳过自动修复");
+            Logger::warn(_("devtools.warn.non_deb_skip"));
             return;
         }
 
@@ -744,7 +744,7 @@ namespace tmoe::domain {
             auto find2 = Executor::shell("find /usr/lib -name 'libxcb.so*' 2>/dev/null | head -n 1");
             gnu_libxcb = find2.stdout_data;
             if (gnu_libxcb.empty()) {
-                Logger::error("无法找到 GNU libxcb.so");
+                Logger::error(_("devtools.error.libxcb_not_found"));
                 return;
             }
         }
@@ -771,9 +771,9 @@ namespace tmoe::domain {
                 "sed -i \"s@Exec=/usr/share/code/code@Exec=env LD_LIBRARY_PATH=" + tmoe_linux_dir +
                 "/lib /usr/share/code/code --no-sandbox@g\" " + lnk_dir + "/code.desktop 2>/dev/null || true"
             );
-            Logger::ok("修复完成");
+            Logger::ok(_("devtools.ok.fix_done"));
         } else {
-            Logger::error("ERROR！无法修复。");
+            Logger::error(_("devtools.error.fix_failed"));
         }
     }
 
@@ -886,7 +886,7 @@ namespace tmoe::domain {
         if (is_jetbrains) {
             // ── 纯净的 JetBrains 官方直链安装逻辑 ──
             icon_file_ = app_opt_dir_ + "/bin/" + icon_name_;
-            Logger::step("正在检测版本更新信息...");
+            Logger::step(_("devtools.step.checking_version"));
 
             std::string dl_url, dl_version;
             if (!fetch_jetbrains_link(dl_url, dl_version)) {
@@ -909,11 +909,11 @@ namespace tmoe::domain {
                 return;
 
             // 提取直链文件名
-            std::string filename = Executor::shell("basename '" + dl_url + "'").stdout_data;
+            std::string filename = Executor::shell(CommandBuilder("basename").add_arg(dl_url).build_string()).stdout_data;
             while (!filename.empty() && (filename.back() == '\n' || filename.back() == '\r')) filename.pop_back();
 
             if (!download_and_extract_jetbrains(dl_url, filename)) {
-                Logger::error("JetBrains IDE 下载或解压失败");
+                Logger::error(_("devtools.error.jetbrains_extract_failed"));
                 return;
             }
 
@@ -923,7 +923,7 @@ namespace tmoe::domain {
                 "-version.txt 2>/dev/null");
 
             install_java_if_needed();
-            Logger::ok(grep_name_ + " " + dl_version + " 安装完成！");
+            Logger::ok(grep_name_ + " " + dl_version + _("devtools.ok.jetbrains_install_done"));
         } else if (grep_name_ == "github-desktop-bin") {
             // ── 转向 GitHub Desktop 官方推荐的 Linux 原生包 ──
             install_github_desktop();
@@ -932,12 +932,12 @@ namespace tmoe::domain {
 
     void DeveloperTools::install_github_desktop() {
         if (cfg_.arch != "amd64") {
-            Logger::error("GitHub Desktop (Linux) 仅支持 amd64 (x86_64) 架构");
-            Logger::info("官方支持库: https://github.com/shiftkey/desktop");
+            Logger::error(_("devtools.error.github_amd64_only"));
+            Logger::info(_("devtools.hint.official_repo") + "https://github.com/shiftkey/desktop");
             return;
         }
 
-        Logger::step("正在通过 GitHub API 获取最新版本...");
+        Logger::step(_("devtools.step.fetch_github_api"));
 
         // 采用企业级加固的 curl 抓取 shiftkey 的最新 Release
         const char *curl_opts = "-4 --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 30 -sL "
@@ -952,7 +952,7 @@ namespace tmoe::domain {
         // 检查是否下载成功且包含有效的 API 字段
         auto check_ret = Executor::shell("grep '\"assets\"' " + tmp_json + " > /dev/null 2>&1");
         if (check_ret.exit_code != 0) {
-            Logger::error("获取发布信息失败，可能触发了 GitHub API 速率限制。");
+            Logger::error(_("devtools.error.github_api_rate_limit"));
             Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(tmp_json)
                 .add_raw("2>/dev/null").build_string());
             return;
@@ -985,7 +985,7 @@ namespace tmoe::domain {
 
         // 如果该版本没提供对应的原生包，降级到通用 AppImage
         if (dl_url.empty() || dl_url == "null") {
-            Logger::warn("当前版本未提供 " + ext + "，自动降级为通用 AppImage...");
+            Logger::warn(_("devtools.warn.fallback_appimage") + ext + "，自动降级为通用 AppImage...");
             ext = ".AppImage";
             jq_cmd = "jq -r '.assets[] | select(.name | endswith(\".AppImage\")) | .browser_download_url' " + tmp_json +
                      " | head -n 1";
@@ -998,22 +998,22 @@ namespace tmoe::domain {
             .add_raw("2>/dev/null").build_string());
 
         if (dl_url.empty() || dl_url == "null") {
-            Logger::error("未找到有效的 GitHub Desktop 下载链接");
+            Logger::error(_("devtools.error.github_no_link"));
             return;
         }
 
-        std::string filename = Executor::shell("basename '" + dl_url + "'").stdout_data;
+        std::string filename = Executor::shell(CommandBuilder("basename").add_arg(dl_url).build_string()).stdout_data;
         while (!filename.empty() && (filename.back() == '\n' || filename.back() == '\r')) filename.pop_back();
 
         check_download_path();
         std::string dest = download_path_.string() + "/" + filename;
 
         if (!aria2_download(dl_url, dest, true)) {
-            Logger::error("下载失败");
+            Logger::error(_("devtools.error.ide_download_failed"));
             return;
         }
 
-        Logger::step("正在执行原生安装...");
+        Logger::step(_("devtools.step.native_install"));
 
         // 依据包类型执行不同策略
         if (ext == ".deb") {
@@ -1049,7 +1049,7 @@ namespace tmoe::domain {
         // 记录版本，供菜单比对
         Executor::shell(
             "echo '" + latest_ver + "' > " + download_path_.string() + "/" + grep_name_ + "-version.txt 2>/dev/null");
-        Logger::ok("GitHub Desktop 安装完成！");
+        Logger::ok(_("devtools.ok.github_install_done"));
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -1058,7 +1058,7 @@ namespace tmoe::domain {
     void DeveloperTools::install_ide_02() {
         icon_file_ = "/opt/android-studio/bin/studio.png";
 
-        Logger::step("正在检测版本更新信息...");
+        Logger::step(_("devtools.step.checking_version"));
         tip_manual_install("https://developer.android.com/studio");
 
         // ── 抓取 Android Studio 下载链接 ──
@@ -1074,13 +1074,13 @@ namespace tmoe::domain {
 
         // 抓取失败时直接阻断，防止后续 aria2c 报错
         if (latest_link.empty()) {
-            Logger::error("❌ 错误：无法从官方抓取 Android Studio 下载链接，可能网页结构已更改。");
+            Logger::error(_("devtools.error.as_link_failed"));
             return;
         }
 
         // 从链接中提取文件名和版本号
         std::string download_file_name = Executor::shell(
-            "basename '" + latest_link + "'"
+            CommandBuilder("basename").add_arg(latest_link).build_string()
         ).stdout_data;
         while (!download_file_name.empty() && (download_file_name.back() == '\n' || download_file_name.back() == '\r'))
             download_file_name.pop_back();
@@ -1099,12 +1099,12 @@ namespace tmoe::domain {
 
         // 传参给下载函数，避免重复抓取
         if (!download_android_studio(latest_link, download_file_name)) {
-            Logger::error("下载 Android Studio 失败");
+            Logger::error(_("devtools.error.as_download_failed"));
             return;
         }
 
         if (!extract_android_studio()) {
-            Logger::error("解压 Android Studio 失败");
+            Logger::error(_("devtools.error.as_extract_failed"));
             return;
         }
 
@@ -1115,14 +1115,14 @@ namespace tmoe::domain {
         Executor::shell("echo '" + latest_ver + "' > " + download_path_.string() +
                         "/" + grep_name_ + "-version.txt 2>/dev/null");
 
-        Logger::ok("Android Studio 安装完成！");
+        Logger::ok(_("devtools.ok.as_install_done"));
     }
 
     // ═══════════════════════════════════════════════════════════════════
     // delete_ide_pkg — 删除下载的 tar.zst 安装包
     // ═══════════════════════════════════════════════════════════════════
     void DeveloperTools::delete_ide_pkg() {
-        Logger::info("清理下载缓存目录: " + download_path_.string());
+        Logger::info(_("devtools.status.clean_cache_dir") + download_path_.string());
 
         // 动态推断当前 IDE 的包名关键词
         std::string pattern = "*";
@@ -1139,18 +1139,18 @@ namespace tmoe::domain {
             ".rpm " + pattern + ".AppImage 2>/dev/null");
 
         if (ls_result.stdout_data.empty()) {
-            Logger::warn("未检测到相关的安装包缓存");
+            Logger::warn(_("devtools.warn.no_pkg_cache"));
             return;
         }
 
-        Logger::info("发现以下缓存文件:");
+        Logger::info(_("devtools.status.found_cache_files"));
         Logger::info(ls_result.stdout_data);
 
         if (confirm("devtools.confirm_delete_pkg", "确认删除这些安装包吗?")) {
             Executor::shell(
                 "cd " + download_path_.string() + " && rm -v " + pattern + ".tar.gz " + pattern + ".deb " + pattern +
                 ".rpm " + pattern + ".AppImage 2>/dev/null || true");
-            Logger::ok("清理完成");
+            Logger::ok(_("devtools.ok.cleanup_done"));
         }
     }
 
@@ -1167,7 +1167,7 @@ namespace tmoe::domain {
             local_pkg.pop_back();
 
         if (local_pkg.empty()) {
-            Logger::warn("检测到安装包不存在");
+            Logger::warn(_("devtools.warn.pkg_not_exist"));
         } else {
             Logger::info("rm -v " + download_path_.string() + "/" + local_pkg);
             auto size_result = Executor::shell("ls -lh " + download_path_.string() + "/" + local_pkg + " 2>/dev/null");
@@ -1201,22 +1201,22 @@ namespace tmoe::domain {
         }
 
         Logger::warn("═══════════════════════════════════════════");
-        Logger::warn("  即将卸载: " + grep_name_);
+        Logger::warn(_("devtools.warn.uninstalling") + grep_name_);
         Logger::warn("═══════════════════════════════════════════");
-        Logger::warn("安装目录 : " + app_opt_dir_);
-        Logger::warn("桌面图标 : " + lnk_dir + "/" + lnk_file_);
+        Logger::warn(_("devtools.warn.install_dir") + app_opt_dir_);
+        Logger::warn(_("devtools.warn.desktop_icon") + lnk_dir + "/" + lnk_file_);
         if (!cli_link.empty())
-            Logger::warn("CLI 链接  : " + cli_link);
-        Logger::warn("版本记录 : " + version_file);
+            Logger::warn(_("devtools.warn.cli_link") + cli_link);
+        Logger::warn(_("devtools.warn.version_record") + version_file);
         if (fs::exists(manifest_file))
-            Logger::warn("安装清单 : " + manifest_file + " (将触发深度清理)");
+            Logger::warn(_("devtools.warn.manifest_file") + manifest_file + _("devtools.warn.manifest_deep_clean"));
 
         if (!confirm("devtools.confirm_remove_ide", "确认卸载 " + grep_name_ + " ?"))
             return;
 
         // 基于 Manifest 的安全深度清理
         if (fs::exists(manifest_file)) {
-            Logger::step("正在根据清单执行系统级深度清理...");
+            Logger::step(_("devtools.step.manifest_clean"));
             // 倒序读取文件（先删深层文件，再处理目录），仅删除文件和空目录
             std::string clean_cmd =
                     "tac '" + manifest_file + "' | while read -r item; do "
@@ -1256,7 +1256,7 @@ namespace tmoe::domain {
                     .add_raw("2>/dev/null").build_string());
             }
         } else if (grep_name_ == "github-desktop-bin") {
-            Logger::step("正在移除 GitHub Desktop...");
+            Logger::step(_("devtools.step.removing_github_desktop"));
             // 如果是通过原生包安装的，需要用对应的包管理器踢掉
             PackageManager::remove("github-desktop", PackageManager::detect_distro_family());
 
@@ -1277,7 +1277,7 @@ namespace tmoe::domain {
                 .add_raw("2>/dev/null").build_string());
         }
 
-        Logger::ok(grep_name_ + " 已彻底卸载");
+        Logger::ok(grep_name_ + _("devtools.ok.uninstall_done"));
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -1289,11 +1289,11 @@ namespace tmoe::domain {
         std::string version_file = dl_path + "/" + grep_name_ + "-version.txt";
 
         Logger::warn("═══════════════════════════════════════════");
-        Logger::warn("  即将卸载: " + grep_name_);
+        Logger::warn(_("devtools.warn.uninstalling") + grep_name_);
         Logger::warn("═══════════════════════════════════════════");
-        Logger::warn("安装目录 : " + app_opt_dir_);
-        Logger::warn("桌面图标 : " + lnk_dir + "/" + lnk_file_);
-        Logger::warn("版本记录 : " + version_file);
+        Logger::warn(_("devtools.warn.install_dir") + app_opt_dir_);
+        Logger::warn(_("devtools.warn.desktop_icon") + lnk_dir + "/" + lnk_file_);
+        Logger::warn(_("devtools.warn.version_record") + version_file);
 
         if (!confirm("devtools.confirm_remove_ide", "确认卸载 " + grep_name_ + " ?"))
             return;
@@ -1307,27 +1307,27 @@ namespace tmoe::domain {
         Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(version_file)
             .add_raw("2>/dev/null").build_string());
 
-        Logger::ok(grep_name_ + " 已卸载");
+        Logger::ok(grep_name_ + _("devtools.ok.uninstalled"));
     }
 
     // ═══════════════════════════════════════════════════════════════════
     // GNU Emacs — 快速安装
     // ═══════════════════════════════════════════════════════════════════
     void DeveloperTools::install_emacs() {
-        Logger::step("安装 GNU Emacs...");
+        Logger::step(_("devtools.step.installing_emacs"));
         auto family = PackageManager::detect_distro_family();
         PackageManager::install("emacs", family);
-        Logger::ok("Emacs 安装完成");
+        Logger::ok(_("devtools.ok.emacs_done"));
     }
 
     // ═══════════════════════════════════════════════════════════════════
     // Code::Blocks — 快速安装
     // ═══════════════════════════════════════════════════════════════════
     void DeveloperTools::install_code_blocks() {
-        Logger::step("安装 Code::Blocks...");
+        Logger::step(_("devtools.step.installing_codeblocks"));
         auto family = PackageManager::detect_distro_family();
         PackageManager::install("codeblocks", family);
-        Logger::ok("Code::Blocks 安装完成");
+        Logger::ok(_("devtools.ok.codeblocks_done"));
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -1336,7 +1336,7 @@ namespace tmoe::domain {
     void DeveloperTools::install_sublime_text() {
         std::string arch = cfg_.arch;
         if (arch != "amd64" && arch != "i386") {
-            Logger::error("Sublime Text 仅支持 amd64/i386 架构");
+            Logger::error(_("devtools.error.sublime_arch_only"));
             return;
         }
 
@@ -1344,7 +1344,7 @@ namespace tmoe::domain {
 
         switch (family) {
             case DistroFamily::Debian: {
-                Logger::step("添加 Sublime Text 官方 GPG 密钥和源...");
+                Logger::step(_("devtools.step.adding_sublime_source"));
                 Executor::passthrough(
                     "curl -L https://download.sublimetext.com/sublimehq-pub.gpg 2>/dev/null | "
                     "gpg --dearmor > /tmp/sublimehq-pub.gpg && "
@@ -1398,7 +1398,7 @@ namespace tmoe::domain {
                 break;
         }
 
-        Logger::ok("Sublime Text 安装完成");
+        Logger::ok(_("devtools.ok.sublime_done"));
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -1418,7 +1418,7 @@ namespace tmoe::domain {
 
         if (community_edition_) {
             // ── 社区版 → Arch Linux community 仓库 ──
-            Logger::info("正在查询 Arch community 仓库: " + grep_name_ + " ...");
+            Logger::info(_("devtools.status.checking_arch_community") + grep_name_ + " ...");
             auto result = Executor::shell(
                 "curl " + std::string(curl_opts) +
                 " 'https://archlinux.org/packages/community/x86_64/" + grep_name_ + "/' 2>/dev/null | "
@@ -1429,12 +1429,12 @@ namespace tmoe::domain {
                 ver.pop_back();
 
             if (!ver.empty()) {
-                Logger::info("最新版本: " + ver + " (Arch community)");
+                Logger::info(_("devtools.status.latest_version") + ver + " (Arch community)");
                 return ver;
             }
 
             // 回退：直接扫 community 镜像目录列表
-            Logger::info("包页面解析失败，尝试扫描镜像目录...");
+            Logger::info(_("devtools.status.parsing_failed_try_mirror"));
             auto fallback = Executor::shell(
                 "curl " + std::string(curl_opts) +
                 " 'https://mirrors.kernel.org/archlinux/community/os/x86_64/' 2>/dev/null | "
@@ -1444,11 +1444,11 @@ namespace tmoe::domain {
             ver = fallback.stdout_data;
             while (!ver.empty() && (ver.back() == '\n' || ver.back() == '\r'))
                 ver.pop_back();
-            if (!ver.empty()) Logger::info("最新版本: " + ver + " (Arch community mirror)");
+            if (!ver.empty()) Logger::info(_("devtools.status.latest_version") + ver + " (Arch community mirror)");
             return ver;
         } else {
             // ── 旗舰版/AUR → archlinuxcn 仓库 ──
-            Logger::info("正在查询 archlinuxcn 仓库: " + grep_name_ + " ...");
+            Logger::info(_("devtools.status.checking_archlinuxcn") + grep_name_ + " ...");
             auto result = Executor::shell(
                 "curl " + std::string(curl_opts) +
                 " 'https://mirrors.bfsu.edu.cn/archlinuxcn/x86_64/' 2>/dev/null | "
@@ -1459,10 +1459,10 @@ namespace tmoe::domain {
             std::string ver = result.stdout_data;
             while (!ver.empty() && (ver.back() == '\n' || ver.back() == '\r'))
                 ver.pop_back();
-            if (!ver.empty()) Logger::info("最新版本: " + ver + " (archlinuxcn)");
+            if (!ver.empty()) Logger::info(_("devtools.status.latest_version") + ver + " (archlinuxcn)");
 
             if (ver.empty()) {
-                Logger::info("archlinuxcn 未找到，尝试 build.archlinuxcn.org ...");
+                Logger::info(_("devtools.status.archlinuxcn_not_found"));
                 auto result2 = Executor::shell(
                     "curl " + std::string(curl_opts) +
                     " 'https://build.archlinuxcn.org/packages/#/" + grep_name_ + "' 2>/dev/null | "
@@ -1482,7 +1482,7 @@ namespace tmoe::domain {
         std::string dl_path = download_path_.string();
         const char *curl_opts = "--connect-timeout 15 --max-time 60 -sL";
 
-        Logger::step("正在下载 " + grep_name_ + " ...");
+        Logger::step(_("devtools.step.downloading") + grep_name_ + " ...");
 
         // 根据版本类型选择镜像源
         std::string mirror_list;
@@ -1528,8 +1528,8 @@ namespace tmoe::domain {
             pkg_file.pop_back();
 
         if (pkg_file.empty()) {
-            Logger::error("下载失败：在所有镜像源均未找到 " + grep_name_ + " 的 .pkg.tar.zst");
-            Logger::info("请前往官网手动下载安装。");
+            Logger::error(_("devtools.error.download_not_found_all_mirrors") + grep_name_ + " 的 .pkg.tar.zst");
+            Logger::info(_("devtools.hint.manual_download"));
             if (community_edition_) {
                 Logger::info("https://www.jetbrains.com/idea/download/#section=linux");
             }
@@ -1539,20 +1539,20 @@ namespace tmoe::domain {
         // 验证文件大小
         auto size = fs::file_size(dl_path + "/" + pkg_file);
         if (size == 0) {
-            Logger::error("下载的包文件为空: " + pkg_file);
+            Logger::error(_("devtools.error.pkg_file_empty") + pkg_file);
             fs::remove(dl_path + "/" + pkg_file);
             return false;
         }
-        Logger::ok("下载完成: " + pkg_file + " (" + std::to_string(size / 1048576) + " MB)");
+        Logger::ok(_("devtools.ok.download_complete") + pkg_file + " (" + std::to_string(size / 1048576) + " MB)");
 
         std::string pkg_full_path = dl_path + "/" + pkg_file;
         std::string manifest_path = dl_path + "/" + grep_name_ + ".manifest";
 
         // 步骤2: 生成安装清单并解压到根目录
-        Logger::step("正在生成安装清单 (Manifest)...");
+        Logger::step(_("devtools.step.generating_manifest"));
         Executor::shell("tar -tf '" + pkg_full_path + "' > '" + manifest_path + "' 2>/dev/null");
 
-        Logger::step("正在解压 " + pkg_file + " ...");
+        Logger::step(_("devtools.step.extracting") + pkg_file + " ...");
 
         std::string extract_cmd =
                 "if command -v pv >/dev/null 2>&1; then "
@@ -1565,14 +1565,14 @@ namespace tmoe::domain {
         auto extract_ret = Executor::passthrough(extract_cmd);
 
         if (!extract_ret.ok()) {
-            Logger::error("解压失败: tar.zst 返回错误码 " + std::to_string(extract_ret.exit_code));
+            Logger::error(_("devtools.error.extract_failed_code") + std::to_string(extract_ret.exit_code));
             // 解压失败时删掉不完整的清单文件
             Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(manifest_path)
                 .add_raw("2>/dev/null").build_string());
             return false;
         }
 
-        Logger::ok("解压完成");
+        Logger::ok(_("devtools.ok.extract_done"));
 
         // 保存版本信息
         std::string latest_ver = fetch_latest_archlinuxcn_version();
@@ -1601,7 +1601,7 @@ namespace tmoe::domain {
         std::string code = jetbrains_product_code();
         if (code.empty()) return false;
 
-        Logger::info("正在通过 JetBrains API 查询 " + grep_name_ + " (code=" + code + ") ...");
+        Logger::info(_("devtools.status.checking_jetbrains_api") + grep_name_ + " (code=" + code + ") ...");
 
         std::string api_url =
                 "https://data.services.jetbrains.com/products/releases"
@@ -1622,22 +1622,22 @@ namespace tmoe::domain {
             data.pop_back();
 
         if (data.empty()) {
-            Logger::error("JetBrains API 返回空数据或请求超时，请检查网络");
+            Logger::error(_("devtools.error.jetbrains_api_empty"));
             return false;
         }
 
         // jq 输出格式: "版本号|下载链接"
         auto sep = data.find('|');
         if (sep == std::string::npos) {
-            Logger::error("JetBrains API 解析失败: " + data);
+            Logger::error(_("devtools.error.jetbrains_api_parse") + data);
             return false;
         }
 
         out_version = data.substr(0, sep);
         out_url = data.substr(sep + 1);
 
-        Logger::ok("最新版本: " + out_version);
-        Logger::info("下载链接: " + out_url);
+        Logger::ok(_("devtools.status.latest_version") + out_version);
+        Logger::info(_("devtools.hint.download_url") + out_url);
         return true;
     }
 
@@ -1685,7 +1685,7 @@ namespace tmoe::domain {
 
         // 验证启动脚本存在
         if (!fs::exists(exec_path)) {
-            Logger::warn("未找到启动脚本，跳过桌面图标创建: " + exec_path);
+            Logger::warn(_("devtools.warn.launcher_not_found") + exec_path);
             return;
         }
 
@@ -1705,7 +1705,7 @@ namespace tmoe::domain {
         std::string lnk_dir = apps_lnk_dir_.string();
         std::string desk_file = lnk_dir + "/" + grep_name_ + ".desktop";
 
-        Logger::step("创建桌面图标: " + desk_file);
+        Logger::step(_("devtools.step.creating_desktop") + desk_file);
         Executor::shell("cat > " + desk_file + " <<'EOF'\n" + desktop_entry + "EOF\n"
                         "chmod a+r " + desk_file);
 
@@ -1727,10 +1727,10 @@ namespace tmoe::domain {
                 .add_arg(exec_path)
                 .add_arg("/usr/local/bin/" + cli_name)
                 .add_raw("2>/dev/null || true").build_string());
-            Logger::info("命令行启动: " + cli_name);
+            Logger::info(_("devtools.status.cli_cmd") + cli_name);
         }
 
-        Logger::ok("桌面图标已创建: " + desk_file);
+        Logger::ok(_("devtools.ok.desktop_created") + desk_file);
     }
 
     bool DeveloperTools::download_and_extract_jetbrains(const std::string &url,
@@ -1745,18 +1745,18 @@ namespace tmoe::domain {
                          " (" + std::to_string(fs::file_size(dest) / 1048576) + " MB), 跳过");
         } else {
             // 下载 (passthrough 显示实时进度)
-            Logger::step("正在下载 " + filename + " ...");
+            Logger::step(_("devtools.step.downloading") + filename + " ...");
             auto dl_ret = Executor::passthrough(
                 "cd " + dl_path + " && "
                 "aria2c --console-log-level=warn --no-conf --continue=true "
                 "--allow-overwrite=true -s 5 -x 5 -k 1M -o '" + filename + "' '" + url + "'"
             );
             if (!dl_ret.ok() || !fs::exists(dest) || fs::file_size(dest) == 0) {
-                Logger::error("下载失败或文件为空: aria2c 返回 " + std::to_string(dl_ret.exit_code));
+                Logger::error(_("devtools.error.download_failed_aria2c") + std::to_string(dl_ret.exit_code));
                 if (fs::exists(dest)) fs::remove(dest);
                 return false;
             }
-            Logger::ok("下载完成: " + filename + " (" + std::to_string(fs::file_size(dest) / 1048576) + " MB)");
+            Logger::ok(_("devtools.ok.download_complete") + filename + " (" + std::to_string(fs::file_size(dest) / 1048576) + " MB)");
         }
 
         // 精准获取压缩包内部的根目录名
@@ -1767,12 +1767,12 @@ namespace tmoe::domain {
         }
 
         if (extracted_dir.empty()) {
-            Logger::error("无法读取压缩包内容，包可能已损坏: " + dest);
+            Logger::error(_("devtools.error.tar_corrupted") + dest);
             return false;
         }
 
         // 解压到 /opt
-        Logger::step("正在解压 " + filename + " ...");
+        Logger::step(_("devtools.step.extracting") + filename + " ...");
 
         // 进度条与静默解压的兼容脚本
         std::string extract_cmd =
@@ -1786,7 +1786,7 @@ namespace tmoe::domain {
         auto extract_ret = Executor::passthrough(extract_cmd);
 
         if (!extract_ret.ok()) {
-            Logger::error("解压失败，正在执行回滚清理...");
+            Logger::error(_("devtools.error.extract_failed_rollback"));
             Executor::shell(CommandBuilder("rm").add_flag("-rf")
                 .add_arg("/opt/" + extracted_dir)
                 .add_raw("2>/dev/null").build_string());
@@ -1795,7 +1795,7 @@ namespace tmoe::domain {
 
         // 重命名为标准名称以便后续管理
         if (extracted_dir != grep_name_) {
-            Logger::info("配置目录: /opt/" + extracted_dir + " → /opt/" + grep_name_);
+            Logger::info(_("devtools.info.config_dir") + "/opt/" + extracted_dir + " → /opt/" + grep_name_);
             Executor::shell(CommandBuilder("rm").add_flag("-rf")
                 .add_arg("/opt/" + grep_name_)
                 .add_raw("2>/dev/null").build_string());
@@ -1807,7 +1807,7 @@ namespace tmoe::domain {
         // 创建桌面图标
         create_jetbrains_desktop();
 
-        Logger::ok(grep_name_ + " 安装完成");
+        Logger::ok(grep_name_ + _("devtools.ok.install_done"));
         return true;
     }
 
@@ -1820,13 +1820,13 @@ namespace tmoe::domain {
 
         // 文件已存在且非空 → 跳过
         if (fs::exists(dest) && fs::file_size(dest) > 0) {
-            Logger::info("检测到您已经下载最新版 " + filename +
+            Logger::info(_("devtools.detected.latest_downloaded") + filename +
                          " (" + std::to_string(fs::file_size(dest) / 1048576) + " MB), 跳过下载");
             return true;
         }
 
-        Logger::info("下载链接: " + url);
-        Logger::step("正在下载 Android Studio (" + filename + ") ...");
+        Logger::info(_("devtools.hint.download_url") + url);
+        Logger::step(_("devtools.step.downloading") + "Android Studio (" + filename + ") ...");
 
         // passthrough 让 aria2c 进度条实时显示
         auto ret = Executor::passthrough(
@@ -1836,17 +1836,17 @@ namespace tmoe::domain {
         );
 
         if (!ret.ok()) {
-            Logger::error("aria2c 返回错误码 " + std::to_string(ret.exit_code));
+            Logger::error(_("devtools.error.aria2c_return") + std::to_string(ret.exit_code));
             if (fs::exists(dest)) { fs::remove(dest); }
             return false;
         }
 
         if (!fs::exists(dest) || fs::file_size(dest) == 0) {
-            Logger::error("下载后文件不存在或为空: " + dest);
+            Logger::error(_("devtools.error.file_not_found_after_dl") + dest);
             return false;
         }
 
-        Logger::ok("下载完成: " + filename + " (" +
+        Logger::ok(_("devtools.ok.download_complete") + filename + " (" +
                    std::to_string(fs::file_size(dest) / 1048576) + " MB)");
         return true;
     }
@@ -1864,7 +1864,7 @@ namespace tmoe::domain {
         }
 
         if (pkg_file.empty()) {
-            Logger::error("找不到下载的安装包");
+            Logger::error(_("devtools.error.no_install_pkg"));
             return false;
         }
 
@@ -1877,7 +1877,7 @@ namespace tmoe::domain {
             extracted_dir.pop_back();
         }
 
-        Logger::step("正在解压 Android Studio 到 /opt ...");
+        Logger::step(_("devtools.step.extracting_as"));
 
         std::string extract_cmd =
                 "if command -v pv >/dev/null 2>&1; then "
@@ -1890,7 +1890,7 @@ namespace tmoe::domain {
         auto extract_ret = Executor::passthrough(extract_cmd);
 
         if (!extract_ret.ok()) {
-            Logger::error("解压失败，正在执行回滚清理...");
+            Logger::error(_("devtools.error.extract_failed_rollback"));
             if (!extracted_dir.empty()) {
                 Executor::shell(CommandBuilder("rm").add_flag("-rf")
                 .add_arg("/opt/" + extracted_dir)
@@ -1934,10 +1934,10 @@ namespace tmoe::domain {
 
     void DeveloperTools::install_java_if_needed() {
         if (Executor::has("java")) {
-            Logger::info("Java 已安装，跳过");
+            Logger::info(_("devtools.status.java_installed"));
             return;
         }
-        Logger::step("安装 Java 运行时 (JetBrains IDE 依赖)...");
+        Logger::step(_("devtools.step.installing_java"));
         auto family = PackageManager::detect_distro_family();
         PackageManager::install("default-jre", family);
     }
@@ -1955,7 +1955,7 @@ namespace tmoe::domain {
 
         Logger::info("╔═══╦══════════╦═══════════════════╦════════════════════");
         Logger::info("║   ║          ║                   ║");
-        Logger::info("║   ║ software ║    ✨最新版本     ║   本地版本 🎪");
+        Logger::info("║   ║ software ║    ✨" + _("devtools.table.latest_version") + "     ║   " + _("devtools.table.local_version") + " 🎪");
         Logger::info("║   ║          ║  Latest version   ║  Local version");
         Logger::info("║---║----------║-------------------║--------------------");
         Logger::info("║ 1 ║ " + grep_name_);
@@ -1982,7 +1982,7 @@ namespace tmoe::domain {
     }
 
     void DeveloperTools::tip_manual_install(const std::string &url) {
-        Logger::info("如需手动安装，请前往官网:");
+        Logger::info(_("devtools.hint.manual_install_url"));
         Logger::info(url);
     }
 
@@ -1991,19 +1991,19 @@ namespace tmoe::domain {
                                         bool continue_on_exists) {
         // 文件已存在且非空 → 跳过
         if (continue_on_exists && fs::exists(dest) && fs::file_size(dest) > 0) {
-            Logger::info("检测到已下载 " + dest + " (" +
+            Logger::info(_("devtools.detected.already_downloaded") + dest + " (" +
                          std::to_string(fs::file_size(dest) / 1048576) + " MB), 跳过下载");
             return true;
         }
 
         // 若存在空文件 (上次中断的残留)，先删除
         if (fs::exists(dest) && fs::file_size(dest) == 0) {
-            Logger::warn("检测到残留空文件，删除后重新下载: " + dest);
+            Logger::warn(_("devtools.warn.residual_empty_file") + dest);
             fs::remove(dest);
         }
 
-        Logger::info("下载链接: " + url);
-        Logger::step("正在下载 " + dest + " ...");
+        Logger::info(_("devtools.hint.download_url") + url);
+        Logger::step(_("devtools.step.downloading") + dest + " ...");
 
         // 💡 核心修复：分离目录和文件名
         std::string dir = fs::path(dest).parent_path().string();
@@ -2023,21 +2023,21 @@ namespace tmoe::domain {
 
         // 验证下载结果
         if (!ret.ok()) {
-            Logger::error("aria2c 返回错误码 " + std::to_string(ret.exit_code));
+            Logger::error(_("devtools.error.aria2c_return") + std::to_string(ret.exit_code));
             // 清理可能残留的不完整文件
             if (fs::exists(dest)) {
-                Logger::warn("删除不完整的下载文件: " + dest);
+                Logger::warn(_("devtools.warn.deleting_incomplete") + dest);
                 fs::remove(dest);
             }
             return false;
         }
 
         if (!fs::exists(dest) || fs::file_size(dest) == 0) {
-            Logger::error("下载后文件不存在或为空: " + dest);
+            Logger::error(_("devtools.error.file_not_found_after_dl") + dest);
             return false;
         }
 
-        Logger::ok("下载完成: " + dest + " (" +
+        Logger::ok(_("devtools.ok.download_complete") + dest + " (" +
                    std::to_string(fs::file_size(dest) / 1048576) + " MB)");
         return true;
     }

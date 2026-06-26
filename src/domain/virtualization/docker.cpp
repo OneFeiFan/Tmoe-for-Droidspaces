@@ -1,6 +1,7 @@
 #include "domain/virtualization/docker.h"
 #include "core/command_builder.hpp"
 #include "core/i18n.h"
+#include "domain/system/package_manager.h"
 #include <algorithm>
 #include <cstdio>
 #include <fstream>
@@ -134,17 +135,17 @@ namespace tmoe::domain {
                 Logger::error(_("docker.repo_add_failed"));
                 return false;
             }
-            return Executor::passthrough("apt install -y docker-ce docker-ce-cli containerd.io").ok();
+            return PackageManager::install({"docker-ce", "docker-ce-cli", "containerd.io"}, DistroFamily::Debian);
         }
 
         if (is_redhat_family()) {
             Executor::passthrough(
                 "dnf config-manager --add-repo https://mirrors.bfsu.edu.cn/docker-ce/linux/fedora/docker-ce.repo 2>/dev/null");
-            return Executor::passthrough("dnf install -y docker-ce docker-ce-cli containerd.io").ok();
+            return PackageManager::install({"docker-ce", "docker-ce-cli", "containerd.io"}, DistroFamily::RedHat);
         }
 
         if (is_arch_family()) {
-            return Executor::passthrough("pacman -S --noconfirm docker").ok();
+            return PackageManager::install("docker", DistroFamily::Arch);
         }
 
         if (is_alpine()) {
@@ -160,7 +161,7 @@ namespace tmoe::domain {
     bool DockerManager::install_docker_io() {
         Logger::step(_("docker.installing_io"));
         if (is_debian_family()) {
-            Executor::passthrough("apt install -y docker.io docker");
+            PackageManager::install({"docker.io", "docker"}, DistroFamily::Debian);
             return true;
         }
         Logger::warn(_("docker.io_debian_only"));
@@ -763,12 +764,12 @@ namespace tmoe::domain {
     bool DockerManager::reset_docker_container(const std::string &docker_name,
                                                const std::string &docker_tag,
                                                const std::string &container_name) {
-        Logger::step("docker.resetting_container: " + container_name);
+        Logger::step(_f("docker.resetting_container", container_name));
         ensure_docker_running();
 
         delete_container_and_image(docker_name, docker_tag, "", container_name);
 
-        Logger::info("docker.pulling_image: " + docker_name + ":" + docker_tag);
+        Logger::info(_f("docker.pulling_image", docker_name, docker_tag));
         Executor::passthrough(
             CommandBuilder("docker").add_flag("pull").add_arg(docker_name + ":" + docker_tag).build_string());
 
@@ -789,9 +790,9 @@ namespace tmoe::domain {
             fs::create_directories(out.parent_path());
         }
 
-        std::string cmd = "docker export \"" + std::string(name) +
-                          "\" > \"" + std::string(output_path) + "\"";
-        auto result = Executor::passthrough(cmd);
+        auto result = Executor::passthrough(
+            CommandBuilder("docker").add_flag("export").add_arg(std::string(name))
+                .add_raw("> " + std::string(output_path)).build_string());
         if (result.ok()) {
             auto size_mb = fs::file_size(output_path) / (1024 * 1024);
             Logger::ok(_f("docker.export_ok", std::string(output_path), std::to_string(size_mb)));
@@ -874,8 +875,12 @@ namespace tmoe::domain {
             std::string user = Executor::shell("whoami").stdout_data;
             user.erase(std::remove(user.begin(), user.end(), '\n'), user.end());
             user.erase(std::remove(user.begin(), user.end(), '\r'), user.end());
-            Executor::shell("chown " + user + ":" + user + " " + bak_file + " 2>/dev/null");
-            Executor::shell("chmod a+rw " + bak_file + " 2>/dev/null");
+            Executor::shell(
+                CommandBuilder("chown").add_arg(user + ":" + user).add_arg(bak_file)
+                    .add_raw("2>/dev/null").build_string());
+            Executor::shell(
+                CommandBuilder("chmod").add_arg("a+rw").add_arg(bak_file)
+                    .add_raw("2>/dev/null").build_string());
         }
     }
 
@@ -906,9 +911,9 @@ namespace tmoe::domain {
         }
 
         std::string full_name = std::string(image_name) + ":" + std::string(tag);
-        std::string cmd = "docker import - \"" + full_name +
-                          "\" < \"" + tar_path_str + "\"";
-        auto result = Executor::passthrough(cmd);
+        auto result = Executor::passthrough(
+            CommandBuilder("docker").add_flag("import").add_arg("-").add_arg(full_name)
+                .add_raw("< " + tar_path_str).build_string());
         if (result.ok()) {
             Logger::ok(_f("docker.import_ok", full_name));
         }
@@ -1043,7 +1048,9 @@ namespace tmoe::domain {
                     std::string editor = "nano";
                     auto e = Executor::shell("which nano 2>/dev/null");
                     if (!e.ok()) editor = "vi";
-                    Executor::passthrough(editor + " /etc/apt/sources.list.d/docker-ce.list 2>/dev/null");
+                    Executor::passthrough(
+                        CommandBuilder(editor).add_arg("/etc/apt/sources.list.d/docker-ce.list")
+                            .add_raw("2>/dev/null").build_string());
                 } else {
                     Logger::info(_("docker.unsupported_distro"));
                 }
@@ -1099,7 +1106,9 @@ namespace tmoe::domain {
         }
 
         Executor::shell("groupadd docker 2>/dev/null");
-        bool ok = Executor::shell("gpasswd -a " + cur_user + " docker").ok();
+        bool ok = Executor::shell(
+            CommandBuilder("gpasswd").add_flag("-a").add_arg(cur_user).add_arg("docker")
+                .build_string()).ok();
         if (ok) {
             Logger::ok(_("docker.user_added_to_group") + ": " + cur_user);
             Logger::info(_("docker.relogin_hint"));
@@ -1113,24 +1122,9 @@ namespace tmoe::domain {
 
     void DockerManager::tmoe_docker_readme(const std::string &container_name) const {
         // 对应 Bash tmoe_docker_readme (107-120行)
-        std::fprintf(stderr,
-            "\n══════════ Docker Usage ══════════\n\n"
-            "  Container: %s\n\n"
-            "  service docker start      — start docker daemon\n"
-            "  systemctl enable docker   — auto-start on boot\n"
-            "  ─────────────────────────────────\n"
-            "  docker ps                 — list running containers\n"
-            "  docker ps -a              — list all containers\n"
-            "  docker start   <name>     — start container\n"
-            "  docker stop    <name>     — stop container\n"
-            "  docker attach  <name>     — attach to container\n"
-            "  docker exec -it <name> sh — exec shell in container\n"
-            "  ─────────────────────────────────\n"
-            "  docker pull <image>:<tag> — pull image\n"
-            "  docker rmi  <image>:<tag> — remove image\n"
-            "  docker export <name> > bak.tar — export\n"
-            "  docker import - <name>:<tag> < bak.tar — import\n\n",
-            container_name.c_str());
+        Logger::info(_f("docker.readme_header", container_name));
+        Logger::info(_("docker.readme_content"));
+        Logger::info(_("docker.readme_footer"));
         Logger::press_enter();
     }
 
@@ -1191,7 +1185,9 @@ namespace tmoe::domain {
             user.erase(std::remove(user.begin(), user.end(), '\n'), user.end());
             user.erase(std::remove(user.begin(), user.end(), '\r'), user.end());
             if (!user.empty()) {
-                Executor::shell("chown -R " + user + ":" + user + " " + mount_dir.string() + " 2>/dev/null");
+                Executor::shell(
+                    CommandBuilder("chown").add_flag("-R").add_arg(user + ":" + user)
+                        .add_arg(mount_dir.string()).add_raw("2>/dev/null").build_string());
             }
         }
 
@@ -1288,7 +1284,7 @@ namespace tmoe::domain {
             else code = "stable";
         }
 
-        Executor::passthrough(cfg_.install_command + " ca-certificates curl gnupg lsb-release");
+        PackageManager::install({"ca-certificates", "curl", "gnupg", "lsb-release"}, DistroFamily::Debian);
         std::string mirror = "https://mirrors.bfsu.edu.cn/docker-ce/linux/" + release;
         std::string gpg_cmd = "curl -fsSL " + mirror + "/gpg 2>/dev/null | "
                               "gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg 2>/dev/null";
@@ -1304,7 +1300,7 @@ namespace tmoe::domain {
         ofs << repo_line << "\n";
         ofs.close();
 
-        Executor::passthrough(cfg_.update_command);
+        PackageManager::update(DistroFamily::Debian);
         Logger::ok(_("docker.debian_repo_added"));
         return true;
     }
@@ -1325,7 +1321,7 @@ namespace tmoe::domain {
             else code = "stable";
         }
 
-        Executor::passthrough(cfg_.install_command + " ca-certificates curl gnupg lsb-release");
+        PackageManager::install({"ca-certificates", "curl", "gnupg", "lsb-release"}, DistroFamily::Debian);
 
         // GPG 密钥
         Executor::passthrough("curl -fsSL https://mirrors.bfsu.edu.cn/docker-ce/linux/"
@@ -1360,7 +1356,7 @@ namespace tmoe::domain {
         }
         ofs.close();
 
-        Executor::passthrough(cfg_.update_command);
+        PackageManager::update(DistroFamily::Debian);
         Logger::ok(_("docker.debian_repo_added"));
         return true;
     }

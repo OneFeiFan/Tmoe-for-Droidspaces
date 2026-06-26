@@ -1,5 +1,7 @@
 #include "domain/system/config_manager.h"
+#include "core/command_builder.hpp"
 #include "core/i18n.h"
+#include "domain/system/package_manager.h"
 #include <algorithm>
 #include <fstream>
 #include <sstream>
@@ -88,7 +90,7 @@ bool ConfigManager::apply_dns(const std::string& provider_id) {
 
     // 备份当前 resolv.conf
     if (fs::exists("/etc/resolv.conf")) {
-        Executor::shell("cp -f /etc/resolv.conf /etc/resolv.conf.tmoe.bak 2>/dev/null");
+        Executor::shell(CommandBuilder("cp").add_flag("-f").add_arg("/etc/resolv.conf").add_arg("/etc/resolv.conf.tmoe.bak").add_raw("2>/dev/null").build_string());
     }
 
     bool ok = write_config_file("/etc/resolv.conf", resolv);
@@ -199,10 +201,10 @@ bool ConfigManager::apply_timezone(const std::string& tz) {
 
     bool ok = false;
     if (Executor::has("timedatectl")) {
-        ok = Executor::shell("timedatectl set-timezone " + tz).ok();
+        ok = Executor::shell(CommandBuilder("timedatectl").add_arg("set-timezone").add_arg(tz).build_string()).ok();
     }
     if (!ok) {
-        ok = Executor::shell("ln -sf /usr/share/zoneinfo/" + tz + " /etc/localtime 2>/dev/null").ok();
+        ok = Executor::shell(CommandBuilder("ln").add_flag("-sf").add_arg("/usr/share/zoneinfo/" + tz).add_arg("/etc/localtime").add_raw("2>/dev/null").build_string()).ok();
         if (ok) {
             write_config_file("/etc/timezone", tz);
         }
@@ -219,7 +221,7 @@ bool ConfigManager::apply_timezone(const std::string& tz) {
 
 std::string ConfigManager::detect_current_timezone() const {
     // 方法1: timedatectl
-    auto r = Executor::shell("timedatectl show --property=Timezone --value 2>/dev/null");
+    auto r = Executor::shell(CommandBuilder("timedatectl").add_arg("show").add_arg("--property=Timezone").add_arg("--value").add_raw("2>/dev/null").build_string());
     if (r.ok() && !r.stdout_data.empty()) {
         std::string tz = r.stdout_data;
         tz.erase(std::remove(tz.begin(), tz.end(), '\n'), tz.end());
@@ -237,7 +239,7 @@ std::string ConfigManager::detect_current_timezone() const {
     }
 
     // 方法3: 读取 /etc/localtime 软链接
-    r = Executor::shell("readlink -f /etc/localtime 2>/dev/null");
+    r = Executor::shell(CommandBuilder("readlink").add_flag("-f").add_arg("/etc/localtime").add_raw("2>/dev/null").build_string());
     if (r.ok() && !r.stdout_data.empty()) {
         std::string path = r.stdout_data;
         path.erase(std::remove(path.begin(), path.end(), '\n'), path.end());
@@ -248,7 +250,7 @@ std::string ConfigManager::detect_current_timezone() const {
     }
 
     // 方法4: Android getprop
-    r = Executor::shell("getprop persist.sys.timezone 2>/dev/null");
+    r = Executor::shell(CommandBuilder("getprop").add_arg("persist.sys.timezone").add_raw("2>/dev/null").build_string());
     if (r.ok() && !r.stdout_data.empty()) {
         std::string tz = r.stdout_data;
         tz.erase(std::remove(tz.begin(), tz.end(), '\n'), tz.end());
@@ -414,21 +416,28 @@ bool ConfigManager::install_fortune() {
 
     // 检测当前 locale 语言
     std::string lang = cfg_.locale.substr(0, 2);
+    auto family = infer_family_from_config(cfg_.linux_distro);
 
     bool ok = false;
-    if (cfg_.linux_distro == "debian") {
-        ok = Executor::shell(cfg_.install_command + " fortune-mod fortunes 2>/dev/null").ok();
-        if (ok && (lang == "zh" || lang == "ja" || lang == "ko")) {
-            Executor::shell(cfg_.install_command + " fortunes-" + lang + " 2>/dev/null || true");
-        }
-    } else if (cfg_.linux_distro == "arch") {
-        ok = Executor::shell(cfg_.install_command + " fortune-mod 2>/dev/null").ok();
-    } else if (cfg_.linux_distro == "alpine") {
-        ok = Executor::shell("apk add fortune 2>/dev/null").ok();
-    } else if (cfg_.linux_distro == "gentoo") {
-        ok = Executor::shell("emerge --ask=n games-misc/fortune-mod 2>/dev/null").ok();
-    } else {
-        ok = Executor::shell(cfg_.install_command + " fortune-mod 2>/dev/null").ok();
+    switch (family) {
+        case DistroFamily::Debian:
+            ok = PackageManager::install({"fortune-mod", "fortunes"}, family);
+            if (ok && (lang == "zh" || lang == "ja" || lang == "ko")) {
+                PackageManager::install("fortunes-" + lang, family);
+            }
+            break;
+        case DistroFamily::Arch:
+            ok = PackageManager::install("fortune-mod", family);
+            break;
+        case DistroFamily::Alpine:
+            ok = PackageManager::install("fortune", family);
+            break;
+        case DistroFamily::Gentoo:
+            ok = PackageManager::install("games-misc/fortune-mod", family);
+            break;
+        default:
+            ok = PackageManager::install("fortune-mod", family);
+            break;
     }
 
     if (ok) {
@@ -540,14 +549,14 @@ bool ConfigManager::change_root_password() {
 
     // 通过 chpasswd 修改 (需要 root)
     std::string chpasswd_input = "root:" + pw1;
-    auto result = Executor::shell("echo '" + chpasswd_input + "' | chpasswd 2>/dev/null");
+    auto result = Executor::shell(CommandBuilder("echo").add_arg(chpasswd_input).add_raw("| chpasswd 2>/dev/null").build_string());
 
     if (result.ok()) {
         Logger::ok(_("passwd.changed"));
         return true;
     } else {
         // fallback: passwd --stdin
-        result = Executor::shell("echo '" + pw1 + "' | passwd --stdin root 2>/dev/null");
+        result = Executor::shell(CommandBuilder("echo").add_arg(pw1).add_raw("| passwd --stdin root 2>/dev/null").build_string());
         if (result.ok()) {
             Logger::ok(_("passwd.changed"));
             return true;
@@ -575,11 +584,11 @@ bool ConfigManager::configure_hostname() {
 
     bool ok = true;
     if (Executor::has("hostnamectl")) {
-        ok = Executor::shell("hostnamectl set-hostname " + new_hostname).ok();
+        ok = Executor::shell(CommandBuilder("hostnamectl").add_arg("set-hostname").add_arg(new_hostname).build_string()).ok();
     } else {
         ok = write_config_file("/etc/hostname", new_hostname + "\n");
         if (ok) {
-            Executor::shell("hostname " + new_hostname + " 2>/dev/null || true");
+            Executor::shell(CommandBuilder("hostname").add_arg(new_hostname).add_raw("2>/dev/null || true").build_string());
         }
     }
 
@@ -592,7 +601,7 @@ bool ConfigManager::configure_hostname() {
 }
 
 std::string ConfigManager::current_hostname() const {
-    auto r = Executor::shell("hostname 2>/dev/null");
+    auto r = Executor::shell(CommandBuilder("hostname").add_raw("2>/dev/null").build_string());
     if (r.ok() && !r.stdout_data.empty()) {
         std::string h = r.stdout_data;
         h.erase(std::remove(h.begin(), h.end(), '\n'), h.end());

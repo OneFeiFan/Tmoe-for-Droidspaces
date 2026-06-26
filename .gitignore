@@ -7,3 +7,4 @@ build/
 *.exe
 tmoe_tests
 /.idea/
+/.tmoe-optimized/

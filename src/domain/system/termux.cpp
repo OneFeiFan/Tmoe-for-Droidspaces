@@ -1,4 +1,6 @@
 #include "domain/system/termux.h"
+#include "domain/system/package_manager.h"
+#include "core/command_builder.hpp"
 #include "core/i18n.h"
 #include <algorithm>
 #include <chrono>
@@ -75,7 +77,8 @@ namespace tmoe::domain {
         Logger::warn(_("termux.storage_not_set"));
         if (!Executor::has("termux-setup-storage")) {
             Logger::step(_("termux.installing_tools"));
-            Executor::shell("apt update && apt install -y termux-tools");
+            PackageManager::update(DistroFamily::Debian);
+            PackageManager::install("termux-tools", DistroFamily::Debian);
         }
 
         auto result = Executor::shell("termux-setup-storage");
@@ -129,14 +132,13 @@ namespace tmoe::domain {
         Logger::step(_("termux.installing_xfce4"));
 
         // 1. 安装 x11-repo
-        Executor::shell("apt update");
-        Executor::shell("apt install -y x11-repo");
-        Executor::shell("apt update");
+        PackageManager::update(DistroFamily::Debian);
+        PackageManager::install("x11-repo", DistroFamily::Debian);
+        PackageManager::update(DistroFamily::Debian);
         Executor::shell("apt dist-upgrade -y");
 
         // 2. 安装 XFCE4 依赖
-        std::string deps = "xfce aterm xfce4-terminal tigervnc";
-        Executor::shell("apt install -y " + deps);
+        PackageManager::install({"xfce", "aterm", "xfce4-terminal", "tigervnc"}, DistroFamily::Debian);
 
         // 3. 创建 startvnc 启动脚本
         std::string resolution = select_vnc_resolution();
@@ -150,13 +152,12 @@ namespace tmoe::domain {
     bool TermuxManager::install_termux_lxqt() {
         Logger::step(_("termux.installing_lxqt"));
 
-        Executor::shell("apt update");
-        Executor::shell("apt install -y x11-repo");
-        Executor::shell("apt update");
+        PackageManager::update(DistroFamily::Debian);
+        PackageManager::install("x11-repo", DistroFamily::Debian);
+        PackageManager::update(DistroFamily::Debian);
         Executor::shell("apt dist-upgrade -y");
 
-        std::string deps = "lxqt qterminal tigervnc";
-        Executor::shell("apt install -y " + deps);
+        PackageManager::install({"lxqt", "qterminal", "tigervnc"}, DistroFamily::Debian);
 
         std::string resolution = select_vnc_resolution();
         create_startvnc_script(resolution, "lxqt");
@@ -289,7 +290,7 @@ namespace tmoe::domain {
         ofs << "wait\n";
 
         ofs.close();
-        Executor::shell("chmod +x " + script_path);
+        CommandBuilder("chmod").add_flag("+x").add_arg(script_path).execute();
 
         // 运行 termux-fix-shebang
         run_termux_fix_shebang(script_path);
@@ -346,9 +347,9 @@ namespace tmoe::domain {
         }
 
         Logger::step(_("termux.removing_gui"));
-        Executor::shell("apt purge -y ^xfce tigervnc aterm xfce4-terminal 2>/dev/null; true");
-        Executor::shell("apt purge -y lxqt qterminal 2>/dev/null; true");
-        Executor::shell("apt purge -y x11-repo 2>/dev/null; true");
+        PackageManager::remove({"^xfce", "tigervnc", "aterm", "xfce4-terminal"}, DistroFamily::Debian);
+        PackageManager::remove({"lxqt", "qterminal"}, DistroFamily::Debian);
+        PackageManager::remove("x11-repo", DistroFamily::Debian);
         Executor::shell("apt autoremove --purge -y");
 
         // 清理 startvnc 脚本
@@ -645,7 +646,7 @@ namespace tmoe::domain {
         if (choice == "1") return configure_tmoe_zsh();
         if (choice == "2") {
             Logger::step(_("termux.installing_ohmyzsh"));
-            Executor::shell("apt install -y zsh git curl");
+            PackageManager::install({"zsh", "git", "curl"}, DistroFamily::Debian);
             Executor::shell(
                 "sh -c \"$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\" \"\" --unattended");
             Logger::ok(_("termux.ohmyzsh_installed"));
@@ -668,7 +669,7 @@ namespace tmoe::domain {
         }
         if (choice == "4") {
             Logger::step(_("termux.installing_colorls"));
-            Executor::shell("apt install -y ruby");
+            PackageManager::install("ruby", DistroFamily::Debian);
             Executor::shell("gem install colorls");
             Logger::ok(_("termux.colorls_installed"));
             return true;
@@ -701,9 +702,9 @@ namespace tmoe::domain {
         std::string url = "https://raw.githubusercontent.com/2cd/zsh/master/zsh.sh";
 
         Logger::step(_("termux.downloading_tmoe_zsh"));
-        Executor::shell("mkdir -p /data/data/com.termux/files/usr/local/bin");
-        Executor::shell("curl -Lo " + install_bin + " " + url);
-        Executor::shell("chmod 777 " + install_bin);
+        CommandBuilder("mkdir").add_flag("-p").add_arg("/data/data/com.termux/files/usr/local/bin").execute();
+        CommandBuilder("curl").add_flag("-Lo").add_arg(install_bin).add_arg(url).execute();
+        CommandBuilder("chmod").add_arg("777").add_arg(install_bin).execute();
 
         Logger::step(_("termux.running_tmoe_zsh_auto"));
         Executor::shell("bash " + install_bin + " --tmoe_container_auto_configure");
@@ -722,14 +723,14 @@ namespace tmoe::domain {
 
         // 优先级1: 已安装的 zsh-i 命令
         if (Executor::has("zsh-i")) {
-            Logger::step("启动 tmoe-zsh 管理工具 (zsh-i)...");
+            Logger::step(_("termux.tmoe_zsh_via_zsh_i"));
             Executor::passthrough("zsh-i");
             return true;
         }
 
         // 优先级2: 本地已缓存的脚本
         if (fs::exists(local_zsh_script)) {
-            Logger::step("启动 tmoe-zsh 管理工具 (本地脚本)...");
+            Logger::step(_("termux.tmoe_zsh_via_local"));
             Executor::passthrough("bash " + local_zsh_script);
             return true;
         }
@@ -740,25 +741,25 @@ namespace tmoe::domain {
         bool needs_su = is_root_home && sudo_user && !cfg_.is_termux;
 
         if (needs_su) {
-            Logger::step("以用户 " + std::string(sudo_user) + " 身份启动 tmoe-zsh...");
-            Executor::shell("curl -Lo /tmp/.zsh-i.sh " + zsh_tool_url);
-            Executor::shell("chmod a+rx /tmp/.zsh-i.sh");
+            Logger::step(_f("termux.tmoe_zsh_via_su", std::string(sudo_user)));
+            CommandBuilder("curl").add_flag("-Lo").add_arg("/tmp/.zsh-i.sh").add_arg(zsh_tool_url).execute();
+            CommandBuilder("chmod").add_arg("a+rx").add_arg("/tmp/.zsh-i.sh").execute();
             Executor::passthrough("su - " + std::string(sudo_user) + " -c 'bash /tmp/.zsh-i.sh'");
         } else {
-            Logger::step("正在启动 tmoe-zsh 管理工具...");
+            Logger::step(_("termux.tmoe_zsh_starting"));
             Executor::passthrough(
                 "bash -c \"$(curl -LfsS " + zsh_tool_url + ")\""
             );
         }
 
-        Logger::ok("tmoe-zsh 管理工具已退出");
+        Logger::ok(_("termux.tmoe_zsh_exited"));
         return true;
     }
 
     bool TermuxManager::change_shell_to_zsh() {
         if (!Executor::has("zsh")) {
             Logger::warn(_("termux.zsh_not_installed"));
-            Executor::shell("apt install -y zsh");
+            PackageManager::install("zsh", DistroFamily::Debian);
         }
 
         // 检查当前 shell
@@ -873,7 +874,7 @@ namespace tmoe::domain {
 
         // 更新包列表
         Logger::step(_("termux.updating_pkg_db"));
-        Executor::shell("apt update");
+        PackageManager::update(DistroFamily::Debian);
         Logger::ok(_("termux.mirror_switch_ok"));
     }
 
@@ -937,15 +938,15 @@ namespace tmoe::domain {
 
         if (Executor::shell(action).ok()) {
             Logger::step(_f("termux.enabling_repo", repo));
-            Executor::shell("apt update");
-            Executor::shell("apt install -y " + repo + "-repo");
-            Executor::shell("apt update");
-            Logger::ok(repo + "-repo 已启用。");
+            PackageManager::update(DistroFamily::Debian);
+            PackageManager::install(repo + "-repo", DistroFamily::Debian);
+            PackageManager::update(DistroFamily::Debian);
+            Logger::ok(_f("termux.repo_enabled", repo));
         } else {
             Logger::step(_f("termux.disabling_repo", repo));
-            Executor::shell("apt purge -y " + repo + "-repo 2>/dev/null; true");
-            Executor::shell("apt update");
-            Logger::ok(repo + "-repo 已禁用。");
+            PackageManager::remove(repo + "-repo", DistroFamily::Debian);
+            PackageManager::update(DistroFamily::Debian);
+            Logger::ok(_f("termux.repo_disabled", repo));
         }
     }
 
@@ -957,7 +958,7 @@ namespace tmoe::domain {
         // 确保 aria2c 可用
         if (!Executor::has("aria2c")) {
             Logger::step(_("termux.installing_aria2"));
-            Executor::shell("apt install -y aria2");
+            PackageManager::install("aria2", DistroFamily::Debian);
         }
 
         struct MirrorTest {
@@ -973,8 +974,8 @@ namespace tmoe::domain {
             {"Official (官方)", "https://packages.termux.dev/apt/termux-main/pool/main/c/clang/"},
         };
 
-        Logger::info("镜像站           速度");
-        Logger::info("────────────────────────");
+        Logger::info(_("termux.speedtest_header_speed"));
+        Logger::info(_("termux.speedtest_separator"));
 
         std::string temp_dir = "/data/data/com.termux/files/home/.tmoe_speed_test";
         fs::create_directories(temp_dir);
@@ -988,7 +989,7 @@ namespace tmoe::domain {
             while (!deb_name.empty() && (deb_name.back() == '\n' || deb_name.back() == '\r')) deb_name.pop_back();
 
             if (deb_name.empty()) {
-                Logger::info(std::string(m.name) + "  ───  (获取文件列表失败)");
+                Logger::info(_f("termux.speedtest_fetch_failed", std::string(m.name)));
                 continue;
             }
 
@@ -1095,7 +1096,7 @@ namespace tmoe::domain {
         }
 
         Logger::ok(_("termux.restore_defaults_ok"));
-        Executor::shell("apt update");
+        PackageManager::update(DistroFamily::Debian);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1108,13 +1109,13 @@ namespace tmoe::domain {
             return true;
         }
 
-        Logger::step("Android 12+ Signal 9 (Phantom Process) 修复向导");
+        Logger::step(_("termux.signal9_wizard_title"));
 
         // 扩展菜单
         std::string ask = cfg_.tui_bin + " --title \"" + _("termux.signal9_detect_title") + "\" "
                           "--yesno \"" + _("termux.signal9_detect_yesno") + "\" 0 50";
         if (!Executor::shell(ask).ok()) {
-            Logger::info("未遇到 Signal 9 问题，跳过修复。");
+            Logger::info(_("termux.signal9_skip"));
             return true;
         }
 
@@ -1145,7 +1146,7 @@ namespace tmoe::domain {
         } else if (choice == "5") {
             verify_signal9_fix();
         } else if (choice == "6") {
-            Logger::info("手动修复命令：");
+            Logger::info(_("termux.signal9_manual_cmd_title"));
             Logger::info(
                 "adb shell \"/system/bin/device_config put activity_manager max_phantom_processes 2147483647\"");
             Logger::info("adb shell \"/system/bin/settings put global settings_enable_monitor_phantom_procs false\"");
@@ -1158,21 +1159,22 @@ namespace tmoe::domain {
     bool TermuxManager::connect_adb_and_fix() {
         // 1. 确保 adb 已安装 (Termux: android-tools, GNU/Linux: adb)
         if (!Executor::has("adb")) {
-            Logger::step("安装 adb...");
+            Logger::step(_("termux.installing_adb"));
             if (cfg_.is_termux) {
-                Executor::shell("apt update && apt install -y android-tools");
+                PackageManager::update(DistroFamily::Debian);
+                PackageManager::install("android-tools", DistroFamily::Debian);
             } else {
                 Executor::shell("apt-get install -y adb 2>/dev/null || apt install -y adb 2>/dev/null || true");
             }
             if (!Executor::has("adb")) {
-                Logger::error("adb 安装失败，请手动安装。");
+                Logger::error(_("termux.adb_install_failed"));
                 return false;
             }
         }
 
         // 2. 三星设备处理
         if (is_samsung_device()) {
-            Logger::warn("检测到三星设备，建议启用兼容模式。");
+            Logger::warn(_("termux.samsung_detected"));
             std::string samsung_ask = cfg_.tui_bin + " --title \"" + _("termux.samsung_title") + "\" "
                                       "--yesno \"" + _("termux.samsung_yesno") + "\" 0 50";
             if (Executor::shell(samsung_ask).ok()) {
@@ -1197,23 +1199,23 @@ namespace tmoe::domain {
             // 自动检测设备
             int count = count_adb_devices();
             if (count <= 0) {
-                Logger::warn("未检测到设备。");
+                Logger::warn(_("termux.adb_no_device"));
             }
         } else if (choice == "2") {
             std::string conn_cmd = cfg_.tui_bin + " --title \"" + _("termux.adb_addr_title") + "\" "
                                    "--inputbox \"" + _("termux.adb_addr_input") + "\" 0 50";
             adb_target = Executor::tui_select(conn_cmd);
             if (!adb_target.empty()) {
-                Logger::step("正在连接: " + adb_target);
+                Logger::step(_f("termux.adb_connecting", adb_target));
                 Executor::shell("adb connect " + adb_target);
             }
         } else if (choice == "3") {
-            Logger::info("请确保 USB 调试已开启并已授权。");
+            Logger::info(_("termux.adb_usb_hint"));
         } else if (choice == "4") {
             Executor::shell("adb devices -l");
-            Logger::info("请确认设备状态为 \"device\" (非 unauthorized)。");
+            Logger::info(_("termux.adb_check_device_status"));
         } else {
-            Logger::info("手动修复命令：");
+            Logger::info(_("termux.signal9_manual_cmd_title"));
             Logger::info(
                 "adb shell \"/system/bin/device_config put activity_manager max_phantom_processes 2147483647\"");
             Logger::info("adb shell \"/system/bin/settings put global settings_enable_monitor_phantom_procs false\"");
@@ -1238,7 +1240,7 @@ namespace tmoe::domain {
     }
 
     bool TermuxManager::execute_max_phantom_fix(const std::string &adb_target) {
-        Logger::step("执行 Signal 9 修复...");
+        Logger::step(_("termux.signal9_executing_fix"));
 
         std::string adb_prefix = "adb";
         if (!adb_target.empty()) {
@@ -1248,33 +1250,33 @@ namespace tmoe::domain {
         // 检查设备连接
         auto devices = Executor::shell("adb devices -l 2>/dev/null");
         if (devices.stdout_data.find("device") == std::string::npos) {
-            Logger::error("未检测到已连接的 ADB 设备！请确保 USB 调试已开启。");
-            Logger::info("手动命令：");
+            Logger::error(_("termux.signal9_no_adb_device"));
+            Logger::info(_("termux.signal9_manual_cmd_hint"));
             Logger::info("adb shell \"device_config put activity_manager max_phantom_processes 2147483647\"");
             return false;
         }
 
-        // 修复前验证（如果可行）
+        // 修复前验证 (if possible)
         auto before = Executor::shell(
             adb_prefix + " shell dumpsys activity settings 2>/dev/null | grep max_phantom_processes");
         if (before.ok() && !before.stdout_data.empty()) {
-            Logger::info("修复前状态: " + before.stdout_data);
+            Logger::info(_f("termux.signal9_before_state", before.stdout_data));
         }
 
         // 命令 1: 设置最大 phantom 进程数为 2147483647
-        Logger::step("设置 max_phantom_processes = 2147483647...");
+        Logger::step(_("termux.signal9_set_max_phantom"));
         Executor::shell(
             adb_prefix +
             " shell \"/system/bin/device_config put activity_manager max_phantom_processes 2147483647\" 2>/dev/null; true");
 
         // 命令 2: 禁用 phantom 进程监控
-        Logger::step("禁用 phantom 进程监控...");
+        Logger::step(_("termux.signal9_disable_monitor"));
         Executor::shell(
             adb_prefix +
             " shell \"/system/bin/settings put global settings_enable_monitor_phantom_procs false\" 2>/dev/null; true");
 
         // 命令 3: 持久化 (set_sync_disabled_for_tests)
-        Logger::step("持久化设置...");
+        Logger::step(_("termux.signal9_persist_settings"));
         Executor::shell(
             adb_prefix +
             " shell \"/system/bin/device_config set_sync_disabled_for_tests persistent\" 2>/dev/null; true");
@@ -1283,13 +1285,13 @@ namespace tmoe::domain {
         auto after = Executor::shell(
             adb_prefix + " shell dumpsys activity settings 2>/dev/null | grep max_phantom_processes");
         if (after.ok() && !after.stdout_data.empty()) {
-            Logger::ok("修复后状态: " + after.stdout_data);
+            Logger::ok(_f("termux.signal9_after_state", after.stdout_data));
         } else {
-            Logger::warn("无法通过 dumpsys 验证修复状态（不影响修复效果）。");
+            Logger::warn(_("termux.signal9_cannot_verify"));
         }
 
-        Logger::ok("Signal 9 修复已执行！建议重启 Termux 使更改生效。");
-        Logger::info("如果仍然遇到问题，请尝试重启手机。");
+        Logger::ok(_("termux.signal9_fix_executed"));
+        Logger::info(_("termux.signal9_reboot_hint"));
         return true;
     }
 
@@ -1299,7 +1301,7 @@ namespace tmoe::domain {
 
     void TermuxManager::check_disk_usage() {
         if (!cfg_.is_termux) {
-            Logger::info("非 Termux 环境。");
+            Logger::info(_("termux.disk_non_termux"));
             return;
         }
 
@@ -1320,65 +1322,65 @@ namespace tmoe::domain {
     }
 
     void TermuxManager::show_termux_dir_usage() {
-        Logger::step("Termux 目录大小排行");
+        Logger::step(_("termux.disk_dir_ranking_title"));
 
         std::string prefix = std::getenv("PREFIX") ? std::getenv("PREFIX") : "/data/data/com.termux/files/usr";
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/data/data/com.termux/files/home";
 
-        Logger::info("── 家目录 TOP15 ──");
+        Logger::info(_("termux.disk_home_top15"));
         Executor::shell("cd " + home + " && du -hsx ./* ./.* 2>/dev/null | sort -rh | head -15");
 
-        Logger::info("── usr 目录 TOP6 ──");
+        Logger::info(_("termux.disk_usr_top6"));
         Executor::shell("cd " + prefix + " && du -hsx ./* 2>/dev/null | sort -rh | head -6");
 
-        Logger::info("── usr/lib TOP8 ──");
+        Logger::info(_("termux.disk_usr_lib_top8"));
         std::string usr_lib = prefix + "/lib";
         if (fs::exists(usr_lib)) {
             Executor::shell("du -hsx " + usr_lib + "/* 2>/dev/null | sort -rh | head -8");
         }
 
-        Logger::info("── usr/share TOP8 ──");
+        Logger::info(_("termux.disk_usr_share_top8"));
         std::string usr_share = prefix + "/share";
         if (fs::exists(usr_share)) {
             Executor::shell("du -hsx " + usr_share + "/* 2>/dev/null | sort -rh | head -8");
         }
 
-        Logger::ok("目录大小查询完成！");
+        Logger::ok(_("termux.disk_dir_query_done"));
     }
 
     void TermuxManager::show_termux_large_files() {
-        Logger::step("Termux 最大文件 TOP30");
+        Logger::step(_("termux.disk_large_files_title"));
 
         std::string prefix = std::getenv("PREFIX") ? std::getenv("PREFIX") : "/data/data/com.termux/files";
         Executor::shell(
             "cd " + prefix +
             " && find ./ -type f -print0 2>/dev/null | xargs -0 du 2>/dev/null | sort -n | tail -30 | cut -f2 | xargs -I{} du -sh {} 2>/dev/null");
 
-        Logger::ok("文件查询完成！");
+        Logger::ok(_("termux.disk_file_query_done"));
     }
 
     void TermuxManager::show_sdcard_usage() {
-        Logger::step("SD 卡空间占用");
+        Logger::step(_("termux.disk_sdcard_title"));
 
         if (!fs::exists("/sdcard")) {
-            Logger::warn("未找到 /sdcard 目录。");
+            Logger::warn(_("termux.disk_sdcard_not_found"));
             return;
         }
 
-        Logger::info("── 目录大小 TOP15 ──");
+        Logger::info(_("termux.disk_sdcard_dir_top15"));
         Executor::shell("cd /sdcard && du -hsx ./* ./.* 2>/dev/null | sort -rh | head -15");
 
-        Logger::info("── 最大文件 TOP30 ──");
+        Logger::info(_("termux.disk_sdcard_file_top30"));
         Executor::shell(
             "cd /sdcard && find ./ -type f -print0 2>/dev/null | xargs -0 du 2>/dev/null | sort -n | tail -30 | cut -f2 | xargs -I{} du -sh {} 2>/dev/null");
 
-        Logger::ok("SD 卡查询完成！");
+        Logger::ok(_("termux.disk_sdcard_query_done"));
     }
 
     void TermuxManager::show_overall_disk_usage() {
-        Logger::step("总磁盘用量");
+        Logger::step(_("termux.disk_overall_title"));
         Executor::shell("df -h | grep G | grep -v tmpfs");
-        Logger::ok("磁盘查询完成！");
+        Logger::ok(_("termux.disk_query_done"));
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1389,27 +1391,28 @@ namespace tmoe::domain {
         if (!cfg_.is_termux) return "whiptail";
 
         if (!Executor::has("whiptail")) {
-            Logger::step("检测到未安装 whiptail，正在自动补充...");
-            Executor::shell("apt update && apt install -y whiptail dialog");
+            Logger::step(_("termux.missing_whiptail"));
+            PackageManager::update(DistroFamily::Debian);
+            PackageManager::install({"whiptail", "dialog"}, DistroFamily::Debian);
         }
 
         auto dpkg_query = Executor::shell("LANG=C dpkg-query -W libnewt 2>/dev/null");
         if (dpkg_query.stdout_data.find("0.52.21") != std::string::npos) {
-            Logger::warn("检测到有缺陷的 libnewt 版本，正在准备兼容性补丁...");
+            Logger::warn(_("termux.tui_libnewt_buggy"));
 
             std::string lib_popt = cfg_.work_dir.string() + "/usr/lib/popt0/0.so";
             std::string wrapper = cfg_.work_dir.string() + "/usr/bin/whiptail-wrapper";
             std::string bin_dir = cfg_.work_dir.string() + "/usr/bin";
 
             if (!std::filesystem::exists(lib_popt)) {
-                Logger::step("正在拉取对应架构的 libpopt 预编译库...");
+                Logger::step(_("termux.tui_fetching_libpopt"));
                 std::string arch = cfg_.arch;
                 std::string uri = "https://packages.tmoe.me/patch/termux/libp/libpopt0_1.18_" + arch + ".tar.gz";
                 std::string tar_file = cfg_.temp_dir.string() + "/libpopt.tar.gz";
 
-                Executor::shell("curl -Lo " + tar_file + " " + uri);
-                Executor::shell("tar -zxvf " + tar_file + " -C " + cfg_.work_dir.string());
-                Executor::shell("rm -f " + tar_file);
+                CommandBuilder("curl").add_flag("-Lo").add_arg(tar_file).add_arg(uri).execute();
+                CommandBuilder("tar").add_flag("-zxvf").add_arg(tar_file).add_arg("-C").add_arg(cfg_.work_dir.string()).execute();
+                CommandBuilder("rm").add_flag("-f").add_arg(tar_file).execute();
             }
 
             if (std::filesystem::exists(lib_popt)) {
@@ -1419,8 +1422,8 @@ namespace tmoe::domain {
                     ofs << "#!/usr/bin/env bash\n";
                     ofs << "env LD_PRELOAD=" << lib_popt << " whiptail \"$@\"\n";
                     ofs.close();
-                    Executor::shell("chmod +x " + wrapper);
-                    Logger::ok("Android TUI 兼容性补丁 (LD_PRELOAD) 应用成功！");
+                    CommandBuilder("chmod").add_flag("+x").add_arg(wrapper).execute();
+                    Logger::ok(_("termux.tui_patch_applied"));
                     return wrapper;
                 }
             }
@@ -1456,10 +1459,10 @@ namespace tmoe::domain {
         else if (choice == "7") color_file = "wild.cherry";
 
         if (!color_file.empty()) {
-            Logger::step("正在下载配色方案: " + color_file);
+            Logger::step(_f("termux.color_downloading", color_file));
             std::string url = "https://raw.githubusercontent.com/2cd/zsh/master/share/colors/" + color_file;
             std::string dest = std::string(std::getenv("HOME")) + "/.termux/colors.properties";
-            Executor::shell("curl -L -o " + dest + " " + url);
+            CommandBuilder("curl").add_flag("-L").add_flag("-o").add_arg(dest).add_arg(url).execute();
         }
     }
 
@@ -1485,14 +1488,14 @@ namespace tmoe::domain {
         else if (choice == "6") font_path = "fira-code-medium/raw/master/font.tar.xz";
 
         if (!font_path.empty()) {
-            Logger::step("正在下载并解压字体...");
+            Logger::step(_("termux.font_downloading"));
             std::string termux_dir = std::string(std::getenv("HOME")) + "/.termux";
             std::string url = "https://gitee.com/ak2/" + font_path;
             std::string tar_file = termux_dir + "/font.tar.xz";
 
-            Executor::shell("curl -L -o " + tar_file + " " + url);
-            Executor::shell("tar -Jxvf " + tar_file + " -C " + termux_dir);
-            Executor::shell("rm -f " + tar_file);
+            CommandBuilder("curl").add_flag("-L").add_flag("-o").add_arg(tar_file).add_arg(url).execute();
+            CommandBuilder("tar").add_flag("-Jxvf").add_arg(tar_file).add_arg("-C").add_arg(termux_dir).execute();
+            CommandBuilder("rm").add_flag("-f").add_arg(tar_file).execute();
         }
     }
 
@@ -1505,20 +1508,20 @@ namespace tmoe::domain {
                               "--yesno \"" + _("termux.keys_yesno") + "\" 10 50";
 
             if (Executor::shell(cmd).ok()) {
-                Logger::step("正在配置 Termux 拓展按键布局...");
+                Logger::step(_("termux.keys_configuring"));
                 std::string url = "https://raw.githubusercontent.com/2cd/zsh/master/share/termux.properties";
                 std::string tmp_file = termux_dir + "/termux.properties.02";
 
-                if (fs::exists(prop_file)) Executor::shell("cp -f " + prop_file + " " + prop_file + ".bak");
-                Executor::shell("curl -L -o " + tmp_file + " " + url);
+                if (fs::exists(prop_file)) CommandBuilder("cp").add_flag("-f").add_arg(prop_file).add_arg(prop_file + ".bak").execute();
+                CommandBuilder("curl").add_flag("-L").add_flag("-o").add_arg(tmp_file).add_arg(url).execute();
 
                 Executor::shell(
                     "sed -i -E 's@# (extra-keys-style)@#\\1@g;s@^[^#]@#&@g;1r " + tmp_file + "' " + prop_file);
 
                 if (!fs::exists(prop_file)) {
-                    Executor::shell("mv -f " + tmp_file + " " + prop_file);
+                    CommandBuilder("mv").add_flag("-f").add_arg(tmp_file).add_arg(prop_file).execute();
                 } else {
-                    Executor::shell("rm -f " + tmp_file);
+                    CommandBuilder("rm").add_flag("-f").add_arg(tmp_file).execute();
                 }
             }
         }
@@ -1578,30 +1581,30 @@ namespace tmoe::domain {
 
     bool TermuxManager::configure_pulseaudio_tcp() {
         if (!cfg_.is_termux) {
-            Logger::info("非 Termux 环境，跳过 PulseAudio 配置。");
+            Logger::info(_("termux.pa_skip_non_termux"));
             return true;
         }
 
-        Logger::step("配置 PulseAudio TCP 本地音频...");
+        Logger::step(_("termux.pa_configuring_tcp"));
 
         std::string pa_conf = "/data/data/com.termux/files/usr/etc/pulse/default.pa";
         if (!fs::exists(pa_conf)) {
-            Logger::warn("PulseAudio 配置文件不存在: " + pa_conf);
-            Logger::info("正在安装 pulseaudio...");
-            Executor::shell("apt install -y pulseaudio");
+            Logger::warn(_f("termux.pa_conf_missing", pa_conf));
+            Logger::info(_("termux.installing_pulseaudio"));
+            PackageManager::install("pulseaudio", DistroFamily::Debian);
             if (!fs::exists(pa_conf)) {
                 Executor::shell("pulseaudio --start 2>/dev/null; sleep 1; killall pulseaudio 2>/dev/null");
             }
         }
 
         if (!fs::exists(pa_conf)) {
-            Logger::error("无法找到或生成 PulseAudio 配置文件。");
+            Logger::error(_("termux.pa_conf_not_found"));
             return false;
         }
 
         // 检测是否已配置 TCP 原生协议
         if (Executor::shell("grep -Eq '^[^#]*load-module module-native-protocol-tcp' " + pa_conf).ok()) {
-            Logger::info("PulseAudio TCP 音频已配置，跳过。");
+            Logger::info(_("termux.pa_tcp_already_configured"));
             return true;
         }
 
@@ -1610,18 +1613,18 @@ namespace tmoe::domain {
         Executor::shell(
             "echo 'load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1' >> " + pa_conf);
 
-        Logger::ok("PulseAudio TCP 本地音频配置完成！(auth-ip-acl=127.0.0.1 auth-anonymous=1)");
+        Logger::ok(_("termux.pa_tcp_configured"));
         return true;
     }
 
     bool TermuxManager::configure_pulseaudio_idle_timeout() {
         if (!cfg_.is_termux) return true;
 
-        Logger::step("设置 PulseAudio 空闲超时...");
+        Logger::step(_("termux.pa_idle_timeout_configuring"));
 
         std::string daemon_conf = "/data/data/com.termux/files/usr/etc/pulse/daemon.conf";
         if (!fs::exists(daemon_conf)) {
-            Logger::warn("PulseAudio daemon.conf 不存在，请先安装 pulseaudio。");
+            Logger::warn(_("termux.pa_daemon_conf_missing"));
             return false;
         }
 
@@ -1632,18 +1635,18 @@ namespace tmoe::domain {
             Executor::shell("echo 'exit-idle-time = 3600' >> " + daemon_conf);
         }
 
-        Logger::ok("PulseAudio 空闲超时设置为 3600 秒 (1小时)。");
+        Logger::ok(_("termux.pa_idle_timeout_set"));
         return true;
     }
 
     bool TermuxManager::toggle_lan_audio() {
         if (!cfg_.is_termux) return true;
 
-        Logger::step("切换 PulseAudio 局域网音频...");
+        Logger::step(_("termux.pa_lan_toggle_configuring"));
 
         std::string pa_conf = "/data/data/com.termux/files/usr/etc/pulse/default.pa";
         if (!fs::exists(pa_conf)) {
-            Logger::error("PulseAudio default.pa 不存在，请先运行 TCP 音频配置。");
+            Logger::error(_("termux.pa_default_pa_missing"));
             return false;
         }
 
@@ -1656,7 +1659,7 @@ namespace tmoe::domain {
                           "--yesno \"" + _f("termux.lan_audio_yesno", status_msg) + "\" 12 60";
 
         if (!Executor::shell(cmd).ok()) {
-            Logger::info("用户取消了局域网音频切换。");
+            Logger::info(_("termux.pa_lan_cancelled"));
             return false;
         }
 
@@ -1667,16 +1670,16 @@ namespace tmoe::domain {
             // 禁用局域网, 仅限 localhost
             Executor::shell(
                 "echo 'load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=0' >> " + pa_conf);
-            Logger::ok("局域网音频已禁用，仅允许 localhost 访问。");
+            Logger::ok(_("termux.pa_lan_disabled"));
         } else {
             // 启用局域网
             Executor::shell(
                 "echo 'load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1;192.168.0.0/16;172.16.0.0/12 auth-anonymous=1' >> "
                 + pa_conf);
-            Logger::ok("局域网音频已启用！(允许 192.168.0.0/16 + 172.16.0.0/12)");
+            Logger::ok(_("termux.pa_lan_enabled"));
         }
 
-        Logger::warn("请重启 PulseAudio 使配置生效: pulseaudio --kill && pulseaudio --start");
+        Logger::warn(_("termux.pa_restart_hint"));
         return true;
     }
 
@@ -1685,23 +1688,23 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
 
     bool TermuxManager::self_update() {
-        Logger::step("tmoe-linux 自更新...");
+        Logger::step(_("termux.self_update_title"));
 
         std::string git_dir = cfg_.work_dir.string();
         if (!fs::exists(git_dir + "/.git")) {
-            Logger::error("未检测到 Git 仓库: " + git_dir);
-            Logger::info("请使用 git clone 安装 tmoe-linux 以支持在线更新。");
+            Logger::error(_f("termux.self_update_no_git", git_dir));
+            Logger::info(_("termux.self_update_git_hint"));
             return false;
         }
 
-        Logger::step("正在从远程拉取最新代码...");
+        Logger::step(_("termux.self_update_pulling"));
         Executor::shell("cd " + git_dir + " && git reset --hard origin/master 2>/dev/null || true");
 
         auto result = Executor::shell(
             "cd " + git_dir + " && git pull --rebase --stat origin master --allow-unrelated-histories 2>&1");
 
         if (!result.ok()) {
-            Logger::warn("git pull --rebase 失败，尝试 git rebase --skip...");
+            Logger::warn(_("termux.self_update_rebase_failed"));
             Executor::shell("cd " + git_dir + " && git rebase --skip 2>/dev/null || true");
             result = Executor::shell(
                 "cd " + git_dir + " && git pull --rebase --stat origin master --allow-unrelated-histories 2>&1");
@@ -1709,31 +1712,30 @@ namespace tmoe::domain {
 
         // termux-fix-shebang 修复脚本
         if (cfg_.is_termux) {
-            Logger::step("运行 termux-fix-shebang 修复脚本路径...");
+            Logger::step(_("termux.self_update_fix_shebang"));
             std::vector<std::string> fix_targets = {"tmoe", "debian-i", "lnk-menu", "debian"};
             if (Executor::has("termux-fix-shebang")) {
                 for (auto &t: fix_targets) {
                     std::string bin_path = "/data/data/com.termux/files/usr/bin/" + t;
                     if (fs::exists(bin_path)) {
-                        Executor::shell("termux-fix-shebang " + bin_path + " 2>/dev/null");
+                        CommandBuilder("termux-fix-shebang").add_arg(bin_path).add_raw("2>/dev/null").execute();
                     }
                 }
             }
 
             // 创建 tome 别名
             if (fs::exists("/data/data/com.termux/files/usr/bin/tmoe")) {
-                Executor::shell("ln -sf tmoe /data/data/com.termux/files/usr/bin/tome 2>/dev/null");
+                CommandBuilder("ln").add_flag("-sf").add_arg("tmoe").add_arg("/data/data/com.termux/files/usr/bin/tome").add_raw("2>/dev/null").execute();
             }
 
             // 修复 debian-i 符号链接
             if (fs::exists(cfg_.work_dir / "share/manager")) {
-                Executor::shell("ln -sf " + (cfg_.work_dir / "share/manager").string() +
-                                " /data/data/com.termux/files/usr/bin/debian-i 2>/dev/null");
+                CommandBuilder("ln").add_flag("-sf").add_arg((cfg_.work_dir / "share/manager").string()).add_arg("/data/data/com.termux/files/usr/bin/debian-i").add_raw("2>/dev/null").execute();
             }
         }
 
         // 更新后问候语
-        Logger::ok("✅ tmoe-linux 更新完成！");
+        Logger::ok(_("termux.self_update_done"));
 
         // Try fortune/hitokoto greeting
         if (Executor::has("fortune")) {
@@ -1761,7 +1763,7 @@ namespace tmoe::domain {
     }
 
     void TermuxManager::use_old_mirror_format(const std::string &mirror_url) {
-        Logger::step("使用旧版 Termux 镜像格式 (pre-2021)...");
+        Logger::step(_("termux.mirror_old_format_configuring"));
 
         std::string sources_dir = "/data/data/com.termux/files/usr/etc/apt/sources.list.d";
         fs::create_directories(sources_dir);
@@ -1770,7 +1772,7 @@ namespace tmoe::domain {
         write_termux_source(sources_dir + "/game.list", "game-packages", mirror_url, "24 games stable");
         write_termux_source(sources_dir + "/science.list", "science-packages", mirror_url, "24 science stable");
 
-        Logger::ok("旧版 Termux 镜像格式配置完成。");
+        Logger::ok(_("termux.mirror_old_format_done"));
     }
 
     bool TermuxManager::check_android_version_for_mirror() {
@@ -1792,8 +1794,8 @@ namespace tmoe::domain {
         try {
             int major = std::stoi(version);
             if (major < 7) {
-                Logger::error("⚠️ Android " + version + " (< 7) 不支持换源操作。");
-                Logger::error("旧版 Android 的 Termux 可能无法正常使用新镜像格式。");
+                Logger::error(_f("termux.android_old_version", version));
+                Logger::error(_("termux.android_old_format_hint"));
                 std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.android_version_title") + "\" "
                                   "--yesno \"" + _f("termux.android_version_yesno", version) + "\" 10 50 "
                                   "--yes-button \"" + _("termux.android_use_old") + "\" --no-button \"" + _(
@@ -1813,7 +1815,7 @@ namespace tmoe::domain {
     }
 
     void TermuxManager::backup_sources_list() {
-        Logger::step("备份 sources.list + sources.list.d...");
+        Logger::step(_("termux.mirror_backup_sources_list"));
 
         std::string backup_file = "/sdcard/Download/backup/sources-list_bak.tar.xz";
         fs::create_directories("/sdcard/Download/backup");
@@ -1828,20 +1830,20 @@ namespace tmoe::domain {
         if (fs::exists(sources_list_d)) tar_targets += " " + sources_list_d;
 
         if (tar_targets.empty()) {
-            Logger::warn("没有找到 sources.list 文件。");
+            Logger::warn(_("termux.mirror_no_sources_found"));
             return;
         }
 
-        Executor::shell("tar -PJcvf " + backup_file + tar_targets);
-        Logger::ok("sources.list 备份完成: " + backup_file);
+        CommandBuilder("tar").add_flag("-PJcvf").add_arg(backup_file).add_raw(tar_targets).execute();
+        Logger::ok(_f("termux.mirror_backup_done", backup_file));
     }
 
     void TermuxManager::switch_alpine_mirror() {
-        Logger::step("切换 Alpine Linux 镜像源...");
+        Logger::step(_("termux.alpine_mirror_switching"));
 
         std::string apk_repos = "/etc/apk/repositories";
         if (!fs::exists(apk_repos)) {
-            Logger::info("非 Alpine Linux 系统，跳过。");
+            Logger::info(_("termux.alpine_mirror_skip"));
             return;
         }
 
@@ -1855,13 +1857,13 @@ namespace tmoe::domain {
 
         if (choice == "1") {
             // 备份原文件
-            Executor::shell("cp " + apk_repos + " " + apk_repos + ".bak 2>/dev/null");
+            CommandBuilder("cp").add_arg(apk_repos).add_arg(apk_repos + ".bak").add_raw("2>/dev/null").execute();
             Executor::shell(
                 "sed -i 's|http[s]*://[^/]*/alpine|https://mirrors.tuna.tsinghua.edu.cn/alpine|g' " + apk_repos);
-            Logger::ok("Alpine 镜像已切换至清华大学 TUNA。");
+            Logger::ok(_("termux.alpine_mirror_switched_tuna"));
         } else if (choice == "2") {
             Executor::shell("sed -i 's|http[s]*://[^/]*/alpine|https://dl-cdn.alpinelinux.org/alpine|g' " + apk_repos);
-            Logger::ok("Alpine 镜像已恢复为官方源。");
+            Logger::ok(_("termux.alpine_mirror_restored_official"));
         }
     }
 
@@ -1871,7 +1873,7 @@ namespace tmoe::domain {
             return;
         }
 
-        Logger::info("非 Termux 环境，使用 GNU/Linux 镜像管理...");
+        Logger::info(_("termux.linux_mirror_fallback"));
 
         // 检测发行版并为不同的包管理器配置镜像
         std::string mirror_url = "https://mirrors.tuna.tsinghua.edu.cn";
@@ -1888,20 +1890,20 @@ namespace tmoe::domain {
             auto choice = Executor::tui_select(cmd);
 
             if (choice == "1") {
-                Executor::shell("cp /etc/apt/sources.list /etc/apt/sources.list.bak 2>/dev/null");
+                CommandBuilder("cp").add_arg("/etc/apt/sources.list").add_arg("/etc/apt/sources.list.bak").add_raw("2>/dev/null").execute();
                 Executor::shell("sed -i 's|http[s]*://[^/]*/|" + mirror_url + "/|g' /etc/apt/sources.list");
-                Logger::ok("Debian/Ubuntu 镜像已切换至 TUNA。");
+                Logger::ok(_("termux.linux_mirror_switched_tuna"));
             } else if (choice == "2") {
                 if (fs::exists("/etc/apt/sources.list.bak")) {
                     Executor::shell("cp /etc/apt/sources.list.bak /etc/apt/sources.list");
-                    Logger::ok("已恢复原始 sources.list。");
+                    Logger::ok(_("termux.linux_mirror_restored"));
                 } else {
-                    Logger::warn("未找到备份文件，无法恢复。");
+                    Logger::warn(_("termux.linux_mirror_no_backup"));
                 }
             } else if (choice == "3") {
                 Executor::shell(
                     "tar -PJcvf /tmp/sources-list_deb_bak.tar.xz /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null");
-                Logger::ok("sources.list 备份完成: /tmp/sources-list_deb_bak.tar.xz");
+                Logger::ok(_f("termux.linux_mirror_backup_done", "/tmp/sources-list_deb_bak.tar.xz"));
             }
         }
 
@@ -1918,7 +1920,7 @@ namespace tmoe::domain {
     std::string TermuxManager::run_adb_cmd(const std::string &cmd) {
         auto result = Executor::shell(cmd);
         if (!result.ok()) {
-            Logger::warn("ADB 命令失败 (可能无害): " + result.stderr_data);
+            Logger::warn(_f("termux.adb_cmd_failed", result.stderr_data));
         }
         return result.stdout_data;
     }
@@ -1926,7 +1928,7 @@ namespace tmoe::domain {
     bool TermuxManager::set_samsung_adb_comp_mode() {
         if (!is_samsung_device()) return false;
 
-        Logger::step("检测到三星设备，启用 ADB 兼容模式...");
+        Logger::step(_("termux.samsung_adb_comp_enabling"));
 
         // 三星设备存在 smart socket 兼容性问题
         // 使用 Unix 域套接字 + fakeroot + FWMARK 标志解决
@@ -1936,7 +1938,7 @@ namespace tmoe::domain {
         std::string sock_file = tmpdir + "/adb.sock";
         if (fs::exists(sock_file)) {
             fs::remove(sock_file);
-            Logger::info("已清理旧 ADB 套接字: " + sock_file);
+            Logger::info(_f("termux.samsung_adb_sock_cleaned", sock_file));
         }
 
         // 设置环境变量
@@ -1945,27 +1947,27 @@ namespace tmoe::domain {
 
         // 使用 fakeroot 重启 ADB 服务端
         if (Executor::has("fakeroot")) {
-            Logger::step("使用 fakeroot 重启 ADB 服务端...");
+            Logger::step(_("termux.samsung_adb_fakeroot_restart"));
             Executor::shell("pkill adb 2>/dev/null; fakeroot adb kill-server 2>/dev/null || adb kill-server");
             Executor::shell("fakeroot adb start-server 2>/dev/null || adb start-server");
         } else {
-            Logger::warn("请安装 fakeroot: apt install fakeroot");
+            Logger::warn(_("termux.samsung_adb_install_fakeroot_hint"));
             Executor::shell("adb kill-server && adb start-server");
         }
 
-        Logger::ok("三星 ADB 兼容模式已启用 (ANDROID_NO_USE_FWMARK_CLIENT=1)。");
+        Logger::ok(_("termux.samsung_adb_comp_enabled"));
         return true;
     }
 
     bool TermuxManager::adb_pair_and_connect_flow() {
-        Logger::step("ADB 无线调试配对与连接 (Android 11+)...");
+        Logger::step(_("termux.adb_pair_connect_starting"));
 
         std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.adb_wireless_title") + "\" "
                           "--inputbox \"" + _("termux.adb_wireless_input") + R"(" 0 50 "")";
 
         std::string addr = Executor::tui_select(cmd);
         if (addr.empty()) {
-            Logger::info("用户取消了配对操作。");
+            Logger::info(_("termux.adb_pair_cancelled"));
             return false;
         }
 
@@ -1976,11 +1978,11 @@ namespace tmoe::domain {
         std::string pair_code = Executor::tui_select(pair_cmd);
 
         if (!pair_code.empty()) {
-            Logger::step("正在配对: " + addr);
+            Logger::step(_f("termux.adb_pairing", addr));
             auto pair_result = Executor::shell("adb pair " + addr + " " + pair_code + " 2>&1");
             Logger::info(pair_result.stdout_data);
             if (!pair_result.ok()) {
-                Logger::warn("配对可能失败: " + pair_result.stderr_data);
+                Logger::warn(_f("termux.adb_pair_may_fail", pair_result.stderr_data));
             }
         }
 
@@ -1990,25 +1992,25 @@ namespace tmoe::domain {
 
         std::string connect_addr = Executor::tui_select(connect_cmd);
         if (connect_addr.empty()) {
-            Logger::info("用户取消了连接操作。");
+            Logger::info(_("termux.adb_connect_cancelled"));
             return false;
         }
 
-        Logger::step("正在连接: " + connect_addr);
+        Logger::step(_f("termux.adb_connecting", connect_addr));
         auto connect_result = Executor::shell("adb connect " + connect_addr + " 2>&1");
         Logger::info(connect_result.stdout_data);
 
         if (connect_result.ok() || connect_result.stdout_data.find("connected") != std::string::npos) {
-            Logger::ok("ADB 连接成功！");
+            Logger::ok(_("termux.adb_connect_ok"));
             return true;
         }
 
-        Logger::warn("ADB 连接可能需要额外确认，请检查设备屏幕。");
+        Logger::warn(_("termux.adb_connect_check_device"));
         return false;
     }
 
     bool TermuxManager::select_adb_port() {
-        Logger::step("配置 ADB 服务端端口...");
+        Logger::step(_("termux.adb_port_configuring"));
 
         std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.adb_port_title") + "\" "
                           "--inputbox \"" + _("termux.adb_port_input") + "\" 0 50 \"5037\"";
@@ -2019,35 +2021,35 @@ namespace tmoe::domain {
         try {
             int port = std::stoi(port_str);
             if (port < 1024 || port > 65535) {
-                Logger::error("无效端口号: " + port_str + "，需在 1024-65535 范围内。");
+                Logger::error(_f("termux.adb_port_invalid", port_str));
                 return false;
             }
 
             // 设置 ADB_SERVER_PORT 环境变量并重启
-            Logger::step("正在切换 ADB 端口至 " + port_str + "...");
+            Logger::step(_f("termux.adb_port_switching", port_str));
             Executor::shell("adb kill-server 2>/dev/null");
 
             // 使用 -P 标志重启
             Executor::shell("adb -P " + port_str + " start-server 2>/dev/null");
-            Logger::ok("ADB 服务端端口已更改为 " + port_str + "。");
-            Logger::warn("其他 ADB 命令也需要添加 -P " + port_str + " 参数。");
+            Logger::ok(_f("termux.adb_port_changed", port_str));
+            Logger::warn(_f("termux.adb_port_param_note", port_str));
 
             return true;
         } catch (...) {
-            Logger::error("无效端口号格式。");
+            Logger::error(_("termux.adb_port_invalid_format"));
             return false;
         }
     }
 
     bool TermuxManager::verify_signal9_fix() {
-        Logger::step("验证 Signal 9 修复效果...");
+        Logger::step(_("termux.signal9_verify_starting"));
 
         // 统计设备数量并选择合适的 target
         int device_count = count_adb_devices();
         if (device_count <= 0) {
-            Logger::warn("未检测到 ADB 设备，尝试连接...");
+            Logger::warn(_("termux.signal9_verify_no_device"));
             if (!connect_adb_and_fix()) {
-                Logger::error("无法连接设备，跳过验证。");
+                Logger::error(_("termux.signal9_verify_connect_failed"));
                 return false;
             }
             device_count = 1;
@@ -2074,7 +2076,7 @@ namespace tmoe::domain {
             } else if (device_ids.size() > 1) {
                 // 简单选择第一个
                 adb_target = "adb -s " + device_ids[0] + " shell";
-                Logger::info("检测到多设备，使用: " + device_ids[0]);
+                Logger::info(_f("termux.signal9_multi_device", device_ids[0]));
             } else {
                 adb_target = "adb shell";
             }
@@ -2087,11 +2089,11 @@ namespace tmoe::domain {
         while (!output.empty() && (output.back() == '\n' || output.back() == '\r')) output.pop_back();
 
         if (!output.empty()) {
-            Logger::ok("✅ Signal 9 修复验证: " + output);
+            Logger::ok(_f("termux.signal9_verify_ok", output));
             return true;
         }
 
-        Logger::warn("⚠️ 无法验证 Signal 9 修复状态，dumpsys 无输出。");
+        Logger::warn(_("termux.signal9_verify_no_output"));
         return false;
     }
 
@@ -2114,41 +2116,41 @@ namespace tmoe::domain {
     void TermuxManager::auto_start_vnc_viewer() {
         if (!cfg_.is_termux) return;
 
-        Logger::step("正在启动 RealVNC 查看器...");
+        Logger::step(_("termux.gui_starting_vnc_viewer"));
         Executor::shell(
             "am start -n com.realvnc.viewer.android/com.realvnc.viewer.android.app.ConnectionChooserActivity 2>/dev/null");
-        Logger::info("若未安装 RealVNC，请从 Google Play 或 F-Droid 安装。");
+        Logger::info(_("termux.gui_vnc_viewer_hint"));
     }
 
     void TermuxManager::auto_start_file_manager_in_vnc() {
-        Logger::step("正在启动文件管理器...");
+        Logger::step(_("termux.gui_starting_file_manager"));
         for (const auto &fm: {"thunar", "pcmanfm-qt", "nautilus", "dolphin"}) {
             if (Executor::has(fm)) {
                 Executor::shell(std::string(fm) + " & 2>/dev/null");
-                Logger::info("已启动 " + std::string(fm));
+                Logger::info(_f("termux.gui_file_manager_started", std::string(fm)));
                 return;
             }
         }
-        Logger::info("未找到文件管理器 (thunar/pcmanfm-qt/nautilus/dolphin)。");
+        Logger::info(_("termux.gui_no_file_manager"));
     }
 
     std::string TermuxManager::detect_and_show_lan_ip() {
-        Logger::step("检测局域网 IP 地址...");
+        Logger::step(_("termux.gui_detecting_lan_ip"));
 
         auto result = Executor::shell("ip -4 -br -c a 2>/dev/null | grep -v '127.0.0.1' | head -3");
         if (result.ok() && !result.stdout_data.empty()) {
-            Logger::info("局域网 IP 地址:\n" + result.stdout_data);
+            Logger::info(_f("termux.gui_lan_ip_result", result.stdout_data));
             return result.stdout_data;
         }
 
         // 备用方法: ifconfig
         result = Executor::shell("ifconfig 2>/dev/null | grep 'inet ' | grep -v '127.0.0.1' | awk '{print $2}'");
         if (result.ok() && !result.stdout_data.empty()) {
-            Logger::info("局域网 IP 地址:\n" + result.stdout_data);
+            Logger::info(_f("termux.gui_lan_ip_result", result.stdout_data));
             return result.stdout_data;
         }
 
-        Logger::warn("无法检测局域网 IP 地址。");
+        Logger::warn(_("termux.gui_lan_ip_not_found"));
         return "";
     }
 
@@ -2165,13 +2167,13 @@ namespace tmoe::domain {
     void TermuxManager::edit_vnc_config_manually() {
         std::string startvnc = "/data/data/com.termux/files/usr/bin/startvnc";
         if (!fs::exists(startvnc)) {
-            Logger::warn("startvnc 脚本不存在，请先安装 Termux GUI。");
+            Logger::warn(_("termux.gui_startvnc_not_found"));
             return;
         }
 
-        Logger::step("使用 nano 编辑 startvnc 脚本...");
+        Logger::step(_("termux.gui_editing_startvnc"));
         Executor::shell("nano " + startvnc);
-        Logger::ok("startvnc 脚本编辑完成。");
+        Logger::ok(_("termux.gui_startvnc_edited"));
 
         // 编辑后运行 fix-shebang
         run_termux_fix_shebang(startvnc);
@@ -2179,14 +2181,14 @@ namespace tmoe::domain {
 
     void TermuxManager::run_termux_fix_shebang(const std::string &file_path) {
         if (!Executor::has("termux-fix-shebang")) return;
-        Executor::shell("termux-fix-shebang " + file_path + " 2>/dev/null");
+        CommandBuilder("termux-fix-shebang").add_arg(file_path).add_raw("2>/dev/null").execute();
     }
 
     void TermuxManager::linux_gui_fallback() {
         if (cfg_.is_termux) return;
 
-        Logger::info("非 Android 环境，使用 GNU/Linux GUI 安装...");
-        Logger::step("下载并运行外部 GUI 工具脚本...");
+        Logger::info(_("termux.gui_linux_fallback"));
+        Logger::step(_("termux.gui_downloading_external_tool"));
         Executor::shell(
             "bash -c \"$(curl -L https://gitee.com/mo2/linux/raw/2/2)\" --install-gui "
             "|| bash -c \"$(curl -L https://raw.githubusercontent.com/2cd/linux/2/2)\" --install-gui");
@@ -2197,7 +2199,7 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
 
     void TermuxManager::unmount_before_backup() {
-        Logger::step("备份前卸载挂载点...");
+        Logger::step(_("termux.unmount_before_backup"));
 
         // 调用共享 umount 脚本
         std::string umount_script = cfg_.work_dir.string() + "/share/removal/umount";
@@ -2213,26 +2215,13 @@ namespace tmoe::domain {
                 Executor::shell("umount -l " + mp + " 2>/dev/null");
             }
         }
-        Logger::info("挂载点卸载完成。");
+        Logger::info(_("termux.unmount_done"));
     }
 
     void TermuxManager::timeshift_backup_option() {
-        Logger::step("Timeshift 系统备份集成...");
+        Logger::step(_("termux.timeshift_backup_integration"));
 
-        // 检测当前 GNU/Linux 发行版
-        std::string install_cmd;
-        if (Executor::has("apt")) {
-            install_cmd = "apt install -y timeshift";
-        } else if (Executor::has("pacman")) {
-            install_cmd = "pacman -S --noconfirm timeshift";
-        } else if (Executor::has("dnf")) {
-            install_cmd = "dnf install -y timeshift";
-        } else if (Executor::has("yum")) {
-            install_cmd = "yum install -y timeshift";
-        } else {
-            Logger::error("无法确定包管理器，请手动安装 Timeshift。");
-            return;
-        }
+        auto family = infer_family_from_config(cfg_.linux_distro);
 
         std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.timeshift_title") + "\" "
                           "--menu \"" + _("termux.timeshift_prompt") + "\" 0 50 0 "
@@ -2244,27 +2233,27 @@ namespace tmoe::domain {
         auto choice = Executor::tui_select(cmd);
 
         if (choice == "1") {
-            Logger::step("正在安装 Timeshift...");
-            Executor::shell(install_cmd);
+            Logger::step(_("termux.timeshift_installing_now"));
+            PackageManager::install("timeshift", family);
             if (Executor::has("timeshift")) {
-                Logger::ok("Timeshift 安装完成！");
+                Logger::ok(_("termux.timeshift_install_ok"));
             } else {
-                Logger::error("Timeshift 安装失败。");
+                Logger::error(_("termux.timeshift_install_failed"));
             }
         } else if (choice == "2") {
             if (!Executor::has("timeshift")) {
-                Logger::step("Timeshift 未安装，先执行安装...");
-                Executor::shell(install_cmd);
+                Logger::step(_("termux.timeshift_not_installed_yet"));
+                PackageManager::install("timeshift", family);
             }
-            Logger::step("正在创建系统快照...(需要 root 权限)");
+            Logger::step(_("termux.timeshift_creating_snapshot"));
             Executor::shell("sudo timeshift --create --comments \"tmoe-linux auto backup\"");
-            Logger::ok("系统快照创建完成！");
+            Logger::ok(_("termux.timeshift_snapshot_ok"));
         } else if (choice == "3") {
             if (!Executor::has("timeshift")) {
-                Logger::error("Timeshift 未安装。");
+                Logger::error(_("termux.timeshift_not_installed"));
                 return;
             }
-            Logger::warn("恢复快照将重启系统，请确保已保存所有工作。");
+            Logger::warn(_("termux.timeshift_restore_warning"));
             Executor::shell("sudo timeshift --restore");
         }
     }
@@ -2276,7 +2265,7 @@ namespace tmoe::domain {
     void TermuxManager::check_openssl_legacy() {
         if (!cfg_.is_termux) return;
 
-        Logger::step("检查 openssl-1.1 旧版兼容性...");
+        Logger::step(_("termux.openssl_checking_legacy"));
 
         // 检查 openssl 版本
         auto result = Executor::shell("openssl version 2>/dev/null");
@@ -2284,7 +2273,7 @@ namespace tmoe::domain {
 
         std::string ver = result.stdout_data;
         if (ver.find("1.1") != std::string::npos) {
-            Logger::info("openssl-1.1 已安装，无需修复。");
+            Logger::info(_("termux.openssl_legacy_already_installed"));
             return;
         }
 
@@ -2293,11 +2282,11 @@ namespace tmoe::domain {
             "apt list --installed 2>/dev/null | grep -i openssl | grep '1.1'").ok();
 
         if (need_legacy) {
-            Logger::warn("检测到 openssl-1.1 依赖，尝试安装旧版包...");
+            Logger::warn(_("termux.openssl_legacy_needed"));
             Executor::shell("apt install -y openssl-1.1 2>/dev/null || apt install -y openssl 2>/dev/null");
-            Logger::ok("openssl-1.1 旧版支持已配置。");
+            Logger::ok(_("termux.openssl_legacy_ok"));
         } else {
-            Logger::info("无需 openssl-1.1 旧版支持。");
+            Logger::info(_("termux.openssl_legacy_not_needed"));
         }
     }
 

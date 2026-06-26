@@ -2,6 +2,7 @@
 #include "core/command_builder.hpp"
 #include "core/executor.h"
 #include "core/logger.h"
+#include "domain/system/package_manager.h"
 #include <filesystem>
 #include <cstdlib>
 
@@ -142,7 +143,7 @@ namespace tmoe::domain {
                      config_.sd_dir_2, config_.sd_dir_3, config_.sd_dir_4, config_.sd_dir_5
                  }) {
                 if (d.empty()) continue;
-                if (Executor::shell("test -d " + d).ok()) {
+                if (CommandBuilder("test").add_flag("-d").add_arg(d).execute().ok()) {
                     sd_dir = d;
                     break;
                 }
@@ -204,13 +205,13 @@ namespace tmoe::domain {
 
         // 检查 systemd-nspawn 是否安装
         std::string nspawn_bin = detect_nspawn_bin();
-        if (!Executor::shell("command -v " + nspawn_bin).ok()) {
+        if (!PackageManager::is_command_available(nspawn_bin)) {
             Logger::error(_("nspawn.not_found"));
             return false;
         }
 
         // 检查 dbus-uuidgen
-        if (!Executor::shell("command -v dbus-uuidgen").ok()) {
+        if (!PackageManager::is_command_available("dbus-uuidgen")) {
             Logger::warn(_("nspawn.no_dbus_uuid"));
         }
 
@@ -221,7 +222,8 @@ namespace tmoe::domain {
         }
         std::string shadow_file = rootfs + "/etc/shadow";
         if (fs::exists(shadow_file)) {
-            Executor::shell("sed -i -E 's/^(root):.*:/\\1::/' " + shadow_file);
+            CommandBuilder("sed").add_flag("-i").add_flag("-E")
+                .add_arg("s/^(root):.*:/\\1::/").add_arg(shadow_file).execute();
         }
 
         // 设置 hostname
@@ -236,7 +238,8 @@ namespace tmoe::domain {
         if (hf_tmp.is_open()) {
             hf_tmp << machine_name << "\n";
         }
-        Executor::shell("cp /tmp/.tmp_hostname " + rootfs + "/etc/hostname");
+        CommandBuilder("cp").add_arg("/tmp/.tmp_hostname")
+            .add_arg(rootfs + "/etc/hostname").execute();
         fs::remove("/tmp/.tmp_hostname");
 
         // 移除 machine-id
@@ -247,7 +250,7 @@ namespace tmoe::domain {
             std::string startup_dir = rootfs + "/usr/local/etc/tmoe-linux/container";
             std::string startup_script = startup_dir + "/nspawn_startup.sh";
             std::string tmp_file = "/tmp/.TMOE_NSPAWN_STARTUP";
-            Executor::shell("mkdir -p " + startup_dir);
+            CommandBuilder("mkdir").add_flag("-p").add_arg(startup_dir).execute();
             // 生成启动脚本（简化版，完整版包含所有配置变量）
             std::ofstream sf(tmp_file);
             if (sf.is_open()) {
@@ -259,7 +262,8 @@ namespace tmoe::domain {
                 sf << "exec ${NSPAWN_BIN} --directory ${ROOTFS_DIR} --machine ${CONTAINER_NAME}\n";
             }
             Executor::shell("cp " + tmp_file + " " + startup_script + " && chmod a+rx " + startup_script);
-            Executor::shell("mv -f " + tmp_file + " " + startup_dir + "/nspawn");
+            CommandBuilder("mv").add_flag("-f").add_arg(tmp_file)
+                .add_arg(startup_dir + "/nspawn").execute();
         }
 
         // 生成启动命令
@@ -273,7 +277,7 @@ namespace tmoe::domain {
         // 执行：需要 root 权限
         std::string prefix;
         if (std::getenv("USER") && std::string(std::getenv("USER")) != "root") {
-            if (Executor::shell("command -v sudo").ok()) {
+            if (PackageManager::is_command_available("sudo")) {
                 prefix = "sudo";
             } else {
                 prefix = "su -c";
@@ -291,14 +295,15 @@ namespace tmoe::domain {
         Logger::step(_f("nspawn.stopping", container.name()));
 
         // systemd-nspawn 容器可以用 machinectl 停止
-        std::string cmd = "machinectl terminate " + container.name();
+        CommandBuilder cb("machinectl");
+        cb.add_arg("terminate").add_arg(container.name());
         if (std::getenv("USER") && std::string(std::getenv("USER")) != "root") {
-            if (Executor::shell("command -v sudo").ok()) {
-                cmd = "sudo " + cmd;
+            if (PackageManager::is_command_available("sudo")) {
+                cb.set_prefix("sudo");
             }
         }
 
-        Executor::passthrough(cmd);
+        Executor::passthrough(cb.build_string());
         return true;
     }
 } // namespace tmoe::domain

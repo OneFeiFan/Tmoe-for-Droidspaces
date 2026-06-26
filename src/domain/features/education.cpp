@@ -3,6 +3,7 @@
 #include "core/executor.h"
 #include "core/logger.h"
 #include "core/config.h"
+#include "core/command_builder.hpp"
 #include "domain/system/package_manager.h"
 
 namespace tmoe::domain {
@@ -50,7 +51,7 @@ void EducationManager::download_study_materials(const std::string& repo_url,
                                                  const std::string& branch,
                                                  const std::string& filename) {
     // 对应 Bash: mkdir -pv ${DOWNLOAD_FOLDER} && cd ${DOWNLOAD_FOLDER}
-    Executor::shell("mkdir -p \"" + download_folder_ + "\"");
+    CommandBuilder("mkdir").add_flag("-p").add_arg(download_folder_).execute();
 
     std::string file_path = download_folder_ + "/" + filename;
 
@@ -82,8 +83,8 @@ void EducationManager::download_study_materials(const std::string& repo_url,
     std::string inner_temp = "/tmp/.TMOE_STUDY_MATERIALS_TEMP_FOLDER/."
                              + filename + "_TEMP_FOLDER_01";
 
-    Executor::shell("rm -rf \"" + temp_dir + "\" 2>/dev/null");
-    Executor::shell("mkdir -p \"" + temp_dir + "\"");
+    CommandBuilder("rm").add_flag("-rf").add_arg(temp_dir).add_raw("2>/dev/null").execute();
+    CommandBuilder("mkdir").add_flag("-p").add_arg(temp_dir).execute();
 
     // git clone --depth=1 -b ${BRANCH_NAME} ${REPO_URL} ${TEMP_FOLDER}
     int ret = Executor::passthrough(
@@ -93,7 +94,7 @@ void EducationManager::download_study_materials(const std::string& repo_url,
 
     if (ret != 0) {
         Logger::error(_("edu.download_failed"));
-        Executor::shell("rm -rf \"" + temp_dir + "\" 2>/dev/null");
+        CommandBuilder("rm").add_flag("-rf").add_arg(temp_dir).add_raw("2>/dev/null").execute();
         return;
     }
 

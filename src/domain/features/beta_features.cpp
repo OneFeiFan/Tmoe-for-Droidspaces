@@ -4,6 +4,7 @@
 #include "core/logger.h"
 #include "core/config.h"
 #include "domain/system/package_manager.h"
+#include "core/command_builder.hpp"
 #include <algorithm>
 #include <sstream>
 
@@ -103,7 +104,7 @@ namespace tmoe::domain {
                     std::string user_list = users_out.ok() ? users_out.stdout_data : "";
                     if (user_list.empty()) {
                         Logger::error(_("beta.sys_no_users"));
-                        Logger::info("No non-system users in /etc/passwd. Create a user first: adduser <name>");
+                        Logger::info(_("beta.sys_no_users_detail"));
                         break;
                     }
 
@@ -128,24 +129,30 @@ namespace tmoe::domain {
                     std::string chosen = users[idx];
 
                     // 检查是否已在 sudo 组
-                    bool in_sudo = Executor::shell(
-                        "grep -q '^" + chosen + ".*ALL' /etc/sudoers 2>/dev/null").ok() ||
+                    bool in_sudo = CommandBuilder("grep").add_flag("-q")
+                                       .add_arg("^" + chosen + ".*ALL")
+                                       .add_arg("/etc/sudoers")
+                                       .add_raw("2>/dev/null").execute().ok() ||
                         Executor::shell(
                         "grep sudo /etc/group 2>/dev/null | grep -q '" + chosen + "'").ok();
 
                     if (in_sudo) {
                         // 移除
-                        Logger::info(chosen + " is in sudo group. Remove?");
+                        Logger::info(_f("beta.sys_sudo_in_group", chosen));
                         if (cfg_.linux_distro == "debian")
-                            Executor::passthrough("deluser " + chosen + " sudo 2>/dev/null");
-                        Executor::passthrough(
-                            "sed -i '/^" + chosen + ".*ALL/d' /etc/sudoers 2>/dev/null");
-                        Logger::ok(chosen + " removed from sudo");
+                            CommandBuilder("deluser").add_arg(chosen).add_arg("sudo").add_raw("2>/dev/null").execute();
+                        CommandBuilder("sed").add_flag("-i")
+                            .add_arg("/^" + chosen + ".*ALL/d")
+                            .add_arg("/etc/sudoers")
+                            .add_raw("2>/dev/null").execute();
+                        Logger::ok(_f("beta.sys_sudo_removed", chosen));
                     } else {
                         // 添加
-                        Executor::passthrough(
-                            "sed -i '/^root.*ALL/a " + chosen + "    ALL=(ALL:ALL) ALL' /etc/sudoers 2>/dev/null");
-                        Logger::ok(chosen + " added to sudo");
+                        CommandBuilder("sed").add_flag("-i")
+                            .add_arg("/^root.*ALL/a " + chosen + "    ALL=(ALL:ALL) ALL")
+                            .add_arg("/etc/sudoers")
+                            .add_raw("2>/dev/null").execute();
+                        Logger::ok(_f("beta.sys_sudo_added", chosen));
                     }
                     break;
                 }
@@ -164,7 +171,7 @@ namespace tmoe::domain {
                     Executor::passthrough("nano /etc/rc.local 2>/dev/null || vi /etc/rc.local");
                     Executor::shell("systemctl daemon-reload 2>/dev/null");
                     Executor::shell("systemctl enable rc-local.service 2>/dev/null");
-                    Logger::ok("rc.local configured & enabled");
+                    Logger::ok(_("beta.sys_rc_local_ok"));
                     break;
                 }
 
@@ -182,12 +189,12 @@ namespace tmoe::domain {
 
                     while (true) {
                         std::string bmenu = cfg_.tui_bin +
-                            " --title \"UEFI BOOT MANAGER\" --menu \"\" 16 50 5 "
-                            "\"1\" \"modify first boot item\" "
-                            "\"2\" \"custom boot order\" "
-                            "\"3\" \"backup EFI\" "
-                            "\"4\" \"restore EFI\" "
-                            "\"5\" \"install refind\" "
+                            " --title \"" + _("beta.uefi_title") + "\" --menu \"\" 16 50 5 "
+                            "\"1\" \"" + _("beta.uefi_modify_first") + "\" "
+                            "\"2\" \"" + _("beta.uefi_custom_order") + "\" "
+                            "\"3\" \"" + _("beta.uefi_backup_efi") + "\" "
+                            "\"4\" \"" + _("beta.uefi_restore_efi") + "\" "
+                            "\"5\" \"" + _("beta.uefi_install_refind") + "\" "
                             "\"0\" \"" + _("menu.tui.back") + "\"";
                         std::string bpick = Executor::tui_select(bmenu);
                         if (bpick == "0" || bpick.empty()) break;
@@ -195,26 +202,26 @@ namespace tmoe::domain {
                         if (bpick == "1") {
                             // 修改第一启动项
                             auto out = Executor::shell("efibootmgr 2>/dev/null");
-                            Logger::info(out.ok() ? out.stdout_data : "efibootmgr failed");
+                            Logger::info(out.ok() ? out.stdout_data : _("beta.sys_efibootmgr_failed"));
                             std::string input = Executor::tui_select(
-                                cfg_.tui_bin + " --title \"BOOT ITEM\" --inputbox \"Enter Boot number (e.g. 0001):\" 0 0");
+                                cfg_.tui_bin + " --title \"" + _("beta.uefi_boot_item_title") + "\" --inputbox \"" + _("beta.uefi_boot_num_prompt") + "\" 0 0");
                             if (!input.empty())
-                                Executor::passthrough("efibootmgr -o " + input + " 2>/dev/null");
+                                CommandBuilder("efibootmgr").add_flag("-o").add_arg(input).add_raw("2>/dev/null").execute();
                         } else if (bpick == "2") {
                             std::string order = Executor::tui_select(
-                                cfg_.tui_bin + " --title \"BOOT ORDER\" --inputbox \"Enter order (comma separated, e.g. 0001,0002):\" 0 0");
+                                cfg_.tui_bin + " --title \"" + _("beta.uefi_boot_order_title") + "\" --inputbox \"" + _("beta.uefi_boot_order_prompt") + "\" 0 0");
                             if (!order.empty())
-                                Executor::passthrough("efibootmgr -o " + order + " 2>/dev/null");
+                                CommandBuilder("efibootmgr").add_flag("-o").add_arg(order).add_raw("2>/dev/null").execute();
                         } else if (bpick == "3") {
                             std::string efi_disk = Executor::shell(
                                 "df -h | grep '/boot/efi' | awk '{print $1}' | head -n1").stdout_data;
                             efi_disk.erase(std::remove(efi_disk.begin(), efi_disk.end(), '\n'), efi_disk.end());
                             if (!efi_disk.empty())
-                                Executor::passthrough("dd if=" + efi_disk + " of=/tmp/efi_backup.img bs=4M 2>/dev/null");
-                            Logger::ok("EFI backed up to /tmp/efi_backup.img");
+                                CommandBuilder("dd").add_arg("if=" + efi_disk).add_arg("of=/tmp/efi_backup.img").add_arg("bs=4M").add_raw("2>/dev/null").execute();
+                            Logger::ok(_("beta.sys_efi_backed_up"));
                         } else if (bpick == "4") {
                             Executor::passthrough("dd if=/tmp/efi_backup.img of=$(df -h | grep '/boot/efi' | awk '{print $1}' | head -n1) bs=4M 2>/dev/null");
-                            Logger::ok("EFI restored");
+                            Logger::ok(_("beta.sys_efi_restored"));
                         } else if (bpick == "5") {
                             PackageManager::install({"refind", "refind-install"}, family);
                         }
@@ -232,27 +239,24 @@ namespace tmoe::domain {
                 case 7: {
                     if (cfg_.linux_distro != "debian") {
                         Logger::error(_("beta.sys_bootrepair_debian_only"));
-                        Logger::info("boot-repair requires Ubuntu/Debian with PPA support.");
+                        Logger::info(_("beta.sys_bootrepair_deb_msg"));
                         Logger::info("Manual: https://help.ubuntu.com/community/Boot-Repair");
                         Logger::info("For other distros, try: grub-mkconfig -o /boot/grub/grub.cfg");
                         break;
                     }
-                    Executor::passthrough("apt update 2>/dev/null");
-                    Executor::passthrough("apt install -y software-properties-common 2>/dev/null");
+                    PackageManager::update(family);
+                    PackageManager::install("software-properties-common", family);
                     Executor::passthrough("add-apt-repository -y ppa:yannubuntu/boot-repair 2>/dev/null");
-                    Executor::passthrough("apt update 2>/dev/null");
-                    Executor::passthrough("apt install -y boot-repair 2>/dev/null");
-                    Logger::ok("boot-repair installed");
+                    PackageManager::update(family);
+                    PackageManager::install("boot-repair", family);
+                    Logger::ok(_("beta.sys_bootrepair_installed"));
                     break;
                 }
 
                 // ── 8. neofetch (对应 Bash start_neofetch) ──
                 case 8: {
                     if (!Executor::has("neofetch")) {
-                        if (cfg_.linux_distro == "debian")
-                            Executor::passthrough("apt install -y --no-install-recommends neofetch 2>/dev/null");
-                        else
-                            PackageManager::install("neofetch", family);
+                        PackageManager::install("neofetch", family);
                     }
                     // fallback: download from gitee
                     if (!Executor::has("neofetch")) {
@@ -288,7 +292,7 @@ namespace tmoe::domain {
                 // ── 10. Tmoe-linux manager (旧版外部脚本, 对应 Bash source app/manager) ──
                 case 10:
                     Logger::info(_("beta.sys_old_manager"));
-                    Logger::info("This feature requires the legacy bash script from:");
+                    Logger::info(_("beta.sys_old_manager_desc"));
                     Logger::info("  ${TMOE_GIT_DIR}/share/old-version/share/app/manager");
                     Logger::info("Run: bash /path/to/tmoe-linux/share/old-version/share/app/manager");
                     break;
@@ -328,8 +332,8 @@ namespace tmoe::domain {
                         Executor::passthrough("aptitude");
                     } else {
                         Logger::error(_("beta.store_aptitude_debian_only"));
-                        Logger::info("aptitude is only available on Debian-based distributions.");
-                        Logger::info("Alternatives: pamac (Arch), dnfdragora (Fedora), yast (openSUSE)");
+                        Logger::info(_("beta.store_aptitude_deb_only_msg"));
+                        Logger::info(_("beta.store_aptitude_alternatives"));
                     }
                     break;
                 case 2: run_deepin_menu();
@@ -551,14 +555,14 @@ namespace tmoe::domain {
             } else if (ch == "2") {
                 // RStudio — 对应 Bash install_r_studio: amd64 only, distro-specific
                 if (cfg_.arch != "amd64") {
-                    Logger::error("RStudio requires amd64 architecture");
+                    Logger::error(_("beta.rstudio_amd64_only"));
                     break;
                 }
                 if (cfg_.linux_distro == "arch") {
                     PackageManager::install("rstudio-desktop-git", family);
                 } else if (cfg_.linux_distro == "debian") {
                     // 从 rstudio.com 抓取最新 .deb
-                    Logger::step("Downloading latest RStudio...");
+                    Logger::step(_("beta.rstudio_downloading"));
                     auto ver = Executor::shell(
                         "curl -sL 'https://rstudio.com/products/rstudio/download/#download' 2>/dev/null | "
                         "grep -oP 'rstudio-[\\d.]+-amd64\\.deb' | head -n1");
@@ -568,9 +572,9 @@ namespace tmoe::domain {
                         Executor::passthrough("curl -L -o /tmp/" + deb + " "
                             "'https://download1.rstudio.org/electron/focal/amd64/" + deb + "' 2>/dev/null");
                         Executor::passthrough("apt install -y /tmp/" + deb + " 2>/dev/null");
-                        Logger::ok("RStudio installed");
+                        Logger::ok(_("beta.rstudio_installed"));
                     } else {
-                        Logger::error("Could not detect latest RStudio version");
+                        Logger::error(_("beta.rstudio_version_failed"));
                     }
                 } else if (cfg_.linux_distro == "redhat") {
                     auto ver = Executor::shell(
@@ -582,12 +586,12 @@ namespace tmoe::domain {
                         Executor::passthrough("curl -L -o /tmp/" + rpm + " "
                             "'https://download1.rstudio.org/electron/focal/amd64/" + rpm + "' 2>/dev/null");
                         Executor::passthrough("yum install -y /tmp/" + rpm + " 2>/dev/null");
-                        Logger::ok("RStudio installed");
+                        Logger::ok(_("beta.rstudio_installed"));
                     } else {
-                        Logger::error("Could not detect latest RStudio version");
+                        Logger::error(_("beta.rstudio_version_failed"));
                     }
                 } else {
-                    Logger::warn("RStudio auto-download only supports Debian/Redhat/Arch");
+                    Logger::warn(_("beta.rstudio_limited_distros"));
                 }
             } else if (ch == "3") {
                 PackageManager::install("r-recommended", family);
@@ -637,11 +641,11 @@ namespace tmoe::domain {
             if (idx == 0) {
                 // 文件管理器选择器 (对应 Bash thunar_nautilus_dolphion)
                 std::string fm_menu = cfg_.tui_bin +
-                    " --title \"FILE MANAGER\" --menu \"Select file manager:\" 0 50 0 "
-                    "\"1\" \"thunar (XFCE, lightweight)\" "
-                    "\"2\" \"nautilus (GNOME Files)\" "
-                    "\"3\" \"dolphin (KDE)\" "
-                    "\"4\" \"thunar + nautilus\" "
+                    " --title \"" + _("beta.file_fm_title") + "\" --menu \"" + _("beta.file_fm_prompt") + "\" 0 50 0 "
+                    "\"1\" \"" + _("beta.file_fm_thunar") + "\" "
+                    "\"2\" \"" + _("beta.file_fm_nautilus") + "\" "
+                    "\"3\" \"" + _("beta.file_fm_dolphin") + "\" "
+                    "\"4\" \"" + _("beta.file_fm_thunar_nautilus") + "\" "
                     "\"0\" \"" + _("menu.tui.back") + "\"";
                 std::string fmpick = Executor::tui_select(fm_menu);
                 if (fmpick == "1") PackageManager::install("thunar", family);
@@ -715,12 +719,12 @@ namespace tmoe::domain {
     //   - gnome-nettool: debian→network-manager-gnome, 其他→gnome-network-manager
     void BetaFeaturesManager::run_network_menu() {
         Logger::warn(_("misc.not_implemented"));
-        Logger::info("Network management sub-menu is not yet implemented.");
-        Logger::info("It will cover: nmtui, WiFi scan, device management,");
-        Logger::info("network card drivers (non-free firmware), IP display,");
-        Logger::info("wifi-qr, manual config editing, blueman, gnome-nettool.");
+        Logger::info(_("beta.net_not_implemented"));
+        Logger::info(_("beta.net_will_cover"));
+        Logger::info(_("beta.net_will_cover2"));
+        Logger::info(_("beta.net_will_cover3"));
         Logger::info("---");
-        Logger::info("For now, use these commands directly:");
+        Logger::info(_("beta.net_use_directly"));
         Logger::info("  nmtui              — NetworkManager TUI");
         Logger::info("  nmcli device wifi   — WiFi scan & connect");
         Logger::info("  ip -br -c a        — view IP addresses");
@@ -801,21 +805,21 @@ namespace tmoe::domain {
                 // ── adb 连接管理 (对应 Bash scrcpy_connect_to_android_device) ──
                 case 2: {
                     std::string target = Executor::tui_select(
-                        cfg_.tui_bin + " --title \"ADB ADDRESS\""
-                        " --inputbox \"Enter adb address (e.g. 192.168.99.3:5555)\" 0 0");
+                        cfg_.tui_bin + " --title \"" + _("beta.scrcpy_adb_title") + "\""
+                        " --inputbox \"" + _("beta.scrcpy_adb_prompt") + "\" 0 0");
                     if (target.empty()) target = "localhost:5555";
                     if (target.find(':') == std::string::npos) target += ":5555";
-                    Executor::passthrough("adb connect " + target + " 2>/dev/null");
+                    CommandBuilder("adb").add_arg("connect").add_arg(target).add_raw("2>/dev/null").execute();
                     Executor::passthrough("adb devices -l 2>/dev/null");
-                    Logger::info("You can run scrcpy now. Start it?");
+                    Logger::info(_("beta.scrcpy_start_prompt"));
                     break;
                 }
                 // ── 切换 scrcpy 设备 (对应 Bash switch_scrcpy_device) ──
                 case 3: {
                     auto devs = Executor::shell("adb devices 2>/dev/null | sed '1d;$d' | awk '{print $1}'");
                     std::string dlist = devs.ok() ? devs.stdout_data : "";
-                    if (dlist.empty()) { Logger::warn("no adb devices found"); break; }
-                    std::string dmenu = cfg_.tui_bin + " --title \"SCRCPY DEVICES\" --menu \"Switch to:\" 0 0 0 ";
+                    if (dlist.empty()) { Logger::warn(_("beta.scrcpy_no_devices")); break; }
+                    std::string dmenu = cfg_.tui_bin + " --title \"" + _("beta.scrcpy_device_title") + "\" --menu \"" + _("beta.scrcpy_device_switch_prompt") + "\" 0 0 0 ";
                     std::vector<std::string> devices;
                     std::istringstream iss(dlist);
                     std::string d;
@@ -831,7 +835,7 @@ namespace tmoe::domain {
                     if (dpick == "0" || dpick.empty()) break;
                     int didx = std::stoi(dpick) - 1;
                     if (didx >= 0 && didx < (int)devices.size())
-                        Executor::passthrough("scrcpy -s " + devices[didx] + " 2>/dev/null &");
+                        CommandBuilder("scrcpy").add_flag("-s").add_arg(devices[didx]).add_raw("2>/dev/null &").execute();
                     break;
                 }
                 case 4:
@@ -840,7 +844,7 @@ namespace tmoe::domain {
                     break;
                 // ── scrcpy FAQ (对应 Bash scrpy_faq) ──
                 case 5:
-                    Logger::info("scrcpy FAQ:");
+                    Logger::info(_("beta.scrcpy_faq_header"));
                     Logger::info("  scrcpy            — start with defaults");
                     Logger::info("  scrcpy -S         — turn off device screen");
                     Logger::info("  scrcpy -m 1024    — limit resolution to 1024");
