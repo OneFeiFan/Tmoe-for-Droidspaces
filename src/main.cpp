@@ -20,9 +20,13 @@ static void print_usage() {
 /** 程序入口。
  *  阶段1: 解析全局标志 (--lang, --quiet, --no-color, --help)。
  *  阶段2: 初始化多语言子系统。
- *  阶段3: 自动检测运行环境，必要时提升权限。
- *  阶段4: 构建顶层应用管理器。
- *  阶段5: 路由至交互式 TUI 或命令行分发模式。
+ *  阶段3: 自动检测运行环境。
+ *  阶段3.5: 解析 CLI，确定操作类型。
+ *  阶段4: 按需提权 — 仅对需要 root 的操作（chroot/安装/镜像源）提权；
+ *         VNC 启动/停止等日常操作以普通用户身份运行。
+ *  阶段5: 确保工作目录存在。
+ *  阶段6: 构建顶层应用管理器。
+ *  阶段7: 路由至交互式 TUI 或命令行分发模式。
  */
 /** 读取持久化的 locale 偏好 (若存在)。 */
 static std::string load_saved_locale() {
@@ -76,16 +80,26 @@ int main(int argc, char *argv[]) {
     // 阶段2: 加载 i18n 翻译 (先用默认/CLI 值)
     tmoe::I18n::init(lang);
 
-    // 阶段3: 自动检测环境并提权
+    // 阶段3: 自动检测环境
     auto cfg = tmoe::TmoeConfig::detect();
-    if (!cfg.is_termux && !cfg.is_root) {
-        // escalate_privileges 调用 execvp —— 非特权进程映像被替换；
-        // 此行之下的代码仅以 root 身份运行。
+
+    // 阶段3.5: 解析 CLI 确定是否需要 root 权限（按需提权）
+    tmoe::LaunchContext ctx;
+    if (!pos_args.empty()) {
+        ctx = tmoe::CliParser::parse(pos_args);
+    }
+
+    // 阶段4: 按需提权 — 仅对需要 root 的操作调用 sudo
+    //        VNC 启动/停止、容器列表、主题等操作无需 root
+    if (!cfg.is_termux && !cfg.is_root && ctx.needs_root) {
+        // escalate_privileges 调用 execvp —— 以 root 重新执行，永不返回
         tmoe::Executor::escalate_privileges(argc, argv);
     }
+
+    // 阶段5: 确保工作目录存在（非 root 时静默跳过系统级目录）
     cfg.ensure_dirs();
 
-    // 阶段3.5: 读取持久化的 locale 偏好 (优先级: CLI > 持久化 > 默认英文)
+    // 阶段5.5: 读取持久化的 locale 偏好 (优先级: CLI > 持久化 > 默认英文)
     if (!lang_from_cli) {
         std::string saved = load_saved_locale();
         if (!saved.empty() && saved != lang) {
@@ -94,15 +108,13 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // 阶段4: 初始化顶层应用管理器 (传入 save_locale_pref 回调)
+    // 阶段6: 初始化顶层应用管理器 (传入 save_locale_pref 回调)
     tmoe::app::Manager manager(std::move(cfg), save_locale_pref);
 
-    // 阶段5: 路由至交互模式或命令分发
+    // 阶段7: 路由至交互模式或命令分发
     if (pos_args.empty()) {
         return manager.run_interactive();
     }
-
-    tmoe::LaunchContext ctx = tmoe::CliParser::parse(pos_args);
 
     // 复刻原版 Bash 行为：位置参数过多时发出警告
     if (pos_args.size() >= 7) {

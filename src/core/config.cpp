@@ -138,10 +138,11 @@ void TmoeConfig::export_env() const {
 }
 
 void TmoeConfig::ensure_dirs() const {
-    fs::create_directories(work_dir);
-    fs::create_directories(temp_dir);
-    fs::create_directories(container_root);
-    fs::create_directories(backup_dir);
+    std::error_code ec;
+    fs::create_directories(work_dir, ec);
+    fs::create_directories(temp_dir, ec);
+    fs::create_directories(container_root, ec);
+    fs::create_directories(backup_dir, ec);
 }
 
 } // namespace tmoe
