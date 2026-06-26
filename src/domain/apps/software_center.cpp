@@ -981,23 +981,73 @@ namespace tmoe::domain {
         if (confirm.exit_code != 0) return;
 
         switch (family) {
-            case DistroFamily::Debian:
-                PackageManager::remove({
-                    "xfce4", "xfce4-terminal", "tightvncserver", "xfce4-goodies",
-                    "dbus-x11", "lxde-core", "lxterminal",
-                    "mate-desktop-environment-core", "mate-terminal",
-                    "kde-plasma-desktop", "dde", "dde-desktop",
-                    "cinnamon-desktop-environment", "gnome-session", "gnome-shell",
-                    "lxqt", "lxqt-qtplugin"
-                }, family);
-                Executor::passthrough("apt autoremove --purge -y || apt autoremove -y");
+            case DistroFamily::Debian: {
+                // 每个包名独立移除，一个失败不影响其他
+                for (const auto& pkg : {
+                    // xfce
+                    "xfce4","xfce4-goodies","xfce4-terminal","xfce4-panel","thunar",
+                    "xfce4-whiskermenu-plugin","xfce4-taskmanager",
+                    "xfce4-places-plugin","xfce4-netload-plugin","xfce4-battery-plugin",
+                    "xfce4-datetime-plugin","xfce4-verve-plugin","xfce4-mount-plugin",
+                    "xfce4-screenshooter","xfce4-clipman-plugin","xfce4-pulseaudio-plugin",
+                    "xfce4-panel-profiles","xfpanel-switch",
+                    "thunar-archive-plugin","engrampa","ristretto","mousepad","menulibre",
+                    "qt5ct","mugshot","xfwm4-theme-breeze",
+                    "gvfs","gvfs-backends","gvfs-fuse",
+                    // lxde
+                    "lxde-core","lxterminal","lxde","lxde-common",
+                    // lxqt
+                    "lxqt-core","lxqt","lxqt-qtplugin","qterminal","qterminal-l10n",
+                    "pcmanfm-qt","pcmanfm-qt-l10n","openbox","lxqt-session","lxqt-config",
+                    "lxqt-theme-debian","lxqt-session-l10n",
+                    // mate
+                    "mate-desktop-environment","mate-desktop-environment-core","mate-terminal",
+                    "mate-session-manager","mate-settings-daemon","marco","mate-panel",
+                    // kde
+                    "kde-plasma-desktop","plasma-desktop","kde-full","kde-standard",
+                    "kubuntu-desktop",
+                    // gnome
+                    "gnome-session","gnome-shell","gnome-core",
+                    // cinnamon
+                    "cinnamon-desktop-environment","cinnamon","cinnamon-l10n",
+                    // budgie
+                    "budgie-desktop","budgie-core",
+                    // dde/deepin
+                    "ubuntudde-dde","ubuntudde-dde-extras","deepin-terminal",
+                    "deepin-desktop-environment",
+                    // ukui
+                    "ukui-session-manager","ukui-menu","ukui-control-center",
+                    "ukui-screensaver","ukui-themes","peony","ubuntukylin-desktop",
+                    // cutefish
+                    "cutefish","cutefish-core","cutefish-settings",
+                    "cutefish-dock","cutefish-launcher","cutefish-filemanager",
+                    "cutefish-terminal","cutefish-texteditor",
+                    // wm
+                    "icewm","openbox","fvwm","awesome","enlightenment","fluxbox",
+                    "i3","i3-wm","xmonad","metacity","twm","dwm",
+                    // common
+                    "tightvncserver","tigervnc-standalone-server","dbus-x11",
+                    "fonts-noto-cjk","fonts-noto-color-emoji",
+                }) {
+                    PackageManager::remove(std::string(pkg), family);
+                }
+                Executor::passthrough("apt autoremove --purge -y 2>/dev/null || apt autoremove -y 2>/dev/null || true");
                 break;
+            }
             case DistroFamily::Arch:
-                PackageManager::remove({
-                    "xfce4", "xfce4-goodies", "mate", "mate-extra",
-                    "lxde", "lxqt", "plasma-desktop", "gnome", "gnome-extra",
-                    "cinnamon", "deepin", "deepin-extra"
-                }, family);
+                for (const auto& pkg : {
+                    "xfce4","xfce4-goodies","xfce4-terminal",
+                    "mate","mate-extra",
+                    "lxde","lxqt","plasma-desktop",
+                    "gnome","gnome-extra","gnome-tweaks",
+                    "cinnamon","cinnamon-translations",
+                    "deepin","deepin-extra","deepin-kwin",
+                    "ukui","cutefish",
+                    "i3-wm","i3status","i3lock","dmenu",
+                    "xmonad","xmobar","openbox","fluxbox",
+                    "awesome","enlightenment","icewm","twm","dwm",
+                })
+                    PackageManager::remove(std::string(pkg), family);
                 break;
             case DistroFamily::RedHat:
                 for (const auto &grp: {
@@ -1008,10 +1058,13 @@ namespace tmoe::domain {
                 PackageManager::remove("deepin-desktop", family);
                 break;
             default:
-                PackageManager::remove({
-                    "xfce4", "lxde", "lxqt", "mate-desktop",
-                    "kde-plasma-desktop", "gnome-session", "cinnamon", "dde"
-                }, family);
+                for (const auto& pkg : {
+                    "xfce4","xfce4-goodies","lxde","lxqt","mate-desktop",
+                    "kde-plasma-desktop","gnome-session","gnome-shell","cinnamon",
+                    "budgie-desktop","ukui-session-manager","cutefish",
+                    "deepin-desktop-environment",
+                })
+                    PackageManager::remove(std::string(pkg), family);
                 break;
         }
     }
