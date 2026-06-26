@@ -101,7 +101,8 @@ namespace tmoe::domain {
         }
 
         // ── 阶段1: 提问（装包前）— 对齐 Bash do_you_want_to_install_fcitx4 ──
-        if (!auto_install_mode_) {
+        // 仅桌面环境有 fcitx/chromium/electron 提示；窗口管理器跳过
+        if (!auto_install_mode_ && !info.is_window_manager) {
             post_desktop_install_prompts();
         }
 
