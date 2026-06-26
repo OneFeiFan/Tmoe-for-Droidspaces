@@ -1082,20 +1082,18 @@ namespace tmoe::domain {
             auto f_confirm = Executor::passthrough(cfg_.tui_bin +
                                                    " --yesno \"" + _("swcenter.cleanup.browser_firefox_confirm") + "\" 0 0");
             if (f_confirm.exit_code != 0) return;
-            PackageManager::remove({
-                "firefox-esr", "firefox-esr-l10n-zh-cn",
-                "firefox", "firefox-l10n-zh-cn", "firefox-locale-zh-hans"
-            }, family);
+            for (const auto* pkg : {"firefox-esr","firefox-esr-l10n-zh-cn",
+                                     "firefox","firefox-l10n-zh-cn","firefox-locale-zh-hans"})
+                PackageManager::remove(std::string(pkg), family);
         } else if (choice.exit_code == 1) {
             auto c_confirm = Executor::passthrough(cfg_.tui_bin +
                                                    " --yesno \"" + _("swcenter.cleanup.browser_chromium_confirm") + "\" 0 0");
             if (c_confirm.exit_code != 0) return;
             Executor::passthrough(
                 "apt-mark unhold chromium-browser chromium-browser-l10n chromium-codecs-ffmpeg-extra 2>/dev/null || true");
-            PackageManager::remove({
-                "chromium", "chromium-l10n",
-                "chromium-browser", "chromium-browser-l10n"
-            }, family);
+            for (const auto* pkg : {"chromium","chromium-l10n",
+                                     "chromium-browser","chromium-browser-l10n"})
+                PackageManager::remove(std::string(pkg), family);
         }
         Executor::passthrough("apt autoremove --purge -y 2>/dev/null || true");
     }
@@ -1128,7 +1126,8 @@ namespace tmoe::domain {
 
         // 移除依赖包
         auto family = infer_family_from_config(cfg_.linux_distro);
-        PackageManager::remove({"git", "aria2", "pv", "wget", "curl", "less", "xz-utils", "newt", "whiptail"}, family);
+        for (const auto* pkg : {"git","aria2","pv","wget","curl","less","xz-utils","newt","whiptail"})
+            PackageManager::remove(std::string(pkg), family);
 
         Logger::warn(_("swcenter.cleanup.remove_tmoe_done"));
     }

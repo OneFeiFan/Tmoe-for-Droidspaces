@@ -415,7 +415,7 @@ namespace tmoe::domain {
         Logger::step(_("gui.xrdp.removing"));
         auto family = infer_family_from_config(cfg_.linux_distro);
         if (family == DistroFamily::Unknown) family = PackageManager::detect_distro_family();
-        PackageManager::remove({"xrdp", "xorgxrdp"}, family);
+        PackageManager::remove("xrdp", family); PackageManager::remove("xorgxrdp", family);
         Logger::ok(_("gui.xrdp.removed"));
         return true;
     }
@@ -452,9 +452,7 @@ namespace tmoe::domain {
             else if (ch == "5") {
                 auto r = Executor::passthrough(cfg_.tui_bin + " --yesno \"确认卸载 x11vnc？\" 0 0");
                 if (r.exit_code == 0) {
-                    auto family = infer_family_from_config(cfg_.linux_distro);
-                    if (family == DistroFamily::Unknown) family = PackageManager::detect_distro_family();
-                    PackageManager::remove({"x11vnc", "x11vnc-data"}, family);
+                    remove_x11vnc_ext();
                 }
             } else if (ch == "6") {
                 Logger::info(_("gui.x11vnc.process_management"));
@@ -511,9 +509,7 @@ namespace tmoe::domain {
             } else if (ch == "3") {
                 auto r = Executor::passthrough(cfg_.tui_bin + " --yesno \"确认卸载 noVNC？\" 0 0");
                 if (r.exit_code == 0) {
-                    Executor::passthrough("pip3 uninstall -y numpy websockify 2>/dev/null || "
-                        "sudo -H pip3 uninstall -y numpy websockify 2>/dev/null || true");
-                    Executor::passthrough("rm -rfv /usr/local/bin/novnc ${TMOE_LINUX_DIR}/novnc 2>/dev/null || true");
+                    remove_novnc();
                 }
             }
             Logger::press_enter();
@@ -850,13 +846,15 @@ namespace tmoe::domain {
     bool RemoteDesktopManager::remove_novnc() {
         Logger::step(_("gui.novnc.removing"));
         stop_novnc();
-        // 清理 pip3 安装的包
-        Executor::passthrough("pip3 uninstall -y websockify numpy 2>/dev/null || true");
-        // 清理目录
+        // 清理目录（git clone 安装的）
         CommandBuilder("rm").add_flag("-rf").add_arg("/opt/novnc").add_arg("/usr/share/novnc").add_raw("2>/dev/null || true").execute();
+        // apt 装的包（和 install_novnc 对应：novnc, python3-websockify, python3-numpy）
         auto family = infer_family_from_config(cfg_.linux_distro);
         if (family == DistroFamily::Unknown) family = PackageManager::detect_distro_family();
-        PackageManager::remove({"novnc", "websockify"}, family);
+        PackageManager::remove("novnc", family);
+        PackageManager::remove("websockify", family);
+        PackageManager::remove("python3-websockify", family);
+        PackageManager::remove("python3-numpy", family);
         Logger::ok(_("gui.novnc.removed"));
         return true;
     }

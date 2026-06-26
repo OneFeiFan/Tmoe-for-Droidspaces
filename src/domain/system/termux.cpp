@@ -347,8 +347,12 @@ namespace tmoe::domain {
         }
 
         Logger::step(_("termux.removing_gui"));
-        PackageManager::remove({"^xfce", "tigervnc", "aterm", "xfce4-terminal"}, DistroFamily::Debian);
-        PackageManager::remove({"lxqt", "qterminal"}, DistroFamily::Debian);
+        PackageManager::remove("^xfce", DistroFamily::Debian);
+        PackageManager::remove("tigervnc", DistroFamily::Debian);
+        PackageManager::remove("aterm", DistroFamily::Debian);
+        PackageManager::remove("xfce4-terminal", DistroFamily::Debian);
+        PackageManager::remove("lxqt", DistroFamily::Debian);
+        PackageManager::remove("qterminal", DistroFamily::Debian);
         PackageManager::remove("x11-repo", DistroFamily::Debian);
         Executor::shell("apt autoremove --purge -y");
 

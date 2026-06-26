@@ -199,7 +199,8 @@ namespace tmoe::app {
                 case 9: // mlocate — 确认后卸载
                     Logger::info(_("faq.a9"));
                     if (!Logger::confirm(_("faq.confirm_exec"))) break;
-                    domain::PackageManager::remove({"mlocate", "catfish"}, domain::infer_family_from_config(cfg_.linux_distro));
+                    domain::PackageManager::remove("mlocate", domain::infer_family_from_config(cfg_.linux_distro));
+                    domain::PackageManager::remove("catfish", domain::infer_family_from_config(cfg_.linux_distro));
                     Executor::passthrough("apt autoremove --purge 2>/dev/null");
                     break;
                 case 10: // TTY Chinese — whiptail yesno: fbterm vs LANG
