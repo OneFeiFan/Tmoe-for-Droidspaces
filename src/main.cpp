@@ -2,6 +2,7 @@
 #include "core/i18n.h"
 #include "core/logger.h"
 #include "core/cli_parser.h"
+#include "core/system_helper.h"
 #include "app/manager.h"
 
 #include <cstdlib>
@@ -98,6 +99,21 @@ int main(int argc, char *argv[]) {
 
     // 阶段5: 确保工作目录存在（非 root 时静默跳过系统级目录）
     cfg.ensure_dirs();
+
+    // 阶段5.1: WSL 系统初始化（预建配置文件，避免 apt 扫描 /mnt）
+    if (cfg.is_wsl && cfg.is_root) {
+        if (!fs::exists("/etc/updatedb.conf")) {
+            tmoe::SystemHelper::write_file("/etc/updatedb.conf",
+                "PRUNE_BIND_MOUNTS=\"yes\"\n"
+                "PRUNENAMES=\".git .bzr .hg .svn\"\n"
+                "PRUNEPATHS=\"/tmp /var/spool /media /var/lib/os-prober /var/lib/ceph "
+                "/home/.ecryptfs /var/lib/schroot /mnt\"\n"
+                "PRUNEFS=\"NFS nfs nfs4 rpc_pipefs afs binfmt_misc proc smbfs autofs "
+                "iso9660 ncpfs coda devpts ftpfs devfs devtmpfs fuse.mfs shm sysfs "
+                "cifs rmpfs cgroup fuse.sshfs curlftpfs ceph fuse.ceph fuse.glusterfs "
+                "fuse.bpf fuse.rclone configfs ecryptfs\"\n");
+        }
+    }
 
     // 阶段5.5: 读取持久化的 locale 偏好 (优先级: CLI > 持久化 > 默认英文)
     if (!lang_from_cli) {
