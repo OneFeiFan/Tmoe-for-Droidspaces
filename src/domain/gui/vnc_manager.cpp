@@ -25,8 +25,7 @@ namespace tmoe::domain {
         vnc_home_dir = home_dir / ".vnc";
         xstartup_file = vnc_home_dir / "xstartup";
         passwd_file = vnc_home_dir / "passwd";
-        xsession_file = vnc_home_dir / "Xsession";
-        tigervnc_config = "/etc/tigervnc/vncserver-config-tmoe";
+        xsession_file = vnc_home_dir / "tmoe-xsession";  // 不用 Xsession: WSL drvfs 不区分大小写, 会与 xstartup 冲突
         vnc_pid_file = vnc_home_dir / "vnc.pid";
         x_pid_file = vnc_home_dir / "x.pid";
 
@@ -51,6 +50,26 @@ namespace tmoe::domain {
         dep_viewer = "tigervnc-viewer";
         dep_server = "tigervnc-standalone-server";
         dep_extra = "xfonts-100dpi xfonts-75dpi xfonts-scalable";
+
+        // 从 ~/.vnc/config 读取持久化的分辨率
+        fs::path vnc_cfg = vnc_home_dir / "config";
+        if (fs::exists(vnc_cfg)) {
+            std::ifstream cfg(vnc_cfg);
+            std::string line;
+            while (std::getline(cfg, line)) {
+                if (line.rfind("geometry=", 0) == 0) {
+                    std::string geo = line.substr(9);
+                    auto xpos = geo.find('x');
+                    if (xpos != std::string::npos) {
+                        try {
+                            resolution_w = std::stoi(geo.substr(0, xpos));
+                            resolution_h = std::stoi(geo.substr(xpos + 1));
+                        } catch (...) {}
+                    }
+                    break;
+                }
+            }
+        }
     }
 
     void VncConfig::update_port() {
@@ -536,20 +555,20 @@ namespace tmoe::domain {
     bool VncManager::configure_vnc_defaults() {
         Logger::step(_("gui.vnc.configuring_defaults"));
 
-        fs::create_directories(vnc_config_.tigervnc_config.parent_path());
+        fs::path cfg_path = vnc_config_.vnc_home_dir / "config";
+        fs::create_directories(cfg_path.parent_path());
 
         std::ostringstream config;
-        config << "# tmoe-linux TigerVNC config — 自动生成\n"
+        config << "# tmoe-linux TigerVNC config — TigerVNC auto-reads ~/.vnc/config\n"
                 << "securitytypes=vncauth,tlsvnc\n"
                 << "geometry=" << vnc_config_.resolution_w << "x" << vnc_config_.resolution_h << "\n"
-                << "desktop=" << vnc_config_.desktop_name << "\n"
                 << "depth=" << vnc_config_.pixel_depth << "\n"
                 << "ZlibLevel=" << vnc_config_.zlib_level << "\n"
                 << "localhost=" << (vnc_config_.localhost_only ? "yes" : "no") << "\n"
                 << "CompareFB=" << (vnc_config_.compare_fb ? "1" : "0") << "\n"
                 << "deferglyphs=16\n";
 
-        return write_file_content(vnc_config_.tigervnc_config, config.str());
+        return write_file_content(cfg_path, config.str());
     }
 
     // ================================================================
@@ -625,17 +644,15 @@ namespace tmoe::domain {
     }
 
     std::string VncManager::generate_xstartup_content() const {
+        // 参考 xrdp startwm.sh: 优先用系统 Xsession，不存在则回退到 tmoe-xsession
         std::ostringstream script;
         script << "#!/bin/bash\n"
-                << "# tmoe-linux VNC xstartup — 参考 xrdp startwm.sh\n\n"
+                << "# tmoe-linux VNC xstartup\n\n"
                 << "unset SESSION_MANAGER\n"
                 << "unset DBUS_SESSION_BUS_ADDRESS\n"
                 << "unset XDG_RUNTIME_DIR\n"
                 << "export XDG_SESSION_TYPE=x11\n"
-                << "export XDG_CURRENT_DESKTOP=XFCE\n"
-                << "export DESKTOP_SESSION=tmoe_linux\n"
                 << "export PULSE_SERVER=127.0.0.1\n\n"
-                << "# 加载系统环境（确保桌面命令在 PATH 中）\n"
                 << "[ -r /etc/profile ] && . /etc/profile\n\n"
                 << "if command -v fcitx >/dev/null 2>&1; then\n"
                 << "    fcitx-autostart >/dev/null 2>&1 &\n"
@@ -643,7 +660,12 @@ namespace tmoe::domain {
                 << "if command -v ibus-daemon >/dev/null 2>&1; then\n"
                 << "    ibus-daemon -drx >/dev/null 2>&1 &\n"
                 << "fi\n\n"
-                << "if [ -x " << vnc_config_.xsession_file.string() << " ]; then\n"
+                << "# 优先用系统 Xsession，否则用 tmoe 生成的会话脚本\n"
+                << "if [ -x /etc/X11/Xsession ]; then\n"
+                << "    exec /etc/X11/Xsession\n"
+                << "elif [ -x /etc/X11/xinit/Xsession ]; then\n"
+                << "    exec /etc/X11/xinit/Xsession\n"
+                << "elif [ -x " << vnc_config_.xsession_file.string() << " ]; then\n"
                 << "    exec " << vnc_config_.xsession_file.string() << "\n"
                 << "else\n"
                 << "    xterm -geometry 80x24+10+10 -ls -title \"tmoe VNC Desktop\" &\n"
@@ -678,15 +700,13 @@ namespace tmoe::domain {
         }
 
         // 3. 创建 ~/.vnc/xstartup
-        run_shell_command("mkdir -p ~/.vnc /etc/X11/xinit /etc/tigervnc 2>/dev/null");
+        run_shell_command("mkdir -p ~/.vnc /etc/X11/xinit 2>/dev/null");
         std::string xstartup_content = generate_xstartup_content();
         if (!write_file_content(vnc_config_.xstartup_file, xstartup_content)) {
             Logger::error(_f("gui.vnc.xstartup_write_failed", vnc_config_.xstartup_file.string()));
             return false;
         }
         run_shell_command(CommandBuilder("chmod").add_arg("+x").add_arg(vnc_config_.xstartup_file.string()).build_string());
-        run_shell_command(CommandBuilder("ln").add_flag("-sf").add_arg(vnc_config_.xsession_file.string())
-                          .add_arg(vnc_config_.xstartup_file.string()).add_raw("2>/dev/null || true").build_string());
 
         // 4. 默认配置
         configure_vnc_defaults();
@@ -1094,7 +1114,7 @@ namespace tmoe::domain {
 
     bool VncManager::fix_vnc_permissions() {
         Logger::step(_("gui.vnc.fixing_permissions"));
-        run_shell_command("chown -R $(id -un):$(id -gn) " +
+        run_shell_command("chown -R ${SUDO_USER:-$(id -un)}:${SUDO_USER:-$(id -gn)} " +
                           vnc_config_.vnc_home_dir.string() + " 2>/dev/null || true");
         run_shell_command(CommandBuilder("chmod").add_flag("-R").add_arg("700").add_arg(vnc_config_.vnc_home_dir.string()).add_raw("2>/dev/null || true").build_string());
         if (fs::exists(vnc_config_.passwd_file))
@@ -1278,11 +1298,10 @@ namespace tmoe::domain {
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
         if (home != "/root") {
             Logger::info(_f("gui.vnc.fixing_nonroot_perms", home));
-            std::string user = Executor::shell("id -un").stdout_data;
-            std::string group = Executor::shell("id -gn").stdout_data;
+            const char* sudo_user = std::getenv("SUDO_USER");
+            std::string user = sudo_user ? sudo_user : Executor::shell("id -un").stdout_data;
             while (!user.empty() && (user.back() == '\n' || user.back() == '\r')) user.pop_back();
-            while (!group.empty() && (group.back() == '\n' || group.back() == '\r')) group.pop_back();
-            run_shell_command(CommandBuilder("chown").add_flag("-R").add_arg(user + ":" + group)
+            run_shell_command(CommandBuilder("chown").add_flag("-R").add_arg(user + ":" + user)
                               .add_arg(home + "/.vnc").add_arg(home + "/.Xauthority")
                               .add_arg(home + "/.ICEauthority").add_arg(home + "/.config")
                               .add_arg(home + "/.cache").add_arg(home + "/.dbus").add_arg(home + "/.local")

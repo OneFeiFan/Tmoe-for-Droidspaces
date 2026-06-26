@@ -407,7 +407,9 @@ namespace tmoe::domain {
         }
 
         // ── 阶段3: 桌面专属扩展（wallpapers/themes/panel等） ──
+        Logger::step("Post-install desktop config...");
         post_install_desktop_config(desktop);
+        Logger::step("Installing desktop extras (themes/wallpapers)...");
         post_install_desktop_extras(desktop);
 
         // ── 阶段4: VNC 配置（xstartup + 服务端推荐） ──
@@ -432,6 +434,7 @@ namespace tmoe::domain {
         }
 
         // ── 阶段5: 执行可选安装（fcitx/chromium/electron/kali/vscode） ──
+        Logger::step("Checking optional software (fcitx/chromium/electron)...");
         execute_optional_installs();
 
         return true;
@@ -1477,11 +1480,11 @@ namespace tmoe::domain {
             "dbus-launch xfconf-query -c xsettings -np /Net/IconThemeName -s " + icon_name + " 2>/dev/null || true");
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
         if (home != "/root") {
-            std::string user = Executor::shell("id -un").stdout_data;
-            std::string group = Executor::shell("id -gn").stdout_data;
+            // sudo 环境下 id -un 返回 root，优先用 $SUDO_USER 获取实际用户
+            const char* sudo_user = std::getenv("SUDO_USER");
+            std::string user = sudo_user ? sudo_user : Executor::shell("id -un").stdout_data;
             while (!user.empty() && (user.back() == '\n' || user.back() == '\r')) user.pop_back();
-            while (!group.empty() && (group.back() == '\n' || group.back() == '\r')) group.pop_back();
-            CommandBuilder("chown").add_flag("-Rv").add_arg(user + ":" + group).add_arg(home + "/.config/xfce4").add_raw("2>/dev/null || true").execute();
+            CommandBuilder("chown").add_flag("-Rv").add_arg(user + ":" + user).add_arg(home + "/.config/xfce4").add_raw("2>/dev/null || true").execute();
         }
     }
 

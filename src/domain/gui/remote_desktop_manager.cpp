@@ -27,8 +27,10 @@ namespace tmoe::domain {
     bool RemoteDesktopManager::install_novnc() {
         Logger::step(_("gui.novnc.installing"));
 
-        // 检查是否已安装
-        if (fs::exists("/usr/share/novnc") || Executor::has("websockify")) {
+        // 检查是否已安装（以 /usr/share/novnc 目录为准）
+        // 不用 Executor::has("websockify") — 二进制可能在 python3-websockify 包里，
+        // apt remove novnc websockify 删不掉它（包名不匹配）
+        if (fs::exists("/usr/share/novnc")) {
             Logger::ok(_("gui.novnc.already_installed"));
             return true;
         }

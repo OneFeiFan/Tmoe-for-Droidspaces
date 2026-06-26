@@ -55,7 +55,6 @@ namespace tmoe::domain {
         fs::path vnc_home_dir;
         fs::path xstartup_file;
         fs::path xsession_file;
-        fs::path tigervnc_config;
         fs::path vnc_pid_file;
         fs::path x_pid_file;
 

@@ -25,6 +25,7 @@ namespace tmoe::domain {
     }
 
     void GUIManager::first_configure_vnc(std::string_view desktop) {
+        Logger::step(std::string(_("gui.vnc.config_title")) + " — " + std::string(desktop));
         auto family = get_family(cfg_);
 
         // 0.5. 卸载 udisks2 (对应旧 Bash remove_udisk_and_gvfs)
@@ -196,12 +197,7 @@ namespace tmoe::domain {
         if (!res.empty() && vnc_manager_.config().resolution_w > 0 && vnc_manager_.config().resolution_h > 0) {
             std::string res_str = std::to_string(vnc_manager_.config().resolution_w) + "x" + std::to_string(
                                       vnc_manager_.config().resolution_h);
-            Executor::shell(CommandBuilder("sed")
-                            .add_arg("-i")
-                            .add_arg("-E")
-                            .add_arg("s@(geometry)=.*@\\1=" + res_str + "@")
-                            .add_arg("/etc/tigervnc/vncserver-config-tmoe")
-                            .build_string() + " 2>/dev/null || true");
+            // geometry 已通过 configure_vnc_defaults() + ~/.vnc/config 持久化，无需 sed 旧路径
             Executor::shell(CommandBuilder("sed")
                             .add_arg("-i")
                             .add_arg("-E")
@@ -220,7 +216,7 @@ namespace tmoe::domain {
         if (home != "/root") {
             Executor::passthrough(CommandBuilder("chown")
                                   .add_arg("-R")
-                                  .add_arg("$(id -un):$(id -gn)")
+                                  .add_arg("${SUDO_USER:-$(id -un)}:${SUDO_USER:-$(id -gn)}")
                                   .add_arg(home + "/.vnc")
                                   .add_arg(home + "/.Xauthority")
                                   .add_arg(home + "/.ICEauthority")
@@ -321,6 +317,9 @@ namespace tmoe::domain {
 
         Logger::info(std::string(_("gui.section_four")) + "：");
         Logger::info(_("gui.vnc.unlock_achievement_hint"));
+        // 修复 sudo 提权安装导致的 root 归属问题
+        vnc_manager_.fix_vnc_permissions();
+
         Logger::press_enter();
         remote_desktop_manager_.do_you_want_to_configure_novnc();
     }
@@ -674,7 +673,8 @@ namespace tmoe::domain {
                 Executor::passthrough(editor + " /etc/X11/xinit/Xsession");
             } else if (choice == "9") {
                 std::string editor = std::getenv("EDITOR") ? std::getenv("EDITOR") : "nano";
-                Executor::passthrough(editor + " /etc/tigervnc/vncserver-config-tmoe");
+                std::string cfg_path = vnc_manager_.config().vnc_home_dir.string() + "/config";
+                Executor::passthrough(editor + " " + cfg_path);
             } else if (choice == "10") {
                 std::string scale_cmd = CommandBuilder(cfg_.tui_bin)
                         .add_arg("--title").add_arg(_("gui.vnc.scaling_title"))
@@ -1201,9 +1201,11 @@ namespace tmoe::domain {
 
         std::string d(desktop);
         std::transform(d.begin(), d.end(), d.begin(), ::tolower);
-        if (orig_w == 0 && (d.find("xfce") != std::string::npos)) {
+
+        // 所有桌面统一两档分辨率选择（VNC 配置页面可详细调）
+        if (orig_w == 0 && !desktop_manager_.is_auto_install_mode()) {
             auto r2 = Executor::passthrough(CommandBuilder(cfg_.tui_bin)
-                .add_arg("--title").add_arg(_("gui.hidpi.screen_title"))
+                .add_arg("--title").add_arg(std::string(_("gui.hidpi.screen_title")))
                 .add_arg("--yes-button").add_arg(_("gui.hidpi.res_720p_1080p"))
                 .add_arg("--no-button").add_arg(_("gui.hidpi.res_2k_4k"))
                 .add_arg("--yesno")
@@ -1211,13 +1213,11 @@ namespace tmoe::domain {
                 .add_arg("0").add_arg("50")
                 .build_string());
             if (r2.exit_code == 0) {
-                orig_w = 1440;
-                orig_h = 720;
-                high_dpi = false;
+                orig_w = 1920;
+                orig_h = 1080;
             } else {
-                orig_w = 2880;
+                orig_w = 2560;
                 orig_h = 1440;
-                high_dpi = true;
             }
         }
 
@@ -1261,8 +1261,21 @@ namespace tmoe::domain {
             Logger::info(std::string(_("gui.hidpi.resolution_adjusted")) + std::to_string(orig_w) + "x" + std::to_string(orig_h) + _("gui.hidpi.scale_2x"));
         }
 
-        vnc_manager_.config().resolution_w = orig_w;
-        vnc_manager_.config().resolution_h = orig_h;
+        if (orig_w > 0) {
+            vnc_manager_.config().resolution_w = orig_w;
+            vnc_manager_.config().resolution_h = orig_h;
+            vnc_manager_.configure_vnc_defaults();
+
+            // 持久化到 ~/.vnc/config（TigerVNC 真正读取的配置文件）
+            std::string res_str = std::to_string(orig_w) + "x" + std::to_string(orig_h);
+            Executor::shell(
+                "mkdir -p " + vnc_manager_.config().vnc_home_dir.string() + " && "
+                "grep -q '^geometry=' " + vnc_manager_.config().vnc_home_dir.string() + "/config 2>/dev/null && "
+                "sed -i 's/^geometry=.*/geometry=" + res_str + "/' "
+                + vnc_manager_.config().vnc_home_dir.string() + "/config || "
+                "echo 'geometry=" + res_str + "' >> "
+                + vnc_manager_.config().vnc_home_dir.string() + "/config");
+        }
         return true;
     }
 
