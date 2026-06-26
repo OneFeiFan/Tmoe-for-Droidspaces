@@ -1,6 +1,21 @@
 #include "executor.h"
 #include "i18n.h"
 
+#ifndef _WIN32
+#include <sys/select.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <cerrno>
+#else
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+#include <chrono>
 
 namespace tmoe {
     /** 对字符串进行单引号 Shell 转义。 */
@@ -28,16 +43,9 @@ namespace tmoe {
         return result;
     }
 
-    ExecResult Executor::run(std::string_view bin,
-                             std::initializer_list<std::string_view> args) {
-        std::string cmd(bin);
-        for (auto &a: args) {
-            cmd += " ";
-            cmd += shell_escape(a);
-        }
-        cmd += " 2>&1";
-
-        // unique_ptr 在作用域退出时自动关闭管道（包括异常情况）
+    /** popen → 读取全部输出 → pclose → ExecResult。
+     *  消除 run / shell / run_with_env 中重复的管道管理代码。 */
+    static ExecResult popen_exec(const std::string& cmd) {
         std::unique_ptr<FILE, decltype(&::pclose)> pipe(::popen(cmd.c_str(), "r"), ::pclose);
         if (!pipe) {
             return ExecResult{-1, "", "popen failed"};
@@ -53,14 +61,23 @@ namespace tmoe {
         int rc = ::pclose(pipe.release());
 
 #ifdef _WIN32
-        // _pclose 在 Windows 上返回子进程的退出状态，格式为:
-        //   高字节 = 退出码，低字节 = 0 (正常退出) 或 信号编号
-        // 参考: MSDN _pclose / _cwait 文档
+        // _pclose 返回子进程退出状态，高字节=退出码
         int exit_code = (rc >= 0) ? ((rc >> 8) & 0xFF) : -1;
         return ExecResult{exit_code, std::move(output), ""};
 #else
-    return ExecResult{WIFEXITED(rc) ? WEXITSTATUS(rc) : -1, std::move(output), ""};
+        return ExecResult{WIFEXITED(rc) ? WEXITSTATUS(rc) : -1, std::move(output), ""};
 #endif
+    }
+
+    ExecResult Executor::run(std::string_view bin,
+                             std::initializer_list<std::string_view> args) {
+        std::string cmd(bin);
+        for (auto &a: args) {
+            cmd += " ";
+            cmd += shell_escape(a);
+        }
+        cmd += " 2>&1";
+        return popen_exec(cmd);
     }
 
     ExecResult Executor::shell(std::string_view cmd) {
@@ -71,28 +88,7 @@ namespace tmoe {
             full_cmd += " 2>&1";
         }
 
-        std::unique_ptr<FILE, decltype(&::pclose)> pipe(::popen(full_cmd.c_str(), "r"), ::pclose);
-        if (!pipe) {
-            return ExecResult{-1, "", "popen failed"};
-        }
-
-        std::string output;
-        try {
-            output = read_all(pipe.get());
-        } catch (...) {
-            return ExecResult{-1, "", "read_all threw exception"};
-        }
-
-        int rc = ::pclose(pipe.release());
-
-#ifdef _WIN32
-        // _pclose 返回子进程退出状态，高字节=退出码
-        // 参考: MSDN _pclose returns exit status of cmd.exe
-        int shell_exit = (rc >= 0) ? ((rc >> 8) & 0xFF) : -1;
-        return ExecResult{shell_exit, std::move(output), ""};
-#else
-    return ExecResult{WIFEXITED(rc) ? WEXITSTATUS(rc) : -1, std::move(output), ""};
-#endif
+        return popen_exec(full_cmd);
     }
 
     bool Executor::has(std::string_view bin) {
@@ -103,16 +99,245 @@ namespace tmoe {
     ExecResult Executor::run_timeout(int timeout_sec,
                                      std::string_view bin,
                                      std::initializer_list<std::string_view> args) {
-        // TODO: 通过 alarm/signal 或 std::thread + wait_for 实现真正的超时机制
-        return run(bin, args);
+        if (timeout_sec <= 0) {
+            return run(bin, args);
+        }
+
+#ifndef _WIN32
+        // 构建与 run() 相同的命令字符串
+        std::string cmd(bin);
+        for (const auto& a : args) {
+            cmd += " ";
+            cmd += shell_escape(a);
+        }
+        cmd += " 2>&1";
+
+        int pipefd[2];
+        if (::pipe(pipefd) == -1) {
+            return ExecResult{-1, "", "pipe() failed"};
+        }
+
+        pid_t pid = ::fork();
+        if (pid == -1) {
+            ::close(pipefd[0]);
+            ::close(pipefd[1]);
+            return ExecResult{-1, "", "fork() failed"};
+        }
+
+        if (pid == 0) {
+            // 子进程: 重定向 stdout/stderr 到管道，通过 sh -c 执行
+            ::close(pipefd[0]);
+            ::dup2(pipefd[1], STDOUT_FILENO);
+            ::dup2(pipefd[1], STDERR_FILENO);
+            ::close(pipefd[1]);
+            ::execl("/bin/sh", "sh", "-c", cmd.c_str(), nullptr);
+            ::_exit(127);
+        }
+
+        // 父进程: 带截止时间的 select 轮询读取
+        ::close(pipefd[1]);
+
+        std::string output;
+        std::array<char, 4096> buf;
+        auto deadline = std::chrono::steady_clock::now()
+                        + std::chrono::seconds(timeout_sec);
+        bool timed_out = false;
+
+        while (true) {
+            auto now = std::chrono::steady_clock::now();
+            if (now >= deadline) {
+                timed_out = true;
+                break;
+            }
+
+            auto remaining_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                deadline - now);
+
+            fd_set fds;
+            FD_ZERO(&fds);
+            FD_SET(pipefd[0], &fds);
+            struct timeval tv;
+            tv.tv_sec  = remaining_ms.count() / 1000;
+            tv.tv_usec = (remaining_ms.count() % 1000) * 1000;
+
+            int ret = ::select(pipefd[0] + 1, &fds, nullptr, nullptr, &tv);
+            if (ret == -1) {
+                if (errno == EINTR) continue;
+                break;
+            }
+            if (ret == 0) {
+                // select 自身超时 → 整体超时
+                timed_out = true;
+                break;
+            }
+
+            ssize_t n = ::read(pipefd[0], buf.data(), buf.size());
+            if (n < 0) {
+                if (errno == EINTR) continue;
+                break;
+            }
+            if (n == 0) break;  // EOF: 子进程已退出
+            output.append(buf.data(), n);
+        }
+
+        if (timed_out) {
+            // 先 SIGTERM 优雅终止，500ms 后仍存活则 SIGKILL
+            ::kill(pid, SIGTERM);
+            ::usleep(500000);
+            int status;
+            if (::waitpid(pid, &status, WNOHANG) == 0) {
+                ::kill(pid, SIGKILL);
+                ::waitpid(pid, &status, 0);
+            }
+            ::close(pipefd[0]);
+            return ExecResult{-1, std::move(output),
+                "timeout: command exceeded " + std::to_string(timeout_sec) + "s"};
+        }
+
+        ::close(pipefd[0]);
+        int status;
+        ::waitpid(pid, &status, 0);
+        int exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+        return ExecResult{exit_code, std::move(output), ""};
+#else
+        // Windows: CreateProcess + WaitForSingleObject 实现真正超时
+        std::string cmd(bin);
+        for (const auto& a : args) {
+            cmd += " ";
+            cmd += shell_escape(a);
+        }
+        cmd += " 2>&1";
+        std::string cmd_line = "cmd.exe /c " + cmd;
+
+        HANDLE hReadPipe, hWritePipe;
+        SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
+        if (!CreatePipe(&hReadPipe, &hWritePipe, &sa, 0)) {
+            return ExecResult{-1, "", "CreatePipe failed"};
+        }
+        SetHandleInformation(hReadPipe, HANDLE_FLAG_INHERIT, 0);
+
+        STARTUPINFOA si = {sizeof(STARTUPINFOA)};
+        si.dwFlags = STARTF_USESTDHANDLES;
+        si.hStdOutput = hWritePipe;
+        si.hStdError  = hWritePipe;
+        si.hStdInput  = GetStdHandle(STD_INPUT_HANDLE);
+
+        PROCESS_INFORMATION pi = {0};
+        std::vector<char> cmd_buf(cmd_line.c_str(),
+                                   cmd_line.c_str() + cmd_line.size() + 1);
+
+        if (!CreateProcessA(NULL, cmd_buf.data(), NULL, NULL, TRUE,
+                            CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+            CloseHandle(hReadPipe);
+            CloseHandle(hWritePipe);
+            return ExecResult{-1, "", "CreateProcess failed"};
+        }
+        CloseHandle(hWritePipe);
+
+        std::string output;
+        std::array<char, 4096> buf;
+        DWORD timeout_ms = static_cast<DWORD>(timeout_sec) * 1000;
+        auto start_time = std::chrono::steady_clock::now();
+        bool timed_out = false;
+
+        while (true) {
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - start_time).count();
+            if (static_cast<DWORD>(elapsed) >= timeout_ms) {
+                timed_out = true;
+                break;
+            }
+
+            DWORD remain  = timeout_ms - static_cast<DWORD>(elapsed);
+            DWORD wait_ms = (remain < 100) ? remain : 100;
+
+            DWORD wait_result = WaitForSingleObject(pi.hProcess, wait_ms);
+
+            // 非阻塞读取所有可用管道数据
+            DWORD available = 0;
+            while (PeekNamedPipe(hReadPipe, NULL, 0, NULL, &available, NULL)
+                   && available > 0) {
+                DWORD bytes_read = 0;
+                DWORD to_read = (available < static_cast<DWORD>(buf.size()))
+                                    ? available
+                                    : static_cast<DWORD>(buf.size());
+                if (!ReadFile(hReadPipe, buf.data(), to_read, &bytes_read, NULL)
+                    || bytes_read == 0) {
+                    break;
+                }
+                output.append(buf.data(), bytes_read);
+            }
+
+            if (wait_result == WAIT_OBJECT_0) {
+                break;
+            }
+        }
+
+        if (timed_out) {
+            TerminateProcess(pi.hProcess, 1);
+            WaitForSingleObject(pi.hProcess, 5000);
+            // 提取残留管道数据
+            DWORD available = 0;
+            if (PeekNamedPipe(hReadPipe, NULL, 0, NULL, &available, NULL)
+                && available > 0) {
+                DWORD bytes_read = 0;
+                DWORD to_read = (available < static_cast<DWORD>(buf.size()))
+                                    ? available
+                                    : static_cast<DWORD>(buf.size());
+                ReadFile(hReadPipe, buf.data(), to_read, &bytes_read, NULL);
+                output.append(buf.data(), bytes_read);
+            }
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+            CloseHandle(hReadPipe);
+            return ExecResult{-1, std::move(output),
+                "timeout: command exceeded " + std::to_string(timeout_sec) + "s"};
+        }
+
+        // 进程正常退出：排空所有残留数据
+        DWORD available = 0;
+        while (PeekNamedPipe(hReadPipe, NULL, 0, NULL, &available, NULL)
+               && available > 0) {
+            DWORD bytes_read = 0;
+            DWORD to_read = (available < static_cast<DWORD>(buf.size()))
+                                ? available
+                                : static_cast<DWORD>(buf.size());
+            if (!ReadFile(hReadPipe, buf.data(), to_read, &bytes_read, NULL)
+                || bytes_read == 0) {
+                break;
+            }
+            output.append(buf.data(), bytes_read);
+        }
+
+        DWORD exit_code = 0;
+        GetExitCodeProcess(pi.hProcess, &exit_code);
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+        CloseHandle(hReadPipe);
+        return ExecResult{static_cast<int>(exit_code), std::move(output), ""};
+#endif
     }
 
     ExecResult Executor::run_with_env(
         const std::vector<std::pair<std::string, std::string> > &env,
         std::string_view bin,
         std::initializer_list<std::string_view> args) {
-        // TODO: 在 fork+exec 前设置环境变量
-        return run(bin, args);
+        // 构建 "KEY1='val1' KEY2='val2' bin arg1 arg2 ... 2>&1"
+        // shell 的 VAR=val 前缀语法会在执行命令前设置环境变量
+        std::string cmd;
+        for (const auto& [key, val] : env) {
+            cmd += key;
+            cmd += "=";
+            cmd += shell_escape(val);
+            cmd += " ";
+        }
+        cmd += bin;
+        for (const auto& a : args) {
+            cmd += " ";
+            cmd += shell_escape(a);
+        }
+        cmd += " 2>&1";
+        return popen_exec(cmd);
     }
 
     std::string Executor::tui_select(std::string_view whiptail_args) {

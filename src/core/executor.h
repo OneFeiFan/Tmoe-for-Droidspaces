@@ -45,14 +45,15 @@ namespace tmoe {
         static bool has(std::string_view bin);
 
         /** 带超时的调用（秒）。
-         *  @note 当前为占位实现 — 回退到 run()。
+         *  Linux:  fork + select 轮询 + SIGTERM/SIGKILL 终止。
+         *  Windows: CreateProcess + WaitForSingleObject + TerminateProcess。
          */
         static ExecResult run_timeout(int timeout_sec,
                                       std::string_view bin,
                                       std::initializer_list<std::string_view> args);
 
         /** 设置额外环境变量后调用。
-         *  @note 当前为占位实现 — 回退到 run()。
+         *  通过 shell 的 VAR=val 前缀语法实现，无需 fork+exec。
          */
         static ExecResult run_with_env(
             const std::vector<std::pair<std::string, std::string> > &env,
