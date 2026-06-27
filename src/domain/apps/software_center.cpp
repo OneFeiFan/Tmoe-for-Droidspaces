@@ -1067,6 +1067,34 @@ namespace tmoe::domain {
                     PackageManager::remove(std::string(pkg), family);
                 break;
         }
+
+        // ── 共享清理：桌面配置残余（所有发行版通用）──
+        const char* home = std::getenv("HOME");
+        std::string h = home ? home : "/root";
+        for (const auto* dir : {"/.config/xfce4","/.config/mate","/.config/lxde",
+                                 "/.config/lxqt","/.config/kde","/.config/plasma",
+                                 "/.config/kde.org","/.config/kdeconnect",
+                                 "/.config/dconf","/.config/gnome","/.config/cinnamon",
+                                 "/.config/budgie","/.config/deepin","/.config/ukui",
+                                 "/.config/cutefish","/.config/KDE","/.config/session",
+                                 "/.kde","/.local/share/kde","/.local/share/plasma",
+                                 "/.cache/xfce4","/.cache/mate","/.cache/lxde","/.cache/lxqt",
+                                 "/.cache/kde","/.cache/plasma"})
+            Executor::passthrough("rm -rf " + h + dir + " 2>/dev/null || true");
+        Executor::passthrough("rm -rf ~/.vnc /etc/tigervnc ~/.dbus ~/.cache/sessions 2>/dev/null || true");
+        // ~/.local/share 各桌面数据
+        for (const auto* dir : {"/.local/share/xfce4","/.local/share/kde","/.local/share/plasma",
+                                 "/.local/share/mate","/.local/share/gnome","/.local/share/cinnamon",
+                                 "/.local/share/budgie","/.local/share/deepin","/.local/share/ukui",
+                                 "/.local/share/lxde","/.local/share/lxqt","/.local/share/cutefish"})
+            Executor::passthrough("rm -rf " + h + dir + " 2>/dev/null || true");
+        for (const auto* script : {"/usr/local/bin/startvnc","/usr/local/bin/stopvnc",
+                                    "/usr/local/bin/startxsdl","/usr/local/bin/novnc",
+                                    "/usr/local/bin/startx11vnc","/usr/local/bin/x11vncpasswd",
+                                    "/usr/local/bin/tightvnc","/usr/local/bin/tigervnc",
+                                    "/usr/local/bin/gnome-shell-x11","/usr/local/bin/budgie-desktop-builtin"})
+            Executor::passthrough(std::string("rm -f ") + script + " 2>/dev/null || true");
+        Executor::passthrough("rm -rf /etc/X11/xinit 2>/dev/null || true");
     }
 
     void SoftwareCenter::remove_browser() {
