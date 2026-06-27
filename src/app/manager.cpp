@@ -270,7 +270,7 @@ namespace tmoe::app {
 
         // 14. 主题美化 (字体/主题/图标/壁纸/光标)
         tui_routes_["14"] = [this]() {
-            gui_->run_beautification_menu();
+            gui_->beautification_manager_.run_beautification_menu();
         };
 
         // 15. 备份/恢复

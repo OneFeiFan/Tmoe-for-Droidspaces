@@ -70,6 +70,8 @@ namespace tmoe::domain {
 
         void set_default_xfce_icon_theme(const std::string &icon_name);
 
+        void set_xfce_cursor_theme(const std::string &cursor_name);
+
         void create_update_icon_caches();
 
         void check_update_icon_caches_sh();
@@ -91,6 +93,13 @@ namespace tmoe::domain {
         // ---------- 提示/图标 ----------
 
         void download_papirus_icon_theme();
+
+        // ---------- XFCE 壁纸自动配置（DE 安装后调用） ----------
+        /// 入口：根据发行版选择随机壁纸、下载缺失包、生成 xfce4-desktop.xml
+        void configure_default_xfce_wallpaper();
+
+        /// 生成含壁纸路径的 xfce4-desktop.xml（VNC/rdp/多显示器）
+        void ensure_xfce_wallpaper_config(const std::string &wallpaper_path);
 
         // ---------- 自动安装标志 ----------
         void set_auto_install_flags(bool fcitx, bool electron, bool vscode, bool chromium, bool kali,
@@ -124,5 +133,11 @@ namespace tmoe::domain {
 
         /// 使用 PackageManager 安装包列表
         bool install_packages(const std::vector<std::string> &pkgs) const;
+
+        /// 随机选择一个 Mint 壁纸，返回 {mint_code, wallpaper_path}
+        std::pair<std::string, std::string> select_random_mint_wallpaper() const;
+
+        /// 根据当前发行版选择壁纸路径 (设置 WALLPAPER_FILE 等效逻辑)
+        std::string select_distro_wallpaper() const;
     };
 } // namespace tmoe::domain

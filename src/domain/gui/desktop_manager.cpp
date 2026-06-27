@@ -509,6 +509,20 @@ namespace tmoe::domain {
         }
     }
 
+    void DesktopManager::set_xfce_cursor_theme(const std::string &cursor_name) {
+        Executor::shell(
+            "dbus-launch xfconf-query -c xsettings -t string -np /Gtk/CursorThemeName -s " +
+            cursor_name + " 2>/dev/null || true");
+        std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
+        if (home != "/root") {
+            const char *sudo_user = std::getenv("SUDO_USER");
+            std::string user = sudo_user ? sudo_user : Executor::shell("id -un").stdout_data;
+            while (!user.empty() && (user.back() == '\n' || user.back() == '\r')) user.pop_back();
+            CommandBuilder("chown").add_flag("-Rv").add_arg(user + ":" + user).add_arg(home + "/.config/xfce4").add_raw(
+                "2>/dev/null || true").execute();
+        }
+    }
+
     void DesktopManager::tmoe_display_manager_systemctl(const std::string &dm_pkg, const std::string &dm_service) {
         while (true) {
             std::string menu = cfg_.tui_bin +
@@ -592,6 +606,7 @@ namespace tmoe::domain {
                         "[ -f kali-themes.deb ] && (ar xv kali-themes.deb && tar -Jxvf data.tar.xz -C / 2>/dev/null) || true");
         Executor::shell(
             "update-icon-caches /usr/share/icons/Flat-Remix-Blue-Dark /usr/share/icons/Flat-Remix-Blue-Light /usr/share/icons/desktop-base 2>/dev/null &");
+        set_xfce_cursor_theme("Breeze-Adapta-Cursor");
     }
 
     void DesktopManager::download_kali_theme() {
@@ -638,5 +653,110 @@ namespace tmoe::domain {
             "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o umate.deb '" +
             repo + "'\"$LATEST\" && "
             "(ar xv umate.deb 2>/dev/null; tar -Jxvf data.tar.xz -C / 2>/dev/null) || true");
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // XFCE 壁纸自动配置（移植自 bash: modify_the_default_xfce_wallpaper）
+    // ═══════════════════════════════════════════════════════════════
+
+    namespace {
+        // Mint 各版本壁纸数据 — 对应 linuxmint_*_wallpaper_var() ×10
+        struct MintWallpaper {
+            const char *code;
+            const char *path;
+        };
+        constexpr MintWallpaper kMintWallpapers[] = {
+            {"serena", "/usr/share/backgrounds/rlukeman_skye.jpg"},
+            {"sonya",  "/usr/share/backgrounds/shontz_valley.jpg"},
+            {"sylvia", "/usr/share/backgrounds/thomasb_glass_ball.jpg"},
+            {"tara",   "/usr/share/backgrounds/jowens_kauai.jpg"},
+            {"tessa",  "/usr/share/backgrounds/dking_autumn_in_japan.jpg"},
+            {"tina",   "/usr/share/backgrounds/adeole_yosemite.jpg"},
+            {"tricia", "/usr/share/backgrounds/amarttinen_argentina.jpg"},
+            {"ulyana", "/usr/share/backgrounds/dmcquade_whitsundays.jpg"},
+            {"ulyssa", "/usr/share/backgrounds/sumstattd_machu_picchu.jpg"},
+            {"sarah",  "/usr/share/backgrounds/bartosova_aurora.jpg"},
+        };
+        constexpr int kMintCount = sizeof(kMintWallpapers) / sizeof(kMintWallpapers[0]);
+    }
+
+    std::pair<std::string, std::string> DesktopManager::select_random_mint_wallpaper() const {
+        // 对应 random_wallpaper_pack_01~05 — 用不同权重映射到 Mint 壁纸
+        // 简化：直接随机均匀选择
+        int r = std::rand() % kMintCount;
+        return {kMintWallpapers[r].code, kMintWallpapers[r].path};
+    }
+
+    std::string DesktopManager::select_distro_wallpaper() const {
+        // 对应 modify_the_default_xfce_wallpaper() 的 case 分支
+        auto fam = resolved_family();
+
+        switch (fam) {
+        case DistroFamily::Debian: {
+            auto [code, path] = select_random_mint_wallpaper();
+            // Kali: 把 kali-16x9 壁纸复制到 backgrounds
+            if (fs::exists("/usr/share/backgrounds/kali-16x9")) {
+                Executor::shell("cp -sv /usr/share/backgrounds/kali-16x9/* "
+                                "/usr/share/backgrounds/ 2>/dev/null || true");
+            }
+            return path;
+        }
+        case DistroFamily::Arch:
+            // 把 xfce 子目录壁纸移到顶层
+            if (fs::exists("/usr/share/backgrounds/xfce")) {
+                Executor::shell("mv -f /usr/share/backgrounds/xfce/* "
+                                "/usr/share/backgrounds/ 2>/dev/null || true");
+            }
+            return select_random_mint_wallpaper().second;
+        case DistroFamily::RedHat:
+            return select_random_mint_wallpaper().second;
+        default: {
+            // 其他发行版: random_pack_05 — 包含 ubuntu_mate 壁纸
+            int r = std::rand() % 31;
+            if (r >= 23 && r <= 27) {
+                // ubuntu_mate_wallpaper_var
+                return "/usr/share/backgrounds/johann-siemens-591.jpg";
+            }
+            return select_random_mint_wallpaper().second;
+        }
+        }
+    }
+
+    void DesktopManager::ensure_xfce_wallpaper_config(const std::string &wallpaper_path) {
+        // 对应 create_xfce4_desktop_wallpaper_config() + modify_xfce_vnc0_wallpaper()
+        std::string home = std::getenv("HOME") ? std::string(std::getenv("HOME")) : "/root";
+        fs::path config_dir = fs::path(home) / ".config" / "xfce4" / "xfconf" / "xfce-perchannel-xml";
+        fs::path desktop_xml = config_dir / "xfce4-desktop.xml";
+
+        fs::create_directories(config_dir);
+        SystemHelper::write_file(desktop_xml, gui_config::xfce_desktop_xml(wallpaper_path));
+        Logger::info(std::string(_("gui.desktop.xfce_wallpaper_config_created")) + desktop_xml.string());
+    }
+
+    void DesktopManager::configure_default_xfce_wallpaper() {
+        // 对应 modify_the_default_xfce_wallpaper() — DE 安装后的入口
+        Logger::step(_("gui.desktop.configuring_wallpaper"));
+
+        std::string wallpaper_path = select_distro_wallpaper();
+
+        // 检查壁纸是否存在，否则触发下载
+        if (!fs::exists(wallpaper_path)) {
+            Logger::info(std::string(_("gui.desktop.wallpaper_missing_download")) + wallpaper_path);
+
+            auto fam = resolved_family();
+            auto [mint_code, _] = select_random_mint_wallpaper();
+            download_mint_backgrounds(mint_code);
+
+            // 如果壁纸仍未就绪，尝试 ubuntu-mate 壁纸
+            if (!fs::exists(wallpaper_path)) {
+                download_ubuntu_mate_wallpaper();
+                wallpaper_path = "/usr/share/backgrounds/johann-siemens-591.jpg";
+            }
+        }
+
+        // 生成 xfce4-desktop.xml 配置
+        ensure_xfce_wallpaper_config(wallpaper_path);
+
+        Logger::ok(_("gui.desktop.wallpaper_configured"));
     }
 } // namespace tmoe::domain

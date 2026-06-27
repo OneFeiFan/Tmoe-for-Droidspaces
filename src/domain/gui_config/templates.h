@@ -46,39 +46,68 @@ namespace tmoe::domain::gui_config {
 </channel>
 )";
 
-  inline const char *XFCE_DESKTOP_XML = R"(<?xml version="1.0" encoding="UTF-8"?>
+  /// 生成 xfce4-desktop.xml，支持多显示器 (monitor0/1/VNC-0/rdp0/screen)
+  inline std::string xfce_desktop_xml(const std::string &wallpaper_path) {
+    return std::string(R"(<?xml version="1.0" encoding="UTF-8"?>
+
 <channel name="xfce4-desktop" version="1.0">
-  <property name="backdrop" type="empty">
-    <property name="screen0" type="empty">
-      <property name="monitor0" type="empty">
-        <property name="image-path" type="string" value="/usr/share/backgrounds/xfce/xfce-stripes.png"/>
-        <property name="last-image" type="string" value="/usr/share/backgrounds/xfce/xfce-stripes.png"/>
-        <property name="image-style" type="int" value="5"/>
-      </property>
-      <property name="monitor1" type="empty">
-        <property name="image-path" type="string" value="/usr/share/backgrounds/xfce/xfce-stripes.png"/>
-        <property name="last-image" type="string" value="/usr/share/backgrounds/xfce/xfce-stripes.png"/>
-        <property name="image-style" type="int" value="5"/>
-      </property>
-      <property name="monitorVNC-0" type="empty">
-        <property name="image-path" type="string" value="/usr/share/backgrounds/xfce/xfce-stripes.png"/>
-        <property name="last-image" type="string" value="/usr/share/backgrounds/xfce/xfce-stripes.png"/>
-        <property name="image-style" type="int" value="5"/>
-      </property>
-      <property name="monitorrdp0" type="empty">
-        <property name="image-path" type="string" value="/usr/share/backgrounds/xfce/xfce-stripes.png"/>
-        <property name="last-image" type="string" value="/usr/share/backgrounds/xfce/xfce-stripes.png"/>
-        <property name="image-style" type="int" value="5"/>
-      </property>
-      <property name="monitorscreen" type="empty">
-        <property name="image-path" type="string" value="/usr/share/backgrounds/xfce/xfce-stripes.png"/>
-        <property name="last-image" type="string" value="/usr/share/backgrounds/xfce/xfce-stripes.png"/>
-        <property name="image-style" type="int" value="5"/>
-      </property>
+    <property name="backdrop" type="empty">
+        <property name="screen0" type="empty">
+            <property name="monitor0" type="empty">
+                <property name="brightness" type="empty"/>
+                <property name="color1" type="empty"/>
+                <property name="color2" type="empty"/>
+                <property name="color-style" type="empty"/>
+                <property name="image-path" type="empty"/>
+                <property name="image-show" type="empty"/>
+                <property name="last-image" type="empty"/>
+                <property name="last-single-image" type="empty"/>
+                <property name="workspace0" type="empty">
+                    <property name="last-image" type="string" value=")") + wallpaper_path + R"("/>
+                    <property name="backdrop-cycle-enable" type="bool" value="true"/>
+                    <property name="backdrop-cycle-random-order" type="bool" value="true"/>
+                </property>
+            </property>
+            <property name="monitor1" type="empty">
+                <property name="brightness" type="empty"/>
+                <property name="color1" type="empty"/>
+                <property name="color2" type="empty"/>
+                <property name="color-style" type="empty"/>
+                <property name="image-path" type="empty"/>
+                <property name="image-show" type="empty"/>
+                <property name="last-image" type="empty"/>
+                <property name="last-single-image" type="empty"/>
+            </property>
+            <property name="monitorVNC-0" type="empty">
+                <property name="workspace0" type="empty">
+                    <property name="last-image" type="string" value=")" + wallpaper_path + R"("/>
+                    <property name="backdrop-cycle-enable" type="bool" value="true"/>
+                    <property name="backdrop-cycle-random-order" type="bool" value="true"/>
+                </property>
+            </property>
+            <property name="monitorrdp0" type="empty">
+                <property name="workspace0" type="empty">
+                    <property name="color-style" type="empty"/>
+                    <property name="image-style" type="empty"/>
+                    <property name="last-image" type="string" value=")" + wallpaper_path + R"("/>
+                    <property name="backdrop-cycle-enable" type="bool" value="true"/>
+                    <property name="backdrop-cycle-random-order" type="bool" value="true"/>
+                </property>
+            </property>
+            <property name="monitorscreen" type="empty">
+                <property name="workspace0" type="empty">
+                    <property name="color-style" type="empty"/>
+                    <property name="image-style" type="empty"/>
+                    <property name="last-image" type="string" value=")" + wallpaper_path + R"("/>
+                    <property name="backdrop-cycle-enable" type="bool" value="true"/>
+                    <property name="backdrop-cycle-random-order" type="bool" value="true"/>
+                </property>
+            </property>
+        </property>
     </property>
-  </property>
 </channel>
 )";
+  }
 
   inline const char *XFCE_TERMINAL_RC = R"([Configuration]
 ColorForeground=#e6e1cf

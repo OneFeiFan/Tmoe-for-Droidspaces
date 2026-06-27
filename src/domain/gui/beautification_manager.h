@@ -82,9 +82,13 @@ namespace tmoe::domain {
         // ── 面板 / Dock / Conky / Compiz ──
         bool beautify_desktop();
 
+        void configure_xfce_terminal_colors();
+
         bool install_dock() const;
 
         bool install_conky();
+
+        void configure_conky();
 
         bool install_compiz();
 
