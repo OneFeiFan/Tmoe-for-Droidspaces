@@ -60,29 +60,29 @@ namespace tmoe::domain {
     PackageManager::Commands PackageManager::commands_for(DistroFamily family) {
         switch (family) {
             case DistroFamily::Debian:
-                return {"eatmydata apt install -y", "apt purge -y", "apt update", true};
+                return {"sudo eatmydata apt install -y", "sudo apt purge -y", "sudo apt update", true};
             case DistroFamily::Arch:
-                return {"pacman -Syu --noconfirm --needed", "pacman -Rsc", "pacman -Syy", false};
+                return {"sudo pacman -Syu --noconfirm --needed", "sudo pacman -Rsc", "sudo pacman -Syy", false};
             case DistroFamily::RedHat:
                 if (is_command_available("dnf"))
-                    return {"dnf install -y --skip-broken", "dnf remove -y", "dnf update", false};
-                return {"yum install -y --skip-broken", "yum remove -y", "yum update", false};
+                    return {"sudo dnf install -y --skip-broken", "sudo dnf remove -y", "sudo dnf update", false};
+                return {"sudo yum install -y --skip-broken", "sudo yum remove -y", "sudo yum update", false};
             case DistroFamily::Alpine:
-                return {"apk add", "sudo apk del", "apk update", false};
+                return {"sudo apk add", "sudo apk del", "sudo apk update", false};
             case DistroFamily::Gentoo:
-                return {"emerge -avk", "emerge -C", "", false};
+                return {"sudo emerge -avk", "sudo emerge -C", "", false};
             case DistroFamily::Suse:
-                return {"zypper in -y", "zypper rm", "", false};
+                return {"sudo zypper in -y", "sudo zypper rm", "", false};
             case DistroFamily::Solus:
-                return {"eopkg install -y", "eopkg remove -y", "", false};
+                return {"sudo eopkg install -y", "sudo eopkg remove -y", "", false};
             case DistroFamily::Void_:
-                return {"xbps-install -Sy", "xbps-remove -R", "", false};
+                return {"sudo xbps-install -Sy", "sudo xbps-remove -R", "", false};
             case DistroFamily::Slackware:
-                return {"slackpkg install", "slackpkg remove", "slackpkg update", false};
+                return {"sudo slackpkg install", "sudo slackpkg remove", "sudo slackpkg update", false};
             case DistroFamily::OpenWrt:
                 return {"opkg install", "opkg remove", "opkg update", false};
             default:
-                return {"apt install -y", "apt purge -y", "apt update", false};
+                return {"sudo apt install -y", "sudo apt purge -y", "sudo apt update", false};
         }
     }
 
@@ -117,7 +117,7 @@ namespace tmoe::domain {
         // 容错：Debian 下尝试不带 eatmydata
         if (cmd.use_eatmydata) {
             Logger::warn(_("app.retry_without_eatmydata"));
-            std::string fallback = "apt install -y ";
+            std::string fallback = "sudo apt install -y ";
             for (const auto &p: pkgs) fallback += p + " ";
             if (Executor::passthrough(fallback).ok()) return true;
         }
@@ -159,8 +159,8 @@ namespace tmoe::domain {
     bool PackageManager::ensure_eatmydata() {
         if (is_command_available("eatmydata")) return true;
         Logger::step(_("app.installing_eatmydata"));
-        if (Executor::passthrough("apt install -y eatmydata").ok()) return true;
-        return Executor::passthrough("apt install -y -f eatmydata").ok();
+        if (Executor::passthrough("sudo apt install -y eatmydata").ok()) return true;
+        return Executor::passthrough("sudo apt install -y -f eatmydata").ok();
     }
 
     std::string PackageManager::family_key(DistroFamily family) {

@@ -1,6 +1,7 @@
 #include "manager.h"
 #include "domain/system/package_manager.h"
 #include "core/command_builder.hpp"
+#include "core/system_helper.h"
 #include <algorithm>
 #include <fstream>
 
@@ -502,9 +503,8 @@ namespace tmoe::app {
     // ── 容器管理 UI ──
     // ── 首次启动初始化 (仅执行一次) ──
     void Manager::ensure_initialized() {
-        const char* home = std::getenv("HOME");
-        if (!home) return;
-        std::string marker = std::string(home) + "/.config/tmoe-linux/.initialized_v2";
+        std::string home = SystemHelper::user_home();
+        std::string marker = home + "/.config/tmoe-linux/.initialized_v2";
         if (fs::exists(marker)) {
             first_run_locale_setup();  // locale 自己也有 guard，互补
             return;
@@ -512,8 +512,12 @@ namespace tmoe::app {
 
         Logger::step(_("init.first_run"));
         environment_->initialize();
-        environment_->check_dependencies();
+        // 先换源（否则官方源下载字体极慢）
+        mirror_mgr_->auto_select();
+        // 选语言 → set_locale() 按需装对应字体
         first_run_locale_setup();
+        // 其他系统依赖检查（dpkg/非字体部分）
+        environment_->check_dependencies();
 
         if (cfg_.is_termux) {
             cfg_.tui_bin = termux_->check_and_patch_tui_env();
@@ -524,6 +528,8 @@ namespace tmoe::app {
         fs::create_directories(fs::path(marker).parent_path());
         std::ofstream ofs(marker);
         if (ofs) ofs << "1\n";
+        // 统一修复 sudo 造成的 root 归属
+        SystemHelper::fix_user_home_ownership();
         Logger::ok(_("init.done"));
     }
 

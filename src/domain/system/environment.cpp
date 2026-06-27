@@ -154,12 +154,6 @@ namespace tmoe::domain {
                 Executor::passthrough(cfg_.install_command + " musl-locales 2>/dev/null || true");
             }
         }
-
-        if (cfg_.linux_distro != "openwrt") {
-            install_font_packages();
-            refresh_font_cache();
-        }
-
         return true;
     }
 

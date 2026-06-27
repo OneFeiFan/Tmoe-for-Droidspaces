@@ -15,14 +15,7 @@
       "category": "university",
       "region": "cn"
     },
-    {
-      "id": "opentuna",
-      "name": "OpenTUNA (TUNA 兄弟站)",
-      "url": "opentuna.cn",
-      "category": "university",
-      "region": "cn"
-    },
-    {
+{
       "id": "ustc",
       "name": "中国科学技术大学 (USTC)",
       "url": "mirrors.ustc.edu.cn",

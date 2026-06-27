@@ -20,8 +20,7 @@ namespace tmoe::domain {
 
         update_port();
 
-        const char *home = std::getenv("HOME");
-        fs::path home_dir = home ? fs::path(home) : fs::path("/root");
+        fs::path home_dir = SystemHelper::user_home();
         vnc_home_dir = home_dir / ".vnc";
         xstartup_file = vnc_home_dir / "xstartup";
         passwd_file = vnc_home_dir / "passwd";
@@ -1114,8 +1113,7 @@ namespace tmoe::domain {
 
     bool VncManager::fix_vnc_permissions() {
         Logger::step(_("gui.vnc.fixing_permissions"));
-        run_shell_command("chown -R ${SUDO_USER:-$(id -un)}:${SUDO_USER:-$(id -gn)} " +
-                          vnc_config_.vnc_home_dir.string() + " 2>/dev/null || true");
+        SystemHelper::fix_user_home_ownership();
         run_shell_command(CommandBuilder("chmod").add_flag("-R").add_arg("700").add_arg(vnc_config_.vnc_home_dir.string()).add_raw("2>/dev/null || true").build_string());
         if (fs::exists(vnc_config_.passwd_file))
             run_shell_command(CommandBuilder("chmod").add_arg("600").add_arg(vnc_config_.passwd_file.string()).add_raw("2>/dev/null || true").build_string());

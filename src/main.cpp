@@ -31,9 +31,8 @@ static void print_usage() {
  */
 /** 读取持久化的 locale 偏好 (若存在)。 */
 static std::string load_saved_locale() {
-    const char *home = std::getenv("HOME");
-    if (!home) return "";
-    std::string path = std::string(home) + "/.config/tmoe-linux/locale";
+    std::string home = tmoe::SystemHelper::user_home();
+    std::string path = home + "/.config/tmoe-linux/locale";
     std::ifstream f(path);
     if (!f.is_open()) return "";
     std::string lang;
@@ -46,9 +45,8 @@ static std::string load_saved_locale() {
 
 /** 持久化 locale 偏好到文件。 */
 static void save_locale_pref(std::string_view lang) {
-    const char *home = std::getenv("HOME");
-    if (!home) return;
-    std::string dir = std::string(home) + "/.config/tmoe-linux";
+    std::string home = tmoe::SystemHelper::user_home();
+    std::string dir = home + "/.config/tmoe-linux";
     std::string path = dir + "/locale";
     fs::create_directories(dir);
     std::ofstream f(path);
@@ -90,20 +88,14 @@ int main(int argc, char *argv[]) {
         ctx = tmoe::CliParser::parse(pos_args);
     }
 
-    // 阶段4: 按需提权 — 默认需要 root，白名单操作（VNC 启动/proot等）跳过
-    //        ctx.needs_root 由 CliParser 根据操作类型设定
-    if (!cfg.is_termux && !cfg.is_root && ctx.needs_root) {
-        // escalate_privileges 调用 execvp —— 以 root 重新执行，永不返回
-        tmoe::Executor::escalate_privileges(argc, argv);
-    }
-
     // 阶段5: 确保工作目录存在（非 root 时静默跳过系统级目录）
     cfg.ensure_dirs();
 
-    // 阶段5.1: WSL 系统初始化（预建配置文件，避免 apt 扫描 /mnt）
-    if (cfg.is_wsl && cfg.is_root) {
+    // 阶段5.1: WSL 系统初始化（通过 sudo 写系统配置文件）
+    if (cfg.is_wsl) {
         if (!fs::exists("/etc/updatedb.conf")) {
-            tmoe::SystemHelper::write_file("/etc/updatedb.conf",
+            tmoe::Executor::shell(
+                "sudo tee /etc/updatedb.conf >/dev/null <<'TMOE_EOF'\n"
                 "PRUNE_BIND_MOUNTS=\"yes\"\n"
                 "PRUNENAMES=\".git .bzr .hg .svn\"\n"
                 "PRUNEPATHS=\"/tmp /var/spool /media /var/lib/os-prober /var/lib/ceph "
@@ -111,7 +103,18 @@ int main(int argc, char *argv[]) {
                 "PRUNEFS=\"NFS nfs nfs4 rpc_pipefs afs binfmt_misc proc smbfs autofs "
                 "iso9660 ncpfs coda devpts ftpfs devfs devtmpfs fuse.mfs shm sysfs "
                 "cifs rmpfs cgroup fuse.sshfs curlftpfs ceph fuse.ceph fuse.glusterfs "
-                "fuse.bpf fuse.rclone configfs ecryptfs\"\n");
+                "fuse.bpf fuse.rclone configfs ecryptfs\"\n"
+                "TMOE_EOF");
+        }
+        if (!fs::exists("/etc/apt/preferences.d/tmoe-wsl-blacklist")) {
+            tmoe::Executor::shell(
+                "sudo mkdir -p /etc/apt/preferences.d && "
+                "sudo tee /etc/apt/preferences.d/tmoe-wsl-blacklist >/dev/null <<'TMOE_EOF'\n"
+                "# tmoe-linux WSL package blacklist\n"
+                "Package: acpid acpi-support modemmanager\n"
+                "Pin: release *\n"
+                "Pin-Priority: -1\n"
+                "TMOE_EOF");
         }
     }
 
