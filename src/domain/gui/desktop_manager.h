@@ -19,12 +19,7 @@ namespace tmoe::domain {
 
         // ---------- 注册表查询 ----------
         const std::vector<DesktopInfo> &desktop_registry() const;
-
         DesktopInfo get_desktop_info(std::string_view desktop) const;
-
-        std::vector<DesktopInfo> list_desktops() const;
-
-        std::vector<std::string> list_window_managers() const;
 
         // ---------- 安装 ----------
         bool install_desktop(std::string_view desktop);
@@ -34,7 +29,6 @@ namespace tmoe::domain {
         // ---------- 安装前后置 ----------
         void preconfigure_gui_dependencies();
 
-        void will_be_installed_for_you(std::string_view desktop_session);
 
         void post_desktop_install_prompts();
 
@@ -49,9 +43,7 @@ namespace tmoe::domain {
 
         void tmoe_display_manager_systemctl(const std::string &dm_pkg, const std::string &dm_service);
 
-        // ---------- 字体（被 preconfigure_gui_dependencies 和 install_gui 调用） ----------
-        bool install_fonts();
-
+        // ---------- 字体 ----------
         void download_iosevka_ttf_font_ext();
 
         // ---------- 主题/图标/壁纸（被 post_install 调用） ----------
@@ -61,6 +53,7 @@ namespace tmoe::domain {
 
         void download_macos_bigsur_theme();
 
+        void download_arch_breeze_adapta_cursor_theme();
         void install_breeze_theme_ext();
 
         void install_arc_gtk_theme_ext();
@@ -70,63 +63,41 @@ namespace tmoe::domain {
         void install_numix_theme_ext();
 
         void download_kali_theme();
-
-        void set_default_xfce_icon_theme(const std::string &icon_name);
-
-        void create_update_icon_caches();
-
-        void check_update_icon_caches_sh();
-
-        void git_clone_kali_themes_common();
-
         void download_kali_themes_common();
 
-        void download_arch_breeze_adapta_cursor_theme();
+        void set_default_xfce_icon_theme(const std::string &icon_name);
+        void create_update_icon_caches();
+        void check_update_icon_caches_sh();
+        std::string generate_update_icon_caches_script();
+        void download_xubuntu_wallpaper(const std::string &code_name, const std::string &folder_name);
+        void download_ubuntu_mate_wallpaper();
 
-        void debian_download_mint_wallpaper();
 
-        void debian_download_ubuntu_mate_wallpaper_ext();
 
-        void debian_download_xubuntu_xenial_wallpaper_ext();
 
-        void modify_the_default_xfce_wallpaper();
 
-        void modify_xfce_vnc0_wallpaper(const std::string &path);
 
-        void xfce_papirus_icon_theme_ext();
 
-        void debian_xfce_wallpaper();
+
+
+
 
         // ---------- 壁纸下载 ----------
         void download_mint_backgrounds(const std::string &mint_code);
+        
 
-        void download_ubuntu_mate_wallpaper();
 
-        void download_xubuntu_wallpaper(const std::string &code_name, const std::string &folder_name);
-
-        void set_linuxmint_wallpaper_vars(const std::string &mint_code, std::string &out_name, std::string &out_path);
-
-        std::string pick_random_wallpaper_pack();
 
         // ---------- 内容生成（用于桌面后配置） ----------
-        std::string generate_xfce_desktop_xml();
 
-        std::string generate_xfce_terminal_rc();
 
-        std::string generate_budgie_desktop_builtin();
 
-        std::string generate_gnome_flashback_metacity();
 
-        std::string generate_gnome_session_classic();
 
-        std::string generate_gnome_session_ubuntu();
 
-        std::string generate_gnome_shell_x11();
 
-        std::string generate_update_icon_caches_script();
 
         // ---------- 提示/图标 ----------
-        void print_gnome_ascii() const;
 
         void download_papirus_icon_theme();
 
@@ -162,9 +133,6 @@ namespace tmoe::domain {
 
         /// 使用 PackageManager 安装包列表
         bool install_packages(const std::vector<std::string> &pkgs) const;
-
-        /// 使用 PackageManager 卸载包列表
-        bool remove_packages(const std::vector<std::string> &pkgs) const;
 
     };
 } // namespace tmoe::domain

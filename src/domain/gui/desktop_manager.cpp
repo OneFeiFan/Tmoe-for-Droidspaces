@@ -19,10 +19,6 @@ namespace tmoe::domain {
         return PackageManager::install(pkgs, resolved_family());
     }
 
-    bool DesktopManager::remove_packages(const std::vector<std::string> &pkgs) const {
-        return PackageManager::remove(pkgs, resolved_family());
-    }
-
     void DesktopManager::set_auto_install_flags(bool fcitx, bool electron, bool vscode,
                                                 bool chromium, bool kali,
                                                 const std::string &kali_tools) {
@@ -43,18 +39,10 @@ namespace tmoe::domain {
     }
 
     DesktopInfo DesktopManager::get_desktop_info(std::string_view desktop) const {
-        for (const auto &info: desktop_registry()) {
+        for (const auto &info: desktop_registry())
             if (info.id == desktop) return info;
-        }
-        // 默认回退到 xfce
         return desktop_registry().front();
     }
-
-
-    std::vector<DesktopInfo> DesktopManager::list_desktops() const {
-        return desktop_registry();
-    }
-
 
     void DesktopManager::preconfigure_gui_dependencies() {
         Logger::step(_("gui.preconfig_deps"));
@@ -85,11 +73,6 @@ namespace tmoe::domain {
             PackageManager::install(split_pkgs(deps.font_pkg), family);
 
         Logger::ok(_("gui.preconfig_deps_done"));
-    }
-
-
-    void DesktopManager::will_be_installed_for_you(std::string_view desktop_session) {
-        Logger::info(_f("gui.will_install", std::string(desktop_session)));
     }
 
 
@@ -293,19 +276,6 @@ namespace tmoe::domain {
     }
 
 
-    std::vector<std::string> DesktopManager::list_window_managers() const {
-        std::vector<std::string> names;
-        for (const auto &info: desktop_registry()) {
-            if (info.is_window_manager) names.emplace_back(info.id);
-        }
-        return names;
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // noVNC (HTML5 VNC 客户端)
-    // ═══════════════════════════════════════════════════════════════
-
-
     void DesktopManager::after_desktop_install_hint() const {
         Logger::info(_("gui.after_install.hint"));
     }
@@ -370,29 +340,6 @@ namespace tmoe::domain {
         // 刷新字体缓存
         Executor::shell("cd /usr/share/fonts/truetype/iosevka/ && "
             "mkfontscale 2>/dev/null; mkfontdir 2>/dev/null; fc-cache 2>/dev/null || true");
-    }
-
-
-    bool DesktopManager::install_fonts() {
-        Logger::step(_("gui.font.install"));
-
-        auto family = resolved_family();
-        std::vector<std::string> font_pkgs;
-        switch (family) {
-            case DistroFamily::Arch:
-                font_pkgs = {"noto-fonts-cjk", "noto-fonts-emoji"};
-                break;
-            case DistroFamily::Debian:
-            default:
-                font_pkgs = {"fonts-noto-cjk", "fonts-noto-color-emoji"};
-                break;
-        }
-        install_packages(font_pkgs);
-
-        // 刷新字体缓存
-        Executor::shell("fc-cache -fv 2>/dev/null || true");
-        Logger::ok(_("gui.font.install_ok"));
-        return true;
     }
 
 
@@ -497,6 +444,20 @@ namespace tmoe::domain {
     }
 
 
+    void DesktopManager::download_arch_breeze_adapta_cursor_theme() {
+        if (fs::exists("/usr/share/icons/Breeze-Adapta-Cursor")) return;
+        Logger::step(_("gui.breeze.cursor_download"));
+        Executor::shell("mkdir -pv /tmp/.breeze_theme && cd /tmp/.breeze_theme && "
+            "curl -Lo index.html 'https://mirrors.bfsu.edu.cn/archlinuxcn/any/' 2>/dev/null && "
+            "GREP_NAME='breeze-adapta-cursor-theme-git' && "
+            "LATEST=$(cat index.html | grep \"$GREP_NAME\" | grep '.pkg.tar.zst' | tail -n1 | "
+            "cut -d '=' -f3 | cut -d '\"' -f2) && "
+            "[ -n \"$LATEST\" ] && curl -Lo data.tar.zst \"https://mirrors.bfsu.edu.cn/archlinuxcn/any/$LATEST\" 2>/dev/null && "
+            "tar --use-compress-program zstd -xvf data.tar.zst 2>/dev/null && "
+            "cp -rf usr / 2>/dev/null || true");
+        Executor::shell("rm -rf /tmp/.breeze_theme 2>/dev/null || true");
+    }
+
     void DesktopManager::install_breeze_theme_ext() {
         Logger::step(_("gui.breeze.install"));
         download_arch_breeze_adapta_cursor_theme();
@@ -533,339 +494,100 @@ namespace tmoe::domain {
             CommandBuilder("chown").add_flag("-Rv").add_arg(user + ":" + user).add_arg(home + "/.config/xfce4").add_raw("2>/dev/null || true").execute();
         }
     }
+    void DesktopManager::tmoe_display_manager_systemctl(const std::string &dm_pkg, const std::string &dm_service) {
+        while (true) {
+            std::string menu = cfg_.tui_bin +
+                " --title \"" + _("gui.dm.menu_title") + "\" --menu \"" + _("gui.dm.menu_prompt") + "\" 0 50 0 "
+                "\"1\" \"" + _("gui.dm.opt_install") + "\" "
+                "\"2\" \"" + _("gui.dm.opt_start") + "\" "
+                "\"3\" \"" + _("gui.dm.opt_stop") + "\" "
+                "\"4\" \"" + _("gui.dm.opt_enable") + "\" "
+                "\"5\" \"" + _("gui.dm.opt_disable") + "\" "
+                "\"0\" \"" + _("gui.dm.opt_back") + "\"";
+            auto ch = Executor::tui_select(menu);
+            if (ch == "0" || ch.empty()) return;
+            if (ch == "1") Executor::passthrough(cfg_.install_command + " " + dm_pkg + " 2>/dev/null || true");
+            else if (ch == "2") Executor::passthrough("systemctl start " + dm_service + " 2>/dev/null || service " + dm_service + " restart 2>/dev/null || true");
+            else if (ch == "3") Executor::passthrough("systemctl stop " + dm_service + " 2>/dev/null || service " + dm_service + " stop 2>/dev/null || true");
+            else if (ch == "4") Executor::passthrough("systemctl enable " + dm_service + " 2>/dev/null || rc-update add " + dm_service + " 2>/dev/null || true");
+            else if (ch == "5") Executor::passthrough("systemctl disable " + dm_service + " 2>/dev/null || rc-update del " + dm_service + " 2>/dev/null || true");
+            Logger::press_enter();
+        }
+    }
 
-
+    std::string DesktopManager::generate_update_icon_caches_script() {
+        return gui_config::UPDATE_ICON_CACHES_SCRIPT;
+    }
     void DesktopManager::create_update_icon_caches() {
         SystemHelper::write_file("/usr/local/bin/update-icon-caches", generate_update_icon_caches_script());
         CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/update-icon-caches").execute();
     }
-
-
     void DesktopManager::check_update_icon_caches_sh() {
         if (!Executor::has("update-icon-caches")) create_update_icon_caches();
     }
-
-
-    void DesktopManager::git_clone_kali_themes_common() {
-        if (fs::exists("/usr/share/desktop-base/kali-theme")) return;
-        check_update_icon_caches_sh();
-        Logger::step(_("gui.kali.clone_theme"));
-        Executor::shell(
-            "TEMP_FOLDER=/tmp/.KALI_THEME_COMMON_TEMP_FOLDER && [ -d \"$TEMP_FOLDER\" ] && rm -rvf \"$TEMP_FOLDER\"; "
-            "git clone --depth=1 https://gitee.com/ak2/kali-theme.git \"$TEMP_FOLDER\" 2>/dev/null && "
-            "cd \"$TEMP_FOLDER\" && tar -pJxvf kali-theme.tar.xz -C / 2>/dev/null && "
-            "rm -rvf \"$TEMP_FOLDER\" && "
-            "dbus-launch xfconf-query -c xsettings -t string -np /Gtk/CursorThemeName -s "
-            "\"Breeze-Adapta-Cursor\" 2>/dev/null && "
-            "update-icon-caches /usr/share/icons/Flat-Remix-Blue-Dark /usr/share/icons/Flat-Remix-Blue-Light "
-            "/usr/share/icons/desktop-base 2>/dev/null &");
-    }
-
-
-    void DesktopManager::download_kali_themes_common() {
-        check_update_icon_caches_sh();
-        std::string repo = "https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-themes/";
-        std::string repo_02 = "http://http.kali.org/kali/pool/main/k/kali-themes/";
-        Executor::shell("cd /tmp && "
-                        "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'kali-themes-common' | grep all.deb | "
-                        "tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2) && "
-                        "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
-                        "-o kali-themes.deb '" + repo + "'\"$LATEST\" 2>/dev/null || "
-                        "curl -L -o kali-themes.deb '" + repo_02 + "'\"$LATEST\" 2>/dev/null; "
-                        "[ -f kali-themes.deb ] && (ar xv kali-themes.deb && tar -Jxvf data.tar.xz -C / 2>/dev/null) || true");
-        Executor::shell("update-icon-caches /usr/share/icons/Flat-Remix-Blue-Dark "
-            "/usr/share/icons/Flat-Remix-Blue-Light /usr/share/icons/desktop-base 2>/dev/null &");
-    }
-
-
-    void DesktopManager::download_kali_theme() {
-        if (!fs::exists("/usr/share/desktop-base/kali-theme")) {
-            download_kali_themes_common();
-        } else {
-        Logger::info(_("gui.kali.themes_downloaded"));
-            download_kali_themes_common();
-        }
-        set_default_xfce_icon_theme("Flat-Remix-Blue-Light");
-    }
-
-
-    void DesktopManager::download_arch_breeze_adapta_cursor_theme() {
-        if (fs::exists("/usr/share/icons/Breeze-Adapta-Cursor")) return;
-        Logger::step(_("gui.breeze.cursor_download"));
-        Executor::shell("mkdir -pv /tmp/.breeze_theme && cd /tmp/.breeze_theme && "
-            "THEME_URL='https://mirrors.bfsu.edu.cn/archlinuxcn/any/' && "
-            "curl -Lo index.html \"$THEME_URL\" 2>/dev/null && "
-            "GREP_NAME='breeze-adapta-cursor-theme-git' && "
-            "LATEST=$(cat index.html | grep \"$GREP_NAME\" | grep '.pkg.tar.zst' | tail -n 1 | "
-            "cut -d '=' -f 3 | cut -d '\"' -f 2) && "
-            "[ -n \"$LATEST\" ] && curl -Lo data.tar.zst \"$THEME_URL$LATEST\" 2>/dev/null && "
-            "tar --use-compress-program zstd -xvf data.tar.zst 2>/dev/null && "
-            "cp -rf usr / 2>/dev/null || true");
-        Executor::shell("rm -rf /tmp/.breeze_theme 2>/dev/null || true");
-    }
-
-
-    void DesktopManager::install_moka_theme_ext() {
-        Executor::passthrough(cfg_.install_command + " moka-icon-theme 2>/dev/null || true");
-    }
-
-
-    void DesktopManager::install_numix_theme_ext() {
-        Executor::passthrough(cfg_.install_command + " numix-gtk-theme 2>/dev/null || true");
-        auto family = resolved_family();
-        std::string circle_pkg = (family == DistroFamily::Arch)
-                                     ? "numix-circle-icon-theme-git"
-                                     : "numix-icon-theme-circle";
-        Executor::passthrough(cfg_.install_command + " " + circle_pkg + " 2>/dev/null || true");
-    }
-
-
-    void DesktopManager::modify_the_default_xfce_wallpaper() {
-        std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
-        std::string xml_file = home + "/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml";
-        if (!fs::exists(xml_file)) {
-            SystemHelper::write_file(fs::path(xml_file), generate_xfce_desktop_xml());
-        }
-    }
-
-
-    void DesktopManager::modify_xfce_vnc0_wallpaper(const std::string &path) {
-        std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
-        std::string xml_file = home + "/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml";
-        if (fs::exists(xml_file) && fs::exists(path)) {
-            Executor::shell("sed -i 's@<property name=\"image-path\" type=\"string\" value=\".*\"/>@"
-                            "<property name=\"image-path\" type=\"string\" value=\"" + path + "\"/>@g' " + xml_file +
-                            " 2>/dev/null || true");
-        }
-    }
-
-
-    void DesktopManager::xfce_papirus_icon_theme_ext() {
-        // 对应旧 Bash xfce_papirus_icon_theme (gui:1881-1888)
-        download_papirus_icon_theme();
-    }
-
-
-    void DesktopManager::debian_xfce_wallpaper() {
-        // 对应旧 Bash debian_xfce_wallpaper (gui:1974-1981)
-        modify_the_default_xfce_wallpaper();
-    }
-
-
-    void DesktopManager::debian_download_mint_wallpaper() {
-        // 对应旧 Bash debian_download_mint_wallpaper (gui:1969-1972)
-        download_mint_backgrounds("ulyana");
-    }
-
-
-    void DesktopManager::debian_download_ubuntu_mate_wallpaper_ext() {
-        // 对应旧 Bash debian_download_ubuntu_mate_wallpaper (gui:2155-2158)
-        download_ubuntu_mate_wallpaper();
-    }
-
-
-    void DesktopManager::debian_download_xubuntu_xenial_wallpaper_ext() {
-        // 对应旧 Bash debian_download_xubuntu_xenial_wallpaper (gui:2160-2165)
-        download_xubuntu_wallpaper("xenial", "xubuntu-community-artwork/xenial");
-    }
-
-
-    void DesktopManager::set_linuxmint_wallpaper_vars(const std::string &mint_code,
-                                                      std::string &out_name, std::string &out_path) {
-        if (mint_code == "serena") {
-            out_name = "mint_backgrounds_serena";
-            out_path = "backgrounds/linuxmint-serena";
-        } else if (mint_code == "sonya") {
-            out_name = "mint_backgrounds_sonya";
-            out_path = "backgrounds/linuxmint-sonya";
-        } else if (mint_code == "sylvia") {
-            out_name = "mint_backgrounds_sylvia";
-            out_path = "backgrounds/linuxmint-sylvia";
-        } else if (mint_code == "tara") {
-            out_name = "mint_backgrounds_tara";
-            out_path = "backgrounds/linuxmint-tara";
-        } else if (mint_code == "tessa") {
-            out_name = "mint_backgrounds_tessa";
-            out_path = "backgrounds/linuxmint-tessa";
-        } else if (mint_code == "tina") {
-            out_name = "mint_backgrounds_tina";
-            out_path = "backgrounds/linuxmint-tina";
-        } else if (mint_code == "tricia") {
-            out_name = "mint_backgrounds_tricia";
-            out_path = "backgrounds/linuxmint-tricia";
-        } else if (mint_code == "ulyana") {
-            out_name = "mint_backgrounds_ulyana";
-            out_path = "backgrounds/linuxmint-ulyana";
-        } else if (mint_code == "ulyssa") {
-            out_name = "mint_backgrounds_ulyssa";
-            out_path = "backgrounds/linuxmint-ulyssa";
-        } else if (mint_code == "sarah") {
-            out_name = "mint_backgrounds_sarah";
-            out_path = "backgrounds/linuxmint-sarah";
-        } else {
-            out_name = "mint_backgrounds_" + mint_code;
-            out_path = "backgrounds/linuxmint-" + mint_code;
-        }
-    }
-
-
-    std::string DesktopManager::pick_random_wallpaper_pack() {
-        // 对应旧 Bash random_wallpaper_pack_01-05 (gui:2040-2119)
-        int r = (std::time(nullptr) % 25) + 1;
-        if (r <= 5) {
-            return "xfce-stripes"; // xfce default
-        } else if (r <= 10) {
-            return "ubuntu-wallpapers/focal"; // ubuntu focal
-        } else if (r <= 15) {
-            return "mint-backgrounds/linuxmint-ulyana"; // mint
-        } else if (r <= 20) {
-            return "deepin-wallpapers"; // deepin
-        } else {
-            return "manjaro-2018"; // manjaro
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // Phase 5: 完整壁纸下载系统
-    // ═══════════════════════════════════════════════════════════════
-
-
-    void DesktopManager::download_xubuntu_wallpaper(const std::string &code_name, const std::string & /*folder_name*/) {
+    void DesktopManager::download_xubuntu_wallpaper(const std::string &code_name, const std::string &) {
         Logger::step(_f("gui.wallpaper.xubuntu", code_name));
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
         CommandBuilder("mkdir").add_flag("-pv").add_arg(home + "/Pictures/xubuntu-community-artwork").add_raw("2>/dev/null").execute();
-        // 从 Ubuntu 镜像下载
         std::string repo = "https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/x/xubuntu-community-artwork/";
         Executor::shell("cd " + home + "/Pictures/xubuntu-community-artwork && "
-                        "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'xubuntu-community-wallpapers-" + code_name
-                        + "' | "
-                        "grep all.deb | tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2) && "
-                        "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
-                        "-o xubuntu-wp.deb '" + repo + "'\"$LATEST\" && "
-                        "(ar xv xubuntu-wp.deb 2>/dev/null; tar -Jxvf data.tar.xz -C . 2>/dev/null) || true");
+            "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'xubuntu-community-wallpapers-" + code_name + "' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
+            "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o xubuntu-wp.deb '" + repo + "'\"$LATEST\" && "
+            "(ar xv xubuntu-wp.deb 2>/dev/null; tar -Jxvf data.tar.xz -C . 2>/dev/null) || true");
     }
-
-
     void DesktopManager::download_mint_backgrounds(const std::string &mint_code) {
         Logger::step(_f("gui.wallpaper.mint", mint_code));
         std::string repo = "https://mirrors.bfsu.edu.cn/linuxmint/pool/main/m/mint-backgrounds-" + mint_code + "/";
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
         CommandBuilder("mkdir").add_flag("-pv").add_arg(home + "/Pictures/mint-backgrounds").add_raw("2>/dev/null").execute();
         Executor::shell("cd " + home + "/Pictures/mint-backgrounds && "
-                        "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'mint-backgrounds' | grep all.deb | "
-                        "tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2) && "
-                        "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
-                        "-o mint-bg.deb '" + repo + "'\"$LATEST\" && "
-                        "(ar xv mint-bg.deb 2>/dev/null; tar -Jxvf data.tar.xz -C . 2>/dev/null) || true");
+            "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'mint-backgrounds' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
+            "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o mint-bg.deb '" + repo + "'\"$LATEST\" && "
+            "(ar xv mint-bg.deb 2>/dev/null; tar -Jxvf data.tar.xz -C . 2>/dev/null) || true");
     }
-
-
-    void DesktopManager::download_ubuntu_mate_wallpaper() {
-        Logger::step(_("gui.wallpaper.ubuntu_mate"));
-        std::string repo = "https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/u/ubuntu-mate-artwork/";
+    void DesktopManager::download_kali_themes_common() {
+        check_update_icon_caches_sh();
+        std::string repo = "https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-themes/";
+        std::string repo_02 = "http://http.kali.org/kali/pool/main/k/kali-themes/";
         Executor::shell("cd /tmp && "
-                        "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'ubuntu-mate-wallpapers-photos' | "
-                        "grep all.deb | tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2) && "
-                        "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
-                        "-o umate.deb '" + repo + "'\"$LATEST\" && "
-                        "(ar xv umate.deb 2>/dev/null; tar -Jxvf data.tar.xz -C / 2>/dev/null) || true");
+            "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'kali-themes-common' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
+            "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o kali-themes.deb '" + repo + "'\"$LATEST\" 2>/dev/null || "
+            "curl -L -o kali-themes.deb '" + repo_02 + "'\"$LATEST\" 2>/dev/null; "
+            "[ -f kali-themes.deb ] && (ar xv kali-themes.deb && tar -Jxvf data.tar.xz -C / 2>/dev/null) || true");
+        Executor::shell("update-icon-caches /usr/share/icons/Flat-Remix-Blue-Dark /usr/share/icons/Flat-Remix-Blue-Light /usr/share/icons/desktop-base 2>/dev/null &");
     }
-
-
-    void DesktopManager::tmoe_display_manager_systemctl(const std::string &dm_pkg, const std::string &dm_service) {
-        while (true) {
-            std::string menu = cfg_.tui_bin +
-                               " --title \"" + _("gui.dm.menu_title") + "\" --menu \"" + _("gui.dm.menu_prompt") + "\" 0 50 0 "
-                               "\"1\" \"" + _("gui.dm.opt_install") + "\" "
-                               "\"2\" \"" + _("gui.dm.opt_start") + "\" "
-                               "\"3\" \"" + _("gui.dm.opt_stop") + "\" "
-                               "\"4\" \"" + _("gui.dm.opt_enable") + "\" "
-                               "\"5\" \"" + _("gui.dm.opt_disable") + "\" "
-                               "\"0\" \"" + _("gui.dm.opt_back") + "\"";
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
-            if (ch == "1") {
-                Executor::passthrough(cfg_.install_command + " " + dm_pkg + " 2>/dev/null || true");
-            } else if (ch == "2") {
-                Executor::passthrough("systemctl start " + dm_service + " 2>/dev/null || "
-                                      "service " + dm_service + " restart 2>/dev/null || true");
-            } else if (ch == "3") {
-                Executor::passthrough("systemctl stop " + dm_service + " 2>/dev/null || "
-                                      "service " + dm_service + " stop 2>/dev/null || true");
-            } else if (ch == "4") {
-                Executor::passthrough("systemctl enable " + dm_service + " 2>/dev/null || "
-                                      "rc-update add " + dm_service + " 2>/dev/null || true");
-            } else if (ch == "5") {
-                Executor::passthrough("systemctl disable " + dm_service + " 2>/dev/null || "
-                                      "rc-update del " + dm_service + " 2>/dev/null || true");
-            }
-            Logger::press_enter();
-        }
+    void DesktopManager::download_kali_theme() {
+        if (!fs::exists("/usr/share/desktop-base/kali-theme")) download_kali_themes_common();
+        else { Logger::info(_("gui.kali.themes_downloaded")); download_kali_themes_common(); }
+        set_default_xfce_icon_theme("Flat-Remix-Blue-Light");
     }
-
-    // ═══════════════════════════════════════════════════════════════
-    // 最终补全: install_gui 交互流程 + 辅助函数
-    // ═══════════════════════════════════════════════════════════════
-
-
-
-
     void DesktopManager::download_papirus_icon_theme() {
         Logger::step(_("gui.papirus.install"));
         std::string repo = "https://mirrors.bfsu.edu.cn/debian/pool/main/p/papirus-icon-theme/";
         Executor::shell("cd /tmp && "
-                        "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'papirus-icon-theme' | grep all.deb | "
-                        "tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2) && "
-                        "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
-                        "-o papirus.deb '" + repo + "'\"$LATEST\" && "
-                        "ar xv papirus.deb && tar -Jxvf data.tar.xz -C / 2>/dev/null && "
-                        "update-icon-caches /usr/share/icons/Papirus /usr/share/icons/Papirus-Dark "
-                        "/usr/share/icons/Papirus-Light /usr/share/icons/ePapirus 2>/dev/null &");
+            "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'papirus-icon-theme' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
+            "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o papirus.deb '" + repo + "'\"$LATEST\" && "
+            "ar xv papirus.deb && tar -Jxvf data.tar.xz -C / 2>/dev/null && "
+            "update-icon-caches /usr/share/icons/Papirus /usr/share/icons/Papirus-Dark /usr/share/icons/Papirus-Light /usr/share/icons/ePapirus 2>/dev/null &");
         set_default_xfce_icon_theme("Papirus");
     }
 
-
-    std::string DesktopManager::generate_xfce_desktop_xml() {
-        return gui_config::XFCE_DESKTOP_XML;
+    void DesktopManager::install_moka_theme_ext() {
+        Executor::passthrough(cfg_.install_command + " moka-icon-theme 2>/dev/null || true");
+    }
+    void DesktopManager::install_numix_theme_ext() {
+        Executor::passthrough(cfg_.install_command + " numix-gtk-theme 2>/dev/null || true");
+        auto family = resolved_family();
+        std::string circle_pkg = (family == DistroFamily::Arch) ? "numix-circle-icon-theme-git" : "numix-icon-theme-circle";
+        Executor::passthrough(cfg_.install_command + " " + circle_pkg + " 2>/dev/null || true");
     }
 
-    std::string DesktopManager::generate_xfce_terminal_rc() {
-        return gui_config::XFCE_TERMINAL_RC;
+    void DesktopManager::download_ubuntu_mate_wallpaper() {
+        Logger::step(_("gui.wallpaper.ubuntu_mate"));
+        std::string repo = "https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/u/ubuntu-mate-artwork/";
+        Executor::shell("cd /tmp && LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'ubuntu-mate-wallpapers-photos' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
+            "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o umate.deb '" + repo + "'\"$LATEST\" && "
+            "(ar xv umate.deb 2>/dev/null; tar -Jxvf data.tar.xz -C / 2>/dev/null) || true");
     }
 
-    std::string DesktopManager::generate_budgie_desktop_builtin() {
-        return gui_config::BUDGIE_DESKTOP_BUILTIN;
-    }
-
-    std::string DesktopManager::generate_gnome_flashback_metacity() {
-        return gui_config::GNOME_FLASHBACK_METACITY;
-    }
-
-    std::string DesktopManager::generate_gnome_session_classic() {
-        return gui_config::GNOME_SESSION_CLASSIC;
-    }
-
-    std::string DesktopManager::generate_gnome_session_ubuntu() {
-        return gui_config::GNOME_SESSION_UBUNTU;
-    }
-
-    std::string DesktopManager::generate_gnome_shell_x11() {
-        return gui_config::GNOME_SHELL_X11;
-    }
-
-    std::string DesktopManager::generate_update_icon_caches_script() {
-        return gui_config::UPDATE_ICON_CACHES_SCRIPT;
-    }
-
-    void DesktopManager::print_gnome_ascii() const {
-        Logger::info("        .--.");
-        Logger::info("       |o_o |     GNOME Foot");
-        Logger::info("       |:_/ |");
-        Logger::info("      //   \\\\ \\\\");
-        Logger::info("     (|     | )");
-        Logger::info("    /'\\\\_   _/`\\\\");
-        Logger::info("    \\\\___)=(___/");
-        Logger::info("  GNOME Desktop Environment");
-        Logger::info("  https://www.gnome.org/");
-    }
 } // namespace tmoe::domain
