@@ -836,6 +836,7 @@ namespace tmoe::domain {
                 "xfce4-power-manager-plugins", "xfce4-screensaver"
             });
         }
+        get_ubuntu_desktop_language_pack();
     }
 
     void DesktopManager::post_install_kde(DistroFamily family, bool is_debian, bool is_ubuntu, bool is_proot) {
@@ -862,6 +863,7 @@ namespace tmoe::domain {
         }
 
         // 版本选择 (plasma/standard/full/kubuntu) 已移至 install_desktop() 装包前
+        get_ubuntu_desktop_language_pack();
     }
 
     void DesktopManager::post_install_gnome(DistroFamily family, bool is_debian, bool is_ubuntu) {
@@ -912,6 +914,7 @@ namespace tmoe::domain {
             Executor::passthrough("apt autoclean 2>/dev/null || true");
         }
         // 版本选择 (mate/ubuntu-mate/core/lite) 已移至 install_desktop() 装包前
+        get_ubuntu_desktop_language_pack();
     }
 
     void DesktopManager::post_install_lxqt(bool is_debian, bool is_ubuntu) {
@@ -921,6 +924,7 @@ namespace tmoe::domain {
             PackageManager::install("fonts-noto-cjk fonts-noto-color-emoji", family);
         }
         // 版本选择 (lxqt/lubuntu/core/lite) 已移至 install_desktop() 装包前
+        get_ubuntu_desktop_language_pack();
     }
 
     void DesktopManager::post_install_lxde(bool is_debian) {
@@ -930,6 +934,7 @@ namespace tmoe::domain {
             auto family = resolved_family();
             PackageManager::install("fonts-noto-cjk fonts-noto-color-emoji", family);
         }
+        get_ubuntu_desktop_language_pack();
     }
 
     void DesktopManager::post_install_cinnamon(DistroFamily family, bool is_debian) {
@@ -956,6 +961,7 @@ namespace tmoe::domain {
         } else if (family == DistroFamily::Alpine) {
             PackageManager::install("adapta-cinnamon", DistroFamily::Alpine);
         }
+        get_ubuntu_desktop_language_pack();
     }
 
     void DesktopManager::post_install_budgie(bool is_debian, bool is_ubuntu) {
@@ -981,6 +987,7 @@ namespace tmoe::domain {
             auto family = resolved_family();
             PackageManager::install("fonts-noto-cjk fonts-noto-color-emoji", family);
         }
+        get_ubuntu_desktop_language_pack();
     }
 
     void DesktopManager::post_install_dde_or_deepin(DistroFamily family, bool is_debian) {
@@ -1022,6 +1029,7 @@ namespace tmoe::domain {
             PackageManager::install({"deepin", "xorg", "deepin-extra", "lightdm", "lightdm-deepin-greeter"},
                                     DistroFamily::Arch);
         }
+        get_ubuntu_desktop_language_pack();
     }
 
     void DesktopManager::post_install_ukui(bool is_ubuntu) {
@@ -1031,6 +1039,7 @@ namespace tmoe::domain {
             auto family = resolved_family();
             PackageManager::install("fonts-noto-cjk fonts-noto-color-emoji", family);
         }
+        get_ubuntu_desktop_language_pack();
     }
 
     void DesktopManager::post_install_cutefish(DistroFamily family, bool is_debian, bool is_ubuntu, bool is_proot) {
@@ -1052,6 +1061,7 @@ namespace tmoe::domain {
         } else {
             install_packages({"cutefish"});
         }
+        get_ubuntu_desktop_language_pack();
     }
 
 
@@ -1078,6 +1088,22 @@ namespace tmoe::domain {
         Logger::info(_("gui.after_install.hint"));
     }
 
+
+    void DesktopManager::get_ubuntu_desktop_language_pack() {
+        // 仅 Ubuntu/Debian 且中文环境安装语言包
+        if (cfg_.sub_distro != "ubuntu" && cfg_.linux_distro != "debian") return;
+        auto lang = std::string(I18n::current_lang());
+        if (lang.find("zh") != 0) return;
+
+        std::vector<std::string> pkgs = {"language-pack-zh-hans"};
+        auto family = resolved_family();
+        // 根据已安装的桌面补充对应的语言包
+        if (Executor::has("startplasma-x11") || Executor::has("plasmashell"))
+            pkgs.emplace_back("language-pack-kde-zh-hans");
+        if (Executor::has("gnome-shell") || Executor::has("gnome-session"))
+            pkgs.emplace_back("language-pack-gnome-zh-hans");
+        PackageManager::install(pkgs, family);
+    }
 
     void DesktopManager::download_iosevka_ttf_font_ext() {
         // 对应旧 Bash download_iosevka_ttf_font (gui:388-444)
@@ -1252,15 +1278,7 @@ namespace tmoe::domain {
     }
 
 
-    void DesktopManager::get_ubuntu_desktop_language_pack() {
-        if (cfg_.sub_distro != "ubuntu") return;
-        auto lang = std::string(I18n::current_lang());
-        if (lang.find("zh") == 0) {
-            PackageManager::install({"language-pack-zh-hans", "language-pack-gnome-zh-hans"},
-                                    DistroFamily::Debian);
-        }
-    }
-
+    // get_ubuntu_desktop_language_pack 已移至上方 (line ~1084)，旧版删除
 
     void DesktopManager::set_budgie_desktop_session(const std::string &session_type) {
         if (session_type == "panel") {
