@@ -15,7 +15,9 @@ PreInstallChoices CinnamonDesktop::pre_install_choices(DistroFamily f, bool a) {
     return c;
 }
 void CinnamonDesktop::post_install_config(const PostInstallContext& ctx) {
-    if (ctx.is_debian) { desktop_utils::install_noto_fonts(ctx.family, true); Executor::passthrough("dpkg --configure -a 2>/dev/null || true"); }
+    desktop_utils::dpkg_configure_and_keyboard(ctx.is_debian);
+    desktop_utils::purge_libfprint_and_clean(ctx.is_proot, ctx.is_debian);
+    if (ctx.is_debian) { desktop_utils::install_noto_fonts(ctx.family, true); }
     else if (ctx.family == DistroFamily::RedHat) Executor::passthrough(cfg_.install_command + " @'Cinnamon Desktop' 2>/dev/null || true");
     else if (ctx.family == DistroFamily::Arch) PackageManager::install({"cinnamon-translations","cinnamon"}, ctx.family);
     desktop_utils::install_language_packs(cfg_);

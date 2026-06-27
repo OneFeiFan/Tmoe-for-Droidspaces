@@ -10,10 +10,10 @@ public:
     std::string get_id() const override;
     const DesktopInfo& get_info() const override;
 
-    PreInstallChoices pre_install_choices(
-        DistroFamily family, bool is_auto_mode) override;
-    void post_install_config(const PostInstallContext& ctx) override;
-    void post_install_extras(const PostInstallContext& ctx) override;
+    bool recommends_tiger_vnc() const override { return true; }
+    PreInstallChoices pre_install_choices(DistroFamily, bool) override;
+    void post_install_config(const PostInstallContext&) override;
+    void post_install_extras(const PostInstallContext&) override;
     void will_be_installed_message() const override;
 
 private:

@@ -152,55 +152,79 @@ namespace tmoe::domain {
                 // ── 完整桌面环境 ──
                 {
                     "xfce", "🐭 Xfce", "🐭", "xfce4-session", "startxfce4", "lightdm", false, false,
-                    "xfce4 xfce4-goodies", "兼容性高,简单优雅"
+                    "xfce4 xfce4-goodies", "兼容性高,简单优雅",
+                    {{"redhat","@xfce xfce*-plugin xfce4-panel-profiles"},{"gentoo","xfce4-meta x11-terms/xfce4-terminal"},{"suse","patterns-xfce-xfce xfce4-terminal"},{"alpine","faenza-icon-theme xfce4-whiskermenu-plugin xfce4 xfce4-terminal"},{"arch","xfce4 xfce4-terminal xfce4-goodies"}}
                 },
                 {
                     "xfce-lite", "Xfce Lite", "", "xfce4-session", "startxfce4", "lightdm", false, false,
-                    "xfce4 xfce4-terminal xfce4-panel thunar", "精简安装,未美化"
+                    "xfce4 xfce4-terminal xfce4-panel thunar", "精简安装,未美化",
+                    {{"redhat","@xfce"},{"gentoo","xfce4-meta x11-terms/xfce4-terminal"},{"suse","patterns-xfce-xfce"},{"arch","xfce4 xfce4-terminal xfce4-panel thunar"}}
                 },
                 {
                     "lxqt", "🐦 LXQt", "🐦", "lxqt-session", "startlxqt", "sddm", false, false, "lxqt lxqt-qtplugin",
-                    "LXDE团队基于Qt开发"
+                    "LXDE团队基于Qt开发",
+                    {{"redhat","@lxqt"},{"gentoo","lxqt-base/lxqt-meta"},
+                     {"suse","patterns-lxqt-lxqt"},{"arch","lxqt xorg"},
+                     {"alpine","openbox pcmfm rxvt-unicode tint2"}}
                 },
                 {
                     "lxde", "🕊 LXDE", "🕊", "lxsession", "startlxde", "lightdm", false, false, "lxde lxde-common",
-                    "轻量化桌面,资源占用低"
+                    "轻量化桌面,资源占用低",
+                    {{"gentoo","media-fonts/wqy-bitmapfont lxde-base/lxde-meta"},{"alpine","lxsession"},
+                     {"redhat","@lxde-desktop"},{"suse","patterns-lxde-lxde"},{"arch","lxde"}}
                 },
                 {
                     "mate", "🌿 MATE", "🌿", "mate-session", "mate-panel", "lightdm", false, false,
-                    "mate-desktop-environment", "GNOME2的延续,舒适体验"
+                    "mate-desktop-environment", "GNOME2的延续,舒适体验",
+                    {{"arch","mate mate-extra"},{"redhat","@mate-desktop"},
+                     {"gentoo","mate-base/mate-desktop mate-base/mate"},
+                     {"suse","patterns-mate-mate"},{"alpine","mate-desktop-environment"}}
                 },
                 {
                     "kde", "🦖 KDE Plasma", "🦖", "startplasma-x11", "startkde", "sddm", false, false,
-                    "kde-plasma-desktop", "风格华丽,功能丰富"
+                    "kde-plasma-desktop", "风格华丽,功能丰富",
+                    {{"arch","plasma-desktop dolphin konsole discover"},{"redhat","@KDE"},
+                     {"gentoo","plasma-desktop plasma-nm plasma-pa sddm konsole"},
+                     {"suse","-t pattern kde kde_plasma"},{"alpine","plasma-desktop breeze breeze-icons konsole discover"}}
                 },
                 {
                     "cinnamon", "🌲 Cinnamon", "🌲", "cinnamon-session", "cinnamon", "lightdm", true, false,
-                    "cinnamon-desktop-environment", "基于GNOME,对用户友好"
+                    "cinnamon-desktop-environment", "基于GNOME,对用户友好",
+                    {{"arch","cinnamon-translations cinnamon"},{"redhat","@Cinnamon Desktop"},
+                     {"gentoo","gnome-extra/cinnamon gnome-extra/cinnamon-desktop gnome-extra/cinnamon-translations"},
+                     {"suse","cinnamon cinnamon-control-center"},{"alpine","adapta-cinnamon"}}
                 },
                 {
                     "gnome", "👣 GNOME", "👣", "gnome-session", "gnome-shell-x11", "gdm", true, false,
-                    "gnome-session gnome-shell", "GNU网络对象模型环境"
+                    "gnome-session gnome-shell", "GNU网络对象模型环境",
+                    {{"arch","gnome-tweaks gnome"},{"redhat","@GNOME"},
+                     {"gentoo","gnome-shell gdm gnome-terminal"},
+                     {"suse","patterns-gnome-gnome_x11"},{"alpine","gnome-session gnome-shell"}}
                 },
                 {
                     "budgie", "🦜 Budgie", "🦜", "budgie-desktop", "budgie-panel", "lightdm", true, false,
-                    "budgie-desktop", "虎皮鹦鹉,基于GNOME"
+                    "budgie-desktop", "虎皮鹦鹉,基于GNOME",
+                    {{"arch","budgie-desktop"},{"void","budgie-desktop"}}
                 },
                 {
                     "dde", "🐋 Deepin DDE", "🐋", "startdde", "dde-launcher", "lightdm", true, false, "dde dde-desktop",
-                    "国产精美桌面"
+                    "国产精美桌面",
+                    {{"arch","deepin xorg deepin-extra lightdm lightdm-deepin-greeter"}}
                 },
                 {
                     "deepin", "🐳 Deepin", "🐳", "deepin-session", "deepin-launcher", "lightdm", true, false,
-                    "deepin-desktop-environment deepin-terminal", "Deepin完整桌面"
+                    "deepin-desktop-environment deepin-terminal", "Deepin完整桌面",
+                    {{"arch","deepin xorg deepin-extra lightdm lightdm-deepin-greeter"},{"redhat","deepin-desktop"}}
                 },
                 {
                     "ukui", "🐱 UKUI", "🐱", "ukui-session", "ukui-panel", "lightdm", true, false,
-                    "ukui-desktop-environment", "优麒麟桌面,简洁流畅"
+                    "ukui-desktop-environment", "优麒麟桌面,简洁流畅",
+                    {{"arch","ukui"}}
                 },
                 {
                     "cutefish", "🐟 Cutefish", "🐟", "cutefish-session", "cutefish-launcher", "lightdm", true, false,
-                    "cutefish", "简洁美观的现代化桌面"
+                    "cutefish", "简洁美观的现代化桌面",
+                    {{"arch","cutefish cutefish-core"}}
                 },
                 // ── 窗口管理器 ──
                 {"icewm", "❄ IceWM", "", "icewm-session", "icewm", "", false, true, "icewm icewm-common", "意在提升感观和体验"},

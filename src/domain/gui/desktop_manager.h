@@ -36,68 +36,16 @@ namespace tmoe::domain {
 
         void will_be_installed_for_you(std::string_view desktop_session);
 
-        void post_install_desktop_config(std::string_view desktop);
-
         void post_desktop_install_prompts();
-
-        void post_install_desktop_extras(std::string_view desktop);
 
         void execute_optional_installs();
 
         // ---------- 输入法 ----------
         bool install_fcitx();
 
-        // ---------- 警告/提示 ----------
-        void xfce_warning() const;
-
-        void kde_warning() const;
-
-        void gnome3_warning() const;
-
-        void cinnamon_warning() const;
-
-        void deepin_desktop_warning() const;
-
-        void arch_linux_mate_warning() const;
-
-        void tmoe_desktop_warning() const;
-
-        void tips_of_tiger_vnc_server() const;
-
-        void tmoe_desktop_faq() const;
-
         void after_desktop_install_hint() const;
 
         void select_kali_tools();
-
-        // ---------- 特殊辅助 ----------
-        void plasma_wayland_env();
-
-        void set_gnome_common_env();
-
-        void ln_s_gnome_flashback_metacity();
-
-        void set_gnome_desktop_deps();
-
-        void get_ubuntu_desktop_language_pack();
-
-        void set_budgie_desktop_session(const std::string &session_type);
-
-        void touch_xfce4_terminal_rc_ext();
-
-        void xfce4_color_scheme();
-
-        void auto_configure_xfce4_panel();
-
-        void choose_plasma_wayland_or_x11();
-
-        void deepin_desktop_debian();
-
-        void ubuntu_dde_distro_code(std::string &target_code);
-
-        void ubuntu_dde_or_dde_extras(std::string &dep_01);
-
-        void fix_dde_dpkg_error_ext();
 
         void install_fvwm_ext();
 
@@ -204,7 +152,6 @@ namespace tmoe::domain {
         VncManager &vnc_manager_;
 
         bool auto_install_mode_ = false;
-        std::string gnome_session_type_;  // GNOME 会话选择结果 (1-5)
         bool auto_install_fcitx4_ = false;
         bool auto_install_electron_ = false;
         bool auto_install_vscode_ = false;
@@ -221,27 +168,5 @@ namespace tmoe::domain {
         /// 使用 PackageManager 卸载包列表
         bool remove_packages(const std::vector<std::string> &pkgs) const;
 
-        // ── per-desktop post_install 处理器 ──
-        void post_install_xfce(DistroFamily family, bool is_debian, bool is_ubuntu, bool is_proot);
-
-        void post_install_kde(DistroFamily family, bool is_debian, bool is_ubuntu, bool is_proot);
-
-        void post_install_gnome(DistroFamily family, bool is_debian, bool is_ubuntu);
-
-        void post_install_mate(DistroFamily family, bool is_debian, bool is_ubuntu);
-
-        void post_install_lxqt(bool is_debian, bool is_ubuntu);
-
-        void post_install_lxde(bool is_debian);
-
-        void post_install_cinnamon(DistroFamily family, bool is_debian);
-
-        void post_install_budgie(bool is_debian, bool is_ubuntu);
-
-        void post_install_dde_or_deepin(DistroFamily family, bool is_debian);
-
-        void post_install_ukui(bool is_ubuntu);
-
-        void post_install_cutefish(DistroFamily family, bool is_debian, bool is_ubuntu, bool is_proot);
     };
 } // namespace tmoe::domain

@@ -66,6 +66,9 @@ PreInstallChoices KdeDesktop::pre_install_choices(
 // ── 阶段3: 系统配置 ──
 void KdeDesktop::post_install_config(const PostInstallContext& ctx) {
     kde_warning();
+    desktop_utils::dpkg_configure_and_keyboard(ctx.is_debian);
+    desktop_utils::purge_libfprint_and_clean(ctx.is_proot, ctx.is_debian);
+    if (ctx.is_debian) desktop_utils::install_noto_fonts(ctx.family, true);
 
     // proot: 去掉 systemd 相关组件
     if (ctx.is_proot) {
@@ -80,6 +83,7 @@ void KdeDesktop::post_install_config(const PostInstallContext& ctx) {
         choose_wayland_or_x11(ctx);
     }
 
+    if (ctx.is_debian) Executor::passthrough("apt clean 2>/dev/null || true");
     desktop_utils::install_language_packs(cfg_);
 }
 

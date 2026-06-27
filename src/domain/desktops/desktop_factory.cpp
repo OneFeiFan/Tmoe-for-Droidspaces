@@ -2,6 +2,17 @@
 #include "window_manager_desktop.h"
 #include "xfce_desktop.h"
 #include "xfce_lite_desktop.h"
+#include "kde_desktop.h"
+#include "mate_desktop.h"
+#include "lxde_desktop.h"
+#include "lxqt_desktop.h"
+#include "cinnamon_desktop.h"
+#include "gnome_desktop.h"
+#include "budgie_desktop.h"
+#include "dde_desktop.h"
+#include "deepin_desktop.h"
+#include "ukui_desktop.h"
+#include "cutefish_desktop.h"
 #include "../gui_config/registries.h"
 #include "core/logger.h"
 #include <algorithm>
@@ -19,7 +30,34 @@ namespace {
                 [](const TmoeConfig& c) {
                     return std::make_unique<XfceLiteDesktop>(c);
                 });
-            // 其他桌面逐步添加...
+            DesktopFactory::register_desktop("kde",
+                [](const TmoeConfig& c) {
+                    return std::make_unique<KdeDesktop>(c);
+                });
+            DesktopFactory::register_desktop("mate",
+                [](const TmoeConfig& c) {
+                    return std::make_unique<MateDesktop>(c);
+                });
+            DesktopFactory::register_desktop("lxde",
+                [](const TmoeConfig& c) {
+                    return std::make_unique<LxdeDesktop>(c);
+                });
+            DesktopFactory::register_desktop("lxqt",
+                [](const TmoeConfig& c) { return std::make_unique<LxqtDesktop>(c); });
+            DesktopFactory::register_desktop("cinnamon",
+                [](const TmoeConfig& c) { return std::make_unique<CinnamonDesktop>(c); });
+            DesktopFactory::register_desktop("gnome",
+                [](const TmoeConfig& c) { return std::make_unique<GnomeDesktop>(c); });
+            DesktopFactory::register_desktop("budgie",
+                [](const TmoeConfig& c) { return std::make_unique<BudgieDesktop>(c); });
+            DesktopFactory::register_desktop("dde",
+                [](const TmoeConfig& c) { return std::make_unique<DdeDesktop>(c); });
+            DesktopFactory::register_desktop("deepin",
+                [](const TmoeConfig& c) { return std::make_unique<DeepinDesktop>(c); });
+            DesktopFactory::register_desktop("ukui",
+                [](const TmoeConfig& c) { return std::make_unique<UkuiDesktop>(c); });
+            DesktopFactory::register_desktop("cutefish",
+                [](const TmoeConfig& c) { return std::make_unique<CutefishDesktop>(c); });
         }
     } auto_register;
 }

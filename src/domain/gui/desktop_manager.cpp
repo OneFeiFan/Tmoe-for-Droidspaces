@@ -1,4 +1,6 @@
 #include "desktop_manager.h"
+#include "domain/desktops/desktop_factory.h"
+#include "domain/desktops/desktop_utils.h"
 #include <sstream>
 
 namespace tmoe::domain {
@@ -92,27 +94,48 @@ namespace tmoe::domain {
 
 
     bool DesktopManager::install_desktop(std::string_view desktop) {
-        DesktopInfo info = get_desktop_info(desktop);
+        auto desktop_obj = DesktopFactory::create(desktop, cfg_);
+        if (!desktop_obj) { Logger::error("Unknown desktop: " + std::string(desktop)); return false; }
+        const auto& info = desktop_obj->get_info();
         Logger::step(_f("gui.install.desktop", info.name));
+        if (info.requires_root && cfg_.is_termux) Logger::warn(_f("gui.desktop.systemd_warn", info.name));
+        if (!auto_install_mode_ && !info.is_window_manager) post_desktop_install_prompts();
 
-        // 检查是否需要 root 权限
-        if (info.requires_root && cfg_.is_termux) {
-            Logger::warn(_f("gui.desktop.systemd_warn", info.name));
-        }
-
-        // ── 阶段1: 提问（装包前）— 对齐 Bash do_you_want_to_install_fcitx4 ──
-        // 仅桌面环境有 fcitx/chromium/electron 提示；窗口管理器跳过
-        if (!auto_install_mode_ && !info.is_window_manager) {
-            post_desktop_install_prompts();
-        }
-
-        // ── 阶段2: 装包 ──
         preconfigure_gui_dependencies();
-        will_be_installed_for_you(info.name);
+        desktop_obj->will_be_installed_message();
+
+        auto family = resolved_family();
+        auto choices = desktop_obj->pre_install_choices(family, auto_install_mode_);
+        std::string pkg_list = choices.pkg_list.empty()
+            ? desktop_utils::resolve_distro_pkg_list(info, family) : choices.pkg_list;
 
         std::vector<std::string> pkgs;
-        auto family = resolved_family();
-        std::string distro_key = PackageManager::family_key(family);
+        std::istringstream iss(pkg_list);
+        std::string pkg; while (iss >> pkg) pkgs.emplace_back(pkg);
+        pkgs.emplace_back("dbus-x11");
+
+        bool pkg_ok = choices.use_no_recommends
+            ? Executor::passthrough("sudo apt install -y --no-install-recommends " + pkg_list + " 2>/dev/null").ok()
+            : install_packages(pkgs);
+        if (!pkg_ok) { Logger::error(_f("gui.install.fail", info.name)); return false; }
+
+        PostInstallContext ctx{family, family == DistroFamily::Debian,
+            cfg_.sub_distro == "ubuntu", cfg_.is_termux || cfg_.linux_distro == "Android"};
+        Logger::step("Post-install config..."); desktop_obj->post_install_config(ctx);
+        Logger::step("Desktop extras..."); desktop_obj->post_install_extras(ctx);
+
+        if (!vnc_manager_.configure_xstartup(desktop)) Logger::warn(_("gui.desktop.xstartup_warn"));
+        Logger::ok(_f("gui.install.success", info.name));
+        if (!info.compat_notes.empty()) Logger::info(_f("gui.desktop.compat_notes", info.compat_notes));
+        if (desktop_obj->recommends_tiger_vnc()) {
+            vnc_manager_.config().server = "tiger"; vnc_manager_.config().server_bin = "tigervnc";
+        }
+        execute_optional_installs();
+        return true;
+    }
+
+    /* === DEAD CODE BELOW — old per-desktop post_install handlers, kept for reference === */
+#if 0
 
         // 桌面专属的装包前版本选择（bash: choose_* 系列函数修改 DEPENDENCY_01）
         std::string d_lower(desktop);
@@ -1992,4 +2015,5 @@ namespace tmoe::domain {
         Logger::info("  GNOME Desktop Environment");
         Logger::info("  https://www.gnome.org/");
     }
+#endif
 } // namespace tmoe::domain

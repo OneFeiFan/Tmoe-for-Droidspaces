@@ -43,13 +43,17 @@ PreInstallChoices XfceDesktop::pre_install_choices(
 // ── 阶段3: 系统配置 (原 DesktopManager::post_install_xfce 全部内容) ──
 void XfceDesktop::post_install_config(const PostInstallContext& ctx) {
     xfce_warning();
+    desktop_utils::dpkg_configure_and_keyboard(ctx.is_debian);
+    desktop_utils::purge_libfprint_and_clean(ctx.is_proot, ctx.is_debian);
 
     // ── debian_xfce4_extras ──
     if (ctx.is_debian) {
+        desktop_utils::install_noto_fonts(ctx.family, true);
         install_debian_extras(ctx);
     }
-    if (ctx.is_ubuntu) desktop_utils::install_language_packs(cfg_);
-
+    if (ctx.family == DistroFamily::RedHat) {
+        Executor::passthrough("rm -v /etc/xdg/autostart/xfce-polkit.desktop 2>/dev/null || true");
+    }
     // ── qt5ct 全发行版 ──
     setup_qt5ct_env();
 
@@ -128,8 +132,17 @@ void XfceDesktop::install_debian_extras(const PostInstallContext& ctx) {
         PackageManager::install("xfwm4-theme-breeze", ctx.family);
 
     if (cfg_.sub_distro == "kali") {
-        // kali-undercover 主题（shell 脚本过长，保持调用已有函数）
-        Logger::info("Kali undercover theme setup (requires DesktopManager::install_kali_undercover)");
+        if (!fs::exists("/usr/share/icons/Windows-10-Icons")) {
+            Logger::step("Installing Kali Undercover theme...");
+            Executor::shell("mkdir -pv /tmp/.kali-undercover-win10-theme && cd /tmp/.kali-undercover-win10-theme && "
+                "UNDERCOVERlatestLINK=\"$(curl -L 'https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-undercover/' 2>/dev/null | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2)\" && "
+                "(aria2c --console-log-level=warn --no-conf --allow-overwrite=true -s5 -x5 -k1M -o kali-undercover.deb 'https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-undercover/'\"$UNDERCOVERlatestLINK\" 2>/dev/null || "
+                "apt download kali-undercover 2>/dev/null && mv *deb kali-undercover.deb) && "
+                "ar xv kali-undercover.deb && cd / && tar -Jxvf /tmp/.kali-undercover-win10-theme/data.tar.xz ./usr 2>/dev/null && "
+                "mv -f /usr/bin/kali-undercover /usr/local/bin/ 2>/dev/null; update-icon-caches /usr/share/icons/Windows-10-Icons 2>/dev/null &");
+        }
+        PackageManager::install("kali-themes-common", DistroFamily::Debian);
+        Executor::shell("dbus-launch xfconf-query -c xsettings -np /Net/IconThemeName -s Windows-10-Icons 2>/dev/null || true");
     }
 
     if (!Executor::has("xfce4-panel-profiles")) {

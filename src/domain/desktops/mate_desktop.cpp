@@ -56,10 +56,18 @@ PreInstallChoices MateDesktop::pre_install_choices(
 
 // ── 阶段3: fonts + arch warning + apt clean ──
 void MateDesktop::post_install_config(const PostInstallContext& ctx) {
-    // arch proot 警告
     if (ctx.family == DistroFamily::Arch && ctx.is_proot) {
-        Logger::warn("Arch Linux MATE in proot may flicker");
+        auto r = Executor::passthrough(cfg_.tui_bin +
+            " --title \"MATE on Arch proot\""
+            " --yes-button \"continue\" --no-button \"switch\""
+            " --yesno 'MATE may flicker in Arch proot. Continue anyway?\\n[No]=switch to LXDE/LXQt/XFCE' 0 0");
+        if (r.exit_code != 0) {
+            Logger::warn("MATE install aborted for Arch proot — try lxde, lxqt, or xfce instead");
+            return;
+        }
     }
+    desktop_utils::dpkg_configure_and_keyboard(ctx.is_debian);
+    desktop_utils::purge_libfprint_and_clean(ctx.is_proot, ctx.is_debian);
     // fonts + clean
     if (ctx.is_debian) {
         desktop_utils::install_noto_fonts(ctx.family, true);
