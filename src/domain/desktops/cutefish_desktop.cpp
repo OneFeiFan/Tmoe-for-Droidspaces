@@ -1,4 +1,6 @@
 #include "cutefish_desktop.h"
+
+#include "desktop_utils.h"
 #include "core/logger.h"
 #include "core/i18n.h"
 #include "domain/system/package_manager.h"
