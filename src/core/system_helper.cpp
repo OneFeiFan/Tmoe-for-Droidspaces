@@ -1,6 +1,7 @@
 #include "system_helper.h"
 #include "core/logger.h"
 #include "core/executor.h"
+#include "core/command_builder.hpp"
 #include "core/i18n.h"
 #include <fstream>
 #include <sstream>
@@ -100,6 +101,124 @@ void SystemHelper::fix_user_home_ownership() {
         Executor::passthrough(
             "chown -R " + user + ":" + user + " " + home + dir + " 2>/dev/null || true");
     }
+}
+
+    // ---------- 下载 / 解压 ----------
+
+bool SystemHelper::download_file(const std::string &url, const std::string &dest_path) {
+    // curl -# = 显示进度条；wget --show-progress；aria2c 无 -q 显示控制台进度
+    auto curl_cmd = CommandBuilder("curl")
+        .add_flag("-#L").add_arg(url)
+        .add_arg("-o").add_arg(dest_path)
+        .build_string();
+    auto wget_cmd = CommandBuilder("wget")
+        .add_flag("--show-progress").add_arg("-O").add_arg(dest_path).add_arg(url)
+        .build_string();
+    auto aria2_cmd = CommandBuilder("aria2c")
+        .add_flag("--no-conf").add_flag("--allow-overwrite=true")
+        .add_arg("-o").add_arg(dest_path).add_arg(url)
+        .build_string();
+
+    Executor::passthrough("(" + curl_cmd + " || " + wget_cmd + " || " + aria2_cmd + ")");
+    return fs::exists(dest_path);
+}
+
+std::string SystemHelper::http_get_cached(const std::string &url, const std::string &cache_name) {
+    fs::path cache_path = fs::path("/tmp") / cache_name;
+    download_file(url, cache_path.string());
+    return read_file(cache_path);
+}
+
+void SystemHelper::extract_archive(const std::string &archive_path, const std::string &dest) {
+    bool has_pv = Executor::has("pv");
+
+    // tar: pv 管道显示进度，回退到直接 tar
+    std::string tar_cmd;
+    if (has_pv) {
+        tar_cmd = std::string("pv \"") + archive_path + "\" | tar -xf -";
+    } else {
+        tar_cmd = std::string("tar -xf \"") + archive_path + "\"";
+    }
+
+    // deb: ar 解出 data.tar.xz → pv 管道 → tar
+    std::string deb_cmd;
+    if (has_pv) {
+        deb_cmd = std::string("ar x \"") + archive_path +
+                  "\" data.tar.xz 2>/dev/null && "
+                  "pv data.tar.xz | tar -Jxf - && rm -f data.tar.xz";
+    } else {
+        deb_cmd = std::string("ar x \"") + archive_path +
+                  "\" data.tar.xz 2>/dev/null && "
+                  "tar -Jxf data.tar.xz && rm -f data.tar.xz";
+    }
+
+    // unzip: 自带进度条（无 -q）
+    auto zip_cmd = CommandBuilder("unzip")
+        .add_flag("-o").add_arg(archive_path).add_arg("-d").add_arg(dest)
+        .build_string();
+
+    Executor::passthrough(
+        "cd " + dest + " && (" + tar_cmd + " || (" + deb_cmd + ") || " + zip_cmd + " || true)");
+}
+
+std::string SystemHelper::find_latest_href(const std::string &html, const std::string &pkg_pattern) {
+    std::regex href_re(R"re(<a\s+[^>]*href\s*=\s*"([^"]*)"[^>]*>)re", std::regex::icase);
+    std::regex pkg_re(pkg_pattern);
+    std::string best;
+    auto begin = std::sregex_iterator(html.begin(), html.end(), href_re);
+    auto end = std::sregex_iterator();
+    for (auto it = begin; it != end; ++it) {
+        std::string href = (*it)[1].str();
+        if (std::regex_search(href, pkg_re)) {
+            best = href;
+        }
+    }
+    return best;
+}
+
+bool SystemHelper::fetch_latest_and_extract(const std::string &repo_url,
+                                             const std::string &pkg_pattern,
+                                             const std::string &tmp_prefix,
+                                             const std::string &extract_to) {
+    std::string html = http_get_cached(repo_url, "." + tmp_prefix + "_index.html");
+    if (html.empty()) return false;
+
+    std::string pkg_name = find_latest_href(html, pkg_pattern);
+    if (pkg_name.empty()) return false;
+
+    std::string pkg_path = "/tmp/." + tmp_prefix + "_pkg";
+    if (!download_file(repo_url + pkg_name, pkg_path)) return false;
+
+    extract_archive(pkg_path, extract_to);
+
+    std::error_code ec;
+    fs::remove(pkg_path, ec);
+    fs::remove("/tmp/." + tmp_prefix + "_index.html", ec);
+    fs::remove("/tmp/data.tar.xz", ec);
+    return true;
+}
+
+bool SystemHelper::git_clone_and_extract(const std::string &git_url,
+                                          const std::string &branch,
+                                          const std::string &archive_name,
+                                          const std::string &tmp_dir,
+                                          const std::string &extract_to) {
+    std::error_code ec;
+    fs::remove_all(tmp_dir, ec);
+    fs::create_directories(tmp_dir, ec);
+
+    auto clone_cmd = CommandBuilder("git")
+        .add_arg("clone").add_arg("-b").add_arg(branch)
+        .add_flag("--depth=1").add_arg(git_url).add_arg("repo")
+        .add_raw("2>/dev/null").build_string();
+    auto tar_cmd = CommandBuilder("tar")
+        .add_flag("-Jxf").add_arg("repo/" + archive_name)
+        .add_arg("-C").add_arg(extract_to)
+        .add_raw("2>/dev/null").build_string();
+
+    Executor::passthrough("cd " + tmp_dir + " && " + clone_cmd + " && " + tar_cmd);
+    fs::remove_all(tmp_dir, ec);
+    return true;
 }
 
 } // namespace tmoe
