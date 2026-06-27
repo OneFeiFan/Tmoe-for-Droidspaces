@@ -19,6 +19,7 @@ namespace tmoe::domain {
 
         // ---------- 注册表查询 ----------
         const std::vector<DesktopInfo> &desktop_registry() const;
+
         DesktopInfo get_desktop_info(std::string_view desktop) const;
 
         // ---------- 安装 ----------
@@ -54,6 +55,7 @@ namespace tmoe::domain {
         void download_macos_bigsur_theme();
 
         void download_arch_breeze_adapta_cursor_theme();
+
         void install_breeze_theme_ext();
 
         void install_arc_gtk_theme_ext();
@@ -63,38 +65,27 @@ namespace tmoe::domain {
         void install_numix_theme_ext();
 
         void download_kali_theme();
+
         void download_kali_themes_common();
 
         void set_default_xfce_icon_theme(const std::string &icon_name);
+
         void create_update_icon_caches();
+
         void check_update_icon_caches_sh();
+
         std::string generate_update_icon_caches_script();
+
         void download_xubuntu_wallpaper(const std::string &code_name, const std::string &folder_name);
+
         void download_ubuntu_mate_wallpaper();
-
-
-
-
-
-
-
-
-
 
 
         // ---------- 壁纸下载 ----------
         void download_mint_backgrounds(const std::string &mint_code);
-        
-
 
 
         // ---------- 内容生成（用于桌面后配置） ----------
-
-
-
-
-
-
 
 
         // ---------- 提示/图标 ----------
@@ -124,7 +115,7 @@ namespace tmoe::domain {
         bool auto_install_fcitx4_ = false;
         bool auto_install_electron_ = false;
         bool auto_install_vscode_ = false;
-        bool auto_install_chromium_ = false;  // 默认不装，由用户选择
+        bool auto_install_chromium_ = false; // 默认不装，由用户选择
         bool auto_install_kali_ = false;
         std::string kali_tools_ = "kali-linux-arm";
 
@@ -133,6 +124,5 @@ namespace tmoe::domain {
 
         /// 使用 PackageManager 安装包列表
         bool install_packages(const std::vector<std::string> &pkgs) const;
-
     };
 } // namespace tmoe::domain

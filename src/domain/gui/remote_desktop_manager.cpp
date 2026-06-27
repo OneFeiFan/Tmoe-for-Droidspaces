@@ -47,7 +47,8 @@ namespace tmoe::domain {
                 "/opt/novnc 2>/dev/null || true");
             if (fs::exists("/opt/novnc")) {
                 // 创建符号链接
-                CommandBuilder("ln").add_flag("-sf").add_arg("/opt/novnc").add_arg("/usr/share/novnc").add_raw("2>/dev/null || true").execute();
+                CommandBuilder("ln").add_flag("-sf").add_arg("/opt/novnc").add_arg("/usr/share/novnc").add_raw(
+                    "2>/dev/null || true").execute();
             }
         }
 
@@ -154,7 +155,8 @@ namespace tmoe::domain {
             "chmod 644 /etc/xrdp/cert.pem 2>/dev/null || true");
         // 旧 Bash: chroot/proot 下 xrdp 需要 aid_inet 组才能联网
         if (cfg_.is_termux || cfg_.linux_distro == "Android") {
-            CommandBuilder("usermod").add_flag("-a").add_flag("-G").add_arg("aid_inet").add_arg("xrdp").add_raw("2>/dev/null || true").execute();
+            CommandBuilder("usermod").add_flag("-a").add_flag("-G").add_arg("aid_inet").add_arg("xrdp").add_raw(
+                "2>/dev/null || true").execute();
         }
 
         // 配置 polkit 规则 (允许远程连接)
@@ -202,7 +204,8 @@ namespace tmoe::domain {
                                      "fi\n\n"
                                      "test -x /etc/X11/Xsession && exec /etc/X11/Xsession\n"
                                      "exec /etc/X11/xinit/Xsession\n");
-            CommandBuilder("chmod").add_arg("+x").add_arg("/etc/xrdp/startwm.sh").add_raw("2>/dev/null || true").execute();
+            CommandBuilder("chmod").add_arg("+x").add_arg("/etc/xrdp/startwm.sh").add_raw("2>/dev/null || true").
+                    execute();
         }
 
         // 注入 WSL/WSLg/GPU 环境修复 (只在尚不存在时插入，避免重复追加)
@@ -415,7 +418,8 @@ namespace tmoe::domain {
         Logger::step(_("gui.xrdp.removing"));
         auto family = infer_family_from_config(cfg_.linux_distro);
         if (family == DistroFamily::Unknown) family = PackageManager::detect_distro_family();
-        PackageManager::remove("xrdp", family); PackageManager::remove("xorgxrdp", family);
+        PackageManager::remove("xrdp", family);
+        PackageManager::remove("xorgxrdp", family);
         Logger::ok(_("gui.xrdp.removed"));
         return true;
     }
@@ -740,7 +744,8 @@ namespace tmoe::domain {
                                  "x11vnc -storepasswd \"$VNC_HOME/x11passwd\" 2>/dev/null || "
                                  "x11vnc -storepasswd ~/.vnc/x11passwd 2>/dev/null || true\n"
                                  "echo 'x11vnc password configured'\n");
-        CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/x11vncpasswd").add_raw("2>/dev/null || true").execute();
+        CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/x11vncpasswd").add_raw("2>/dev/null || true").
+                execute();
 
         // 3. 确保 x11passwd 存在
         if (fs::exists(vnc_manager_.config().passwd_file)) {
@@ -847,7 +852,8 @@ namespace tmoe::domain {
         Logger::step(_("gui.novnc.removing"));
         stop_novnc();
         // 清理目录（git clone 安装的）
-        CommandBuilder("rm").add_flag("-rf").add_arg("/opt/novnc").add_arg("/usr/share/novnc").add_raw("2>/dev/null || true").execute();
+        CommandBuilder("rm").add_flag("-rf").add_arg("/opt/novnc").add_arg("/usr/share/novnc").add_raw(
+            "2>/dev/null || true").execute();
         // apt 装的包（和 install_novnc 对应：novnc, python3-websockify, python3-numpy）
         auto family = infer_family_from_config(cfg_.linux_distro);
         if (family == DistroFamily::Unknown) family = PackageManager::detect_distro_family();
@@ -888,10 +894,12 @@ namespace tmoe::domain {
             "chmod 640 /etc/xrdp/key.pem 2>/dev/null || true; "
             "chmod 644 /etc/xrdp/cert.pem 2>/dev/null || true");
         if (cfg_.is_termux || cfg_.linux_distro == "Android") {
-            CommandBuilder("usermod").add_flag("-a").add_flag("-G").add_arg("aid_inet").add_arg("xrdp").add_raw("2>/dev/null || true").execute();
+            CommandBuilder("usermod").add_flag("-a").add_flag("-G").add_arg("aid_inet").add_arg("xrdp").add_raw(
+                "2>/dev/null || true").execute();
         }
         // polkit 规则
-        CommandBuilder("mkdir").add_flag("-pv").add_arg("/etc/polkit-1/localauthority.conf.d").add_arg("/etc/polkit-1/localauthority/50-local.d/").execute();
+        CommandBuilder("mkdir").add_flag("-pv").add_arg("/etc/polkit-1/localauthority.conf.d").add_arg(
+            "/etc/polkit-1/localauthority/50-local.d/").execute();
         SystemHelper::write_file("/etc/polkit-1/localauthority.conf.d/02-allow-colord.conf",
                                  generate_polkit_colord_conf());
         SystemHelper::write_file("/etc/polkit-1/localauthority/50-local.d/45-allow.colord.pkla",
@@ -1051,7 +1059,8 @@ namespace tmoe::domain {
     void RemoteDesktopManager::remove_x11vnc_ext() {
         Logger::step(_("gui.x11vnc.stopping_and_removing"));
         vnc_manager_.stop_x11vnc();
-        CommandBuilder("rm").add_flag("-rfv").add_arg("/usr/local/bin/startx11vnc").add_raw("2>/dev/null || true").execute();
+        CommandBuilder("rm").add_flag("-rfv").add_arg("/usr/local/bin/startx11vnc").add_raw("2>/dev/null || true").
+                execute();
         auto family = infer_family_from_config(cfg_.linux_distro);
         if (family == DistroFamily::Unknown) family = PackageManager::detect_distro_family();
         PackageManager::remove("x11vnc", family);
@@ -1180,7 +1189,8 @@ namespace tmoe::domain {
             "pkill xrdp 2>/dev/null || true");
 
         CommandBuilder("rm").add_flag("-f").add_arg("/etc/polkit-1/localauthority/50-local.d/45-allow.colord.pkla")
-            .add_arg("/etc/polkit-1/localauthority.conf.d/02-allow-colord.conf").add_raw("2>/dev/null || true").execute();
+                .add_arg("/etc/polkit-1/localauthority.conf.d/02-allow-colord.conf").add_raw("2>/dev/null || true").
+                execute();
 
         // 尝试从备份恢复
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
@@ -1210,7 +1220,7 @@ namespace tmoe::domain {
 
         // 重新生成 polkit 规则
         CommandBuilder("mkdir").add_flag("-pv").add_arg("/etc/polkit-1/localauthority.conf.d")
-            .add_arg("/etc/polkit-1/localauthority/50-local.d/").add_raw("2>/dev/null").execute();
+                .add_arg("/etc/polkit-1/localauthority/50-local.d/").add_raw("2>/dev/null").execute();
         SystemHelper::write_file("/etc/polkit-1/localauthority.conf.d/02-allow-colord.conf",
                                  generate_polkit_colord_conf());
         SystemHelper::write_file("/etc/polkit-1/localauthority/50-local.d/45-allow.colord.pkla",

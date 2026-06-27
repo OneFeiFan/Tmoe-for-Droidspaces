@@ -78,8 +78,11 @@ namespace tmoe::domain {
 
     bool DesktopManager::install_desktop(std::string_view desktop) {
         auto desktop_obj = DesktopFactory::create(desktop, cfg_);
-        if (!desktop_obj) { Logger::error("Unknown desktop: " + std::string(desktop)); return false; }
-        const auto& info = desktop_obj->get_info();
+        if (!desktop_obj) {
+            Logger::error("Unknown desktop: " + std::string(desktop));
+            return false;
+        }
+        const auto &info = desktop_obj->get_info();
         Logger::step(_f("gui.install.desktop", info.name));
         if (info.requires_root && cfg_.is_termux) Logger::warn(_f("gui.desktop.systemd_warn", info.name));
         if (!auto_install_mode_ && !info.is_window_manager) post_desktop_install_prompts();
@@ -90,28 +93,39 @@ namespace tmoe::domain {
         auto family = resolved_family();
         auto choices = desktop_obj->pre_install_choices(family, auto_install_mode_);
         std::string pkg_list = choices.pkg_list.empty()
-            ? desktop_utils::resolve_distro_pkg_list(info, family) : choices.pkg_list;
+                                   ? desktop_utils::resolve_distro_pkg_list(info, family)
+                                   : choices.pkg_list;
 
         std::vector<std::string> pkgs;
         std::istringstream iss(pkg_list);
-        std::string pkg; while (iss >> pkg) pkgs.emplace_back(pkg);
+        std::string pkg;
+        while (iss >> pkg) pkgs.emplace_back(pkg);
         pkgs.emplace_back("dbus-x11");
 
         bool pkg_ok = choices.use_no_recommends
-            ? Executor::passthrough("sudo apt install -y --no-install-recommends " + pkg_list + " 2>/dev/null").ok()
-            : install_packages(pkgs);
-        if (!pkg_ok) { Logger::error(_f("gui.install.fail", info.name)); return false; }
+                          ? Executor::passthrough(
+                              "sudo apt install -y --no-install-recommends " + pkg_list + " 2>/dev/null").ok()
+                          : install_packages(pkgs);
+        if (!pkg_ok) {
+            Logger::error(_f("gui.install.fail", info.name));
+            return false;
+        }
 
-        PostInstallContext ctx{family, family == DistroFamily::Debian,
-            cfg_.sub_distro == "ubuntu", cfg_.is_termux || cfg_.linux_distro == "Android"};
-        Logger::step("Post-install config..."); desktop_obj->post_install_config(ctx);
-        Logger::step("Desktop extras..."); desktop_obj->post_install_extras(ctx);
+        PostInstallContext ctx{
+            family, family == DistroFamily::Debian,
+            cfg_.sub_distro == "ubuntu", cfg_.is_termux || cfg_.linux_distro == "Android"
+        };
+        Logger::step("Post-install config...");
+        desktop_obj->post_install_config(ctx);
+        Logger::step("Desktop extras...");
+        desktop_obj->post_install_extras(ctx);
 
         if (!vnc_manager_.configure_xstartup(desktop)) Logger::warn(_("gui.desktop.xstartup_warn"));
         Logger::ok(_f("gui.install.success", info.name));
         if (!info.compat_notes.empty()) Logger::info(_f("gui.desktop.compat_notes", info.compat_notes));
         if (desktop_obj->recommends_tiger_vnc()) {
-            vnc_manager_.config().server = "tiger"; vnc_manager_.config().server_bin = "tigervnc";
+            vnc_manager_.config().server = "tiger";
+            vnc_manager_.config().server_bin = "tigervnc";
         }
         execute_optional_installs();
         return true;
@@ -173,13 +187,14 @@ namespace tmoe::domain {
                 !Executor::has("fcitx") && !Executor::has("fcitx5")) {
                 if (interactive) {
                     auto r = Executor::passthrough(cfg_.tui_bin +
-                        " --title \"input method\""
-                        " --defaultno"
-                        " --yesno '" + std::string(cfg_.is_wsl
-                            ? "检测到WSL环境,是否需要安装中文输入法(fcitx-pinyin)？"
-                            : "检测到您当前的语言环境为中文，是否需要安装中文输入法？") + "\\n"
-                        "安装完成后，在桌面环境下按Ctrl+空格切换输入法\\n"
-                        "你也可以选择NO跳过，之后可以单独安装fcitx5' 0 0");
+                                                   " --title \"input method\""
+                                                   " --defaultno"
+                                                   " --yesno '" + std::string(cfg_.is_wsl
+                                                                                  ? "检测到WSL环境,是否需要安装中文输入法(fcitx-pinyin)？"
+                                                                                  : "检测到您当前的语言环境为中文，是否需要安装中文输入法？") +
+                                                   "\\n"
+                                                   "安装完成后，在桌面环境下按Ctrl+空格切换输入法\\n"
+                                                   "你也可以选择NO跳过，之后可以单独安装fcitx5' 0 0");
                     want_fcitx = (r.exit_code == 0);
                 } else {
                     want_fcitx = auto_install_fcitx4_;
@@ -221,11 +236,10 @@ namespace tmoe::domain {
         }
 
         // ── 保存选择（后续由 execute_optional_installs() 统一安装） ──
-        auto_install_fcitx4_  = want_fcitx;
+        auto_install_fcitx4_ = want_fcitx;
         auto_install_chromium_ = want_chromium;
         auto_install_electron_ = want_electron;
     }
-
 
 
     void DesktopManager::execute_optional_installs() {
@@ -268,8 +282,6 @@ namespace tmoe::domain {
     }
 
 
-
-
     bool DesktopManager::install_window_manager(std::string_view wm) {
         // 统一走 install_desktop (DesktopInfo 已包含所有 WM 条目)
         return install_desktop(wm);
@@ -281,14 +293,14 @@ namespace tmoe::domain {
     }
 
 
-
     void DesktopManager::download_iosevka_ttf_font_ext() {
         // 对应旧 Bash download_iosevka_ttf_font (gui:388-444)
         const char *iosevka_file = "/usr/share/fonts/truetype/iosevka/Iosevka-Term-Mono.ttf";
         if (fs::exists(iosevka_file)) return;
 
         Logger::info(_("gui.installing_iosevka"));
-        CommandBuilder("mkdir").add_flag("-pv").add_arg("/usr/share/fonts/truetype/iosevka/").add_raw("2>/dev/null").execute();
+        CommandBuilder("mkdir").add_flag("-pv").add_arg("/usr/share/fonts/truetype/iosevka/").add_raw("2>/dev/null").
+                execute();
 
         // 检查 /tmp/font.ttf 是否已存在且 sha256 匹配
         auto sha_check = Executor::shell("cd /tmp && [ -e font.ttf ] && sha256sum font.ttf 2>/dev/null");
@@ -305,7 +317,8 @@ namespace tmoe::domain {
         if (fs::exists("/etc/gitstatus")) {
             if (fs::exists("/root/.cache/gitstatus")) {
                 Executor::shell("cp -f /root/.cache/gitstatus/* /etc/gitstatus 2>/dev/null || true");
-                CommandBuilder("chmod").add_flag("-R").add_arg("a+rx").add_arg("/etc/gitstatus/").add_raw("2>/dev/null || true").execute();
+                CommandBuilder("chmod").add_flag("-R").add_arg("a+rx").add_arg("/etc/gitstatus/").add_raw(
+                    "2>/dev/null || true").execute();
             }
             font_dir = "/etc/gitstatus";
         } else {
@@ -353,7 +366,7 @@ namespace tmoe::domain {
         };
 
         if (!install_packages(pkgs)) {
-        Logger::warn(_("gui.fcitx.partial_fail"));
+            Logger::warn(_("gui.fcitx.partial_fail"));
         }
 
         // 配置环境变量
@@ -385,7 +398,7 @@ namespace tmoe::domain {
 
     void DesktopManager::install_kali_undercover() {
         if (fs::exists("/usr/share/icons/Windows-10-Icons")) {
-        Logger::info(_("gui.kali.undercover_exists"));
+            Logger::info(_("gui.kali.undercover_exists"));
             return;
         }
         Logger::step(_("gui.kali.undercover_install"));
@@ -488,29 +501,39 @@ namespace tmoe::domain {
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
         if (home != "/root") {
             // sudo 环境下 id -un 返回 root，优先用 $SUDO_USER 获取实际用户
-            const char* sudo_user = std::getenv("SUDO_USER");
+            const char *sudo_user = std::getenv("SUDO_USER");
             std::string user = sudo_user ? sudo_user : Executor::shell("id -un").stdout_data;
             while (!user.empty() && (user.back() == '\n' || user.back() == '\r')) user.pop_back();
-            CommandBuilder("chown").add_flag("-Rv").add_arg(user + ":" + user).add_arg(home + "/.config/xfce4").add_raw("2>/dev/null || true").execute();
+            CommandBuilder("chown").add_flag("-Rv").add_arg(user + ":" + user).add_arg(home + "/.config/xfce4").add_raw(
+                "2>/dev/null || true").execute();
         }
     }
+
     void DesktopManager::tmoe_display_manager_systemctl(const std::string &dm_pkg, const std::string &dm_service) {
         while (true) {
             std::string menu = cfg_.tui_bin +
-                " --title \"" + _("gui.dm.menu_title") + "\" --menu \"" + _("gui.dm.menu_prompt") + "\" 0 50 0 "
-                "\"1\" \"" + _("gui.dm.opt_install") + "\" "
-                "\"2\" \"" + _("gui.dm.opt_start") + "\" "
-                "\"3\" \"" + _("gui.dm.opt_stop") + "\" "
-                "\"4\" \"" + _("gui.dm.opt_enable") + "\" "
-                "\"5\" \"" + _("gui.dm.opt_disable") + "\" "
-                "\"0\" \"" + _("gui.dm.opt_back") + "\"";
+                               " --title \"" + _("gui.dm.menu_title") + "\" --menu \"" + _("gui.dm.menu_prompt") +
+                               "\" 0 50 0 "
+                               "\"1\" \"" + _("gui.dm.opt_install") + "\" "
+                               "\"2\" \"" + _("gui.dm.opt_start") + "\" "
+                               "\"3\" \"" + _("gui.dm.opt_stop") + "\" "
+                               "\"4\" \"" + _("gui.dm.opt_enable") + "\" "
+                               "\"5\" \"" + _("gui.dm.opt_disable") + "\" "
+                               "\"0\" \"" + _("gui.dm.opt_back") + "\"";
             auto ch = Executor::tui_select(menu);
             if (ch == "0" || ch.empty()) return;
             if (ch == "1") Executor::passthrough(cfg_.install_command + " " + dm_pkg + " 2>/dev/null || true");
-            else if (ch == "2") Executor::passthrough("systemctl start " + dm_service + " 2>/dev/null || service " + dm_service + " restart 2>/dev/null || true");
-            else if (ch == "3") Executor::passthrough("systemctl stop " + dm_service + " 2>/dev/null || service " + dm_service + " stop 2>/dev/null || true");
-            else if (ch == "4") Executor::passthrough("systemctl enable " + dm_service + " 2>/dev/null || rc-update add " + dm_service + " 2>/dev/null || true");
-            else if (ch == "5") Executor::passthrough("systemctl disable " + dm_service + " 2>/dev/null || rc-update del " + dm_service + " 2>/dev/null || true");
+            else if (ch == "2") Executor::passthrough(
+                "systemctl start " + dm_service + " 2>/dev/null || service " + dm_service +
+                " restart 2>/dev/null || true");
+            else if (ch == "3") Executor::passthrough(
+                "systemctl stop " + dm_service + " 2>/dev/null || service " + dm_service + " stop 2>/dev/null || true");
+            else if (ch == "4") Executor::passthrough(
+                "systemctl enable " + dm_service + " 2>/dev/null || rc-update add " + dm_service +
+                " 2>/dev/null || true");
+            else if (ch == "5") Executor::passthrough(
+                "systemctl disable " + dm_service + " 2>/dev/null || rc-update del " + dm_service +
+                " 2>/dev/null || true");
             Logger::press_enter();
         }
     }
@@ -518,76 +541,102 @@ namespace tmoe::domain {
     std::string DesktopManager::generate_update_icon_caches_script() {
         return gui_config::UPDATE_ICON_CACHES_SCRIPT;
     }
+
     void DesktopManager::create_update_icon_caches() {
         SystemHelper::write_file("/usr/local/bin/update-icon-caches", generate_update_icon_caches_script());
         CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/update-icon-caches").execute();
     }
+
     void DesktopManager::check_update_icon_caches_sh() {
         if (!Executor::has("update-icon-caches")) create_update_icon_caches();
     }
+
     void DesktopManager::download_xubuntu_wallpaper(const std::string &code_name, const std::string &) {
         Logger::step(_f("gui.wallpaper.xubuntu", code_name));
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
-        CommandBuilder("mkdir").add_flag("-pv").add_arg(home + "/Pictures/xubuntu-community-artwork").add_raw("2>/dev/null").execute();
+        CommandBuilder("mkdir").add_flag("-pv").add_arg(home + "/Pictures/xubuntu-community-artwork").
+                add_raw("2>/dev/null").execute();
         std::string repo = "https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/x/xubuntu-community-artwork/";
         Executor::shell("cd " + home + "/Pictures/xubuntu-community-artwork && "
-            "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'xubuntu-community-wallpapers-" + code_name + "' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
-            "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o xubuntu-wp.deb '" + repo + "'\"$LATEST\" && "
-            "(ar xv xubuntu-wp.deb 2>/dev/null; tar -Jxvf data.tar.xz -C . 2>/dev/null) || true");
+                        "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'xubuntu-community-wallpapers-" + code_name
+                        + "' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
+                        "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o xubuntu-wp.deb '"
+                        + repo + "'\"$LATEST\" && "
+                        "(ar xv xubuntu-wp.deb 2>/dev/null; tar -Jxvf data.tar.xz -C . 2>/dev/null) || true");
     }
+
     void DesktopManager::download_mint_backgrounds(const std::string &mint_code) {
         Logger::step(_f("gui.wallpaper.mint", mint_code));
         std::string repo = "https://mirrors.bfsu.edu.cn/linuxmint/pool/main/m/mint-backgrounds-" + mint_code + "/";
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
-        CommandBuilder("mkdir").add_flag("-pv").add_arg(home + "/Pictures/mint-backgrounds").add_raw("2>/dev/null").execute();
+        CommandBuilder("mkdir").add_flag("-pv").add_arg(home + "/Pictures/mint-backgrounds").add_raw("2>/dev/null").
+                execute();
         Executor::shell("cd " + home + "/Pictures/mint-backgrounds && "
-            "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'mint-backgrounds' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
-            "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o mint-bg.deb '" + repo + "'\"$LATEST\" && "
-            "(ar xv mint-bg.deb 2>/dev/null; tar -Jxvf data.tar.xz -C . 2>/dev/null) || true");
+                        "LATEST=$(curl -L '" + repo +
+                        "' 2>/dev/null | grep 'mint-backgrounds' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
+                        "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o mint-bg.deb '"
+                        + repo + "'\"$LATEST\" && "
+                        "(ar xv mint-bg.deb 2>/dev/null; tar -Jxvf data.tar.xz -C . 2>/dev/null) || true");
     }
+
     void DesktopManager::download_kali_themes_common() {
         check_update_icon_caches_sh();
         std::string repo = "https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-themes/";
         std::string repo_02 = "http://http.kali.org/kali/pool/main/k/kali-themes/";
         Executor::shell("cd /tmp && "
-            "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'kali-themes-common' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
-            "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o kali-themes.deb '" + repo + "'\"$LATEST\" 2>/dev/null || "
-            "curl -L -o kali-themes.deb '" + repo_02 + "'\"$LATEST\" 2>/dev/null; "
-            "[ -f kali-themes.deb ] && (ar xv kali-themes.deb && tar -Jxvf data.tar.xz -C / 2>/dev/null) || true");
-        Executor::shell("update-icon-caches /usr/share/icons/Flat-Remix-Blue-Dark /usr/share/icons/Flat-Remix-Blue-Light /usr/share/icons/desktop-base 2>/dev/null &");
+                        "LATEST=$(curl -L '" + repo +
+                        "' 2>/dev/null | grep 'kali-themes-common' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
+                        "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o kali-themes.deb '"
+                        + repo + "'\"$LATEST\" 2>/dev/null || "
+                        "curl -L -o kali-themes.deb '" + repo_02 + "'\"$LATEST\" 2>/dev/null; "
+                        "[ -f kali-themes.deb ] && (ar xv kali-themes.deb && tar -Jxvf data.tar.xz -C / 2>/dev/null) || true");
+        Executor::shell(
+            "update-icon-caches /usr/share/icons/Flat-Remix-Blue-Dark /usr/share/icons/Flat-Remix-Blue-Light /usr/share/icons/desktop-base 2>/dev/null &");
     }
+
     void DesktopManager::download_kali_theme() {
         if (!fs::exists("/usr/share/desktop-base/kali-theme")) download_kali_themes_common();
-        else { Logger::info(_("gui.kali.themes_downloaded")); download_kali_themes_common(); }
+        else {
+            Logger::info(_("gui.kali.themes_downloaded"));
+            download_kali_themes_common();
+        }
         set_default_xfce_icon_theme("Flat-Remix-Blue-Light");
     }
+
     void DesktopManager::download_papirus_icon_theme() {
         Logger::step(_("gui.papirus.install"));
         std::string repo = "https://mirrors.bfsu.edu.cn/debian/pool/main/p/papirus-icon-theme/";
         Executor::shell("cd /tmp && "
-            "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'papirus-icon-theme' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
-            "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o papirus.deb '" + repo + "'\"$LATEST\" && "
-            "ar xv papirus.deb && tar -Jxvf data.tar.xz -C / 2>/dev/null && "
-            "update-icon-caches /usr/share/icons/Papirus /usr/share/icons/Papirus-Dark /usr/share/icons/Papirus-Light /usr/share/icons/ePapirus 2>/dev/null &");
+                        "LATEST=$(curl -L '" + repo +
+                        "' 2>/dev/null | grep 'papirus-icon-theme' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
+                        "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o papirus.deb '"
+                        + repo + "'\"$LATEST\" && "
+                        "ar xv papirus.deb && tar -Jxvf data.tar.xz -C / 2>/dev/null && "
+                        "update-icon-caches /usr/share/icons/Papirus /usr/share/icons/Papirus-Dark /usr/share/icons/Papirus-Light /usr/share/icons/ePapirus 2>/dev/null &");
         set_default_xfce_icon_theme("Papirus");
     }
 
     void DesktopManager::install_moka_theme_ext() {
         Executor::passthrough(cfg_.install_command + " moka-icon-theme 2>/dev/null || true");
     }
+
     void DesktopManager::install_numix_theme_ext() {
         Executor::passthrough(cfg_.install_command + " numix-gtk-theme 2>/dev/null || true");
         auto family = resolved_family();
-        std::string circle_pkg = (family == DistroFamily::Arch) ? "numix-circle-icon-theme-git" : "numix-icon-theme-circle";
+        std::string circle_pkg = (family == DistroFamily::Arch)
+                                     ? "numix-circle-icon-theme-git"
+                                     : "numix-icon-theme-circle";
         Executor::passthrough(cfg_.install_command + " " + circle_pkg + " 2>/dev/null || true");
     }
 
     void DesktopManager::download_ubuntu_mate_wallpaper() {
         Logger::step(_("gui.wallpaper.ubuntu_mate"));
         std::string repo = "https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/u/ubuntu-mate-artwork/";
-        Executor::shell("cd /tmp && LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'ubuntu-mate-wallpapers-photos' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
-            "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o umate.deb '" + repo + "'\"$LATEST\" && "
+        Executor::shell(
+            "cd /tmp && LATEST=$(curl -L '" + repo +
+            "' 2>/dev/null | grep 'ubuntu-mate-wallpapers-photos' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
+            "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o umate.deb '" +
+            repo + "'\"$LATEST\" && "
             "(ar xv umate.deb 2>/dev/null; tar -Jxvf data.tar.xz -C / 2>/dev/null) || true");
     }
-
 } // namespace tmoe::domain

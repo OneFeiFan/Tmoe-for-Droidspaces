@@ -10,6 +10,7 @@
 #include "vnc_manager.h"
 #include "desktop_manager.h"
 #include "remote_desktop_manager.h"
+#include "beautification_manager.h"
 #include <string>
 #include <vector>
 #include <map>
@@ -50,25 +51,6 @@ namespace tmoe::domain {
         // 桌面美化
         // ═══════════════════════════════════════════════
 
-        bool beautify_desktop();
-
-        bool install_theme(std::string_view theme);
-
-        bool install_icon_theme(std::string_view theme);
-
-        bool set_wallpaper(std::string_view path);
-
-        bool download_wallpaper(std::string_view source);
-
-        bool install_dock();
-
-        bool install_conky();
-
-        bool install_compiz();
-
-        bool install_cursor_theme(std::string_view theme);
-
-        bool deploy_xfce_panel_config();
 
         // ═══════════════════════════════════════════════
         // PulseAudio 音频桥接
@@ -100,7 +82,6 @@ namespace tmoe::domain {
 
         void run_remote_desktop_menu();
 
-        void run_beautification_menu();
 
         // ═══════════════════════════════════════════════
         // 一键自动安装 GUI
@@ -126,6 +107,7 @@ namespace tmoe::domain {
         DesktopManager &desktop_manager() { return desktop_manager_; }
         const DesktopManager &desktop_manager() const { return desktop_manager_; }
         RemoteDesktopManager &remote_desktop_manager() { return remote_desktop_manager_; }
+        BeautificationManager beautification_manager_;
         const RemoteDesktopManager &remote_desktop_manager() const { return remote_desktop_manager_; }
 
     private:
@@ -145,7 +127,6 @@ namespace tmoe::domain {
         // 配置内容生成
         // ═══════════════════════════════════════════════
 
-        std::string generate_xfce_panel_xml();
 
         // ═══════════════════════════════════════════════
         // 桌面安装辅助 (仍在 GUIManager)
@@ -173,31 +154,11 @@ namespace tmoe::domain {
         // 主题管理子步骤
         // ═══════════════════════════════════════════════
 
-        void configure_theme_menu();
-
-        void xfce_theme_parsing();
-
-        void local_theme_installer();
-
-        void check_theme_url(std::string &url);
-
-        void tmoe_theme_installer(const std::string &file_path, bool is_icon);
 
         // ═══════════════════════════════════════════════
         // 图标主题下载菜单与单项下载
         // ═══════════════════════════════════════════════
 
-        void download_icon_themes_menu();
-
-        void download_win10x_theme();
-
-        void download_candy_icon_theme();
-
-        void download_paper_icon_theme();
-
-        void download_raspbian_pixel_icon_theme();
-
-        void download_uos_icon_theme();
 
         // ═══════════════════════════════════════════════
         // WSL 组件下载 / 预览
@@ -205,47 +166,13 @@ namespace tmoe::domain {
 
         void download_wsl_components();
 
-        void catimg_preview_lxde_mate_xfce();
 
         // ═══════════════════════════════════════════════
         // 壁纸设置辅助
         // ═══════════════════════════════════════════════
 
-        void download_wallpapers_menu();
 
-        void ubuntu_wallpapers_and_photos_menu();
 
-        void ubuntu_gnome_wallpapers_menu();
-
-        void xubuntu_wallpapers_menu();
-
-        void linux_mint_backgrounds_menu();
-
-        void download_ubuntu_wallpaper(const std::string &ubuntu_code);
-
-        void download_deepin_wallpaper();
-
-        void download_elementary_wallpaper();
-
-        void download_manjaro_wallpaper();
-
-        void download_debian_gnome_wallpaper();
-
-        void download_arch_wallpaper();
-
-        void download_arch_xfce_artwork();
-
-        void download_raspbian_pixel_wallpaper();
-
-        void download_ubuntu_kylin_wallpaper();
-
-        void link_to_debian_wallpaper();
-
-        void download_manjaro_pkg(const std::string &theme_name,
-                                  const std::string &url,
-                                  const std::string &url_02,
-                                  const std::string & /*wallpaper_name*/,
-                                  const std::string & /*custom_name*/);
 
         // ═══════════════════════════════════════════════
         // 其他辅助
@@ -253,15 +180,11 @@ namespace tmoe::domain {
 
         void ensure_tmoe_symlink();
 
-        void configure_mouse_cursor();
-
-        void download_chameleon_cursor_theme();
 
         void check_zstd();
 
         void random_neko();
 
-        void download_and_cat_icon_img(const std::string &url, const std::string &filename);
 
         void check_tmoe_linux_desktop_link();
 
