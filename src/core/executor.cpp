@@ -482,7 +482,8 @@ namespace tmoe {
 
         std::vector<char*> exec_args;
         exec_args.push_back(const_cast<char*>("sudo"));
-        exec_args.push_back(const_cast<char*>("-E")); // 保留环境变量
+        // 不用 -E：保留 $HOME 会导致 root 进程在用户 home 目录创建 root 归属文件
+        // sudo 默认设 HOME=/root，$SUDO_USER 保留原始用户名，需要用户路径时用 getent 反查
 
         for (int i = 0; i < argc; ++i) {
             exec_args.push_back(argv[i]);
