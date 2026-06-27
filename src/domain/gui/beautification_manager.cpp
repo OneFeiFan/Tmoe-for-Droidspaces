@@ -9,8 +9,6 @@
 #include "core/command_builder.hpp"
 #include <filesystem>
 #include <regex>
-#include <sstream>
-#include <cstdlib>
 #include <cstring>
 
 namespace fs = std::filesystem;
@@ -22,116 +20,6 @@ namespace tmoe::domain {
             if (f == DistroFamily::Unknown)
                 f = PackageManager::detect_distro_family();
             return f;
-        }
-
-        // ═══════════════════════════════════════════════════════════════
-        // 原生 C++ 下载/解压 helpers — 消除 bash 管道，保障权限安全
-        // ═══════════════════════════════════════════════════════════════
-
-        /// 用 curl/wget 下载 URL，返回内容字符串（缓存到 /tmp）
-        std::string http_get_cached(const std::string &url, const std::string &cache_name) {
-            fs::path cache_path = fs::path("/tmp") / cache_name;
-            // 用单条命令下载（无管道），curl 优先 → wget 回退
-            std::string dl_cmd = CommandBuilder("curl").add_arg("-sL").add_arg(url)
-                    .add_arg("-o").add_arg(cache_path.string()).build_string()
-                    + " 2>/dev/null || " +
-                    CommandBuilder("wget").add_arg("-qO").add_arg(cache_path.string()).add_arg(url)
-                    .build_string() + " 2>/dev/null || true";
-            Executor::passthrough(dl_cmd);
-            return SystemHelper::read_file(cache_path);
-        }
-
-        /// 从 HTML 索引页中查找匹配正则的最新包文件名
-        std::string find_latest_href(const std::string &html, const std::string &pkg_pattern) {
-            std::regex href_re(R"re(<a\s+[^>]*href\s*=\s*"([^"]*)"[^>]*>)re", std::regex::icase);
-            std::regex pkg_re(pkg_pattern);
-            std::string best;
-            auto begin = std::sregex_iterator(html.begin(), html.end(), href_re);
-            auto end = std::sregex_iterator();
-            for (auto it = begin; it != end; ++it) {
-                std::string href = (*it)[1].str();
-                if (std::regex_search(href, pkg_re)) {
-                    best = href;  // 最后匹配的通常是最高版本
-                }
-            }
-            return best;
-        }
-
-        /// 下载单个文件（curl/wget/aria2c 回退链），成功返 true
-        bool download_file(const std::string &url, const std::string &dest_path) {
-            std::string cmd =
-                "(curl -sL '" + url + "' -o '" + dest_path + "' 2>/dev/null || "
-                "wget -qO '" + dest_path + "' '" + url + "' 2>/dev/null || "
-                "aria2c -q --no-conf --allow-overwrite=true -o '" + dest_path + "' '" + url + "' 2>/dev/null)";
-            return Executor::passthrough(cmd).ok() && fs::exists(dest_path);
-        }
-
-        /// 解压归档到目标目录（tar 保留原始权限）
-        void extract_archive(const std::string &archive_path, const std::string &dest = "/") {
-            // tar 自动检测格式并保留权限；.deb 需先用 ar 提取 data.tar.xz
-            std::string cmd =
-                "cd '" + dest + "' && (tar -xf '" + archive_path + "' 2>/dev/null || "
-                "(ar x '" + archive_path + "' data.tar.xz 2>/dev/null && "
-                "tar -Jxf data.tar.xz 2>/dev/null && rm -f data.tar.xz) || "
-                "unzip -qo '" + archive_path + "' -d '" + dest + "' 2>/dev/null || true)";
-            Executor::passthrough(cmd);
-        }
-
-        /// 通用方法：从仓库索引下载最新包并解压
-        /// @param repo_url   镜像仓库 URL (e.g. "https://mirrors.../deepin-wallpapers/")
-        /// @param pkg_pattern 包名正则 (e.g. "deepin-community-wallpapers.*all\\.deb")
-        /// @param tmp_prefix  临时文件名前缀 (e.g. "deepin_wp")
-        /// @param extract_to  解压目标目录，默认 /
-        /// @return true 如果成功下载并解压
-        bool fetch_latest_and_extract(const std::string &repo_url,
-                                       const std::string &pkg_pattern,
-                                       const std::string &tmp_prefix,
-                                       const std::string &extract_to = "/") {
-            // 1. 下载 HTML 索引
-            std::string html = http_get_cached(repo_url, "." + tmp_prefix + "_index.html");
-            if (html.empty()) return false;
-
-            // 2. 正则解析最新包名
-            std::string pkg_name = find_latest_href(html, pkg_pattern);
-            if (pkg_name.empty()) return false;
-
-            // 3. 下载包文件
-            std::string pkg_url = repo_url + pkg_name;
-            std::string pkg_path = "/tmp/." + tmp_prefix + "_pkg";
-            if (!download_file(pkg_url, pkg_path)) return false;
-
-            // 4. 解压（tar 保留包内原始权限）
-            extract_archive(pkg_path, extract_to);
-
-            // 5. 清理临时文件
-            std::error_code ec;
-            fs::remove(pkg_path, ec);
-            fs::remove("/tmp/." + tmp_prefix + "_index.html", ec);
-            fs::remove("/tmp/data.tar.xz", ec);
-            return true;
-        }
-
-        /// git clone 浅克隆 + tar 解压到目标目录
-        bool git_clone_and_extract(const std::string &git_url,
-                                    const std::string &branch,
-                                    const std::string &archive_name,
-                                    const std::string &tmp_dir,
-                                    const std::string &extract_to) {
-            std::error_code ec;
-            fs::remove_all(tmp_dir, ec);
-            fs::create_directories(tmp_dir, ec);
-            std::string cmd = "cd '" + tmp_dir + "' && "
-                "git clone -b '" + branch + "' --depth=1 '" + git_url + "' repo 2>/dev/null && "
-                "tar -Jxf repo/" + archive_name + " -C '" + extract_to + "' 2>/dev/null";
-            bool ok = Executor::passthrough(cmd).ok();
-            fs::remove_all(tmp_dir, ec);
-            return ok;
-        }
-
-        /// 获取 HOME 目录
-        std::string user_home() {
-            const char *h = std::getenv("HOME");
-            return h ? std::string(h) : "/root";
         }
     } // anonymous namespace
 
@@ -235,7 +123,7 @@ namespace tmoe::domain {
         if (!fs::exists(colorscheme_dir + "/Monokai Remastered.theme")) {
             fs::create_directories(colorscheme_dir);
             std::string tmp_arc = "/tmp/.tmoe_colorschemes.tar.xz";
-            download_file("https://gitee.com/mo2/xfce-themes/raw/terminal/colorschemes.tar.xz", tmp_arc);
+            SystemHelper::download_file("https://gitee.com/mo2/xfce-themes/raw/terminal/colorschemes.tar.xz", tmp_arc);
             if (fs::exists(tmp_arc)) {
                 // tar -Jxf 保留原始权限
                 Executor::passthrough("cd '" + colorscheme_dir + "' && tar -Jxf '" + tmp_arc + "' 2>/dev/null || true");
@@ -245,7 +133,7 @@ namespace tmoe::domain {
         }
 
         // 2. 创建 ~/.config/xfce4/terminal/terminalrc（使用统一模板）
-        std::string home = user_home();
+        std::string home = SystemHelper::user_home();
         fs::path terminal_dir = fs::path(home) / ".config" / "xfce4" / "terminal";
         fs::path terminalrc = terminal_dir / "terminalrc";
 
@@ -287,7 +175,7 @@ namespace tmoe::domain {
             return false;
         }
 
-        std::string home = user_home();
+        std::string home = SystemHelper::user_home();
         std::string autostart_dir = home + "/.config/autostart";
         fs::create_directories(autostart_dir);
         SystemHelper::write_file(fs::path(autostart_dir + "/plank.desktop"),
@@ -302,9 +190,13 @@ namespace tmoe::domain {
             std::error_code ec;
             fs::remove_all(tmp_clone, ec);
             // git clone 保留仓库原始文件权限
-            Executor::passthrough("cd /tmp && (git clone --depth=1 https://github.com/TaylanTatli/Anti-Snap.git "
-                + tmp_clone + " 2>/dev/null || git clone --depth=1 git://github.com/TaylanTatli/Anti-Snap.git "
-                + tmp_clone + " 2>/dev/null || true)");
+            auto clone1 = CommandBuilder("git").add_arg("clone").add_flag("--depth=1")
+                .add_arg("https://github.com/TaylanTatli/Anti-Snap.git").add_arg(tmp_clone)
+                .add_raw("2>/dev/null").build_string();
+            auto clone2 = CommandBuilder("git").add_arg("clone").add_flag("--depth=1")
+                .add_arg("git://github.com/TaylanTatli/Anti-Snap.git").add_arg(tmp_clone)
+                .add_raw("2>/dev/null").build_string();
+            Executor::passthrough("cd /tmp && (" + clone1 + " || " + clone2 + " || true)");
             if (fs::exists(tmp_clone)) {
                 try {
                     fs::copy(tmp_clone, themes_dir + "/anti-snap",
@@ -359,7 +251,7 @@ namespace tmoe::domain {
         }
 
         if (!url.empty()) {
-            download_file(url, wallpaper_dir + "/" + filename);
+            SystemHelper::download_file(url, wallpaper_dir + "/" + filename);
             set_wallpaper(wallpaper_dir + "/" + filename);
         }
 
@@ -374,7 +266,7 @@ namespace tmoe::domain {
             return false;
         }
 
-        std::string home = user_home();
+        std::string home = SystemHelper::user_home();
         std::string conky_dir = home + "/.config/conky";
         fs::create_directories(conky_dir);
 
@@ -417,16 +309,22 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
     }
 
     void BeautificationManager::configure_conky() {
-        std::string home = user_home();
+        std::string home = SystemHelper::user_home();
         if (fs::exists(home + "/github/Harmattan")) {
             Logger::info(std::string(_("gui.conky.harmattan_already_exists")) + home + "/github/Harmattan");
             Logger::info(_("gui.conky.harmattan_preview_hint"));
             return;
         }
         fs::create_directories(home + "/github");
-        Executor::passthrough("cd '" + home + "/github' && "
-            "(git clone --depth=1 https://github.com/zagortenay333/Harmattan.git 2>/dev/null || "
-            "git clone --depth=1 git://github.com/zagortenay333/Harmattan.git 2>/dev/null || true)");
+        auto clone_cmd = CommandBuilder("git")
+            .add_arg("clone").add_flag("--depth=1")
+            .add_arg("https://github.com/zagortenay333/Harmattan.git")
+            .add_raw("2>/dev/null").build_string();
+        auto clone_git_cmd = CommandBuilder("git")
+            .add_arg("clone").add_flag("--depth=1")
+            .add_arg("git://github.com/zagortenay333/Harmattan.git")
+            .add_raw("2>/dev/null").build_string();
+        Executor::passthrough("cd '" + home + "/github' && (" + clone_cmd + " || " + clone_git_cmd + " || true)");
         if (fs::exists(home + "/github/Harmattan")) {
             Logger::info(std::string(_("gui.conky.harmattan_downloaded")) + home + "/github/Harmattan");
             Logger::info(_("gui.conky.harmattan_preview_hint"));
@@ -467,7 +365,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
 
     bool BeautificationManager::deploy_xfce_panel_config() {
         Logger::step(_("gui.xfce_panel.deploy_step"));
-        std::string home = user_home();
+        std::string home = SystemHelper::user_home();
         fs::path panel_dir = fs::path(home) / ".config" / "xfce4" / "xfconf" / "xfce-perchannel-xml";
         fs::path panel_file = panel_dir / "xfce4-panel.xml";
 
@@ -523,7 +421,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
                 PackageManager::install({"ukui-themes", "ukui-greeter"}, get_family(cfg_));
                 if (!fs::exists("/usr/share/icons/ukui-icon-theme-default") &&
                     !fs::exists("/usr/share/icons/ukui-icon-theme")) {
-                    fetch_latest_and_extract(
+                    SystemHelper::fetch_latest_and_extract(
                         "https://mirrors.bfsu.edu.cn/debian/pool/main/u/ukui-themes/",
                         "ukui-themes.*all\\.deb", "ukui_themes");
                     Executor::shell(
@@ -552,7 +450,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
         Logger::info(_("gui.theme.parsing_page"));
 
         // 下载 HTML 页面
-        std::string html = http_get_cached(url, ".theme_index_cache_tmoe.html");
+        std::string html = SystemHelper::http_get_cached(url, ".theme_index_cache_tmoe.html");
         if (html.empty()) {
             Logger::info(_("gui.theme.no_themes_found"));
             return;
@@ -651,7 +549,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
         }
         Logger::step(_("gui.icon.win10x_download_step"));
         // git clone + tar 解压，tar 保留包内权限
-        git_clone_and_extract("https://gitee.com/mo2/xfce-themes.git", "win10x",
+        SystemHelper::git_clone_and_extract("https://gitee.com/mo2/xfce-themes.git", "win10x",
                               "We10X.tar.xz", "/tmp/.WINDOWS_11_ICON_THEME", "/usr/share/icons");
         Executor::shell("update-icon-caches /usr/share/icons/We10X-Valley-dark /usr/share/icons/We10X-Valley 2>/dev/null &");
         desktop_manager_.set_default_xfce_icon_theme("We10X-Valley");
@@ -665,8 +563,8 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
         Logger::step(_("gui.icon.candy_download_step"));
         std::string tmp_zip = "/tmp/.candy_icons.zip";
         // 双源下载
-        if (!download_file("https://github.com/EliverLara/candy-icons/archive/refs/heads/master.zip", tmp_zip))
-            download_file("https://ghproxy.com/https://github.com/EliverLara/candy-icons/archive/refs/heads/master.zip", tmp_zip);
+        if (!SystemHelper::download_file("https://github.com/EliverLara/candy-icons/archive/refs/heads/master.zip", tmp_zip))
+            SystemHelper::download_file("https://ghproxy.com/https://github.com/EliverLara/candy-icons/archive/refs/heads/master.zip", tmp_zip);
         if (fs::exists(tmp_zip)) {
             // unzip + mv，unzip 保留 zip 内权限
             Executor::passthrough("cd /tmp && unzip -qo '" + tmp_zip + "' 2>/dev/null && "
@@ -685,7 +583,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
             return;
         }
         Logger::step(_("gui.icon.uos_download_step"));
-        git_clone_and_extract("https://gitee.com/mo2/xfce-themes.git", "Uos",
+        SystemHelper::git_clone_and_extract("https://gitee.com/mo2/xfce-themes.git", "Uos",
                               "Uos.tar.xz", "/tmp/UosICONS", "/usr/share/icons");
         Executor::shell("update-icon-caches /usr/share/icons/Uos 2>/dev/null &");
         desktop_manager_.set_default_xfce_icon_theme("Uos");
@@ -693,7 +591,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
 
     void BeautificationManager::download_paper_icon_theme() {
         Logger::step(_("gui.icon.paper_download_step"));
-        if (fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/manjaro/pool/overlay/",
+        if (SystemHelper::fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/manjaro/pool/overlay/",
                                      "paper-icon-theme.*pkg\\.tar", "paper_icons")) {
             Executor::shell("update-icon-caches /usr/share/icons/Paper /usr/share/icons/Paper-Mono-Dark 2>/dev/null &");
         }
@@ -702,7 +600,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
 
     void BeautificationManager::download_raspbian_pixel_assets() {
         Logger::step(_("gui.pixel.download_step"));
-        fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/raspberrypi/pool/ui/p/pixel-wallpaper/",
+        SystemHelper::fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/raspberrypi/pool/ui/p/pixel-wallpaper/",
                                  "pixel-wallpaper.*all\\.deb", "pixel_wp");
         desktop_manager_.check_update_icon_caches_sh();
         if (fs::exists("/usr/share/icons/PiX"))
@@ -710,11 +608,12 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
         if (fs::exists("/usr/share/icons/raspberrypi"))
             Executor::shell("update-icon-caches /usr/share/icons/raspberrypi 2>/dev/null &");
 
-        std::string home = user_home();
+        std::string home = SystemHelper::user_home();
         if (fs::exists("/usr/share/backgrounds/pixel")) {
             fs::create_directories(home + "/Pictures");
-            Executor::shell("ln -sf /usr/share/backgrounds/pixel " + home +
-                            "/Pictures/raspberrypi-pixel-wallpapers 2>/dev/null || true");
+            std::error_code ec;
+            fs::create_symlink("/usr/share/backgrounds/pixel",
+                               home + "/Pictures/raspberrypi-pixel-wallpapers", ec);
             Logger::info(_("gui.pixel.wallpaper_linked"));
         }
         Logger::ok(_("gui.pixel.download_done"));
@@ -846,22 +745,22 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
     void BeautificationManager::download_deepin_wallpaper() {
         Logger::step(_("gui.wallpaper.deepin_download"));
         // 尝试两个包名模式
-        if (!fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/deepin/pool/main/d/deepin-wallpapers/",
+        if (!SystemHelper::fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/deepin/pool/main/d/deepin-wallpapers/",
                                       "deepin-community-wallpapers.*all\\.deb", "deepin_wp"))
-            fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/deepin/pool/main/d/deepin-wallpapers/",
+            SystemHelper::fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/deepin/pool/main/d/deepin-wallpapers/",
                                      "deepin-wallpapers_.*all\\.deb", "deepin_wp2");
     }
 
     void BeautificationManager::download_elementary_wallpaper() {
         Logger::step(_("gui.wallpaper.elementary_download"));
-        fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/archlinux/pool/community/",
+        SystemHelper::fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/archlinux/pool/community/",
                                  "elementary-wallpapers.*pkg\\.tar", "elementary_wp");
     }
 
     void BeautificationManager::download_arch_wallpaper() {
         link_to_debian_wallpaper();
         Logger::step(_("gui.wallpaper.arch_download"));
-        fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/archlinux/pool/community/",
+        SystemHelper::fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/archlinux/pool/community/",
                                  "archlinux-wallpaper.*pkg\\.tar", "arch_wp");
     }
 
@@ -870,47 +769,47 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
         // Manjaro 壁纸是固定名称的 pkg.tar.xz，直接下载
         std::string tmp1 = "/tmp/.manjaro_wp2018.tar.xz";
         std::string tmp2 = "/tmp/.manjaro_wp2017.tar.xz";
-        download_file("https://mirrors.bfsu.edu.cn/manjaro/pool/overlay/wallpapers-2018-1.2-1-any.pkg.tar.xz", tmp1);
-        if (fs::exists(tmp1)) { extract_archive(tmp1); std::error_code ec; fs::remove(tmp1, ec); }
-        download_file("https://mirrors.bfsu.edu.cn/manjaro/pool/overlay/manjaro-sx-wallpapers-20171023-1-any.pkg.tar.xz", tmp2);
-        if (fs::exists(tmp2)) { extract_archive(tmp2); std::error_code ec; fs::remove(tmp2, ec); }
+        SystemHelper::download_file("https://mirrors.bfsu.edu.cn/manjaro/pool/overlay/wallpapers-2018-1.2-1-any.pkg.tar.xz", tmp1);
+        if (fs::exists(tmp1)) { SystemHelper::extract_archive(tmp1); std::error_code ec; fs::remove(tmp1, ec); }
+        SystemHelper::download_file("https://mirrors.bfsu.edu.cn/manjaro/pool/overlay/manjaro-sx-wallpapers-20171023-1-any.pkg.tar.xz", tmp2);
+        if (fs::exists(tmp2)) { SystemHelper::extract_archive(tmp2); std::error_code ec; fs::remove(tmp2, ec); }
     }
 
     void BeautificationManager::download_arch_xfce_artwork() {
         Logger::step(_("gui.wallpaper.arch_xfce_artwork"));
-        fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/archlinux/extra/os/x86_64/",
+        SystemHelper::fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/archlinux/extra/os/x86_64/",
                                  "xfce4-artwork.*pkg\\.tar", "xfce_art");
     }
 
     void BeautificationManager::download_debian_gnome_wallpaper() {
         Logger::step(_("gui.wallpaper.debian_gnome_download"));
-        fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/debian/pool/main/g/gnome-backgrounds/",
+        SystemHelper::fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/debian/pool/main/g/gnome-backgrounds/",
                                  "gnome-backgrounds.*all\\.deb", "gnome_bg");
     }
 
     void BeautificationManager::download_ubuntu_kylin_wallpaper() {
         Logger::step(_("gui.wallpaper.ubuntu_kylin_download"));
-        fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/u/ubuntukylin-wallpapers/",
+        SystemHelper::fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/u/ubuntukylin-wallpapers/",
                                  "ubuntukylin-wallpapers_.*\\.tar\\.xz", "ukylin_wp");
     }
 
     void BeautificationManager::download_ubuntu_wallpaper(const std::string &ubuntu_code) {
         Logger::step(std::string(_("gui.wallpaper.ubuntu_download")) + ubuntu_code);
-        std::string home = user_home();
+        std::string home = SystemHelper::user_home();
         fs::path wp_dir = fs::path(home) / "Pictures" / "ubuntu-wallpapers";
         fs::create_directories(wp_dir);
 
         std::string repo = "https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/u/ubuntu-wallpapers/";
         std::string pattern = "ubuntu-wallpapers-" + ubuntu_code + ".*all\\.deb";
-        std::string html = http_get_cached(repo, ".ubuntu_wp_index.html");
+        std::string html = SystemHelper::http_get_cached(repo, ".ubuntu_wp_index.html");
         if (html.empty()) return;
 
-        std::string pkg_name = find_latest_href(html, pattern);
+        std::string pkg_name = SystemHelper::find_latest_href(html, pattern);
         if (pkg_name.empty()) return;
 
         std::string pkg_path = wp_dir.string() + "/ubuntu-wallpaper.deb";
-        if (download_file(repo + pkg_name, pkg_path)) {
-            extract_archive(pkg_path, wp_dir.string());
+        if (SystemHelper::download_file(repo + pkg_name, pkg_path)) {
+            SystemHelper::extract_archive(pkg_path, wp_dir.string());
             std::error_code ec;
             fs::remove(pkg_path, ec);
             fs::remove(wp_dir.string() + "/data.tar.xz", ec);
@@ -918,13 +817,14 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
     }
 
     void BeautificationManager::link_to_debian_wallpaper() {
-        std::string home = user_home();
+        std::string home = SystemHelper::user_home();
         fs::create_directories(home + "/Pictures");
+        std::error_code ec;
         if (fs::exists("/usr/share/backgrounds/kali/"))
-            Executor::shell("ln -sf /usr/share/backgrounds/kali/ " + home + "/Pictures/kali 2>/dev/null || true");
+            fs::create_symlink("/usr/share/backgrounds/kali/", home + "/Pictures/kali", ec);
         if (fs::exists("/usr/share/desktop-base/moonlight-theme/wallpaper/contents/images/"))
-            Executor::shell("ln -sf /usr/share/desktop-base/moonlight-theme/wallpaper/contents/images/ " +
-                            home + "/Pictures/debian-moonlight 2>/dev/null || true");
+            fs::create_symlink("/usr/share/desktop-base/moonlight-theme/wallpaper/contents/images/",
+                               home + "/Pictures/debian-moonlight", ec);
     }
 
     void BeautificationManager::check_theme_url(std::string &url) {
@@ -971,12 +871,12 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
 
                 Logger::step(std::string(_("gui.cursor.install_step")) + name);
                 std::string pattern = std::string(name) + ".*all\\.deb";
-                if (!fetch_latest_and_extract(repo, pattern, std::string(name) + "_dl")) {
+                if (!SystemHelper::fetch_latest_and_extract(repo, pattern, std::string(name) + "_dl")) {
                     // bfsu 回退到 debian 官方源
                     std::string fallback = repo;
                     size_t p = fallback.find("mirrors.bfsu.edu.cn");
                     if (p != std::string::npos) fallback.replace(p, 21, "ftp.debian.org");
-                    fetch_latest_and_extract(fallback, pattern, std::string(name) + "_dl_fb");
+                    SystemHelper::fetch_latest_and_extract(fallback, pattern, std::string(name) + "_dl_fb");
                 }
                 Logger::ok(_("gui.cursor.install_done"));
             } else if (ch == "5") {
@@ -1001,7 +901,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
             {"moblin-cursor-theme",    "https://mirrors.bfsu.edu.cn/debian/pool/main/m/moblin-cursor-theme/"},
         };
         for (const auto &c : cursors) {
-            fetch_latest_and_extract(c.second,
+            SystemHelper::fetch_latest_and_extract(c.second,
                 std::string(c.first) + ".*all\\.deb",
                 std::string(c.first) + "_dl");
         }
@@ -1053,7 +953,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
     void BeautificationManager::download_and_cat_icon_img(const std::string &url, const std::string &filename) {
         std::string path = "/tmp/" + filename;
         if (!fs::exists(path))
-            download_file(url, path);
+            SystemHelper::download_file(url, path);
         if (Executor::has("catimg") && fs::exists(path))
             Executor::passthrough(CommandBuilder("catimg").add_arg(path).build_string() + " 2>/dev/null || true");
     }
@@ -1093,10 +993,10 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
                                                      const std::string & /*custom_name*/) {
         // 下载 pkg.tar.xz 到 /tmp，解压到 /
         std::string tmp = "/tmp/." + theme_name + "_pkg.tar.xz";
-        if (!download_file(url, tmp))
-            download_file(url_02, tmp);
+        if (!SystemHelper::download_file(url, tmp))
+            SystemHelper::download_file(url_02, tmp);
         if (fs::exists(tmp)) {
-            extract_archive(tmp);
+            SystemHelper::extract_archive(tmp);
             std::error_code ec;
             fs::remove(tmp, ec);
         }

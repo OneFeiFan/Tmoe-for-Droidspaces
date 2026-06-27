@@ -1,6 +1,7 @@
 #include "desktop_manager.h"
 #include "domain/desktops/desktop_factory.h"
 #include "domain/desktops/desktop_utils.h"
+#include "core/system_helper.h"
 #include <sstream>
 
 namespace tmoe::domain {
@@ -370,7 +371,7 @@ namespace tmoe::domain {
         }
 
         // 配置环境变量
-        std::string home = std::getenv("HOME") ? std::string(std::getenv("HOME")) : "/root";
+        std::string home = SystemHelper::user_home();
         std::string bashrc = home + "/.bashrc";
         std::string env_block =
                 "\n# tmoe fcitx (已自动配置)\n"
@@ -498,7 +499,7 @@ namespace tmoe::domain {
     void DesktopManager::set_default_xfce_icon_theme(const std::string &icon_name) {
         Executor::shell(
             "dbus-launch xfconf-query -c xsettings -np /Net/IconThemeName -s " + icon_name + " 2>/dev/null || true");
-        std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
+        std::string home = SystemHelper::user_home();
         if (home != "/root") {
             // sudo 环境下 id -un 返回 root，优先用 $SUDO_USER 获取实际用户
             const char *sudo_user = std::getenv("SUDO_USER");
@@ -513,7 +514,7 @@ namespace tmoe::domain {
         Executor::shell(
             "dbus-launch xfconf-query -c xsettings -t string -np /Gtk/CursorThemeName -s " +
             cursor_name + " 2>/dev/null || true");
-        std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
+        std::string home = SystemHelper::user_home();
         if (home != "/root") {
             const char *sudo_user = std::getenv("SUDO_USER");
             std::string user = sudo_user ? sudo_user : Executor::shell("id -un").stdout_data;
@@ -567,43 +568,33 @@ namespace tmoe::domain {
 
     void DesktopManager::download_xubuntu_wallpaper(const std::string &code_name, const std::string &) {
         Logger::step(_f("gui.wallpaper.xubuntu", code_name));
-        std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
-        CommandBuilder("mkdir").add_flag("-pv").add_arg(home + "/Pictures/xubuntu-community-artwork").
-                add_raw("2>/dev/null").execute();
-        std::string repo = "https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/x/xubuntu-community-artwork/";
-        Executor::shell("cd " + home + "/Pictures/xubuntu-community-artwork && "
-                        "LATEST=$(curl -L '" + repo + "' 2>/dev/null | grep 'xubuntu-community-wallpapers-" + code_name
-                        + "' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
-                        "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o xubuntu-wp.deb '"
-                        + repo + "'\"$LATEST\" && "
-                        "(ar xv xubuntu-wp.deb 2>/dev/null; tar -Jxvf data.tar.xz -C . 2>/dev/null) || true");
+        std::string home = SystemHelper::user_home();
+        std::string dest = home + "/Pictures/xubuntu-community-artwork";
+        fs::create_directories(dest);
+        SystemHelper::fetch_latest_and_extract(
+            "https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/x/xubuntu-community-artwork/",
+            "xubuntu-community-wallpapers-" + code_name + ".*all\\.deb", "xubuntu_wp", dest);
     }
 
     void DesktopManager::download_mint_backgrounds(const std::string &mint_code) {
         Logger::step(_f("gui.wallpaper.mint", mint_code));
-        std::string repo = "https://mirrors.bfsu.edu.cn/linuxmint/pool/main/m/mint-backgrounds-" + mint_code + "/";
-        std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
-        CommandBuilder("mkdir").add_flag("-pv").add_arg(home + "/Pictures/mint-backgrounds").add_raw("2>/dev/null").
-                execute();
-        Executor::shell("cd " + home + "/Pictures/mint-backgrounds && "
-                        "LATEST=$(curl -L '" + repo +
-                        "' 2>/dev/null | grep 'mint-backgrounds' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
-                        "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o mint-bg.deb '"
-                        + repo + "'\"$LATEST\" && "
-                        "(ar xv mint-bg.deb 2>/dev/null; tar -Jxvf data.tar.xz -C . 2>/dev/null) || true");
+        std::string home = SystemHelper::user_home();
+        std::string dest = home + "/Pictures/mint-backgrounds";
+        fs::create_directories(dest);
+        SystemHelper::fetch_latest_and_extract(
+            "https://mirrors.bfsu.edu.cn/linuxmint/pool/main/m/mint-backgrounds-" + mint_code + "/",
+            "mint-backgrounds.*all\\.deb", "mint_bg", dest);
     }
 
     void DesktopManager::download_kali_themes_common() {
         check_update_icon_caches_sh();
-        std::string repo = "https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-themes/";
-        std::string repo_02 = "http://http.kali.org/kali/pool/main/k/kali-themes/";
-        Executor::shell("cd /tmp && "
-                        "LATEST=$(curl -L '" + repo +
-                        "' 2>/dev/null | grep 'kali-themes-common' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
-                        "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o kali-themes.deb '"
-                        + repo + "'\"$LATEST\" 2>/dev/null || "
-                        "curl -L -o kali-themes.deb '" + repo_02 + "'\"$LATEST\" 2>/dev/null; "
-                        "[ -f kali-themes.deb ] && (ar xv kali-themes.deb && tar -Jxvf data.tar.xz -C / 2>/dev/null) || true");
+        // 主源 → 回退源
+        if (!SystemHelper::fetch_latest_and_extract(
+                "https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-themes/",
+                "kali-themes-common.*all\\.deb", "kali_themes"))
+            SystemHelper::fetch_latest_and_extract(
+                "http://http.kali.org/kali/pool/main/k/kali-themes/",
+                "kali-themes-common.*all\\.deb", "kali_themes_fb");
         Executor::shell(
             "update-icon-caches /usr/share/icons/Flat-Remix-Blue-Dark /usr/share/icons/Flat-Remix-Blue-Light /usr/share/icons/desktop-base 2>/dev/null &");
         set_xfce_cursor_theme("Breeze-Adapta-Cursor");
@@ -620,14 +611,11 @@ namespace tmoe::domain {
 
     void DesktopManager::download_papirus_icon_theme() {
         Logger::step(_("gui.papirus.install"));
-        std::string repo = "https://mirrors.bfsu.edu.cn/debian/pool/main/p/papirus-icon-theme/";
-        Executor::shell("cd /tmp && "
-                        "LATEST=$(curl -L '" + repo +
-                        "' 2>/dev/null | grep 'papirus-icon-theme' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
-                        "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o papirus.deb '"
-                        + repo + "'\"$LATEST\" && "
-                        "ar xv papirus.deb && tar -Jxvf data.tar.xz -C / 2>/dev/null && "
-                        "update-icon-caches /usr/share/icons/Papirus /usr/share/icons/Papirus-Dark /usr/share/icons/Papirus-Light /usr/share/icons/ePapirus 2>/dev/null &");
+        SystemHelper::fetch_latest_and_extract(
+            "https://mirrors.bfsu.edu.cn/debian/pool/main/p/papirus-icon-theme/",
+            "papirus-icon-theme.*all\\.deb", "papirus");
+        Executor::shell(
+            "update-icon-caches /usr/share/icons/Papirus /usr/share/icons/Papirus-Dark /usr/share/icons/Papirus-Light /usr/share/icons/ePapirus 2>/dev/null &");
         set_default_xfce_icon_theme("Papirus");
     }
 
@@ -646,13 +634,9 @@ namespace tmoe::domain {
 
     void DesktopManager::download_ubuntu_mate_wallpaper() {
         Logger::step(_("gui.wallpaper.ubuntu_mate"));
-        std::string repo = "https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/u/ubuntu-mate-artwork/";
-        Executor::shell(
-            "cd /tmp && LATEST=$(curl -L '" + repo +
-            "' 2>/dev/null | grep 'ubuntu-mate-wallpapers-photos' | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2) && "
-            "[ -n \"$LATEST\" ] && aria2c --console-log-level=warn --no-conf --allow-overwrite=true -o umate.deb '" +
-            repo + "'\"$LATEST\" && "
-            "(ar xv umate.deb 2>/dev/null; tar -Jxvf data.tar.xz -C / 2>/dev/null) || true");
+        SystemHelper::fetch_latest_and_extract(
+            "https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/u/ubuntu-mate-artwork/",
+            "ubuntu-mate-wallpapers-photos.*all\\.deb", "umate_wp");
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -724,7 +708,7 @@ namespace tmoe::domain {
 
     void DesktopManager::ensure_xfce_wallpaper_config(const std::string &wallpaper_path) {
         // 对应 create_xfce4_desktop_wallpaper_config() + modify_xfce_vnc0_wallpaper()
-        std::string home = std::getenv("HOME") ? std::string(std::getenv("HOME")) : "/root";
+        std::string home = SystemHelper::user_home();
         fs::path config_dir = fs::path(home) / ".config" / "xfce4" / "xfconf" / "xfce-perchannel-xml";
         fs::path desktop_xml = config_dir / "xfce4-desktop.xml";
 
