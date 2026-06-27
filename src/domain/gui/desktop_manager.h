@@ -47,8 +47,6 @@ namespace tmoe::domain {
 
         void select_kali_tools();
 
-        void install_fvwm_ext();
-
         void tmoe_display_manager_systemctl(const std::string &dm_pkg, const std::string &dm_service);
 
         // ---------- 字体（被 preconfigure_gui_dependencies 和 install_gui 调用） ----------

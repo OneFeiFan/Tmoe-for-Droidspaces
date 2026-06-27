@@ -834,11 +834,7 @@ namespace tmoe::domain {
                 if (d.is_window_manager) {
                     ++i;
                     if (i == sel) {
-                        if (d.id == "fvwm") {
-                            desktop_manager_.install_fvwm_ext();
-                        } else {
-                            desktop_manager_.install_window_manager(d.id);
-                        }
+                        desktop_manager_.install_window_manager(d.id);
                         first_configure_vnc(d.id);
                         desktop_manager_.after_desktop_install_hint();
                         break;
