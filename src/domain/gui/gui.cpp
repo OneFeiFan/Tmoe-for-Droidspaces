@@ -214,6 +214,10 @@ namespace tmoe::domain {
 
         // 5f. 权限修复
         if (home != "/root") {
+            // 预建桌面环境需要的用户目录（避免 "No such file or directory" 错误）
+            Executor::shell("mkdir -p " + home + "/.local/share "
+                            + home + "/.config/autostart "
+                            + home + "/.cache/sessions 2>/dev/null || true");
             Executor::passthrough(CommandBuilder("chown")
                                   .add_arg("-R")
                                   .add_arg("${SUDO_USER:-$(id -un)}:${SUDO_USER:-$(id -gn)}")
