@@ -13,6 +13,7 @@ namespace tmoe::domain {
         std::string display_manager;
         bool requires_root = false;
         bool is_window_manager = false;
+        bool recommends_tiger_vnc = false;
         std::string pkg_group;
         std::string compat_notes;
         std::map<std::string, std::string> distro_pkgs;
@@ -151,7 +152,7 @@ namespace tmoe::domain {
             static const std::vector<DesktopInfo> reg = {
                 // ── 完整桌面环境 ──
                 {
-                    "xfce", "🐭 Xfce", "🐭", "xfce4-session", "startxfce4", "lightdm", false, false,
+                    "xfce", "🐭 Xfce", "🐭", "xfce4-session", "startxfce4", "lightdm", false, false, true,
                     "xfce4 xfce4-goodies", "兼容性高,简单优雅",
                     {{"redhat","@xfce xfce*-plugin xfce4-panel-profiles"},{"gentoo","xfce4-meta x11-terms/xfce4-terminal"},{"suse","patterns-xfce-xfce xfce4-terminal"},{"alpine","faenza-icon-theme xfce4-whiskermenu-plugin xfce4 xfce4-terminal"},{"arch","xfce4 xfce4-terminal xfce4-goodies"}}
                 },
@@ -181,43 +182,43 @@ namespace tmoe::domain {
                      {"suse","patterns-mate-mate"},{"alpine","mate-desktop-environment"}}
                 },
                 {
-                    "kde", "🦖 KDE Plasma", "🦖", "startplasma-x11", "startkde", "sddm", false, false,
+                    "kde", "🦖 KDE Plasma", "🦖", "startplasma-x11", "startkde", "sddm", false, false, true,
                     "kde-plasma-desktop", "风格华丽,功能丰富",
                     {{"arch","plasma-desktop dolphin konsole discover"},{"redhat","@KDE"},
                      {"gentoo","plasma-desktop plasma-nm plasma-pa sddm konsole"},
                      {"suse","-t pattern kde kde_plasma"},{"alpine","plasma-desktop breeze breeze-icons konsole discover"}}
                 },
                 {
-                    "cinnamon", "🌲 Cinnamon", "🌲", "cinnamon-session", "cinnamon", "lightdm", true, false,
+                    "cinnamon", "🌲 Cinnamon", "🌲", "cinnamon-session", "cinnamon", "lightdm", true, false, true,
                     "cinnamon-desktop-environment", "基于GNOME,对用户友好",
                     {{"arch","cinnamon-translations cinnamon"},{"redhat","@Cinnamon Desktop"},
                      {"gentoo","gnome-extra/cinnamon gnome-extra/cinnamon-desktop gnome-extra/cinnamon-translations"},
                      {"suse","cinnamon cinnamon-control-center"},{"alpine","adapta-cinnamon"}}
                 },
                 {
-                    "gnome", "👣 GNOME", "👣", "gnome-session", "gnome-shell-x11", "gdm", true, false,
+                    "gnome", "👣 GNOME", "👣", "gnome-session", "gnome-shell-x11", "gdm", true, false, true,
                     "gnome-session gnome-shell", "GNU网络对象模型环境",
                     {{"arch","gnome-tweaks gnome"},{"redhat","@GNOME"},
                      {"gentoo","gnome-shell gdm gnome-terminal"},
                      {"suse","patterns-gnome-gnome_x11"},{"alpine","gnome-session gnome-shell"}}
                 },
                 {
-                    "budgie", "🦜 Budgie", "🦜", "budgie-desktop", "budgie-panel", "lightdm", true, false,
+                    "budgie", "🦜 Budgie", "🦜", "budgie-desktop", "budgie-panel", "lightdm", true, false, true,
                     "budgie-desktop", "虎皮鹦鹉,基于GNOME",
                     {{"arch","budgie-desktop"},{"void","budgie-desktop"}}
                 },
                 {
-                    "dde", "🐋 Deepin DDE", "🐋", "startdde", "dde-launcher", "lightdm", true, false, "dde dde-desktop",
+                    "dde", "🐋 Deepin DDE", "🐋", "startdde", "dde-launcher", "lightdm", true, false, true, "dde dde-desktop",
                     "国产精美桌面",
                     {{"arch","deepin xorg deepin-extra lightdm lightdm-deepin-greeter"}}
                 },
                 {
-                    "deepin", "🐳 Deepin", "🐳", "deepin-session", "deepin-launcher", "lightdm", true, false,
+                    "deepin", "🐳 Deepin", "🐳", "deepin-session", "deepin-launcher", "lightdm", true, false, true,
                     "deepin-desktop-environment deepin-terminal", "Deepin完整桌面",
                     {{"arch","deepin xorg deepin-extra lightdm lightdm-deepin-greeter"},{"redhat","deepin-desktop"}}
                 },
                 {
-                    "ukui", "🐱 UKUI", "🐱", "ukui-session", "ukui-panel", "lightdm", true, false,
+                    "ukui", "🐱 UKUI", "🐱", "ukui-session", "ukui-panel", "lightdm", true, false, true,
                     "ukui-desktop-environment", "优麒麟桌面,简洁流畅",
                     {{"arch","ukui"}}
                 },

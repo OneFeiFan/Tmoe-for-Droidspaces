@@ -1,12 +1,30 @@
 #include "i18n.h"
+#include <cstdlib>
+#include <algorithm>
 
 namespace tmoe {
     std::unordered_map<std::string, std::string> I18n::current_dict_;
     std::string I18n::current_lang_ = "en_US";
     std::vector<std::string> I18n::available_langs_;
+    std::unordered_set<std::string> I18n::missing_keys_;
+    std::unordered_set<std::string> I18n::used_keys_;
+    bool I18n::collect_missing_ = false;
 
     void I18n::init(std::string_view lang) {
         current_dict_.clear();
+        missing_keys_.clear();
+        used_keys_.clear();
+
+        // 环境变量 TMOE_I18N_CHECK 开启缺失 key 收集
+        const char *check_env = std::getenv("TMOE_I18N_CHECK");
+        collect_missing_ = (check_env && check_env[0] == '1');
+
+        if (collect_missing_) {
+            std::atexit([] {
+                dump_missing_keys();
+            });
+        }
+
         std::string target(lang);
         size_t dot_pos = target.find('.');
         if (dot_pos != std::string::npos) {
@@ -21,7 +39,6 @@ namespace tmoe {
 
         auto it = LANGS.find(target);
         if (it == LANGS.end()) {
-            // 回退: en_US → 第一个可用语言
             it = LANGS.find("en_US");
             if (it == LANGS.end() && !LANGS.empty()) it = LANGS.begin();
         }
@@ -44,11 +61,65 @@ namespace tmoe {
     }
 
     std::string I18n::tr(std::string_view key) {
-        auto it = current_dict_.find(std::string(key));
+        std::string k(key);
+        auto it = current_dict_.find(k);
         if (it != current_dict_.end()) {
+            if (collect_missing_) used_keys_.insert(k);
             return it->second;
         }
-        return std::string(key);
+        if (collect_missing_) {
+            missing_keys_.insert(k);
+            used_keys_.insert(k);
+        }
+        return k;
+    }
+
+    std::vector<std::string> I18n::missing_keys() {
+        std::vector<std::string> result(missing_keys_.begin(), missing_keys_.end());
+        std::sort(result.begin(), result.end());
+        return result;
+    }
+
+    void I18n::dump_missing_keys() {
+        // 1. 缺失的 key（代码用了但 JSON 没有）
+        bool has_missing = !missing_keys_.empty();
+        if (has_missing) {
+            std::cerr << "\n══════════════════════════════════════════\n"
+                      << "[TMOE I18n] 缺失翻译 (" << missing_keys_.size() << " 个)"
+                      << " — 代码用了但 JSON 里没有:\n"
+                      << "══════════════════════════════════════════\n";
+            auto keys = missing_keys();
+            for (const auto &k : keys) {
+                std::cerr << "  \"" << k << "\": \"\",\n";
+            }
+        }
+
+        // 2. 未使用的 key（JSON 有但代码没用过）
+        std::vector<std::string> unused;
+        for (const auto &[k, _] : current_dict_) {
+            if (used_keys_.find(k) == used_keys_.end()) {
+                unused.push_back(k);
+            }
+        }
+        std::sort(unused.begin(), unused.end());
+
+        if (!unused.empty()) {
+            std::cerr << "\n══════════════════════════════════════════\n"
+                      << "[TMOE I18n] 未使用翻译 (" << unused.size() << " 个)"
+                      << " — JSON 有但代码没用过:\n"
+                      << "══════════════════════════════════════════\n";
+            for (const auto &k : unused) {
+                std::cerr << "  \"" << k << "\",\n";
+            }
+            std::cerr << "══════════════════════════════════════════\n"
+                      << "[TMOE I18n] ↑ 以上 key 可安全从 JSON 中删除\n";
+        }
+
+        if (!has_missing && unused.empty()) {
+            std::cerr << "[TMOE I18n] ✓ 所有 key 均已翻译且无冗余。\n";
+        }
+
+        std::cerr << "\n";
     }
 
     std::string_view I18n::current_lang() {

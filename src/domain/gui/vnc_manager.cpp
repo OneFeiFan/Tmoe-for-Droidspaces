@@ -723,6 +723,9 @@ namespace tmoe::domain {
         if (width <= 0) width = vnc_config_.resolution_w;
         if (height <= 0) height = vnc_config_.resolution_h;
 
+        bool has_passwd = fs::exists(vnc_config_.passwd_file) &&
+                          fs::file_size(vnc_config_.passwd_file) > 0;
+
         CommandBuilder cmd(vnc_config_.server == "tight" ? "tightvncserver" : "vncserver");
         cmd.add_arg(":" + std::to_string(display))
                 .add_arg("-geometry").add_arg(std::to_string(width) + "x" + std::to_string(height))
@@ -730,7 +733,7 @@ namespace tmoe::domain {
                 .add_arg(std::to_string(vnc_config_.pixel_depth));
 
         if (vnc_config_.server == "tight") {
-            if (!vnc_config_.password.empty())
+            if (has_passwd)
                 cmd.add_arg("-passwd").add_arg(vnc_config_.passwd_file.string());
             if (vnc_config_.always_shared)
                 cmd.add_arg("-alwaysshared");
@@ -738,7 +741,7 @@ namespace tmoe::domain {
             cmd.add_arg("-localhost").add_arg("no");
             cmd.add_arg("-SecurityTypes")
                     .add_arg("VncAuth");
-            if (!vnc_config_.password.empty())
+            if (has_passwd)
                 cmd.add_arg("-rfbauth").add_arg(vnc_config_.passwd_file.string());
             if (vnc_config_.zlib_level >= 0)
                 cmd.add_arg("-ZlibLevel").add_arg(std::to_string(vnc_config_.zlib_level));
@@ -781,7 +784,8 @@ namespace tmoe::domain {
         fs::path x11_passwd = vnc_config_.vnc_home_dir / "x11passwd";
         if (fs::exists(x11_passwd)) {
             cmd.add_arg("-rfbauth").add_arg(x11_passwd.string());
-        } else if (!vnc_config_.password.empty()) {
+        } else if (fs::exists(vnc_config_.passwd_file) &&
+                   fs::file_size(vnc_config_.passwd_file) > 0) {
             cmd.add_arg("-rfbauth").add_arg(vnc_config_.passwd_file.string());
         }
 

@@ -69,11 +69,8 @@ namespace tmoe::domain {
         }
 
         // 5b. 选择 VNC 服务端
-        std::string d(desktop);
-        std::transform(d.begin(), d.end(), d.begin(), ::tolower);
-        bool recommend_tiger = (d == "kde" || d == "gnome" || d == "cinnamon" ||
-                                d == "dde" || d == "ukui" || d == "budgie" ||
-                                d.find("startplasma") != std::string::npos);
+        auto info = desktop_manager_.get_desktop_info(desktop);
+        bool recommend_tiger = info.recommends_tiger_vnc;
 
         std::string prompt = recommend_tiger
                                  ? _("gui.vnc.tiger_recommend_prompt")
@@ -96,25 +93,8 @@ namespace tmoe::domain {
 
         vnc_manager_.modify_to_xfwm4_breeze_theme();
 
-        // 5c. 设置 VNC 密码
-        bool passwd_exists = fs::exists(vnc_manager_.config().passwd_file) &&
-                             fs::file_size(vnc_manager_.config().passwd_file) > 0;
-        if (passwd_exists) {
-            // 已有密码 → 询问是否修改
-            auto keep = Executor::passthrough(cfg_.tui_bin +
-                                              " --title \"VNC PASSWORD\""
-                                              " --yes-button \"Keep\""
-                                              " --no-button \"Change\""
-                                              " --yesno \"VNC password already exists.\\n\\n"
-                                              "Choose Keep to retain the existing password,\\n"
-                                              "or Change to set a new one.\" 0 0");
-            if (keep.exit_code != 0) {
-                // 用户选了 Change
-                vnc_manager_.configure_vnc_password();
-            }
-        } else {
-            vnc_manager_.configure_vnc_password();
-        }
+        // 5c. 设置 VNC 密码（每次安装桌面都必须设定）
+        vnc_manager_.configure_vnc_password();
 
         // 5d. 选择 VNC 端口
         if (desktop_manager_.is_auto_install_mode()) {
