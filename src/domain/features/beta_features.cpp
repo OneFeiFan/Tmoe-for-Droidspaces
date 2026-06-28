@@ -140,15 +140,15 @@ namespace tmoe::domain {
                         // 移除
                         Logger::info(_f("beta.sys_sudo_in_group", chosen));
                         if (cfg_.linux_distro == "debian")
-                            CommandBuilder("deluser").add_arg(chosen).add_arg("sudo").add_raw("2>/dev/null").execute();
-                        CommandBuilder("sed").add_flag("-i")
+                            CommandBuilder("sudo").add_arg("deluser").add_arg(chosen).add_arg("sudo").add_raw("2>/dev/null").execute();
+                        CommandBuilder("sudo").add_arg("sed").add_flag("-i")
                             .add_arg("/^" + chosen + ".*ALL/d")
                             .add_arg("/etc/sudoers")
                             .add_raw("2>/dev/null").execute();
                         Logger::ok(_f("beta.sys_sudo_removed", chosen));
                     } else {
                         // 添加
-                        CommandBuilder("sed").add_flag("-i")
+                        CommandBuilder("sudo").add_arg("sed").add_flag("-i")
                             .add_arg("/^root.*ALL/a " + chosen + "    ALL=(ALL:ALL) ALL")
                             .add_arg("/etc/sudoers")
                             .add_raw("2>/dev/null").execute();
@@ -206,18 +206,18 @@ namespace tmoe::domain {
                             std::string input = Executor::tui_select(
                                 cfg_.tui_bin + " --title \"" + _("beta.uefi_boot_item_title") + "\" --inputbox \"" + _("beta.uefi_boot_num_prompt") + "\" 0 0");
                             if (!input.empty())
-                                CommandBuilder("efibootmgr").add_flag("-o").add_arg(input).add_raw("2>/dev/null").execute();
+                                CommandBuilder("sudo").add_arg("efibootmgr").add_flag("-o").add_arg(input).add_raw("2>/dev/null").execute();
                         } else if (bpick == "2") {
                             std::string order = Executor::tui_select(
                                 cfg_.tui_bin + " --title \"" + _("beta.uefi_boot_order_title") + "\" --inputbox \"" + _("beta.uefi_boot_order_prompt") + "\" 0 0");
                             if (!order.empty())
-                                CommandBuilder("efibootmgr").add_flag("-o").add_arg(order).add_raw("2>/dev/null").execute();
+                                CommandBuilder("sudo").add_arg("efibootmgr").add_flag("-o").add_arg(order).add_raw("2>/dev/null").execute();
                         } else if (bpick == "3") {
                             std::string efi_disk = Executor::shell(
                                 "df -h | grep '/boot/efi' | awk '{print $1}' | head -n1").stdout_data;
                             efi_disk.erase(std::remove(efi_disk.begin(), efi_disk.end(), '\n'), efi_disk.end());
                             if (!efi_disk.empty())
-                                CommandBuilder("dd").add_arg("if=" + efi_disk).add_arg("of=/tmp/efi_backup.img").add_arg("bs=4M").add_raw("2>/dev/null").execute();
+                                CommandBuilder("sudo").add_arg("dd").add_arg("if=" + efi_disk).add_arg("of=/tmp/efi_backup.img").add_arg("bs=4M").add_raw("2>/dev/null").execute();
                             Logger::ok(_("beta.sys_efi_backed_up"));
                         } else if (bpick == "4") {
                             Executor::passthrough("sudo dd if=/tmp/efi_backup.img of=$(df -h | grep '/boot/efi' | awk '{print $1}' | head -n1) bs=4M 2>/dev/null");

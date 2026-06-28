@@ -251,7 +251,7 @@ namespace tmoe::domain {
         // 方法1: localectl (systemd, 覆盖主流发行版)
         if (Executor::has("localectl")) {
             Logger::step(_("env.locale_persisting"));
-            auto r = Executor::passthrough("localectl set-locale LANG=" + locale_str);
+            auto r = Executor::passthrough("sudo localectl set-locale LANG=" + locale_str);
             if (r.ok()) {
                 Logger::ok(_f("env.locale_persist_ok", locale_str));
                 return true;
@@ -274,8 +274,8 @@ namespace tmoe::domain {
 
         Logger::step(_f("env.locale_writing_config", conf_file));
         auto r = Executor::shell(
-            "echo 'LANG=" + locale_str + "' > " + conf_file + " && "
-            "echo 'LC_ALL=" + locale_str + "' >> " + conf_file);
+            "echo 'LANG=" + locale_str + "' | sudo tee " + conf_file + " >/dev/null && "
+            "echo 'LC_ALL=" + locale_str + "' | sudo tee -a " + conf_file + " >/dev/null");
         if (r.ok()) {
             Logger::ok(_f("env.locale_written", conf_file));
             return true;

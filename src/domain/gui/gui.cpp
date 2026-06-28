@@ -55,7 +55,7 @@ namespace tmoe::domain {
 
         vnc_manager_.configure_startvnc();
         vnc_manager_.configure_startxsdl();
-        Executor::shell(CommandBuilder("chmod")
+        Executor::shell(CommandBuilder("sudo").add_arg("chmod")
                         .add_arg("a+rx")
                         .add_arg("-v")
                         .add_arg("/usr/local/bin/startvnc")

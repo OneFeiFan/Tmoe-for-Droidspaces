@@ -112,6 +112,6 @@ namespace tmoe::domain {
 
     void OfficeManager::refresh_font_cache() {
         Logger::step(_("office.font_cache"));
-        CommandBuilder("fc-cache").add_flag("-fv").add_raw("2>/dev/null || true").execute();
+        CommandBuilder("sudo").add_arg("fc-cache").add_flag("-fv").add_raw("2>/dev/null || true").execute();
     }
 } // namespace tmoe::domain

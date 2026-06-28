@@ -199,7 +199,7 @@ bool ConfigManager::apply_timezone(const std::string& tz) {
 
     bool ok = false;
     if (Executor::has("timedatectl")) {
-        ok = Executor::shell(CommandBuilder("timedatectl").add_arg("set-timezone").add_arg(tz).build_string()).ok();
+        ok = Executor::shell(CommandBuilder("sudo").add_arg("timedatectl").add_arg("set-timezone").add_arg(tz).build_string()).ok();
     }
     if (!ok) {
         ok = Executor::shell(CommandBuilder("sudo").add_arg("ln").add_flag("-sf").add_arg("/usr/share/zoneinfo/" + tz).add_arg("/etc/localtime").add_raw("2>/dev/null").build_string()).ok();
@@ -582,11 +582,11 @@ bool ConfigManager::configure_hostname() {
 
     bool ok = true;
     if (Executor::has("hostnamectl")) {
-        ok = Executor::shell(CommandBuilder("hostnamectl").add_arg("set-hostname").add_arg(new_hostname).build_string()).ok();
+        ok = Executor::shell(CommandBuilder("sudo").add_arg("hostnamectl").add_arg("set-hostname").add_arg(new_hostname).build_string()).ok();
     } else {
         ok = write_config_file("/etc/hostname", new_hostname + "\n");
         if (ok) {
-            Executor::shell(CommandBuilder("hostname").add_arg(new_hostname).add_raw("2>/dev/null || true").build_string());
+            Executor::shell(CommandBuilder("sudo").add_arg("hostname").add_arg(new_hostname).add_raw("2>/dev/null || true").build_string());
         }
     }
 

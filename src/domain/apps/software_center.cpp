@@ -539,7 +539,7 @@ namespace tmoe::domain {
         Logger::step(_("swcenter.qq.installing"));
         if (ext == ".deb") {
             Executor::passthrough(
-                "cd /tmp && apt-cache show ./" + dest_file + " 2>/dev/null; apt install -y ./" + dest_file +
+                "cd /tmp && apt-cache show ./" + dest_file + " 2>/dev/null; sudo apt install -y ./" + dest_file +
                 " && rm -vf " + dest_file);
         } else if (ext == ".rpm") {
             Executor::passthrough(
@@ -549,7 +549,7 @@ namespace tmoe::domain {
             // AppImage 配置部署
             Executor::shell(
                 "sudo mkdir -p /opt/linuxqq && sudo mv /tmp/" + dest_file +
-                " /opt/linuxqq/linuxqq.AppImage && chmod +x /opt/linuxqq/linuxqq.AppImage");
+                " /opt/linuxqq/linuxqq.AppImage && sudo chmod +x /opt/linuxqq/linuxqq.AppImage");
             std::string desktop_content =
                     "[Desktop Entry]\n"
                     "Name=QQ\n"
@@ -694,7 +694,7 @@ namespace tmoe::domain {
         } else {
             Executor::shell(
                 "sudo mkdir -p /opt/wechat && sudo mv '" + dest +
-                "' /opt/wechat/wechat.AppImage && chmod +x /opt/wechat/wechat.AppImage");
+                "' /opt/wechat/wechat.AppImage && sudo chmod +x /opt/wechat/wechat.AppImage");
             std::string desktop_content =
                     "[Desktop Entry]\n"
                     "Name=WeChat\n"
@@ -750,7 +750,7 @@ namespace tmoe::domain {
         }
 
         if (family == DistroFamily::RedHat) {
-            Executor::passthrough("cd /tmp && yum install -y ./" + dl_file + "; rm -vf " + dl_file);
+            Executor::passthrough("cd /tmp && sudo yum install -y ./" + dl_file + "; rm -vf " + dl_file);
         } else {
             Executor::passthrough(
                 "cd /tmp && apt-cache show ./" + dl_file + " 2>/dev/null; "

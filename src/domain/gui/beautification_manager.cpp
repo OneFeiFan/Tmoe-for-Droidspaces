@@ -126,7 +126,7 @@ namespace tmoe::domain {
             SystemHelper::download_file("https://gitee.com/mo2/xfce-themes/raw/terminal/colorschemes.tar.xz", tmp_arc);
             if (fs::exists(tmp_arc)) {
                 // tar -Jxf 保留原始权限
-                Executor::passthrough("cd '" + colorscheme_dir + "' && tar -Jxf '" + tmp_arc + "' 2>/dev/null || true");
+                Executor::passthrough("cd '" + colorscheme_dir + "' && sudo tar -Jxf '" + tmp_arc + "' 2>/dev/null || true");
                 std::error_code ec;
                 fs::remove(tmp_arc, ec);
             }
@@ -425,7 +425,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
                         "https://mirrors.bfsu.edu.cn/debian/pool/main/u/ukui-themes/",
                         "ukui-themes.*all\\.deb", "ukui_themes");
                     Executor::shell(
-                        "update-icon-caches /usr/share/icons/ukui-icon-theme-basic "
+                        "sudo update-icon-caches /usr/share/icons/ukui-icon-theme-basic "
                         "/usr/share/icons/ukui-icon-theme-classical "
                         "/usr/share/icons/ukui-icon-theme-default 2>/dev/null &");
                 }

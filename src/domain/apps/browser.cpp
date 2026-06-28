@@ -220,22 +220,22 @@ namespace tmoe::domain {
                 break;
             case DistroFamily::RedHat:
                 Executor::passthrough(
-                    CommandBuilder("rpm").add_flag("--import")
+                    CommandBuilder("sudo").add_arg("rpm").add_flag("--import")
                         .add_arg("https://packages.microsoft.com/keys/microsoft.asc").build_string());
                 Executor::passthrough(
-                    CommandBuilder("dnf").add_arg("config-manager").add_flag("--add-repo")
+                    CommandBuilder("sudo").add_arg("dnf").add_arg("config-manager").add_flag("--add-repo")
                         .add_arg("https://packages.microsoft.com/yumrepos/edge").build_string());
                 ok = PackageManager::install("microsoft-edge-dev", family);
                 break;
             case DistroFamily::Suse:
                 Executor::passthrough(
-                    CommandBuilder("rpm").add_flag("--import")
+                    CommandBuilder("sudo").add_arg("rpm").add_flag("--import")
                         .add_arg("https://packages.microsoft.com/keys/microsoft.asc").build_string());
                 Executor::passthrough(
-                    CommandBuilder("zypper").add_flag("ar")
+                    CommandBuilder("sudo").add_arg("zypper").add_flag("ar")
                         .add_arg("https://packages.microsoft.com/yumrepos/edge")
                         .add_arg("microsoft-edge-dev").build_string());
-                Executor::passthrough(CommandBuilder("zypper").add_arg("refresh").build_string());
+                Executor::passthrough(CommandBuilder("sudo").add_arg("zypper").add_arg("refresh").build_string());
                 ok = PackageManager::install("microsoft-edge-dev", family);
                 break;
             case DistroFamily::Arch:
@@ -291,7 +291,7 @@ namespace tmoe::domain {
         if (r.exit_code != 0) return;
         if (family == DistroFamily::Debian)
             Executor::passthrough(
-                CommandBuilder("apt-mark").add_flag("unhold")
+                CommandBuilder("sudo").add_arg("apt-mark").add_flag("unhold")
                     .add_arg("chromium-browser").add_arg("chromium-browser-l10n")
                     .add_arg("chromium-codecs-ffmpeg-extra")
                     .add_raw("2>/dev/null || true").build_string());
@@ -341,9 +341,12 @@ namespace tmoe::domain {
         }
         // 清理 no-sandbox 快捷方式 + 桌面副本
         Executor::passthrough(
-            CommandBuilder("rm").add_flag("-vf")
+            CommandBuilder("sudo").add_arg("rm").add_flag("-vf")
                 .add_arg("/usr/local/bin/microsoft-edge-dev--no-sandbox")
                 .add_arg("/usr/local/share/applications/microsoft-edge-dev-no-sandbox.desktop")
+                .add_raw("2>/dev/null || true").build_string());
+        Executor::passthrough(
+            CommandBuilder("rm").add_flag("-vf")
                 .add_arg("${HOME}/Desktop/microsoft-edge*.desktop")
                 .add_raw("2>/dev/null || true").build_string());
     }
@@ -355,7 +358,7 @@ namespace tmoe::domain {
         auto family = infer_family_from_config(cfg_.linux_distro);
         PackageManager::remove("falkon", family);
         Executor::passthrough(
-            CommandBuilder("rm").add_flag("-vf")
+            CommandBuilder("sudo").add_arg("rm").add_flag("-vf")
                 .add_arg("/usr/local/bin/falkon--no-sandbox")
                 .add_arg("/usr/local/share/applications/falkon-no-sandbox.desktop")
                 .add_raw("2>/dev/null || true").build_string());

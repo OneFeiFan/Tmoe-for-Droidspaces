@@ -1029,11 +1029,11 @@ namespace tmoe::domain {
             Executor::passthrough("sudo rpm -i '" + dest + "' || sudo yum localinstall -y '" + dest + "'");
         } else {
             // AppImage 通用策略
-            Executor::shell(CommandBuilder("mkdir").add_flag("-p")
+            Executor::shell(CommandBuilder("sudo").add_arg("mkdir").add_flag("-p")
                 .add_arg("/opt/github-desktop").build_string());
-            Executor::shell(CommandBuilder("cp").add_flag("-f").add_arg(dest)
+            Executor::shell(CommandBuilder("sudo").add_arg("cp").add_flag("-f").add_arg(dest)
                 .add_arg("/opt/github-desktop/GitHubDesktop.AppImage").build_string());
-            Executor::shell(CommandBuilder("chmod").add_arg("+x")
+            Executor::shell(CommandBuilder("sudo").add_arg("chmod").add_arg("+x")
                 .add_arg("/opt/github-desktop/GitHubDesktop.AppImage").build_string());
 
             // 创建桌面图标
@@ -1046,8 +1046,7 @@ namespace tmoe::domain {
                     "Type=Application\n"
                     "Icon=github-desktop\n"
                     "Categories=Development;\n";
-            Executor::shell(
-                "cat > " + apps_lnk_dir_.string() + "/github-desktop.desktop <<'EOF'\n" + desktop_content + "EOF\n");
+            SystemHelper::write_file(apps_lnk_dir_.string() + "/github-desktop.desktop", desktop_content);
             // 获取图标
             Executor::shell(
                 "curl -sL https://raw.githubusercontent.com/shiftkey/desktop/development/app/static/logos/256x256.png -o /usr/share/pixmaps/github-desktop.png 2>/dev/null || true");
@@ -1713,8 +1712,8 @@ namespace tmoe::domain {
         std::string desk_file = lnk_dir + "/" + grep_name_ + ".desktop";
 
         Logger::step(_("devtools.step.creating_desktop") + desk_file);
-        Executor::shell("cat > " + desk_file + " <<'EOF'\n" + desktop_entry + "EOF\n"
-                        "chmod a+r " + desk_file);
+        SystemHelper::write_file(desk_file, desktop_entry);
+        Executor::shell("sudo chmod a+r " + desk_file + " 2>/dev/null || true");
 
         // 同时创建 /usr/local/bin 下的命令行启动链接
         std::string cli_name;

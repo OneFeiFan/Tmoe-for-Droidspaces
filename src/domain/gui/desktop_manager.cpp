@@ -307,7 +307,7 @@ namespace tmoe::domain {
         auto sha_check = Executor::shell("cd /tmp && [ -e font.ttf ] && sha256sum font.ttf 2>/dev/null");
         std::string expected_sha = "cb4f09f9ec1b0d21021dce6c6dbe4f7ecb4930cbea0c766da1fe478111a5844e";
         if (sha_check.ok() && sha_check.stdout_data.find(expected_sha) != std::string::npos) {
-            CommandBuilder("cp").add_flag("-fv").add_arg("/tmp/font.ttf").add_arg(iosevka_file).execute();
+            CommandBuilder("sudo").add_arg("cp").add_flag("-fv").add_arg("/tmp/font.ttf").add_arg(iosevka_file).execute();
             return;
         } else if (fs::exists("/tmp/font.ttf")) {
             Executor::shell("sudo mv -vf /tmp/font.ttf /usr/share/fonts/truetype/iosevka/Iosevka.ttf 2>/dev/null || true");
@@ -330,7 +330,7 @@ namespace tmoe::domain {
         // 从缓存解压
         if (fs::exists(font_dir + "/Iosevka-Term-Mono.tar.xz")) {
             Executor::shell("cd " + font_dir + " && tar -Jxvf Iosevka-Term-Mono.tar.xz 2>/dev/null && "
-                            "mv -vf Iosevka.ttf " + std::string(iosevka_file) + " 2>/dev/null || true");
+                            "sudo mv -vf Iosevka.ttf " + std::string(iosevka_file) + " 2>/dev/null || true");
         }
 
         // 下载字体
@@ -343,7 +343,7 @@ namespace tmoe::domain {
                             + font_url_02 + " 2>/dev/null || "
                             "curl -Lo 'Iosevka-Term-Mono.tar.xz' " + font_url_01 + " 2>/dev/null) && "
                             "tar -Jxvf 'Iosevka-Term-Mono.tar.xz' 2>/dev/null && "
-                            "mv -vf Iosevka.ttf " + std::string(iosevka_file) + " 2>/dev/null || true");
+                            "sudo mv -vf Iosevka.ttf " + std::string(iosevka_file) + " 2>/dev/null || true");
         }
 
         // 二次检查
@@ -353,7 +353,7 @@ namespace tmoe::domain {
 
         // 刷新字体缓存
         Executor::shell("cd /usr/share/fonts/truetype/iosevka/ && "
-            "mkfontscale 2>/dev/null; mkfontdir 2>/dev/null; fc-cache 2>/dev/null || true");
+            "sudo mkfontscale 2>/dev/null; sudo mkfontdir 2>/dev/null; sudo fc-cache 2>/dev/null || true");
     }
 
 
@@ -412,9 +412,9 @@ namespace tmoe::domain {
                         "-o kali-undercover.deb '" + repo + "/'\"$UNDERCOVERlatestLINK\" 2>/dev/null || "
                         "apt download kali-undercover 2>/dev/null && mv *deb kali-undercover.deb) && "
                         "ar xv kali-undercover.deb && cd / && "
-                        "tar -Jxvf /tmp/.kali-undercover-win10-theme/data.tar.xz ./usr 2>/dev/null && "
+                        "sudo tar -Jxvf /tmp/.kali-undercover-win10-theme/data.tar.xz ./usr 2>/dev/null && "
                         "sudo mv -f /usr/bin/kali-undercover /usr/local/bin/ 2>/dev/null; "
-                        "update-icon-caches /usr/share/icons/Windows-10-Icons 2>/dev/null &");
+                        "sudo update-icon-caches /usr/share/icons/Windows-10-Icons 2>/dev/null &");
         Executor::shell("rm -rfv /tmp/.kali-undercover-win10-theme 2>/dev/null || true");
         Logger::ok(_("gui.kali.undercover_ok"));
     }
@@ -431,7 +431,7 @@ namespace tmoe::domain {
             "cd /tmp/McMojave && "
             "sudo tar -Jxvf 01-Mojave-dark.tar.xz -C /usr/share/themes 2>/dev/null && "
             "sudo tar -Jxvf 01-McMojave-circle.tar.xz -C /usr/share/icons 2>/dev/null && "
-            "update-icon-caches /usr/share/icons/McMojave-circle-dark /usr/share/icons/McMojave-circle 2>/dev/null &");
+            "sudo update-icon-caches /usr/share/icons/McMojave-circle-dark /usr/share/icons/McMojave-circle 2>/dev/null &");
         Executor::shell("rm -rf /tmp/McMojave 2>/dev/null || true");
         set_default_xfce_icon_theme("McMojave-circle");
         Logger::ok(_("gui.macos_mojave.ok"));
@@ -451,7 +451,7 @@ namespace tmoe::domain {
             "sudo tar -Jxvf WhiteSur.tar.xz -C /usr/share/icons 2>/dev/null && "
             "sudo tar -Jxvf WhiteSur-light-alt.tar.xz -C /usr/share/themes 2>/dev/null && "
             "sudo tar -Jxvf WhiteSur-dark.tar.xz -C /usr/share/themes 2>/dev/null && "
-            "update-icon-caches /usr/share/icons/WhiteSur /usr/share/icons/WhiteSur-dark 2>/dev/null &");
+            "sudo update-icon-caches /usr/share/icons/WhiteSur /usr/share/icons/WhiteSur-dark 2>/dev/null &");
         Executor::shell("rm -rvf /tmp/BIGSUR_TEMP_FOLDER 2>/dev/null || true");
         set_default_xfce_icon_theme("WhiteSur");
         Logger::ok(_("gui.macos_bigsur.ok"));
@@ -468,7 +468,7 @@ namespace tmoe::domain {
             "cut -d '=' -f3 | cut -d '\"' -f2) && "
             "[ -n \"$LATEST\" ] && curl -Lo data.tar.zst \"https://mirrors.bfsu.edu.cn/archlinuxcn/any/$LATEST\" 2>/dev/null && "
             "tar --use-compress-program zstd -xvf data.tar.zst 2>/dev/null && "
-            "cp -rf usr / 2>/dev/null || true");
+            "sudo cp -rf usr / 2>/dev/null || true");
         Executor::shell("rm -rf /tmp/.breeze_theme 2>/dev/null || true");
     }
 
@@ -539,10 +539,10 @@ namespace tmoe::domain {
             if (ch == "0" || ch.empty()) return;
             if (ch == "1") Executor::passthrough(cfg_.install_command + " " + dm_pkg + " 2>/dev/null || true");
             else if (ch == "2") Executor::passthrough(
-                "sudo systemctl start " + dm_service + " 2>/dev/null || service " + dm_service +
+                "sudo systemctl start " + dm_service + " 2>/dev/null || sudo service " + dm_service +
                 " restart 2>/dev/null || true");
             else if (ch == "3") Executor::passthrough(
-                "sudo systemctl stop " + dm_service + " 2>/dev/null || service " + dm_service + " stop 2>/dev/null || true");
+                "sudo systemctl stop " + dm_service + " 2>/dev/null || sudo service " + dm_service + " stop 2>/dev/null || true");
             else if (ch == "4") Executor::passthrough(
                 "sudo systemctl enable " + dm_service + " 2>/dev/null || rc-update add " + dm_service +
                 " 2>/dev/null || true");
@@ -596,7 +596,7 @@ namespace tmoe::domain {
                 "http://http.kali.org/kali/pool/main/k/kali-themes/",
                 "kali-themes-common.*all\\.deb", "kali_themes_fb");
         Executor::shell(
-            "update-icon-caches /usr/share/icons/Flat-Remix-Blue-Dark /usr/share/icons/Flat-Remix-Blue-Light /usr/share/icons/desktop-base 2>/dev/null &");
+            "sudo update-icon-caches /usr/share/icons/Flat-Remix-Blue-Dark /usr/share/icons/Flat-Remix-Blue-Light /usr/share/icons/desktop-base 2>/dev/null &");
         set_xfce_cursor_theme("Breeze-Adapta-Cursor");
     }
 
@@ -615,7 +615,7 @@ namespace tmoe::domain {
             "https://mirrors.bfsu.edu.cn/debian/pool/main/p/papirus-icon-theme/",
             "papirus-icon-theme.*all\\.deb", "papirus");
         Executor::shell(
-            "update-icon-caches /usr/share/icons/Papirus /usr/share/icons/Papirus-Dark /usr/share/icons/Papirus-Light /usr/share/icons/ePapirus 2>/dev/null &");
+            "sudo update-icon-caches /usr/share/icons/Papirus /usr/share/icons/Papirus-Dark /usr/share/icons/Papirus-Light /usr/share/icons/ePapirus 2>/dev/null &");
         set_default_xfce_icon_theme("Papirus");
     }
 

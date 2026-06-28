@@ -102,7 +102,7 @@ namespace tmoe::domain {
             fs::create_directories(wp_dir);
             Executor::shell(
                 "cd /usr/share/backgrounds && "
-                "curl -sL 'https://gitee.com/ak2/icons/raw/master/debian-xfce.jpg' "
+                "sudo curl -sL 'https://gitee.com/ak2/icons/raw/master/debian-xfce.jpg' "
                 "-o xfce-stripes.png 2>/dev/null || true");
         }
     }
@@ -137,7 +137,7 @@ namespace tmoe::domain {
                     "UNDERCOVERlatestLINK=\"$(curl -L 'https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-undercover/' 2>/dev/null | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2)\" && "
                     "(aria2c --console-log-level=warn --no-conf --allow-overwrite=true -s5 -x5 -k1M -o kali-undercover.deb 'https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-undercover/'\"$UNDERCOVERlatestLINK\" 2>/dev/null || "
                     "apt download kali-undercover 2>/dev/null && mv *deb kali-undercover.deb) && "
-                    "ar xv kali-undercover.deb && cd / && tar -Jxvf /tmp/.kali-undercover-win10-theme/data.tar.xz ./usr 2>/dev/null && "
+                    "ar xv kali-undercover.deb && cd / && sudo tar -Jxvf /tmp/.kali-undercover-win10-theme/data.tar.xz ./usr 2>/dev/null && "
                     "sudo mv -f /usr/bin/kali-undercover /usr/local/bin/ 2>/dev/null; update-icon-caches /usr/share/icons/Windows-10-Icons 2>/dev/null &");
             }
             PackageManager::install("kali-themes-common", DistroFamily::Debian);
@@ -219,9 +219,9 @@ namespace tmoe::domain {
         if (!fs::exists("/usr/share/xfce4/terminal/colorschemes/Monokai Remastered.theme")) {
             Logger::info(_("gui.xfce4.color_scheme_config"));
             Executor::shell("cd /usr/share/xfce4/terminal && "
-                "curl -Lo 'colorschemes.tar.xz' "
+                "sudo curl -Lo 'colorschemes.tar.xz' "
                 "'https://gitee.com/mo2/xfce-themes/raw/terminal/colorschemes.tar.xz' 2>/dev/null && "
-                "tar -Jxvf 'colorschemes.tar.xz' 2>/dev/null || true");
+                "sudo tar -Jxvf 'colorschemes.tar.xz' 2>/dev/null || true");
         }
 
         std::string home = SystemHelper::user_home();
