@@ -334,7 +334,7 @@ namespace tmoe::domain {
     bool Environment::generate_locale_debian_interactive() {
         Logger::info(_("env.dpkg_reconfigure_start"));
         Logger::info(_("env.dpkg_reconfigure_info"));
-        auto result = Executor::passthrough("dpkg-reconfigure locales");
+        auto result = Executor::passthrough("sudo dpkg-reconfigure locales");
         return result.ok();
     }
 

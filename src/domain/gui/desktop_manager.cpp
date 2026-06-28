@@ -310,14 +310,14 @@ namespace tmoe::domain {
             CommandBuilder("cp").add_flag("-fv").add_arg("/tmp/font.ttf").add_arg(iosevka_file).execute();
             return;
         } else if (fs::exists("/tmp/font.ttf")) {
-            Executor::shell("mv -vf /tmp/font.ttf /usr/share/fonts/truetype/iosevka/Iosevka.ttf 2>/dev/null || true");
+            Executor::shell("sudo mv -vf /tmp/font.ttf /usr/share/fonts/truetype/iosevka/Iosevka.ttf 2>/dev/null || true");
         }
 
         // 确定字体缓存目录
         std::string font_dir;
         if (fs::exists("/etc/gitstatus")) {
             if (fs::exists("/root/.cache/gitstatus")) {
-                Executor::shell("cp -f /root/.cache/gitstatus/* /etc/gitstatus 2>/dev/null || true");
+                Executor::shell("sudo cp -f /root/.cache/gitstatus/* /etc/gitstatus 2>/dev/null || true");
                 CommandBuilder("chmod").add_flag("-R").add_arg("a+rx").add_arg("/etc/gitstatus/").add_raw(
                     "2>/dev/null || true").execute();
             }
