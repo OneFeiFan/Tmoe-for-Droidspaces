@@ -758,7 +758,7 @@ namespace tmoe::domain {
                             (vnc_manager_.config().vnc_home_dir / "x11passwd").string() + " 2>/dev/null || true");
         }
 
-        Logger::info(_("gui.x11vnc_manager_.config()complete"));
+        Logger::info(_("gui.x11vnc.config_complete"));
         Logger::info(_("gui.x11vnc.restart_stop_hint"));
         Logger::info(std::string(_("gui.switch_to_startvnc")));
     }
