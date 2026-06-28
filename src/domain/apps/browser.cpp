@@ -512,19 +512,16 @@ namespace tmoe::domain {
         // 2. 设置 apt pinning — 阻止 snap 过渡包，优先用 PPA 的 .deb
         std::string pref_file = "/etc/apt/preferences.d/mozilla-firefox";
         if (!fs::exists(pref_file)) {
-            std::ofstream prefs(pref_file);
-            if (prefs.is_open()) {
-                prefs << "Package: *\n"
-                        << "Pin: release o=LP-PPA-mozillateam\n"
-                        << "Pin-Priority: 1001\n"
-                        << "\n"
-                        << "Package: firefox\n"
-                        << "Pin: version 1:1snap1-0ubuntu2\n"
-                        << "Pin-Priority: -1\n";
-                prefs.close();
-                Logger::info(_("browser.firefox_apt_pinning_set"));
-                needs_update = true;
-            }
+            SystemHelper::write_file(pref_file,
+                "Package: *\n"
+                "Pin: release o=LP-PPA-mozillateam\n"
+                "Pin-Priority: 1001\n"
+                "\n"
+                "Package: firefox\n"
+                "Pin: version 1:1snap1-0ubuntu2\n"
+                "Pin-Priority: -1\n");
+            Logger::info(_("browser.firefox_apt_pinning_set"));
+            needs_update = true;
         }
 
         // 3. 如果新增了 PPA 或 pinning，刷新 apt 缓存

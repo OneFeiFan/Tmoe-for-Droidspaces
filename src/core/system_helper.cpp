@@ -10,28 +10,63 @@ namespace tmoe {
 
 // ---------- 文件 I/O ----------
 
-bool SystemHelper::write_file(const fs::path &path, std::string_view content) {
-    try {
+namespace {
+    // 直接问内核：当前进程能否写此路径？（文件不存在时检查父目录）
+    bool can_write_to(const fs::path &path) {
+#ifdef _WIN32
+        return true;
+#else
+        std::error_code ec;
+        if (fs::exists(path, ec)) {
+            return access(path.c_str(), W_OK) == 0;
+        }
+        return access(path.parent_path().c_str(), W_OK) == 0;
+#endif
+    }
+
+    bool write_via_shell(const fs::path &path, std::string_view content, bool append) {
+        std::string escaped(content);
+        size_t pos = 0;
+        while ((pos = escaped.find('\'', pos)) != std::string::npos) {
+            escaped.replace(pos, 1, "'\\''");
+            pos += 4;
+        }
+        std::string op = append ? "tee -a" : "tee";
+        auto r = Executor::shell("echo '" + escaped + "' | sudo " + op + " '" +
+                                 path.string() + "' > /dev/null 2>&1");
+        return r.ok();
+    }
+
+    bool do_write(const fs::path &path, std::string_view content, bool append) {
         fs::create_directories(path.parent_path());
-        std::ofstream ofs(path, std::ios::trunc);
+        auto mode = append ? (std::ios::app | std::ios::out) : std::ios::trunc;
+        std::ofstream ofs(path, mode);
         if (!ofs.is_open()) return false;
         ofs << content;
         return ofs.good();
+    }
+}
+
+bool SystemHelper::write_file(const fs::path &path, std::string_view content) {
+    if (!can_write_to(path)) {
+        return write_via_shell(path, content, false);
+    }
+    try {
+        return do_write(path, content, false);
     } catch (const std::exception &e) {
-        Logger::error(std::string("写入文件失败: ") + path.string() + " — " + e.what());
+        Logger::error(std::string("Write file failed: ") + path.string() + " — " + e.what());
         return false;
     }
 }
 
 bool SystemHelper::append_file(const fs::path &path, std::string_view content) {
+    if (!can_write_to(path)) {
+        return write_via_shell(path, content, true);
+    }
     try {
-        fs::create_directories(path.parent_path());
-        std::ofstream ofs(path, std::ios::app);
-        if (!ofs.is_open()) return false;
-        ofs << content;
-        return ofs.good();
+        return do_write(path, content, true);
     } catch (const std::exception &e) {
-        Logger::error(std::string("追加文件失败: ") + path.string() + " — " + e.what());
+        Logger::error(std::string("Append file failed: ") + path.string() + " — " + e.what());
         return false;
     }
 }
@@ -54,7 +89,12 @@ bool SystemHelper::install_packages(const std::vector<std::string> &packages,
                                     const std::string &install_command) {
     std::ostringstream oss;
     for (const auto &pkg : packages) oss << pkg << " ";
-    std::string cmd = install_command + " " + oss.str();
+#ifndef _WIN32
+    bool need_sudo = (geteuid() != 0);
+#else
+    bool need_sudo = false;
+#endif
+    std::string cmd = (need_sudo ? "sudo " : "") + install_command + " " + oss.str();
     Logger::step(_f("gui.installing_pkgs", oss.str()));
     return Executor::passthrough(cmd).ok();
 }

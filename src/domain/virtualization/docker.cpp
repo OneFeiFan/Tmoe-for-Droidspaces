@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <fstream>
 #include <sstream>
+#include "core/system_helper.h"
 
 namespace tmoe::domain {
     // ── 发行版注册表（17 种，含 tag1/tag2/容器名） ──
@@ -1294,11 +1295,7 @@ namespace tmoe::domain {
                                 "signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] "
                                 + mirror + " " + code + " stable";
 
-        fs::create_directories("/etc/apt/sources.list.d");
-        std::ofstream ofs("/etc/apt/sources.list.d/docker-ce.list");
-        if (!ofs) return false;
-        ofs << repo_line << "\n";
-        ofs.close();
+        SystemHelper::write_file("/etc/apt/sources.list.d/docker-ce.list", repo_line + "\n");
 
         PackageManager::update(DistroFamily::Debian);
         Logger::ok(_("docker.debian_repo_added"));
@@ -1341,20 +1338,12 @@ namespace tmoe::domain {
                                " --yesno \"" + _("docker.debian_repo_prompt") + "\" 0 50";
         auto src_choice = Executor::passthrough(src_menu);
 
-        fs::create_directories("/etc/apt/sources.list.d");
-        std::ofstream ofs("/etc/apt/sources.list.d/docker-ce.list", std::ios::app);
-        if (!ofs) return false;
-
-        if (src_choice.exit_code == 0) {
-            ofs << "deb [signed-by=/usr/share/keyrings/docker-ce-archive-keyring.gpg] "
-                    << "https://mirrors.bfsu.edu.cn/docker-ce/linux/" << docker_release
-                    << " " << code << " stable\n";
-        } else {
-            ofs << "deb [signed-by=/usr/share/keyrings/docker-ce-archive-keyring.gpg] "
-                    << "https://download.docker.com/linux/" << docker_release
-                    << " " << code << " stable\n";
-        }
-        ofs.close();
+        std::string deb_line = (src_choice.exit_code == 0)
+            ? "deb [signed-by=/usr/share/keyrings/docker-ce-archive-keyring.gpg] "
+              "https://mirrors.bfsu.edu.cn/docker-ce/linux/" + docker_release + " " + code + " stable\n"
+            : "deb [signed-by=/usr/share/keyrings/docker-ce-archive-keyring.gpg] "
+              "https://download.docker.com/linux/" + docker_release + " " + code + " stable\n";
+        SystemHelper::append_file("/etc/apt/sources.list.d/docker-ce.list", deb_line);
 
         PackageManager::update(DistroFamily::Debian);
         Logger::ok(_("docker.debian_repo_added"));
