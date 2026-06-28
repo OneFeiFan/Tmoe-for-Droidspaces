@@ -1200,8 +1200,8 @@ namespace tmoe::domain {
         bool restored = false;
         if (fs::exists(backup_ini) && fs::exists(backup_wm)) {
             // 旧 Bash: cd ~/.config/tmoe-linux && cp -pvf xrdp.ini startwm.sh /etc/xrdp/
-            auto cp_result = Executor::shell("cp -pf " + backup_ini + " /etc/xrdp/xrdp.ini 2>/dev/null && "
-                                             "cp -pf " + backup_wm + " /etc/xrdp/startwm.sh 2>/dev/null");
+            auto cp_result = Executor::shell("sudo cp -pf " + backup_ini + " /etc/xrdp/xrdp.ini 2>/dev/null && "
+                                             "sudo cp -pf " + backup_wm + " /etc/xrdp/startwm.sh 2>/dev/null");
             if (cp_result.ok()) {
                 restored = true;
                 Logger::ok(_("gui.xrdp.restored_from_backup"));

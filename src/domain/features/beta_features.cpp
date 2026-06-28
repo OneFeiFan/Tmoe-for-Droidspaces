@@ -359,7 +359,7 @@ namespace tmoe::domain {
                     } else {
                         PackageManager::install({"snapd", "gnome-software-plugin-snap"}, family);
                     }
-                    Executor::passthrough("snap install snap-store 2>/dev/null || true");
+                    Executor::passthrough("sudo snap install snap-store 2>/dev/null || true");
                     break;
                 case 7:
                     // bauh — pip 安装

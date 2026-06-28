@@ -275,7 +275,7 @@ namespace tmoe::domain {
 
         if (auto_install_vscode_ && !interactive) {
             Executor::passthrough(cfg_.install_command + " code 2>/dev/null || "
-                                  "snap install code --classic 2>/dev/null || true");
+                                  "sudo snap install code --classic 2>/dev/null || true");
         }
 
         // Ubuntu language support 已在 get_ubuntu_desktop_language_pack() 中处理
@@ -348,7 +348,7 @@ namespace tmoe::domain {
 
         // 二次检查
         if (!fs::exists(iosevka_file)) {
-            Executor::shell("rm -fv " + font_dir + "/Iosevka-Term-Mono.tar.xz 2>/dev/null || true");
+            Executor::shell("sudo rm -fv " + font_dir + "/Iosevka-Term-Mono.tar.xz 2>/dev/null || true");
         }
 
         // 刷新字体缓存

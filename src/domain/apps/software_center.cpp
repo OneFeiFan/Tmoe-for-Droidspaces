@@ -1081,7 +1081,8 @@ namespace tmoe::domain {
                                  "/.cache/xfce4","/.cache/mate","/.cache/lxde","/.cache/lxqt",
                                  "/.cache/kde","/.cache/plasma"})
             Executor::passthrough("rm -rf " + h + dir + " 2>/dev/null || true");
-        Executor::passthrough("rm -rf ~/.vnc /etc/tigervnc ~/.dbus ~/.cache/sessions 2>/dev/null || true");
+        Executor::passthrough("rm -rf ~/.vnc ~/.dbus ~/.cache/sessions 2>/dev/null || true");
+        Executor::passthrough("sudo rm -rf /etc/tigervnc 2>/dev/null || true");
         // ~/.local/share 各桌面数据
         for (const auto* dir : {"/.local/share/xfce4","/.local/share/kde","/.local/share/plasma",
                                  "/.local/share/mate","/.local/share/gnome","/.local/share/cinnamon",

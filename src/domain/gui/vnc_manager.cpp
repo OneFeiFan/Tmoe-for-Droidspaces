@@ -680,7 +680,7 @@ namespace tmoe::domain {
         Executor::passthrough("sudo mkdir -p /run/dbus /var/lib/dbus 2>/dev/null");
         Executor::passthrough("sudo ln -svf /run /var/ 2>/dev/null || true");
         if (!fs::exists("/etc/machine-id")) {
-            Executor::passthrough("dbus-uuidgen > /etc/machine-id 2>/dev/null || "
+            Executor::passthrough("sudo sh -c 'dbus-uuidgen > /etc/machine-id' 2>/dev/null || "
                 "sudo sh -c 'cat /proc/sys/kernel/random/uuid > /etc/machine-id' 2>/dev/null || true");
         }
         if (!fs::exists("/etc/machine-id") || fs::file_size("/etc/machine-id") == 0) {
@@ -1204,7 +1204,7 @@ namespace tmoe::domain {
         Executor::passthrough("sudo mkdir -p /run/dbus /var/lib/dbus 2>/dev/null");
 
         if (!fs::exists("/etc/machine-id")) {
-            Executor::passthrough("dbus-uuidgen > /etc/machine-id 2>/dev/null || "
+            Executor::passthrough("sudo sh -c 'dbus-uuidgen > /etc/machine-id' 2>/dev/null || "
                 "sudo sh -c 'cat /proc/sys/kernel/random/uuid > /etc/machine-id' 2>/dev/null || true");
         }
         if (!fs::exists("/etc/machine-id") || fs::file_size("/etc/machine-id") == 0) {
