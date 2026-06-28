@@ -754,7 +754,7 @@ namespace tmoe::domain {
         } else {
             Executor::passthrough(
                 "cd /tmp && apt-cache show ./" + dl_file + " 2>/dev/null; "
-                "apt install -y ./" + dl_file + "; rm -vf " + dl_file
+                "sudo apt install -y ./" + dl_file + "; rm -vf " + dl_file
             );
         }
         Logger::ok(_("swcenter.skype.install_done"));
@@ -1031,7 +1031,7 @@ namespace tmoe::domain {
                 }) {
                     PackageManager::remove(std::string(pkg), family);
                 }
-                Executor::passthrough("apt autoremove --purge -y 2>/dev/null || apt autoremove -y 2>/dev/null || true");
+                Executor::passthrough("sudo apt autoremove --purge -y 2>/dev/null || sudo apt autoremove -y 2>/dev/null || true");
                 break;
             }
             case DistroFamily::Arch:
@@ -1123,7 +1123,7 @@ namespace tmoe::domain {
                                      "chromium-browser","chromium-browser-l10n"})
                 PackageManager::remove(std::string(pkg), family);
         }
-        Executor::passthrough("apt autoremove --purge -y 2>/dev/null || true");
+        Executor::passthrough("sudo apt autoremove --purge -y 2>/dev/null || true");
     }
 
     void SoftwareCenter::remove_tmoe_tools() {

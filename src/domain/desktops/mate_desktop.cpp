@@ -71,8 +71,8 @@ void MateDesktop::post_install_config(const PostInstallContext& ctx) {
     // fonts + clean
     if (ctx.is_debian) {
         desktop_utils::install_noto_fonts(ctx.family, true);
-        Executor::passthrough("apt clean 2>/dev/null || true");
-        Executor::passthrough("apt autoclean 2>/dev/null || true");
+        Executor::passthrough("sudo apt clean 2>/dev/null || true");
+        Executor::passthrough("sudo apt autoclean 2>/dev/null || true");
     }
     desktop_utils::install_language_packs(cfg_);
 }

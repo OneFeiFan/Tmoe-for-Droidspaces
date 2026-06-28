@@ -85,7 +85,7 @@ namespace tmoe::domain {
             choose_wayland_or_x11(ctx);
         }
 
-        if (ctx.is_debian) Executor::passthrough("apt clean 2>/dev/null || true");
+        if (ctx.is_debian) Executor::passthrough("sudo apt clean 2>/dev/null || true");
         desktop_utils::install_language_packs(cfg_);
     }
 

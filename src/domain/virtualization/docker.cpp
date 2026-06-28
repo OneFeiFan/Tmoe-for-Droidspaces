@@ -150,8 +150,8 @@ namespace tmoe::domain {
         }
 
         if (is_alpine()) {
-            Executor::passthrough("apk add docker docker-cli-compose");
-            Executor::passthrough("rc-update add docker boot");
+            Executor::passthrough("sudo apk add docker docker-cli-compose");
+            Executor::passthrough("sudo rc-update add docker boot");
             return Executor::passthrough("sudo service docker start").ok();
         }
 

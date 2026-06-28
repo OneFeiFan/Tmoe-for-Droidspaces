@@ -143,7 +143,7 @@ bt-tracker=udp://tracker.opentrackr.org:1337/announce,udp://tracker.openbittorre
                 Logger::step(_("download.yt_dlp_pip"));
                 Executor::shell("pip3 install yt-dlp 2>/dev/null || "
                     "pip install yt-dlp 2>/dev/null || "
-                    "apt install -y yt-dlp 2>/dev/null || "
+                    "sudo apt install -y yt-dlp 2>/dev/null || "
                     "pacman -S --noconfirm yt-dlp 2>/dev/null || true");
                 Logger::info("  " + _("download.yt_dlp_example"));
             } else if (ch == "2") {

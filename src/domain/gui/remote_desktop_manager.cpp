@@ -204,7 +204,7 @@ namespace tmoe::domain {
                                      "fi\n\n"
                                      "test -x /etc/X11/Xsession && exec /etc/X11/Xsession\n"
                                      "exec /etc/X11/xinit/Xsession\n");
-            CommandBuilder("chmod").add_arg("+x").add_arg("/etc/xrdp/startwm.sh").add_raw("2>/dev/null || true").
+            CommandBuilder("sudo").add_arg("chmod").add_arg("+x").add_arg("/etc/xrdp/startwm.sh").add_raw("2>/dev/null || true").
                     execute();
         }
 
@@ -397,7 +397,7 @@ namespace tmoe::domain {
                                  "port=3389\n"
                                  "username=ask\n"
                                  "password=ask\n");
-        CommandBuilder("chmod").add_arg("644").add_arg("/etc/xrdp/xrdp.ini").add_raw("2>/dev/null || true").execute();
+        CommandBuilder("sudo").add_arg("chmod").add_arg("644").add_arg("/etc/xrdp/xrdp.ini").add_raw("2>/dev/null || true").execute();
 
         // 验证 xrdp 用户能否读取配置
         auto readable = Executor::shell(
@@ -744,7 +744,7 @@ namespace tmoe::domain {
                                  "x11vnc -storepasswd \"$VNC_HOME/x11passwd\" 2>/dev/null || "
                                  "x11vnc -storepasswd ~/.vnc/x11passwd 2>/dev/null || true\n"
                                  "echo 'x11vnc password configured'\n");
-        CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/x11vncpasswd").add_raw("2>/dev/null || true").
+        CommandBuilder("sudo").add_arg("chmod").add_arg("a+rx").add_arg("/usr/local/bin/x11vncpasswd").add_raw("2>/dev/null || true").
                 execute();
 
         // 3. 确保 x11passwd 存在
@@ -880,7 +880,7 @@ namespace tmoe::domain {
         if (family == DistroFamily::Unknown) family = PackageManager::detect_distro_family();
         if (!Executor::has("xrdp-keygen") && !fs::exists("/usr/sbin/xrdp")) {
             if (family == DistroFamily::Gentoo) {
-                Executor::passthrough("emerge -avk layman 2>/dev/null; layman -a bleeding-edge 2>/dev/null; "
+                Executor::passthrough("sudo emerge -avk layman 2>/dev/null; sudo layman -a bleeding-edge 2>/dev/null; "
                     "layman -S 2>/dev/null || true");
             }
             PackageManager::install("xrdp", family);

@@ -44,7 +44,7 @@ namespace tmoe::domain {
                                  os_rel_content.find("Uos 20") != std::string::npos;
             if (is_old_distro) {
                 Logger::info(_("gui.vnc.proot_remove_udisks"));
-                Executor::passthrough("apt purge -y --allow-change-held-packages ^udisks2 ^gvfs 2>/dev/null || true");
+                Executor::passthrough("sudo apt purge -y --allow-change-held-packages ^udisks2 ^gvfs 2>/dev/null || true");
             }
         }
 

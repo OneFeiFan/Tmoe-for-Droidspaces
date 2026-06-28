@@ -30,7 +30,7 @@ void BudgieDesktop::post_install_config(const PostInstallContext& ctx) {
     }
     // bash: cat_budgie_desktop_builtin_session — 全发行版创建
     SystemHelper::write_file("/usr/local/bin/budgie-desktop-builtin", "#!/bin/sh\nbudgie-wm --x11 --replace &\nbudgie-panel --replace &\nwait\n");
-    CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/budgie-desktop-builtin").execute();
+    CommandBuilder("sudo").add_arg("chmod").add_arg("a+rx").add_arg("/usr/local/bin/budgie-desktop-builtin").execute();
     desktop_utils::install_language_packs(cfg_);
 }
 

@@ -25,8 +25,8 @@ void DdeDesktop::post_install_config(const PostInstallContext& ctx) {
         // 非 deepin 发行版需要先添加 UbuntuDDE PPA
         if (cfg_.sub_distro != "deepin") {
             Executor::passthrough(
-                "apt update 2>/dev/null; "
-                "apt install -y software-properties-common gnupg 2>/dev/null; "
+                "sudo apt update 2>/dev/null; "
+                "sudo apt install -y software-properties-common gnupg 2>/dev/null; "
                 "yes | sudo add-apt-repository ppa:ubuntudde-dev/stable 2>/dev/null || true");
         }
         desktop_utils::install_noto_fonts(ctx.family, true);

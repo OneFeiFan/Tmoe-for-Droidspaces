@@ -61,7 +61,7 @@ namespace tmoe::domain {
                     // 修复 dpkg 配置
                     Executor::passthrough("sudo dpkg --configure -a 2>&1 || true");
                     // 修复破损依赖
-                    Executor::passthrough("apt --fix-broken install -y 2>&1 || true");
+                    Executor::passthrough("sudo apt --fix-broken install -y 2>&1 || true");
                     Logger::ok(_("env.dpkg_repair_ok"));
                 } else if (!has_issue) {
                     Logger::info(_("env.dpkg_skip"));

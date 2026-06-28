@@ -30,9 +30,9 @@ namespace tmoe::domain::desktop_utils {
 
     void purge_libfprint_and_clean(bool is_proot, bool is_debian) {
         if (!is_proot || !is_debian) return;
-        Executor::passthrough("apt purge -y ^libfprint 2>/dev/null || true");
-        Executor::passthrough("apt clean 2>/dev/null || true");
-        Executor::passthrough("apt autoclean 2>/dev/null || true");
+        Executor::passthrough("sudo apt purge -y ^libfprint 2>/dev/null || true");
+        Executor::passthrough("sudo apt clean 2>/dev/null || true");
+        Executor::passthrough("sudo apt autoclean 2>/dev/null || true");
     }
 
     void dpkg_configure_and_keyboard(bool is_debian) {

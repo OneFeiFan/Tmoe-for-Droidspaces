@@ -318,7 +318,7 @@ namespace tmoe::domain {
         if (fs::exists("/etc/gitstatus")) {
             if (fs::exists("/root/.cache/gitstatus")) {
                 Executor::shell("sudo cp -f /root/.cache/gitstatus/* /etc/gitstatus 2>/dev/null || true");
-                CommandBuilder("chmod").add_flag("-R").add_arg("a+rx").add_arg("/etc/gitstatus/").add_raw(
+                CommandBuilder("sudo").add_arg("chmod").add_flag("-R").add_arg("a+rx").add_arg("/etc/gitstatus/").add_raw(
                     "2>/dev/null || true").execute();
             }
             font_dir = "/etc/gitstatus";
@@ -559,7 +559,7 @@ namespace tmoe::domain {
 
     void DesktopManager::create_update_icon_caches() {
         SystemHelper::write_file("/usr/local/bin/update-icon-caches", generate_update_icon_caches_script());
-        CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/update-icon-caches").execute();
+        CommandBuilder("sudo").add_arg("chmod").add_arg("a+rx").add_arg("/usr/local/bin/update-icon-caches").execute();
     }
 
     void DesktopManager::check_update_icon_caches_sh() {

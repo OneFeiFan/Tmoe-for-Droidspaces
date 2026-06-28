@@ -571,7 +571,7 @@ namespace tmoe::domain {
                         deb.erase(std::remove(deb.begin(), deb.end(), '\n'), deb.end());
                         Executor::passthrough("curl -L -o /tmp/" + deb + " "
                             "'https://download1.rstudio.org/electron/focal/amd64/" + deb + "' 2>/dev/null");
-                        Executor::passthrough("apt install -y /tmp/" + deb + " 2>/dev/null");
+                        Executor::passthrough("sudo apt install -y /tmp/" + deb + " 2>/dev/null");
                         Logger::ok(_("beta.rstudio_installed"));
                     } else {
                         Logger::error(_("beta.rstudio_version_failed"));
@@ -585,7 +585,7 @@ namespace tmoe::domain {
                         rpm.erase(std::remove(rpm.begin(), rpm.end(), '\n'), rpm.end());
                         Executor::passthrough("curl -L -o /tmp/" + rpm + " "
                             "'https://download1.rstudio.org/electron/focal/amd64/" + rpm + "' 2>/dev/null");
-                        Executor::passthrough("yum install -y /tmp/" + rpm + " 2>/dev/null");
+                        Executor::passthrough("sudo yum install -y /tmp/" + rpm + " 2>/dev/null");
                         Logger::ok(_("beta.rstudio_installed"));
                     } else {
                         Logger::error(_("beta.rstudio_version_failed"));

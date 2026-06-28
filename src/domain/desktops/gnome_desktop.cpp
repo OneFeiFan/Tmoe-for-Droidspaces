@@ -68,7 +68,7 @@ namespace tmoe::domain {
     void GnomeDesktop::write_session_scripts() {
         auto wr = [&](const char *n, const std::string &c) {
             SystemHelper::write_file("/usr/local/bin/" + std::string(n), c);
-            CommandBuilder("chmod").add_arg("a+rx").add_arg("/usr/local/bin/" + std::string(n)).execute();
+            CommandBuilder("sudo").add_arg("chmod").add_arg("a+rx").add_arg("/usr/local/bin/" + std::string(n)).execute();
         };
         // bash: gnome-shell-x11 总是创建（不管选哪个 session）
         wr("gnome-shell-x11", "#!/bin/sh\nexec gnome-shell --x11 \"$@\"\n");

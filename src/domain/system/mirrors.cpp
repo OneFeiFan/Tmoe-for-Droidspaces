@@ -129,13 +129,13 @@ namespace tmoe::domain {
 
     bool MirrorManager::run_dist_upgrade() const {
         if (cfg_.linux_distro == "debian" || cfg_.linux_distro == "ubuntu" || cfg_.linux_distro == "kali") {
-            return Executor::passthrough("apt dist-upgrade -y").ok();
+            return Executor::passthrough("sudo apt dist-upgrade -y").ok();
         }
         if (cfg_.linux_distro == "arch") {
-            return Executor::passthrough("pacman -Su --noconfirm").ok();
+            return Executor::passthrough("sudo pacman -Su --noconfirm").ok();
         }
         if (cfg_.linux_distro == "alpine") {
-            return Executor::passthrough("apk upgrade").ok();
+            return Executor::passthrough("sudo apk upgrade").ok();
         }
         return true;
     }
@@ -458,7 +458,7 @@ namespace tmoe::domain {
         std::string repo_url = "https://" + url + "/solus/packages/shannon/eopkg-index.xml.xz";
 
         Logger::step(_("mirror.adding_solus_source"));
-        Executor::shell("eopkg remove-repo mirror 2>/dev/null || true");
+        Executor::shell("sudo eopkg remove-repo mirror 2>/dev/null || true");
 
         Logger::step(_("mirror.adding_solus_new"));
         auto r = CommandBuilder("eopkg").add_arg("add-repo").add_arg("mirror")
@@ -468,8 +468,8 @@ namespace tmoe::domain {
             return false;
         }
 
-        Executor::shell("eopkg enable-repo mirror 2>/dev/null || true");
-        Executor::shell("eopkg disable-repo Solus 2>/dev/null || true"); // 禁用官方源
+        Executor::shell("sudo eopkg enable-repo mirror 2>/dev/null || true");
+        Executor::shell("sudo eopkg disable-repo Solus 2>/dev/null || true"); // 禁用官方源
 
         return true;
     }
@@ -767,8 +767,8 @@ namespace tmoe::domain {
             "TMOE_EOF");
 
         Logger::step(_("mirror.archlinuxcn_installing_keyring"));
-        Executor::shell("pacman -Syu --noconfirm archlinux-keyring 2>/dev/null || true");
-        Executor::shell("pacman -Sy --noconfirm archlinuxcn-keyring 2>/dev/null || true");
+        Executor::shell("sudo pacman -Syu --noconfirm archlinux-keyring 2>/dev/null || true");
+        Executor::shell("sudo pacman -Sy --noconfirm archlinuxcn-keyring 2>/dev/null || true");
 
         Logger::step(_("mirror.archlinuxcn_installing_paru"));
         if (!Executor::has("paru")) {
@@ -828,7 +828,7 @@ namespace tmoe::domain {
         std::string rpm_nonfree = "https://mirrors.bfsu.edu.cn/rpmfusion/nonfree/fedora/"
                                   "rpmfusion-nonfree-release-" + std::to_string(fv) + ".noarch.rpm";
 
-        Executor::shell("dnf install -y --nogpgcheck " + rpm_free + " " + rpm_nonfree + " 2>/dev/null || "
+        Executor::shell("sudo dnf install -y --nogpgcheck " + rpm_free + " " + rpm_nonfree + " 2>/dev/null || "
                         "yum install -y --nogpgcheck " + rpm_free + " " + rpm_nonfree + " 2>/dev/null || true");
 
         // 替换 baseurl 为 bfsu 镜像
