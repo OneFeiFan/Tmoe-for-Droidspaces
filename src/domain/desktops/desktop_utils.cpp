@@ -49,7 +49,7 @@ namespace tmoe::domain::desktop_utils {
             d.find("lxde") != std::string::npos ||
             d.find("lxqt") != std::string::npos) {
             Executor::passthrough(
-                "apt purge -y --allow-change-held-packages "
+                "sudo apt purge -y --allow-change-held-packages "
                 "^udisks2 ^gvfs ^gvfs-backends ^gvfs-daemons 2>/dev/null || true");
         }
     }

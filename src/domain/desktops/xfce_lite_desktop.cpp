@@ -29,7 +29,7 @@ void XfceLiteDesktop::post_install_extras(const PostInstallContext& ctx) {
                 "breeze-adapta-cursor-theme-5.90.0-1-any.pkg.tar.zst' 2>/dev/null || "
                 "curl -sL 'https://gitee.com/ak2/breeze-adapta-cursor/raw/master/"
                 "breeze-adapta-cursor.tar.gz' -o breeze-adapta-cursor.tar.gz 2>/dev/null; "
-                "tar -xzf breeze-adapta-cursor.tar.gz -C /usr/share/icons/ 2>/dev/null || true");
+                "sudo tar -xzf breeze-adapta-cursor.tar.gz -C /usr/share/icons/ 2>/dev/null || true");
         }
     }
     // xfce-lite: 跳过 papirus 图标和壁纸 (bash 原版 xfce_lite 也不设)

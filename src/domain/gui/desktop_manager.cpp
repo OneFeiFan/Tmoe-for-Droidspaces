@@ -429,8 +429,8 @@ namespace tmoe::domain {
         Executor::shell("cd /tmp && [ -d McMojave ] && rm -rf McMojave; "
             "git clone -b McMojave --depth=1 https://gitee.com/mo2/xfce-themes.git /tmp/McMojave 2>/dev/null && "
             "cd /tmp/McMojave && "
-            "tar -Jxvf 01-Mojave-dark.tar.xz -C /usr/share/themes 2>/dev/null && "
-            "tar -Jxvf 01-McMojave-circle.tar.xz -C /usr/share/icons 2>/dev/null && "
+            "sudo tar -Jxvf 01-Mojave-dark.tar.xz -C /usr/share/themes 2>/dev/null && "
+            "sudo tar -Jxvf 01-McMojave-circle.tar.xz -C /usr/share/icons 2>/dev/null && "
             "update-icon-caches /usr/share/icons/McMojave-circle-dark /usr/share/icons/McMojave-circle 2>/dev/null &");
         Executor::shell("rm -rf /tmp/McMojave 2>/dev/null || true");
         set_default_xfce_icon_theme("McMojave-circle");
@@ -448,9 +448,9 @@ namespace tmoe::domain {
             "git clone -b master --depth=1 https://gitee.com/ak2/bigsur-gtk-theme.git "
             "/tmp/BIGSUR_TEMP_FOLDER 2>/dev/null && "
             "cd /tmp/BIGSUR_TEMP_FOLDER && "
-            "tar -Jxvf WhiteSur.tar.xz -C /usr/share/icons 2>/dev/null && "
-            "tar -Jxvf WhiteSur-light-alt.tar.xz -C /usr/share/themes 2>/dev/null && "
-            "tar -Jxvf WhiteSur-dark.tar.xz -C /usr/share/themes 2>/dev/null && "
+            "sudo tar -Jxvf WhiteSur.tar.xz -C /usr/share/icons 2>/dev/null && "
+            "sudo tar -Jxvf WhiteSur-light-alt.tar.xz -C /usr/share/themes 2>/dev/null && "
+            "sudo tar -Jxvf WhiteSur-dark.tar.xz -C /usr/share/themes 2>/dev/null && "
             "update-icon-caches /usr/share/icons/WhiteSur /usr/share/icons/WhiteSur-dark 2>/dev/null &");
         Executor::shell("rm -rvf /tmp/BIGSUR_TEMP_FOLDER 2>/dev/null || true");
         set_default_xfce_icon_theme("WhiteSur");

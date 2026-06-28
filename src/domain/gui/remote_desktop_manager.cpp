@@ -47,7 +47,7 @@ namespace tmoe::domain {
                 "/opt/novnc 2>/dev/null || true");
             if (fs::exists("/opt/novnc")) {
                 // 创建符号链接
-                CommandBuilder("ln").add_flag("-sf").add_arg("/opt/novnc").add_arg("/usr/share/novnc").add_raw(
+                CommandBuilder("sudo").add_arg("ln").add_flag("-sf").add_arg("/opt/novnc").add_arg("/usr/share/novnc").add_raw(
                     "2>/dev/null || true").execute();
             }
         }
@@ -147,15 +147,15 @@ namespace tmoe::domain {
         // xrdp 用户必须在 ssl-cert 组中才能读取，否则报 Permission denied
         Executor::shell(
             "if getent group ssl-cert >/dev/null 2>&1; then "
-            "  usermod -a -G ssl-cert xrdp 2>/dev/null || true; "
+            "  sudo usermod -a -G ssl-cert xrdp 2>/dev/null || true; "
             "fi; "
             // 确保 /etc/xrdp 目录权限正确
-            "chown -R root:ssl-cert /etc/xrdp/ 2>/dev/null || true; "
-            "chmod 640 /etc/xrdp/key.pem 2>/dev/null || true; "
-            "chmod 644 /etc/xrdp/cert.pem 2>/dev/null || true");
+            "sudo chown -R root:ssl-cert /etc/xrdp/ 2>/dev/null || true; "
+            "sudo chmod 640 /etc/xrdp/key.pem 2>/dev/null || true; "
+            "sudo chmod 644 /etc/xrdp/cert.pem 2>/dev/null || true");
         // 旧 Bash: chroot/proot 下 xrdp 需要 aid_inet 组才能联网
         if (cfg_.is_termux || cfg_.linux_distro == "Android") {
-            CommandBuilder("usermod").add_flag("-a").add_flag("-G").add_arg("aid_inet").add_arg("xrdp").add_raw(
+            CommandBuilder("sudo").add_arg("usermod").add_flag("-a").add_flag("-G").add_arg("aid_inet").add_arg("xrdp").add_raw(
                 "2>/dev/null || true").execute();
         }
 
@@ -317,9 +317,9 @@ namespace tmoe::domain {
         Executor::shell(
             "sudo mkdir -p /etc/xrdp 2>/dev/null; "
             // 确保目录和文件对 xrdp 用户可读
-            "chmod 755 /etc/xrdp 2>/dev/null || true; "
+            "sudo chmod 755 /etc/xrdp 2>/dev/null || true; "
             // 确保 xrdp 用户存在 (proot/容器里 postinst 可能没创建)
-            "id xrdp >/dev/null 2>&1 || useradd -r -s /usr/sbin/nologin xrdp 2>/dev/null || true");
+            "id xrdp >/dev/null 2>&1 || sudo useradd -r -s /usr/sbin/nologin xrdp 2>/dev/null || true");
 
         std::string port_str = std::to_string(port);
 
@@ -888,13 +888,13 @@ namespace tmoe::domain {
         // 修复 xrdp 证书权限: key.pem 默认 640 root:ssl-cert
         Executor::shell(
             "if getent group ssl-cert >/dev/null 2>&1; then "
-            "  usermod -a -G ssl-cert xrdp 2>/dev/null || true; "
+            "  sudo usermod -a -G ssl-cert xrdp 2>/dev/null || true; "
             "fi; "
-            "chown -R root:ssl-cert /etc/xrdp/ 2>/dev/null || true; "
-            "chmod 640 /etc/xrdp/key.pem 2>/dev/null || true; "
-            "chmod 644 /etc/xrdp/cert.pem 2>/dev/null || true");
+            "sudo chown -R root:ssl-cert /etc/xrdp/ 2>/dev/null || true; "
+            "sudo chmod 640 /etc/xrdp/key.pem 2>/dev/null || true; "
+            "sudo chmod 644 /etc/xrdp/cert.pem 2>/dev/null || true");
         if (cfg_.is_termux || cfg_.linux_distro == "Android") {
-            CommandBuilder("usermod").add_flag("-a").add_flag("-G").add_arg("aid_inet").add_arg("xrdp").add_raw(
+            CommandBuilder("sudo").add_arg("usermod").add_flag("-a").add_flag("-G").add_arg("aid_inet").add_arg("xrdp").add_raw(
                 "2>/dev/null || true").execute();
         }
         // polkit 规则

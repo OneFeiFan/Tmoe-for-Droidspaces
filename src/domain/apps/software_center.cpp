@@ -124,8 +124,8 @@ namespace tmoe::domain {
             "aria2c --console-log-level=warn --no-conf --continue=true "
             "--allow-overwrite=true -s 3 -x 3 -k 1M -o electron.zip \"${ELECTRON_URL}\" && "
             "unzip -qo electron.zip -d /opt/electron && "
-            "chmod a+rx /opt/electron/electron && "
-            "ln -sf /opt/electron/electron /usr/bin/electron"
+            "sudo chmod a+rx /opt/electron/electron && "
+            "sudo ln -sf /opt/electron/electron /usr/bin/electron"
         );
 
         if (!result.ok() || !fs::exists("/opt/electron/electron")) {
@@ -172,7 +172,7 @@ namespace tmoe::domain {
                 "aria2c --console-log-level=warn --no-conf --continue=true "
                 "--allow-overwrite=true -x 3 -k 1M --split 3 -o app.tar.xz "
                 "'" + pkg_url + "/apps/" + app_name + "/app.tar.xz' && "
-                "tar -Jxvf app.tar.xz -C /opt"
+                "sudo tar -Jxvf app.tar.xz -C /opt"
             );
         }
 
@@ -184,7 +184,7 @@ namespace tmoe::domain {
 
         // 修复权限并复制 .desktop 文件
         Executor::shell(
-            "chmod -Rv 755 /opt/" + app_name + "/usr/bin/ 2>/dev/null || true; "
+            "sudo chmod -Rv 755 /opt/" + app_name + "/usr/bin/ 2>/dev/null || true; "
             "find /opt/" + app_name + " -type d -print | xargs chmod -v a+rx 2>/dev/null || true; "
             "find /opt/" + app_name + " -type f -print | xargs chmod a+r 2>/dev/null || true"
         );
@@ -543,7 +543,7 @@ namespace tmoe::domain {
                 " && rm -vf " + dest_file);
         } else if (ext == ".rpm") {
             Executor::passthrough(
-                "cd /tmp && rpm -Uvh ./" + dest_file + " || yum localinstall -y ./" + dest_file + " && rm -vf " +
+                "cd /tmp && sudo rpm -Uvh ./" + dest_file + " || sudo yum localinstall -y ./" + dest_file + " && rm -vf " +
                 dest_file);
         } else {
             // AppImage 配置部署
@@ -800,7 +800,7 @@ namespace tmoe::domain {
 
         if (family == DistroFamily::Debian || family == DistroFamily::Arch) {
             Executor::passthrough(
-                "cd /tmp && dpkg -i ./" + dl_file + " || apt install -y ./" + dl_file + " 2>/dev/null || true; "
+                "cd /tmp && sudo dpkg -i ./" + dl_file + " || sudo apt install -y ./" + dl_file + " 2>/dev/null || true; "
                 "rm -vf " + dl_file
             );
         }

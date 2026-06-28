@@ -384,10 +384,10 @@ namespace tmoe::domain {
 
     void MirrorManager::fedora_31_repos(const std::string &url) {
         // 直接从镜像站下载官方 repo 文件
-        CommandBuilder("curl").add_flag("-o").add_arg("/etc/yum.repos.d/fedora.repo")
+        CommandBuilder("sudo").add_arg("curl").add_flag("-o").add_arg("/etc/yum.repos.d/fedora.repo")
             .add_arg("http://" + url + "/repo/fedora.repo")
             .add_raw("2>/dev/null || true").execute();
-        CommandBuilder("curl").add_flag("-o").add_arg("/etc/yum.repos.d/fedora-updates.repo")
+        CommandBuilder("sudo").add_arg("curl").add_flag("-o").add_arg("/etc/yum.repos.d/fedora-updates.repo")
             .add_arg("http://" + url + "/repo/fedora-updates.repo")
             .add_raw("2>/dev/null || true").execute();
     }
@@ -720,19 +720,15 @@ namespace tmoe::domain {
             .add_arg("/tmp/kali.gpg").add_arg(keyring).execute();
 
         Logger::step(_("mirror.kali_writing_list"));
-        std::ofstream ofs(kali_list);
-        if (!ofs.is_open()) {
+        std::string kali_content =
+            "deb [signed-by=" + keyring + "] http://http.kali.org/kali/ kali-rolling main contrib non-free\n"
+            "# deb [signed-by=" + keyring + "] http://mirrors.bfsu.edu.cn/kali/ kali-rolling main contrib non-free\n"
+            "# deb [signed-by=" + keyring + "] https://mirrors.ustc.edu.cn/kali kali-rolling main non-free contrib\n"
+            "# deb [signed-by=" + keyring + "] http://mirrors.bfsu.edu.cn/kali/ kali-last-snapshot main contrib non-free\n";
+        if (!SystemHelper::write_file(kali_list, kali_content)) {
             Logger::error(_f("mirror.kali_write_failed", kali_list));
             return false;
         }
-        ofs << "deb [signed-by=" + keyring + "] http://http.kali.org/kali/ kali-rolling main contrib non-free\n";
-        ofs << "# deb [signed-by=" + keyring +
-                "] http://mirrors.bfsu.edu.cn/kali/ kali-rolling main contrib non-free\n";
-        ofs << "# deb [signed-by=" + keyring +
-                "] https://mirrors.ustc.edu.cn/kali kali-rolling main non-free contrib\n";
-        ofs << "# deb [signed-by=" + keyring +
-                "] http://mirrors.bfsu.edu.cn/kali/ kali-last-snapshot main contrib non-free\n";
-        ofs.close();
 
         Logger::step(_("mirror.updating"));
         PackageManager::update(DistroFamily::Debian);
@@ -821,7 +817,7 @@ namespace tmoe::domain {
                                   "rpmfusion-nonfree-release-" + std::to_string(fv) + ".noarch.rpm";
 
         Executor::shell("sudo dnf install -y --nogpgcheck " + rpm_free + " " + rpm_nonfree + " 2>/dev/null || "
-                        "yum install -y --nogpgcheck " + rpm_free + " " + rpm_nonfree + " 2>/dev/null || true");
+                        "sudo yum install -y --nogpgcheck " + rpm_free + " " + rpm_nonfree + " 2>/dev/null || true");
 
         // 替换 baseurl 为 bfsu 镜像
         Executor::shell(

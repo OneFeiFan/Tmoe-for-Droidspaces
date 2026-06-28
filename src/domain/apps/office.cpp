@@ -94,9 +94,9 @@ namespace tmoe::domain {
         Executor::shell(
             "if [ -f /usr/lib/libreoffice/program/oosplash ] && "
             "[ ! -L /usr/lib/libreoffice/program/oosplash ]; then "
-            "mv /usr/lib/libreoffice/program/oosplash "
+            "sudo mv /usr/lib/libreoffice/program/oosplash "
             "/usr/lib/libreoffice/program/oosplash.bak 2>/dev/null; "
-            "ln -sf /usr/lib/libreoffice/program/soffice "
+            "sudo ln -sf /usr/lib/libreoffice/program/soffice "
             "/usr/lib/libreoffice/program/oosplash 2>/dev/null; fi"
         );
     }

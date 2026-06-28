@@ -547,14 +547,14 @@ bool ConfigManager::change_root_password() {
 
     // 通过 chpasswd 修改 (需要 root)
     std::string chpasswd_input = "root:" + pw1;
-    auto result = Executor::shell(CommandBuilder("echo").add_arg(chpasswd_input).add_raw("| chpasswd 2>/dev/null").build_string());
+    auto result = Executor::shell(CommandBuilder("echo").add_arg(chpasswd_input).add_raw("| sudo chpasswd 2>/dev/null").build_string());
 
     if (result.ok()) {
         Logger::ok(_("passwd.changed"));
         return true;
     } else {
         // fallback: passwd --stdin
-        result = Executor::shell(CommandBuilder("echo").add_arg(pw1).add_raw("| passwd --stdin root 2>/dev/null").build_string());
+        result = Executor::shell(CommandBuilder("echo").add_arg(pw1).add_raw("| sudo passwd --stdin root 2>/dev/null").build_string());
         if (result.ok()) {
             Logger::ok(_("passwd.changed"));
             return true;

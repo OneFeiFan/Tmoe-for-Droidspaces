@@ -568,7 +568,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
         if (fs::exists(tmp_zip)) {
             // unzip + mv，unzip 保留 zip 内权限
             Executor::passthrough("cd /tmp && unzip -qo '" + tmp_zip + "' 2>/dev/null && "
-                "mv candy-icons-master /usr/share/icons/candy-icons 2>/dev/null || true");
+                "sudo mv candy-icons-master /usr/share/icons/candy-icons 2>/dev/null || true");
             Executor::shell("sudo update-icon-caches /usr/share/icons/candy-icons 2>/dev/null &");
             std::error_code ec;
             fs::remove(tmp_zip, ec);

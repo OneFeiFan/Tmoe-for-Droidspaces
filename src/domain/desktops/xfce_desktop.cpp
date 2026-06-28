@@ -85,7 +85,7 @@ namespace tmoe::domain {
                     "breeze-adapta-cursor-theme-5.90.0-1-any.pkg.tar.zst' 2>/dev/null || "
                     "curl -sL 'https://gitee.com/ak2/breeze-adapta-cursor/raw/master/"
                     "breeze-adapta-cursor.tar.gz' -o breeze-adapta-cursor.tar.gz 2>/dev/null; "
-                    "tar -xzf breeze-adapta-cursor.tar.gz -C /usr/share/icons/ 2>/dev/null || true");
+                    "sudo tar -xzf breeze-adapta-cursor.tar.gz -C /usr/share/icons/ 2>/dev/null || true");
             }
         }
         // Papirus 图标主题
@@ -138,7 +138,7 @@ namespace tmoe::domain {
                     "(aria2c --console-log-level=warn --no-conf --allow-overwrite=true -s5 -x5 -k1M -o kali-undercover.deb 'https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-undercover/'\"$UNDERCOVERlatestLINK\" 2>/dev/null || "
                     "apt download kali-undercover 2>/dev/null && mv *deb kali-undercover.deb) && "
                     "ar xv kali-undercover.deb && cd / && tar -Jxvf /tmp/.kali-undercover-win10-theme/data.tar.xz ./usr 2>/dev/null && "
-                    "mv -f /usr/bin/kali-undercover /usr/local/bin/ 2>/dev/null; update-icon-caches /usr/share/icons/Windows-10-Icons 2>/dev/null &");
+                    "sudo mv -f /usr/bin/kali-undercover /usr/local/bin/ 2>/dev/null; update-icon-caches /usr/share/icons/Windows-10-Icons 2>/dev/null &");
             }
             PackageManager::install("kali-themes-common", DistroFamily::Debian);
             Executor::shell(
@@ -182,7 +182,7 @@ namespace tmoe::domain {
             "wget -qO /tmp/breeze-adapta-cursor.tar.gz "
             "'https://github.com/arch-linux-archive/community/raw/master/"
             "breeze-adapta-cursor-theme.tar.gz' 2>/dev/null && "
-            "tar -xzf /tmp/breeze-adapta-cursor.tar.gz -C /usr/share/icons/ 2>/dev/null || true");
+            "sudo tar -xzf /tmp/breeze-adapta-cursor.tar.gz -C /usr/share/icons/ 2>/dev/null || true");
     }
 
     void XfceDesktop::configure_xfce_settings(const PostInstallContext &ctx) {

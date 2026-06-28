@@ -261,7 +261,7 @@ namespace tmoe::domain {
                     // fallback: download from gitee
                     if (!Executor::has("neofetch")) {
                         Executor::passthrough(
-                            "curl -L -o /usr/local/bin/neofetch "
+                            "sudo curl -L -o /usr/local/bin/neofetch "
                             "'https://gitee.com/mirrors/neofetch/raw/master/neofetch' 2>/dev/null");
                         Executor::shell("sudo chmod a+rx /usr/local/bin/neofetch");
                     }

@@ -341,7 +341,7 @@ namespace tmoe::domain {
     bool Environment::generate_locale_via_locale_gen(std::string_view lang) {
         std::string locale_str = std::string(lang) + ".UTF-8";
         // 取消 /etc/locale.gen 中对应行的注释
-        std::string sed_cmd = "sed -i 's/^#\\(" + locale_str + "\\)/\\1/' /etc/locale.gen 2>/dev/null";
+        std::string sed_cmd = "sudo sed -i 's/^#\\(" + locale_str + "\\)/\\1/' /etc/locale.gen 2>/dev/null";
         Executor::shell(sed_cmd);
         return Executor::shell("locale-gen 2>/dev/null").ok();
     }
@@ -389,9 +389,9 @@ namespace tmoe::domain {
                                        " font-noto-cjk 2>/dev/null").ok();
         } else if (cfg_.linux_distro == "gentoo") {
             ok = Executor::passthrough(
-                     "emerge --ask=n media-fonts/noto-cjk media-fonts/noto 2>/dev/null").ok() ||
+                     "sudo emerge --ask=n media-fonts/noto-cjk media-fonts/noto 2>/dev/null").ok() ||
                  Executor::passthrough(
-                     "emerge --ask=n media-fonts/noto-cjk 2>/dev/null").ok();
+                     "sudo emerge --ask=n media-fonts/noto-cjk 2>/dev/null").ok();
         } else {
             // 未知发行版：尝试常见包管理器
             ok = PackageManager::install({"fonts-noto-cjk", "fonts-noto"}, DistroFamily::Debian) ||

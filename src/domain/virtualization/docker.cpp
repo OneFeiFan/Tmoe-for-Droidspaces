@@ -1103,9 +1103,9 @@ namespace tmoe::domain {
             return true;
         }
 
-        Executor::shell("groupadd docker 2>/dev/null");
+        Executor::shell("sudo groupadd docker 2>/dev/null");
         bool ok = Executor::shell(
-            CommandBuilder("gpasswd").add_flag("-a").add_arg(cur_user).add_arg("docker")
+            CommandBuilder("sudo").add_arg("gpasswd").add_flag("-a").add_arg(cur_user).add_arg("docker")
                 .build_string()).ok();
         if (ok) {
             Logger::ok(_("docker.user_added_to_group") + ": " + cur_user);

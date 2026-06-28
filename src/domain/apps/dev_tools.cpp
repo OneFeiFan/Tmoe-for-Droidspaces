@@ -269,7 +269,7 @@ namespace tmoe::domain {
                 "cd /tmp && "
                 "sudo tar -zxvf VSCODE.tar.gz -C /usr/share && "
                 "sudo rm -rvf /usr/share/code 2>/dev/null; "
-                "mv /usr/share/" + code_bin_folder + " /usr/share/code; "
+                "sudo mv /usr/share/" + code_bin_folder + " /usr/share/code; "
                 "rm -vf VSCODE.tar.gz"
             );
 
@@ -499,17 +499,24 @@ namespace tmoe::domain {
             );
         }
 
-        vscode_server_restart();
-        vscode_server_password();
-
-        Logger::info(_("devtools.hint.codeserver_first_install"));
-
-        // Fix bind address
+        // 修正默认 bind 地址（127.0.0.1 → 0.0.0.0）
         Executor::shell(
             "if grep -q '127.0.0.1:8080' \"${HOME}/.config/code-server/config.yaml\" 2>/dev/null; then "
             "sed -i 's@bind-addr:.*@bind-addr: 0.0.0.0:18080@' \"${HOME}/.config/code-server/config.yaml\"; fi"
         );
 
+        // 启动 code-server，显示初始化信息和默认密码
+        Logger::info(_("devtools.status.starting_codeserver"));
+        Executor::passthrough(
+            "/usr/local/bin/code-server-data/bin/code-server & "
+            "CODE_PID=$!; sleep 3; "
+            "echo ''; "
+            "echo 'Code-server PID: '${CODE_PID}; "
+            "echo 'Access: http://localhost:18080'; "
+            "echo 'Config: ~/.config/code-server/config.yaml'; "
+            "grep '^password:' ~/.config/code-server/config.yaml 2>/dev/null || "
+            "echo 'password: (check config file)'");
+        Logger::info(_("devtools.hint.codeserver_first_install"));
         Logger::press_enter();
     }
 
@@ -600,7 +607,7 @@ namespace tmoe::domain {
             auto link_result = Executor::shell(
                 "LatestVSCodiumLink=$(curl -sL https://mirrors.bfsu.edu.cn/github-release/VSCodium/vscodium/LatestRelease/ 2>/dev/null | "
                 "grep " + arch +
-                " | grep -v '.sha256' | grep '\\.deb' | tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2) && "
+                " | grep -v '\\.sha' | grep '\\.deb' | tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2) && "
                 "echo \"https://mirrors.bfsu.edu.cn/github-release/VSCodium/vscodium/LatestRelease/${LatestVSCodiumLink}\""
             );
             std::string codium_url = link_result.stdout_data;
@@ -626,7 +633,7 @@ namespace tmoe::domain {
             // 安装
             Executor::passthrough(
                 "cd /tmp && apt-cache show ./VSCodium.deb 2>/dev/null; "
-                "dpkg -i ./VSCodium.deb; rm -vf VSCodium.deb"
+                "sudo dpkg -i ./VSCodium.deb || sudo apt install -y ./VSCodium.deb; rm -vf VSCodium.deb"
             );
             Logger::ok(_("devtools.ok.codium_install_done_pkg"));
         } else {
@@ -660,7 +667,7 @@ namespace tmoe::domain {
             // 解压
             Executor::passthrough(
                 "sudo mkdir -pv /opt/vscodium-data && "
-                "cd /tmp && tar -zxvf VSCodium.tar.gz -C /opt/vscodium-data && "
+                "cd /tmp && sudo tar -zxvf VSCodium.tar.gz -C /opt/vscodium-data && "
                 "rm -vf VSCodium.tar.gz"
             );
 
@@ -766,9 +773,9 @@ namespace tmoe::domain {
         if (fs::exists(tmoe_linux_dir + "/lib/libxcb.so.1")) {
             std::string lnk_dir = apps_lnk_dir_.string();
             Executor::shell(
-                "sed -i \"s@Exec=/usr/share/codium/codium@Exec=env LD_LIBRARY_PATH=" + tmoe_linux_dir +
+                "sudo sed -i \"s@Exec=/usr/share/codium/codium@Exec=env LD_LIBRARY_PATH=" + tmoe_linux_dir +
                 "/lib /usr/share/codium/codium --no-sandbox@g\" " + lnk_dir + "/codium.desktop 2>/dev/null || true; "
-                "sed -i \"s@Exec=/usr/share/code/code@Exec=env LD_LIBRARY_PATH=" + tmoe_linux_dir +
+                "sudo sed -i \"s@Exec=/usr/share/code/code@Exec=env LD_LIBRARY_PATH=" + tmoe_linux_dir +
                 "/lib /usr/share/code/code --no-sandbox@g\" " + lnk_dir + "/code.desktop 2>/dev/null || true"
             );
             Logger::ok(_("devtools.ok.fix_done"));
@@ -1649,29 +1656,29 @@ namespace tmoe::domain {
         std::string wm_class;
 
         if (grep_name_.find("intellij-idea") != std::string::npos) {
-            launcher = "bin/idea.sh";
+            launcher = "bin/idea";
             icon = "bin/idea.png";
             display_name = (community_edition_)
                                ? "IntelliJ IDEA Community Edition"
                                : "IntelliJ IDEA Ultimate Edition";
             wm_class = "jetbrains-idea";
         } else if (grep_name_.find("pycharm") != std::string::npos) {
-            launcher = "bin/pycharm.sh";
+            launcher = "bin/pycharm";
             icon = "bin/pycharm.png";
             display_name = "PyCharm Community Edition";
             wm_class = "jetbrains-pycharm";
         } else if (grep_name_ == "webstorm") {
-            launcher = "bin/webstorm.sh";
+            launcher = "bin/webstorm";
             icon = "bin/webstorm.png";
             display_name = "WebStorm";
             wm_class = "jetbrains-webstorm";
         } else if (grep_name_ == "clion-1") {
-            launcher = "bin/clion.sh";
+            launcher = "bin/clion";
             icon = "bin/clion.png";
             display_name = "CLion";
             wm_class = "jetbrains-clion";
         } else if (grep_name_ == "goland") {
-            launcher = "bin/goland.sh";
+            launcher = "bin/goland";
             icon = "bin/goland.png";
             display_name = "GoLand";
             wm_class = "jetbrains-goland";
@@ -1777,10 +1784,10 @@ namespace tmoe::domain {
         // 进度条与静默解压的兼容脚本
         std::string extract_cmd =
                 "if command -v pv >/dev/null 2>&1; then "
-                "  pv '" + dest + "' | tar -zxf - -C /opt; "
+                "  pv '" + dest + "' | sudo tar -zxf - -C /opt; "
                 "else "
                 "  echo '正在后台解压，请稍候...'; "
-                "  tar -zxf '" + dest + "' -C /opt; "
+                "  sudo tar -zxf '" + dest + "' -C /opt; "
                 "fi";
 
         auto extract_ret = Executor::passthrough(extract_cmd);
@@ -1796,10 +1803,10 @@ namespace tmoe::domain {
         // 重命名为标准名称以便后续管理
         if (extracted_dir != grep_name_) {
             Logger::info(_("devtools.info.config_dir") + "/opt/" + extracted_dir + " → /opt/" + grep_name_);
-            Executor::shell(CommandBuilder("rm").add_flag("-rf")
+            Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
                 .add_arg("/opt/" + grep_name_)
                 .add_raw("2>/dev/null").build_string());
-            Executor::shell(CommandBuilder("mv")
+            Executor::shell(CommandBuilder("sudo").add_arg("mv")
                 .add_arg("/opt/" + extracted_dir)
                 .add_arg("/opt/" + grep_name_).build_string());
         }
@@ -1881,10 +1888,10 @@ namespace tmoe::domain {
 
         std::string extract_cmd =
                 "if command -v pv >/dev/null 2>&1; then "
-                "  pv '" + dest + "' | tar -pzxf - -C /opt; "
+                "  pv '" + dest + "' | sudo tar -pzxf - -C /opt; "
                 "else "
                 "  echo '正在后台解压，请稍候...'; "
-                "  tar -pzxf '" + dest + "' -C /opt; "
+                "  sudo tar -pzxf '" + dest + "' -C /opt; "
                 "fi";
 
         auto extract_ret = Executor::passthrough(extract_cmd);
@@ -1901,10 +1908,10 @@ namespace tmoe::domain {
 
         // 标准化目录名
         if (!extracted_dir.empty() && extracted_dir != "android-studio") {
-            Executor::shell(CommandBuilder("rm").add_flag("-rf")
+            Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
                 .add_arg("/opt/android-studio")
                 .add_raw("2>/dev/null").build_string());
-            Executor::shell(CommandBuilder("mv")
+            Executor::shell(CommandBuilder("sudo").add_arg("mv")
                 .add_arg("/opt/" + extracted_dir)
                 .add_arg("/opt/android-studio").build_string());
         }
@@ -1928,8 +1935,8 @@ namespace tmoe::domain {
                 "StartupNotify=true\n"
                 "StartupWMClass=Android-Studio\n";
 
-        Executor::shell("cat > " + lnk_dir + "/android-studio.desktop <<'ASDESKEOF'\n" + desktop + "ASDESKEOF\n" +
-                        "chmod a+r " + lnk_dir + "/android-studio.desktop");
+        SystemHelper::write_file(lnk_dir + "/android-studio.desktop", desktop);
+        Executor::shell("sudo chmod a+r " + lnk_dir + "/android-studio.desktop 2>/dev/null || true");
     }
 
     void DeveloperTools::install_java_if_needed() {
