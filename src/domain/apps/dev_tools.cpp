@@ -239,7 +239,7 @@ namespace tmoe::domain {
             Executor::passthrough(
                 "cd /tmp && "
                 "apt-cache show ./VSCODE.deb 2>/dev/null; "
-                "dpkg -i ./VSCODE.deb || apt install -y ./VSCODE.deb; "
+                "sudo dpkg -i ./VSCODE.deb || sudo apt install -y ./VSCODE.deb; "
                 "rm -vf VSCODE.deb"
             );
             Logger::ok(_("devtools.ok.vscode_install_done"));
@@ -252,7 +252,7 @@ namespace tmoe::domain {
                 Logger::error(_("devtools.error.vscode_download_failed"));
                 return;
             }
-            Executor::passthrough("cd /tmp && yum install -y ./VSCODE.rpm; rm -vf VSCODE.rpm");
+            Executor::passthrough("cd /tmp && sudo yum install -y ./VSCODE.rpm; rm -vf VSCODE.rpm");
             Logger::ok(_("devtools.ok.vscode_install_done"));
         } else {
             // Generic tar.gz install
@@ -266,7 +266,7 @@ namespace tmoe::domain {
             }
             Executor::passthrough(
                 "cd /tmp && "
-                "tar -zxvf VSCODE.tar.gz -C /usr/share && "
+                "sudo tar -zxvf VSCODE.tar.gz -C /usr/share && "
                 "rm -rvf /usr/share/code 2>/dev/null; "
                 "mv /usr/share/" + code_bin_folder + " /usr/share/code; "
                 "rm -vf VSCODE.tar.gz"
@@ -288,7 +288,7 @@ namespace tmoe::domain {
                 Logger::warn(_("devtools.warn.vscode_share_failed"));
             } else {
                 Executor::passthrough(
-                    "cd /tmp && tar -Jxvf .VSCODE_USR_SHARE.tar.xz -C /; rm -vf .VSCODE_USR_SHARE.tar.xz"
+                    "cd /tmp && sudo tar -Jxvf .VSCODE_USR_SHARE.tar.xz -C /; rm -vf .VSCODE_USR_SHARE.tar.xz"
                 );
             }
 
@@ -494,7 +494,7 @@ namespace tmoe::domain {
                 "tar -zxvf .VSCODE_SERVER.tar.gz && "
                 "VSCODE_FOLDER_NAME=$(ls -l ./ | grep '^d' | awk -F ' ' '$0=$NF') && "
                 "rm -rvf /usr/local/bin/code-server-data /usr/local/bin/code-server && "
-                "mv ${VSCODE_FOLDER_NAME} /usr/local/bin/code-server-data && "
+                "sudo mv ${VSCODE_FOLDER_NAME} /usr/local/bin/code-server-data && "
                 "ln -sf /usr/local/bin/code-server-data/bin/code-server /usr/local/bin/code-server"
             );
         }
