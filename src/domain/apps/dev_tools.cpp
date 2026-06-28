@@ -268,13 +268,13 @@ namespace tmoe::domain {
             Executor::passthrough(
                 "cd /tmp && "
                 "sudo tar -zxvf VSCODE.tar.gz -C /usr/share && "
-                "rm -rvf /usr/share/code 2>/dev/null; "
+                "sudo rm -rvf /usr/share/code 2>/dev/null; "
                 "mv /usr/share/" + code_bin_folder + " /usr/share/code; "
                 "rm -vf VSCODE.tar.gz"
             );
 
             // Create .electron marker
-            Executor::shell("echo '" + code_bin_folder + "' > /usr/share/code/.electron");
+            Executor::shell("echo '" + code_bin_folder + "' | sudo tee /usr/share/code/.electron > /dev/null");
 
             // Download share files (icons, desktop, mime, etc.)
             auto share_ret = Executor::passthrough(
@@ -434,7 +434,7 @@ namespace tmoe::domain {
         std::string arch = cfg_.arch;
         std::string tmp_arch = (arch == "armhf") ? "armv7l" : arch;
 
-        Executor::shell(CommandBuilder("chmod").add_arg("a+rx")
+        Executor::shell(CommandBuilder("sudo").add_arg("chmod").add_arg("a+rx")
             .add_arg("/usr/local/bin/code-server-data/code-server")
             .add_raw("2>/dev/null || true").build_string());
 
@@ -493,9 +493,9 @@ namespace tmoe::domain {
                 "cd /tmp/.VSCODE_SERVER_TEMP_FOLDER && "
                 "tar -zxvf .VSCODE_SERVER.tar.gz && "
                 "VSCODE_FOLDER_NAME=$(ls -l ./ | grep '^d' | awk -F ' ' '$0=$NF') && "
-                "rm -rvf /usr/local/bin/code-server-data /usr/local/bin/code-server && "
+                "sudo rm -rvf /usr/local/bin/code-server-data /usr/local/bin/code-server && "
                 "sudo mv ${VSCODE_FOLDER_NAME} /usr/local/bin/code-server-data && "
-                "ln -sf /usr/local/bin/code-server-data/bin/code-server /usr/local/bin/code-server"
+                "sudo ln -sf /usr/local/bin/code-server-data/bin/code-server /usr/local/bin/code-server"
             );
         }
 
@@ -516,7 +516,7 @@ namespace tmoe::domain {
     void DeveloperTools::vscode_server_restart() {
         Logger::info(_("devtools.status.starting_codeserver"));
         Logger::info(_("devtools.hint.codeserver_usage"));
-        Executor::shell("/usr/local/bin/code-server-data/bin/code-server &");
+        Executor::shell("nohup /usr/local/bin/code-server-data/bin/code-server >/dev/null 2>&1 &");
 
         auto port_result = Executor::shell(
             "grep bind-addr ${HOME}/.config/code-server/config.yaml 2>/dev/null | cut -d ':' -f 3"
@@ -550,7 +550,7 @@ namespace tmoe::domain {
         if (!confirm("devtools.confirm_remove_vscode_server", "确认移除 VS Code Server?"))
             return;
 
-        Executor::shell(CommandBuilder("rm").add_flag("-rvf")
+        Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rvf")
             .add_arg("/usr/local/bin/code-server-data/")
             .add_arg("/usr/local/bin/code-server")
             .add_arg("/tmp/sed-vscode.tmp")
@@ -659,7 +659,7 @@ namespace tmoe::domain {
 
             // 解压
             Executor::passthrough(
-                "mkdir -pv /opt/vscodium-data && "
+                "sudo mkdir -pv /opt/vscodium-data && "
                 "cd /tmp && tar -zxvf VSCodium.tar.gz -C /opt/vscodium-data && "
                 "rm -vf VSCodium.tar.gz"
             );
@@ -679,8 +679,8 @@ namespace tmoe::domain {
                     "    ;;\n"
                     "esac\n";
             Executor::shell(
-                "cat > /usr/local/bin/codium <<'CODIUMEOF'\n" + codium_script +
-                "CODIUMEOF\nchmod a+rx /usr/local/bin/codium");
+                "sudo sh -c 'cat > /usr/local/bin/codium' <<'CODIUMEOF'\n" + codium_script +
+                "CODIUMEOF\nsudo chmod a+rx /usr/local/bin/codium");
 
             // Create desktop file
             std::string lnk_dir = apps_lnk_dir_.string();
@@ -1723,7 +1723,7 @@ namespace tmoe::domain {
             cli_name = "goland";
 
         if (!cli_name.empty()) {
-            Executor::shell(CommandBuilder("ln").add_flag("-sf")
+            Executor::shell(CommandBuilder("sudo").add_arg("ln").add_flag("-sf")
                 .add_arg(exec_path)
                 .add_arg("/usr/local/bin/" + cli_name)
                 .add_raw("2>/dev/null || true").build_string());

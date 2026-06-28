@@ -191,7 +191,7 @@ namespace tmoe::domain {
     bool RemoteDesktopManager::configure_xrdp_session(std::string_view desktop) {
         // 对应旧 Bash xrdp_onekey (5053-5120) + configure_xrdp_remote_desktop_session (4998-5023)
         // 不覆盖发行版自带的 startwm.sh，而是在其基础上修改
-        CommandBuilder("mkdir").add_flag("-p").add_arg("/etc/xrdp").add_raw("2>/dev/null").execute();
+        CommandBuilder("sudo").add_arg("mkdir").add_flag("-p").add_arg("/etc/xrdp").add_raw("2>/dev/null").execute();
 
         // 如果发行版未提供 startwm.sh，生成包含标准环境初始化的模板.
         // 必须保留 /etc/profile 等加载逻辑，否则 PATH/LANG 等变量缺失。
@@ -315,7 +315,7 @@ namespace tmoe::domain {
     bool RemoteDesktopManager::set_xrdp_port(int port) {
         // xrdp 守护进程以 xrdp 用户运行，必须确保它能读取 /etc/xrdp/
         Executor::shell(
-            "mkdir -p /etc/xrdp 2>/dev/null; "
+            "sudo mkdir -p /etc/xrdp 2>/dev/null; "
             // 确保目录和文件对 xrdp 用户可读
             "chmod 755 /etc/xrdp 2>/dev/null || true; "
             // 确保 xrdp 用户存在 (proot/容器里 postinst 可能没创建)
@@ -591,10 +591,10 @@ namespace tmoe::domain {
                     }
                 }
             } else if (ch == "4") {
-                CommandBuilder("mkdir").add_flag("-p").add_arg("/etc/xrdp").add_raw("2>/dev/null || true").execute();
+                CommandBuilder("sudo").add_arg("mkdir").add_flag("-p").add_arg("/etc/xrdp").add_raw("2>/dev/null || true").execute();
                 Executor::passthrough("${EDITOR:-nano} /etc/xrdp/xrdp.ini 2>/dev/null || nano /etc/xrdp/xrdp.ini");
             } else if (ch == "5") {
-                CommandBuilder("mkdir").add_flag("-p").add_arg("/etc/xrdp").add_raw("2>/dev/null || true").execute();
+                CommandBuilder("sudo").add_arg("mkdir").add_flag("-p").add_arg("/etc/xrdp").add_raw("2>/dev/null || true").execute();
                 Executor::passthrough("${EDITOR:-nano} /etc/xrdp/startwm.sh 2>/dev/null || nano /etc/xrdp/startwm.sh");
             } else if (ch == "6") stop_xrdp();
             else if (ch == "7") {
@@ -768,7 +768,7 @@ namespace tmoe::domain {
         // 对应旧 Bash configure_xrdp_remote_desktop_session (gui:4998-5023)
         Logger::step(std::string(_("gui.configuring_xrdp_session")) + " " + session_cmd);
 
-        CommandBuilder("mkdir").add_flag("-p").add_arg("/etc/xrdp").add_raw("2>/dev/null").execute();
+        CommandBuilder("sudo").add_arg("mkdir").add_flag("-p").add_arg("/etc/xrdp").add_raw("2>/dev/null").execute();
         // 原生 C++ 替代 sed+grep 链: 删除 Xsession 行并修剪尾部空行
         {
             auto content = SystemHelper::read_file("/etc/xrdp/startwm.sh");
@@ -852,7 +852,7 @@ namespace tmoe::domain {
         Logger::step(_("gui.novnc.removing"));
         stop_novnc();
         // 清理目录（git clone 安装的）
-        CommandBuilder("rm").add_flag("-rf").add_arg("/opt/novnc").add_arg("/usr/share/novnc").add_raw(
+        CommandBuilder("sudo").add_arg("rm").add_flag("-rf").add_arg("/opt/novnc").add_arg("/usr/share/novnc").add_raw(
             "2>/dev/null || true").execute();
         // apt 装的包（和 install_novnc 对应：novnc, python3-websockify, python3-numpy）
         auto family = infer_family_from_config(cfg_.linux_distro);
@@ -898,7 +898,7 @@ namespace tmoe::domain {
                 "2>/dev/null || true").execute();
         }
         // polkit 规则
-        CommandBuilder("mkdir").add_flag("-pv").add_arg("/etc/polkit-1/localauthority.conf.d").add_arg(
+        CommandBuilder("sudo").add_arg("mkdir").add_flag("-pv").add_arg("/etc/polkit-1/localauthority.conf.d").add_arg(
             "/etc/polkit-1/localauthority/50-local.d/").execute();
         SystemHelper::write_file("/etc/polkit-1/localauthority.conf.d/02-allow-colord.conf",
                                  generate_polkit_colord_conf());
@@ -1059,7 +1059,7 @@ namespace tmoe::domain {
     void RemoteDesktopManager::remove_x11vnc_ext() {
         Logger::step(_("gui.x11vnc.stopping_and_removing"));
         vnc_manager_.stop_x11vnc();
-        CommandBuilder("rm").add_flag("-rfv").add_arg("/usr/local/bin/startx11vnc").add_raw("2>/dev/null || true").
+        CommandBuilder("sudo").add_arg("rm").add_flag("-rfv").add_arg("/usr/local/bin/startx11vnc").add_raw("2>/dev/null || true").
                 execute();
         auto family = infer_family_from_config(cfg_.linux_distro);
         if (family == DistroFamily::Unknown) family = PackageManager::detect_distro_family();
@@ -1188,7 +1188,7 @@ namespace tmoe::domain {
         Executor::passthrough("sudo service xrdp stop 2>/dev/null || sudo systemctl stop xrdp 2>/dev/null || "
             "pkill xrdp 2>/dev/null || true");
 
-        CommandBuilder("rm").add_flag("-f").add_arg("/etc/polkit-1/localauthority/50-local.d/45-allow.colord.pkla")
+        CommandBuilder("sudo").add_arg("rm").add_flag("-f").add_arg("/etc/polkit-1/localauthority/50-local.d/45-allow.colord.pkla")
                 .add_arg("/etc/polkit-1/localauthority.conf.d/02-allow-colord.conf").add_raw("2>/dev/null || true").
                 execute();
 
@@ -1219,8 +1219,8 @@ namespace tmoe::domain {
         }
 
         // 重新生成 polkit 规则
-        CommandBuilder("mkdir").add_flag("-pv").add_arg("/etc/polkit-1/localauthority.conf.d")
-                .add_arg("/etc/polkit-1/localauthority/50-local.d/").add_raw("2>/dev/null").execute();
+        CommandBuilder("sudo").add_arg("mkdir").add_flag("-pv").add_arg("/etc/polkit-1/localauthority.conf.d")
+                .add_arg("/etc/polkit-1/localauthority/50-local.d/").add_raw("2>/dev/null").execute();;
         SystemHelper::write_file("/etc/polkit-1/localauthority.conf.d/02-allow-colord.conf",
                                  generate_polkit_colord_conf());
         SystemHelper::write_file("/etc/polkit-1/localauthority/50-local.d/45-allow.colord.pkla",

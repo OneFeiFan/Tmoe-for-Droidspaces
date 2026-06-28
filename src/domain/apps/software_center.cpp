@@ -162,7 +162,7 @@ namespace tmoe::domain {
         }
 
         Logger::step(_f("swcenter.electron.extracting", app_name));
-        Executor::passthrough("cd " + tmp_dir + " && tar -Jxvf app.tar.xz -C /opt");
+        Executor::passthrough("cd " + tmp_dir + " && sudo tar -Jxvf app.tar.xz -C /opt");
 
         if (!fs::exists("/opt/" + app_name)) {
             Logger::warn(_f("swcenter.electron.extract_not_found", app_name));
@@ -366,7 +366,7 @@ namespace tmoe::domain {
                 Logger::warn(_("swcenter.electron.mgr_remove_v8_warn"));
                 Logger::warn(_("swcenter.electron.runtime_rm_v8_path_warn"));
                 if (Logger::confirm(_("swcenter.electron.mgr_confirm_remove_v8"))) {
-                    CommandBuilder("rm").add_flag("-rf").add_arg("/opt/electron-v8").add_raw("2>/dev/null").execute();
+                    CommandBuilder("sudo").add_arg("rm").add_flag("-rf").add_arg("/opt/electron-v8").add_raw("2>/dev/null").execute();
                     Logger::ok(_("swcenter.electron.mgr_removed_v8"));
                 }
             }
@@ -548,7 +548,7 @@ namespace tmoe::domain {
         } else {
             // AppImage 配置部署
             Executor::shell(
-                "mkdir -p /opt/linuxqq && mv /tmp/" + dest_file +
+                "sudo mkdir -p /opt/linuxqq && sudo mv /tmp/" + dest_file +
                 " /opt/linuxqq/linuxqq.AppImage && chmod +x /opt/linuxqq/linuxqq.AppImage");
             std::string desktop_content =
                     "[Desktop Entry]\n"
@@ -559,7 +559,7 @@ namespace tmoe::domain {
                     "Type=Application\n"
                     "Icon=qq\n"
                     "Categories=Network;InstantMessaging;\n";
-            Executor::shell("cat > /usr/share/applications/linuxqq.desktop <<'EOF'\n" + desktop_content + "EOF\n");
+            Executor::shell("sudo sh -c 'cat > /usr/share/applications/linuxqq.desktop' <<'EOF'\n" + desktop_content + "EOF\n");
         }
 
         Logger::ok(_f("swcenter.qq.install_done", version));
@@ -693,7 +693,7 @@ namespace tmoe::domain {
             Executor::passthrough("sudo rpm -Uvh '" + dest + "' || sudo yum localinstall -y '" + dest + "'");
         } else {
             Executor::shell(
-                "mkdir -p /opt/wechat && mv '" + dest +
+                "sudo mkdir -p /opt/wechat && sudo mv '" + dest +
                 "' /opt/wechat/wechat.AppImage && chmod +x /opt/wechat/wechat.AppImage");
             std::string desktop_content =
                     "[Desktop Entry]\n"
@@ -704,7 +704,7 @@ namespace tmoe::domain {
                     "Type=Application\n"
                     "Icon=wechat\n"
                     "Categories=Network;InstantMessaging;\n";
-            Executor::shell("cat > " + app_lnk_dir + "/wechat.desktop <<'EOF'\n" + desktop_content + "EOF\n");
+            Executor::shell("sudo sh -c 'cat > " + app_lnk_dir + "/wechat.desktop' <<'EOF'\n" + desktop_content + "EOF\n");
         }
 
         Logger::ok(_("swcenter.wechat.install_done"));
@@ -1054,7 +1054,7 @@ namespace tmoe::domain {
                          "xfce", "mate-desktop", "lxde-desktop", "lxqt",
                          "KDE", "GNOME", "Cinnamon Desktop"
                      })
-                    Executor::passthrough("dnf groupremove -y \"" + std::string(grp) + "\" 2>/dev/null || true");
+                    Executor::passthrough("sudo dnf groupremove -y \"" + std::string(grp) + "\" 2>/dev/null || true");
                 PackageManager::remove("deepin-desktop", family);
                 break;
             default:
@@ -1093,7 +1093,7 @@ namespace tmoe::domain {
                                     "/usr/local/bin/startx11vnc","/usr/local/bin/x11vncpasswd",
                                     "/usr/local/bin/tightvnc","/usr/local/bin/tigervnc",
                                     "/usr/local/bin/gnome-shell-x11","/usr/local/bin/budgie-desktop-builtin"})
-            Executor::passthrough(std::string("rm -f ") + script + " 2>/dev/null || true");
+            Executor::passthrough(std::string("sudo rm -f ") + script + " 2>/dev/null || true");
         Executor::passthrough("sudo rm -rf /etc/X11/xinit 2>/dev/null || true");
     }
 
@@ -1134,7 +1134,7 @@ namespace tmoe::domain {
                                                 " --yesno \"" + _("swcenter.cleanup.remove_tmoe_confirm") + "\" 0 0");
         if (tm_confirm.exit_code != 0) return;
 
-        CommandBuilder("rm")
+        CommandBuilder("sudo").add_arg("rm")
             .add_flag("-rfv")
             .add_arg("/usr/local/bin/tmoe")
             .add_arg("/usr/local/bin/tmoes")

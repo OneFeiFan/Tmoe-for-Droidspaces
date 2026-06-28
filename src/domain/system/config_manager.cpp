@@ -88,7 +88,7 @@ bool ConfigManager::apply_dns(const std::string& provider_id) {
 
     // 备份当前 resolv.conf
     if (fs::exists("/etc/resolv.conf")) {
-        Executor::shell(CommandBuilder("cp").add_flag("-f").add_arg("/etc/resolv.conf").add_arg("/etc/resolv.conf.tmoe.bak").add_raw("2>/dev/null").build_string());
+        Executor::shell(CommandBuilder("sudo").add_arg("cp").add_flag("-f").add_arg("/etc/resolv.conf").add_arg("/etc/resolv.conf.tmoe.bak").add_raw("2>/dev/null").build_string());
     }
 
     bool ok = write_config_file("/etc/resolv.conf", resolv);
@@ -202,7 +202,7 @@ bool ConfigManager::apply_timezone(const std::string& tz) {
         ok = Executor::shell(CommandBuilder("timedatectl").add_arg("set-timezone").add_arg(tz).build_string()).ok();
     }
     if (!ok) {
-        ok = Executor::shell(CommandBuilder("ln").add_flag("-sf").add_arg("/usr/share/zoneinfo/" + tz).add_arg("/etc/localtime").add_raw("2>/dev/null").build_string()).ok();
+        ok = Executor::shell(CommandBuilder("sudo").add_arg("ln").add_flag("-sf").add_arg("/usr/share/zoneinfo/" + tz).add_arg("/etc/localtime").add_raw("2>/dev/null").build_string()).ok();
         if (ok) {
             write_config_file("/etc/timezone", tz);
         }

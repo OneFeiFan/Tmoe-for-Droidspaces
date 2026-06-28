@@ -6,6 +6,8 @@
 #include <cctype>
 #include <string>
 
+#include "core/system_helper.h"
+
 namespace fs = std::filesystem;
 
 namespace tmoe::domain {
@@ -197,29 +199,22 @@ namespace tmoe::domain {
         // 判断旧格式 vs 新格式（buster/stretch/jessie 沿用旧格式）
         bool old_style = (codename == "buster" || codename == "stretch" || codename == "jessie");
 
+        std::string source_content;
         if (codename == "sid") {
-            // sid: 简化格式
-            Executor::shell("cat >>/etc/apt/sources.list <<-'TMOE_EOF'\n"
-                            "deb http://" + url + "/debian/ sid main contrib non-free\n"
-                            "#deb http://" + url + "/debian/ experimental main contrib non-free\n"
-                            "TMOE_EOF");
+            source_content = "deb http://" + url + "/debian/ sid main contrib non-free\n"
+                             "#deb http://" + url + "/debian/ experimental main contrib non-free\n";
         } else if (old_style) {
-            // 旧版 security 路径: xxx/updates
-            Executor::shell("cat >>/etc/apt/sources.list <<-TMOE_EOF\n"
-                            "deb http://" + url + "/debian/ " + codename + " main contrib non-free\n"
-                            "deb http://" + url + "/debian/ " + codename + "-updates main contrib non-free\n"
-                            "deb http://" + url + "/debian/ " + codename + "-backports main contrib non-free\n"
-                            "deb http://" + url + "/debian-security/ " + codename + "/updates main contrib non-free\n"
-                            "TMOE_EOF");
+            source_content = "deb http://" + url + "/debian/ " + codename + " main contrib non-free\n"
+                             "deb http://" + url + "/debian/ " + codename + "-updates main contrib non-free\n"
+                             "deb http://" + url + "/debian/ " + codename + "-backports main contrib non-free\n"
+                             "deb http://" + url + "/debian-security/ " + codename + "/updates main contrib non-free\n";
         } else {
-            // 新版 Debian 格式
-            Executor::shell("cat >>/etc/apt/sources.list <<-TMOE_EOF\n"
-                            "deb http://" + url + "/debian/ " + codename + " main contrib non-free\n"
-                            "deb http://" + url + "/debian/ " + codename + "-updates main contrib non-free\n"
-                            "deb http://" + url + "/debian/ " + codename + "-backports main contrib non-free\n"
-                            "deb http://" + url + "/debian-security/ " + codename + "-security main contrib non-free\n"
-                            "TMOE_EOF");
+            source_content = "deb http://" + url + "/debian/ " + codename + " main contrib non-free\n"
+                             "deb http://" + url + "/debian/ " + codename + "-updates main contrib non-free\n"
+                             "deb http://" + url + "/debian/ " + codename + "-backports main contrib non-free\n"
+                             "deb http://" + url + "/debian-security/ " + codename + "-security main contrib non-free\n";
         }
+        SystemHelper::append_file("/etc/apt/sources.list", source_content);
 
         return true;
     }
@@ -242,13 +237,11 @@ namespace tmoe::domain {
         // 注释旧行 → 写入新模板
         Executor::shell("sudo sed -i 's/^deb/# &/g' /etc/apt/sources.list");
 
-        Executor::shell("cat >>/etc/apt/sources.list <<-TMOE_EOF\n"
-                        "deb http://" + url + "/ubuntu/ " + codename + " main restricted universe multiverse\n"
-                        "deb http://" + url + "/ubuntu/ " + codename + "-updates main restricted universe multiverse\n"
-                        "deb http://" + url + "/ubuntu/ " + codename +
-                        "-backports main restricted universe multiverse\n"
-                        "deb http://" + url + "/ubuntu/ " + codename + "-security main restricted universe multiverse\n"
-                        "TMOE_EOF");
+        SystemHelper::append_file("/etc/apt/sources.list",
+            "deb http://" + url + "/ubuntu/ " + codename + " main restricted universe multiverse\n"
+            "deb http://" + url + "/ubuntu/ " + codename + "-updates main restricted universe multiverse\n"
+            "deb http://" + url + "/ubuntu/ " + codename + "-backports main restricted universe multiverse\n"
+            "deb http://" + url + "/ubuntu/ " + codename + "-security main restricted universe multiverse\n");
 
         // ARM: 自动切换到 ubuntu-ports
         if (cfg_.arch != "amd64" && cfg_.arch != "i386" && cfg_.arch != "x86_64") {
@@ -278,11 +271,10 @@ namespace tmoe::domain {
         auto compat = MirrorRegistry::instance().compat_for("kali");
         std::string branch = compat ? compat->rolling_branch : "kali-rolling";
 
-        Executor::shell("cat >>/etc/apt/sources.list <<-TMOE_EOF\n"
-                        "deb http://" + url + "/kali/ " + branch + " main contrib non-free\n"
-                        "# deb http://" + url + "/debian/ stable main contrib non-free\n"
-                        "# deb http://" + url + "/kali/ kali-last-snapshot main contrib non-free\n"
-                        "TMOE_EOF");
+        SystemHelper::append_file("/etc/apt/sources.list",
+            "deb http://" + url + "/kali/ " + branch + " main contrib non-free\n"
+            "# deb http://" + url + "/debian/ stable main contrib non-free\n"
+            "# deb http://" + url + "/kali/ kali-last-snapshot main contrib non-free\n");
 
         return true;
     }
@@ -296,11 +288,11 @@ namespace tmoe::domain {
 
         // 架构路由
         if (cfg_.arch == "arm64" || cfg_.arch == "armhf" || cfg_.arch == "aarch64") {
-            Executor::shell("cat >>/etc/pacman.d/mirrorlist <<-TMOE_EOF\n"
+            Executor::shell("sudo tee -a /etc/pacman.d/mirrorlist >/dev/null <<-TMOE_EOF\n"
                             "Server = https://" + url + "/archlinuxarm/$arch/$repo\n"
                             "TMOE_EOF");
         } else {
-            Executor::shell("cat >>/etc/pacman.d/mirrorlist <<-TMOE_EOF\n"
+            Executor::shell("sudo tee -a /etc/pacman.d/mirrorlist >/dev/null <<-TMOE_EOF\n"
                             "#Server = http://mirrors.kernel.org/archlinux/$repo/os/$arch\n"
                             "Server = https://" + url + "/archlinux/$repo/os/$arch\n"
                             "TMOE_EOF");
@@ -319,7 +311,7 @@ namespace tmoe::domain {
         Executor::shell("sudo cd /etc/apk/ && sed -i 's@^http@#&@g' repositories");
 
         // 写入新仓库
-        Executor::shell("cat >>/etc/apk/repositories <<-TMOE_EOF\n"
+        Executor::shell("sudo tee -a /etc/apk/repositories >/dev/null <<-TMOE_EOF\n"
                         "http://" + url + "/alpine/" + version + "/main\n"
                         "http://" + url + "/alpine/" + version + "/community\n"
                         "TMOE_EOF");
@@ -337,12 +329,12 @@ namespace tmoe::domain {
 
         // Manjaro 路径与 Arch 不同: manjaro/stable/$repo/$arch 或 manjaro/arm-stable/$repo/$arch
         if (cfg_.arch == "arm64" || cfg_.arch == "armhf" || cfg_.arch == "aarch64") {
-            Executor::shell("cat >>/etc/pacman.d/mirrorlist <<-TMOE_EOF\n"
+            Executor::shell("sudo tee -a /etc/pacman.d/mirrorlist >/dev/null <<-TMOE_EOF\n"
                             "#Server = https://" + url + "/archlinuxarm/$arch/$repo\n"
                             "Server = https://" + url + "/manjaro/arm-stable/$repo/$arch\n"
                             "TMOE_EOF");
         } else {
-            Executor::shell("cat >>/etc/pacman.d/mirrorlist <<-TMOE_EOF\n"
+            Executor::shell("sudo tee -a /etc/pacman.d/mirrorlist >/dev/null <<-TMOE_EOF\n"
                             "#Server = https://" + url + "/archlinux/$repo/os/$arch\n"
                             "Server = https://" + url + "/manjaro/stable/$repo/$arch\n"
                             "TMOE_EOF");
@@ -401,7 +393,7 @@ namespace tmoe::domain {
     }
 
     void MirrorManager::fedora_32_repos(const std::string &url) {
-        Executor::shell("cat >/etc/yum.repos.d/fedora.repo <<-'TMOE_EOF'\n"
+        Executor::shell("sudo tee /etc/yum.repos.d/fedora.repo <<-'TMOE_EOF'\n"
                         "[fedora]\n"
                         "name=Fedora $releasever - $basearch\n"
                         "failovermethod=priority\n"
@@ -411,7 +403,7 @@ namespace tmoe::domain {
                         "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-$releasever-$basearch\n"
                         "skip_if_unavailable=False\n"
                         "TMOE_EOF");
-        Executor::shell("cat >/etc/yum.repos.d/fedora-updates.repo <<-'TMOE_EOF'\n"
+        Executor::shell("sudo tee /etc/yum.repos.d/fedora-updates.repo <<-'TMOE_EOF'\n"
                         "[updates]\n"
                         "name=Fedora $releasever - $basearch - Updates\n"
                         "failovermethod=priority\n"
@@ -425,7 +417,7 @@ namespace tmoe::domain {
     }
 
     void MirrorManager::fedora_3x_repos(const std::string &url) {
-        Executor::shell("cat >/etc/yum.repos.d/fedora-modular.repo <<-'TMOE_EOF'\n"
+        Executor::shell("sudo tee /etc/yum.repos.d/fedora-modular.repo <<-'TMOE_EOF'\n"
                         "[fedora-modular]\n"
                         "name=Fedora Modular $releasever - $basearch\n"
                         "failovermethod=priority\n"
@@ -436,7 +428,7 @@ namespace tmoe::domain {
                         "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-$releasever-$basearch\n"
                         "skip_if_unavailable=False\n"
                         "TMOE_EOF");
-        Executor::shell("cat >/etc/yum.repos.d/fedora-updates-modular.repo <<-'TMOE_EOF'\n"
+        Executor::shell("sudo tee /etc/yum.repos.d/fedora-updates-modular.repo <<-'TMOE_EOF'\n"
                         "[updates-modular]\n"
                         "name=Fedora Modular $releasever - $basearch - Updates\n"
                         "failovermethod=priority\n"
@@ -760,7 +752,7 @@ namespace tmoe::domain {
 
         Logger::step(_("mirror.archlinuxcn_adding"));
         Executor::shell(
-            "cat >>/etc/pacman.conf <<-'TMOE_EOF'\n"
+            "sudo tee -a /etc/pacman.conf >/dev/null <<-'TMOE_EOF'\n"
             "[archlinuxcn]\n"
             "Server = https://mirrors.tuna.tsinghua.edu.cn/archlinuxcn/$arch\n"
             "SigLevel = Never\n"

@@ -166,7 +166,7 @@ namespace tmoe::domain {
                     }
                     if (!Executor::shell("test -f /etc/systemd/system/rc-local.service").ok()) {
                         Executor::shell(
-                            "cat >/etc/systemd/system/rc-local.service <<'EOF'\n[Unit]\nDescription=/etc/rc.local\nConditionPathExists=/etc/rc.local\n[Service]\nType=forking\nExecStart=/etc/rc.local start\nTimeoutSec=0\nStandardOutput=tty\nRemainAfterExit=yes\nSysVStartPriority=99\n[Install]\nWantedBy=multi-user.target\nEOF\n");
+                            "sudo tee /etc/systemd/system/rc-local.service >/dev/null <<'EOF'\n[Unit]\nDescription=/etc/rc.local\nConditionPathExists=/etc/rc.local\n[Service]\nType=forking\nExecStart=/etc/rc.local start\nTimeoutSec=0\nStandardOutput=tty\nRemainAfterExit=yes\nSysVStartPriority=99\n[Install]\nWantedBy=multi-user.target\nEOF\n");
                     }
                     Executor::passthrough("nano /etc/rc.local 2>/dev/null || vi /etc/rc.local");
                     Executor::shell("sudo systemctl daemon-reload 2>/dev/null");

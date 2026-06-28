@@ -158,10 +158,10 @@ bt-tracker=udp://tracker.opentrackr.org:1337/announce,udp://tracker.openbittorre
                     "  go install github.com/iawia002/lux@latest 2>/dev/null; "
                     "elif [ -f /usr/local/bin/lux ]; then :; "
                     "else "
-                    "  wget -q https://github.com/iawia002/lux/releases/latest/download/"
+                    "  sudo wget -q https://github.com/iawia002/lux/releases/latest/download/"
                     "    lux_$(uname -s)_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
                     "    -O /usr/local/bin/lux 2>/dev/null && "
-                    "  chmod 755 /usr/local/bin/lux 2>/dev/null; "
+                    "  sudo chmod 755 /usr/local/bin/lux 2>/dev/null; "
                     "fi"
                 );
                 Logger::info("  " + _("download.lux_example"));
@@ -171,10 +171,10 @@ bt-tracker=udp://tracker.opentrackr.org:1337/announce,udp://tracker.openbittorre
                     "if command -v go >/dev/null 2>&1; then "
                     "  go install github.com/iawia002/annie@latest 2>/dev/null; "
                     "else "
-                    "  wget -q https://github.com/iawia002/annie/releases/latest/download/"
+                    "  sudo wget -q https://github.com/iawia002/annie/releases/latest/download/"
                     "    annie_$(uname -s)_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
                     "    -O /usr/local/bin/annie 2>/dev/null && "
-                    "  chmod 755 /usr/local/bin/annie 2>/dev/null; "
+                    "  sudo chmod 755 /usr/local/bin/annie 2>/dev/null; "
                     "fi"
                 );
             } else if (ch == "5") {

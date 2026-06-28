@@ -681,7 +681,7 @@ namespace tmoe::domain {
         Executor::passthrough("sudo ln -svf /run /var/ 2>/dev/null || true");
         if (!fs::exists("/etc/machine-id")) {
             Executor::passthrough("dbus-uuidgen > /etc/machine-id 2>/dev/null || "
-                "cat /proc/sys/kernel/random/uuid > /etc/machine-id 2>/dev/null || true");
+                "sudo sh -c 'cat /proc/sys/kernel/random/uuid > /etc/machine-id' 2>/dev/null || true");
         }
         if (!fs::exists("/etc/machine-id") || fs::file_size("/etc/machine-id") == 0) {
             write_file_content("/etc/machine-id", "0ecb780817003d3342d16adb5ff1dfa9\n");
@@ -691,7 +691,7 @@ namespace tmoe::domain {
         }
 
         // 3. 创建 ~/.vnc/xstartup
-        Executor::passthrough("mkdir -p ~/.vnc /etc/X11/xinit 2>/dev/null");
+        Executor::passthrough("mkdir -p ~/.vnc 2>/dev/null; sudo mkdir -p /etc/X11/xinit 2>/dev/null");
         std::string xstartup_content = generate_xstartup_content();
         if (!write_file_content(vnc_config_.xstartup_file, xstartup_content)) {
             Logger::error(_f("gui.vnc.xstartup_write_failed", vnc_config_.xstartup_file.string()));
@@ -1205,7 +1205,7 @@ namespace tmoe::domain {
 
         if (!fs::exists("/etc/machine-id")) {
             Executor::passthrough("dbus-uuidgen > /etc/machine-id 2>/dev/null || "
-                "cat /proc/sys/kernel/random/uuid > /etc/machine-id 2>/dev/null || true");
+                "sudo sh -c 'cat /proc/sys/kernel/random/uuid > /etc/machine-id' 2>/dev/null || true");
         }
         if (!fs::exists("/etc/machine-id") || fs::file_size("/etc/machine-id") == 0) {
             write_file_content("/etc/machine-id", "0ecb780817003d3342d16adb5ff1dfa9\n");

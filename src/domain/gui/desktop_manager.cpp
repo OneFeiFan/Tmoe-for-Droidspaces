@@ -300,7 +300,7 @@ namespace tmoe::domain {
         if (fs::exists(iosevka_file)) return;
 
         Logger::info(_("gui.installing_iosevka"));
-        CommandBuilder("mkdir").add_flag("-pv").add_arg("/usr/share/fonts/truetype/iosevka/").add_raw("2>/dev/null").
+        CommandBuilder("sudo").add_arg("mkdir").add_flag("-pv").add_arg("/usr/share/fonts/truetype/iosevka/").add_raw("2>/dev/null").
                 execute();
 
         // 检查 /tmp/font.ttf 是否已存在且 sha256 匹配
@@ -413,7 +413,7 @@ namespace tmoe::domain {
                         "apt download kali-undercover 2>/dev/null && mv *deb kali-undercover.deb) && "
                         "ar xv kali-undercover.deb && cd / && "
                         "tar -Jxvf /tmp/.kali-undercover-win10-theme/data.tar.xz ./usr 2>/dev/null && "
-                        "mv -f /usr/bin/kali-undercover /usr/local/bin/ 2>/dev/null; "
+                        "sudo mv -f /usr/bin/kali-undercover /usr/local/bin/ 2>/dev/null; "
                         "update-icon-caches /usr/share/icons/Windows-10-Icons 2>/dev/null &");
         Executor::shell("rm -rfv /tmp/.kali-undercover-win10-theme 2>/dev/null || true");
         Logger::ok(_("gui.kali.undercover_ok"));

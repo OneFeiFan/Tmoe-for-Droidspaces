@@ -1329,7 +1329,7 @@ namespace tmoe::domain {
     void GUIManager::ensure_tmoe_symlink() {
         Executor::shell(
             "TOME_BIN=$(readlink -f /proc/self/exe 2>/dev/null || echo /usr/local/bin/tome); "
-            "ln -sfv \"$TOME_BIN\" /usr/local/bin/tmoe 2>/dev/null || true");
+            "sudo ln -sfv \"$TOME_BIN\" /usr/local/bin/tmoe 2>/dev/null || true");
         Executor::shell(CommandBuilder("ln")
                         .add_arg("-svf")
                         .add_arg("tmoe")
