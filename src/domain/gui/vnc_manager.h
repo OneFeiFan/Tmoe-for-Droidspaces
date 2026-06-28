@@ -213,9 +213,6 @@ namespace tmoe::domain {
 
         // ---------- 辅助工具 ----------
         [[nodiscard]] bool ensure_vnc_home_dir() const;
-
-        [[nodiscard]] bool run_shell_command(const std::string &cmd, bool log_on_fail = true) const;
-
         [[nodiscard]] bool write_file_content(const fs::path &path, std::string_view content) const;
     };
 } // namespace tmoe::domain
