@@ -6,6 +6,8 @@
 #include <fstream>
 #include <sstream>
 
+#include "core/system_helper.h"
+
 namespace tmoe::domain {
 
 // ═══════════════════════════════════════════════════════════════════
@@ -28,11 +30,7 @@ std::string ConfigManager::read_config_file(const std::string& path) const {
 }
 
 bool ConfigManager::write_config_file(const std::string& path, const std::string& content) const {
-    fs::create_directories(fs::path(path).parent_path());
-    std::ofstream ofs(path);
-    if (!ofs.is_open()) return false;
-    ofs << content;
-    return true;
+    return SystemHelper::write_file(path, content);
 }
 
 // ═══════════════════════════════════════════════════════════════════

@@ -49,8 +49,7 @@ static void save_locale_pref(std::string_view lang) {
     std::string dir = home + "/.config/tmoe-linux";
     std::string path = dir + "/locale";
     fs::create_directories(dir);
-    std::ofstream f(path);
-    if (f.is_open()) f << lang << "\n";
+    tmoe::SystemHelper::write_file(path, std::string(lang) + "\n");
 }
 
 int main(int argc, char *argv[]) {

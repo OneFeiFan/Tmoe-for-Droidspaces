@@ -4,6 +4,7 @@
 #include "core/executor.h"
 #include "core/logger.h"
 #include "core/config.h"
+#include "core/system_helper.h"
 #include "domain/system/package_manager.h"
 
 namespace tmoe::domain {
@@ -320,9 +321,8 @@ namespace tmoe::domain {
                     "Name=New Empty Window\n"
                     "Exec=/usr/share/code/code --no-sandbox --new-window %F\n"
                     "Icon=com.visualstudio.code\n";
-            Executor::shell("cat > " + desktop_dir + "/code-no-sandbox.desktop <<'DESKTOPEOF'\n" +
-                            desktop_content + "DESKTOPEOF\n" +
-                            "chmod a+r " + desktop_dir + "/code-no-sandbox.desktop");
+            SystemHelper::write_file(desktop_dir + "/code-no-sandbox.desktop", desktop_content);
+            Executor::shell("sudo chmod a+r " + desktop_dir + "/code-no-sandbox.desktop 2>/dev/null || true");
         }
     }
 
@@ -703,12 +703,12 @@ namespace tmoe::domain {
                     "Name=New Empty Window\n"
                     "Exec=/usr/local/bin/codium --new-window %F\n"
                     "Icon=vscodium\n";
-            Executor::shell("cat > " + lnk_dir + "/codium.desktop <<'CODDESKEOF'\n" + desktop_content + "CODDESKEOF");
+            SystemHelper::write_file(lnk_dir + "/codium.desktop", desktop_content);
 
             // Download icon
             if (!fs::exists("/usr/share/icons/vscodium.png")) {
                 Executor::passthrough(
-                    "aria2c --console-log-level=warn --no-conf --continue=true "
+                    "sudo aria2c --console-log-level=warn --no-conf --continue=true "
                     "-d '/usr/share/icons' -o 'vscodium.png' "
                     "'https://gitee.com/ak2/icons/raw/master/vscodium.png' 2>/dev/null || true"
                 );

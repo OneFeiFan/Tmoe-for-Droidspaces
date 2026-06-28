@@ -1013,13 +1013,10 @@ namespace tmoe::domain {
 
         fs::path daemon_json = daemon_dir / "daemon.json";
         std::string content = "{\n  \"registry-mirrors\": [\"" + mirror_url + "\"]\n}\n";
-        std::ofstream ofs(daemon_json);
-        if (!ofs) {
+        if (!SystemHelper::write_file(daemon_json, content)) {
             Logger::error(_f("docker.write_daemon_failed", daemon_json.string()));
             return false;
         }
-        ofs << content;
-        ofs.close();
 
         Logger::ok(_f("docker.mirror_configured", mirror_url));
         Logger::info(_("docker.restart_docker_hint"));
