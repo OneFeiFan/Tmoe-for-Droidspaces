@@ -29,7 +29,7 @@ namespace tmoe::domain {
         if (ctx.is_debian) {
             if (cfg_.sub_distro != "deepin")
                 Executor::passthrough(
-                    "apt update 2>/dev/null; apt install -y software-properties-common gnupg 2>/dev/null; yes | add-apt-repository ppa:ubuntudde-dev/stable 2>/dev/null || true");
+                    "apt update 2>/dev/null; apt install -y software-properties-common gnupg 2>/dev/null; yes | sudo add-apt-repository ppa:ubuntudde-dev/stable 2>/dev/null || true");
             desktop_utils::install_noto_fonts(ctx.family, true);
         }
         desktop_utils::install_language_packs(cfg_);

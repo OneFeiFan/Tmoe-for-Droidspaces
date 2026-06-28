@@ -149,8 +149,8 @@ namespace tmoe::domain {
             return true;
         }
         Logger::step(_("mirror.ca_to_https"));
-        Executor::shell("sed -i 's@http://@https://@g' /etc/apt/sources.list");
-        Executor::shell("sed -i 's@https://security@http://security@g' /etc/apt/sources.list");
+        Executor::shell("sudo sed -i 's@http://@https://@g' /etc/apt/sources.list");
+        Executor::shell("sudo sed -i 's@https://security@http://security@g' /etc/apt/sources.list");
         return true;
     }
 
@@ -192,7 +192,7 @@ namespace tmoe::domain {
         Logger::info(_f("mirror.switching_debian", codename, mirror.name));
 
         // 注释掉所有旧 deb 行
-        Executor::shell("sed -i 's/^deb/# &/g' /etc/apt/sources.list");
+        Executor::shell("sudo sed -i 's/^deb/# &/g' /etc/apt/sources.list");
 
         // 判断旧格式 vs 新格式（buster/stretch/jessie 沿用旧格式）
         bool old_style = (codename == "buster" || codename == "stretch" || codename == "jessie");
@@ -240,7 +240,7 @@ namespace tmoe::domain {
         Logger::info(_f("mirror.switching_ubuntu", codename, mirror.name));
 
         // 注释旧行 → 写入新模板
-        Executor::shell("sed -i 's/^deb/# &/g' /etc/apt/sources.list");
+        Executor::shell("sudo sed -i 's/^deb/# &/g' /etc/apt/sources.list");
 
         Executor::shell("cat >>/etc/apt/sources.list <<-TMOE_EOF\n"
                         "deb http://" + url + "/ubuntu/ " + codename + " main restricted universe multiverse\n"
@@ -253,7 +253,7 @@ namespace tmoe::domain {
         // ARM: 自动切换到 ubuntu-ports
         if (cfg_.arch != "amd64" && cfg_.arch != "i386" && cfg_.arch != "x86_64") {
             Logger::step(_("mirror.switch_to_ubuntu_ports"));
-            Executor::shell("sed -i 's:/ubuntu:/ubuntu-ports:g' /etc/apt/sources.list");
+            Executor::shell("sudo sed -i 's:/ubuntu:/ubuntu-ports:g' /etc/apt/sources.list");
         }
 
         return true;
@@ -273,7 +273,7 @@ namespace tmoe::domain {
 
         Logger::info(_f("mirror.switching_kali", mirror.name));
 
-        Executor::shell("sed -i 's/^deb/# &/g' /etc/apt/sources.list");
+        Executor::shell("sudo sed -i 's/^deb/# &/g' /etc/apt/sources.list");
 
         auto compat = MirrorRegistry::instance().compat_for("kali");
         std::string branch = compat ? compat->rolling_branch : "kali-rolling";
@@ -292,7 +292,7 @@ namespace tmoe::domain {
         Logger::info(_f("mirror.switching_arch", mirror.name));
 
         // 注释掉所有旧 Server 行
-        Executor::shell("sed -i 's/^Server/#&/g' /etc/pacman.d/mirrorlist");
+        Executor::shell("sudo sed -i 's/^Server/#&/g' /etc/pacman.d/mirrorlist");
 
         // 架构路由
         if (cfg_.arch == "arm64" || cfg_.arch == "armhf" || cfg_.arch == "aarch64") {
@@ -316,7 +316,7 @@ namespace tmoe::domain {
         Logger::info(_f("mirror.switching_alpine", version, mirror.name));
 
         // Alpine: 注释所有旧 http 行
-        Executor::shell("cd /etc/apk/ && sed -i 's@^http@#&@g' repositories");
+        Executor::shell("sudo cd /etc/apk/ && sed -i 's@^http@#&@g' repositories");
 
         // 写入新仓库
         Executor::shell("cat >>/etc/apk/repositories <<-TMOE_EOF\n"
@@ -333,7 +333,7 @@ namespace tmoe::domain {
         Logger::info(_f("mirror.switching_manjaro", mirror.name));
 
         // 注释所有旧 Server 行
-        Executor::shell("sed -i 's/^Server/#&/g' /etc/pacman.d/mirrorlist");
+        Executor::shell("sudo sed -i 's/^Server/#&/g' /etc/pacman.d/mirrorlist");
 
         // Manjaro 路径与 Arch 不同: manjaro/stable/$repo/$arch 或 manjaro/arm-stable/$repo/$arch
         if (cfg_.arch == "arm64" || cfg_.arch == "armhf" || cfg_.arch == "aarch64") {
@@ -376,7 +376,7 @@ namespace tmoe::domain {
             return false;
         }
 
-        Executor::shell("dnf makecache 2>/dev/null || yum makecache 2>/dev/null || true");
+        Executor::shell("sudo dnf makecache 2>/dev/null || sudo yum makecache 2>/dev/null || true");
         return true;
     }
 
@@ -1067,7 +1067,7 @@ namespace tmoe::domain {
         if (cfg_.linux_distro == "debian" || cfg_.linux_distro == "ubuntu" || cfg_.linux_distro == "kali") {
             // 优先使用 apt edit-sources（交互式，需透传终端）
             if (Executor::has("apt")) {
-                Executor::passthrough("apt edit-sources 2>/dev/null || nano /etc/apt/sources.list");
+                Executor::passthrough("sudo apt edit-sources 2>/dev/null || nano /etc/apt/sources.list");
             } else {
                 Executor::passthrough("nano /etc/apt/sources.list");
             }
@@ -1089,15 +1089,15 @@ namespace tmoe::domain {
 
         if (cfg_.linux_distro == "redhat" && compat) {
             if (use_https) {
-                Executor::shell("sed -i 's@http://@https://@g' " + compat->source_dir + "/*repo");
+                Executor::shell("sudo sed -i 's@http://@https://@g' " + compat->source_dir + "/*repo");
             } else {
-                Executor::shell("sed -i 's@https://@http://@g' " + compat->source_dir + "/*repo");
+                Executor::shell("sudo sed -i 's@https://@http://@g' " + compat->source_dir + "/*repo");
             }
         } else if (compat && !compat->source_file.empty()) {
             if (use_https) {
-                Executor::shell("sed -i 's@http://@https://@g' " + compat->source_file);
+                Executor::shell("sudo sed -i 's@http://@https://@g' " + compat->source_file);
             } else {
-                Executor::shell("sed -i 's@https://@http://@g' " + compat->source_file);
+                Executor::shell("sudo sed -i 's@https://@http://@g' " + compat->source_file);
             }
         } else {
             Logger::error(_("mirror.no_source_file"));
@@ -1119,11 +1119,11 @@ namespace tmoe::domain {
         Logger::step(_("mirror.cleaning"));
 
         if (cfg_.linux_distro == "debian" || cfg_.linux_distro == "ubuntu" || cfg_.linux_distro == "kali") {
-            Executor::shell("sed -i '/^#/d' " + compat->source_file);
+            Executor::shell("sudo sed -i '/^#/d' " + compat->source_file);
         } else if (cfg_.linux_distro == "arch") {
-            Executor::shell("sed -i '/^#Server.*=/d' " + compat->source_file);
+            Executor::shell("sudo sed -i '/^#Server.*=/d' " + compat->source_file);
         } else if (cfg_.linux_distro == "alpine") {
-            Executor::shell("sed -i '/^#.*http/d' " + compat->source_file);
+            Executor::shell("sudo sed -i '/^#.*http/d' " + compat->source_file);
         }
 
         // 去重 (sort -u)
@@ -1139,15 +1139,15 @@ namespace tmoe::domain {
         if (cfg_.linux_distro == "debian" || cfg_.linux_distro == "ubuntu" || cfg_.linux_distro == "kali") {
             if (trust) {
                 Logger::warn(_("mirror.trust_warning_detail"));
-                Executor::shell("sed -i 's@^deb.*http@deb [trusted=yes] http@g' /etc/apt/sources.list");
+                Executor::shell("sudo sed -i 's@^deb.*http@deb [trusted=yes] http@g' /etc/apt/sources.list");
             } else {
-                Executor::shell("sed -i 's@^deb \\[trusted=yes\\] http@deb http@g' /etc/apt/sources.list");
+                Executor::shell("sudo sed -i 's@^deb \\[trusted=yes\\] http@deb http@g' /etc/apt/sources.list");
             }
         } else if (cfg_.linux_distro == "arch") {
             if (trust) {
-                Executor::shell("sed -i 's@^#SigLevel.*@SigLevel = Never@' /etc/pacman.conf");
+                Executor::shell("sudo sed -i 's@^#SigLevel.*@SigLevel = Never@' /etc/pacman.conf");
             } else {
-                Executor::shell("sed -i 's@^SigLevel = Never@#SigLevel = Optional TrustAll@' /etc/pacman.conf");
+                Executor::shell("sudo sed -i 's@^SigLevel = Never@#SigLevel = Optional TrustAll@' /etc/pacman.conf");
             }
         } else {
             Logger::error(_("mirror.trust_unsupported"));

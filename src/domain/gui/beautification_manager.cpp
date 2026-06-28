@@ -551,7 +551,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
         // git clone + tar 解压，tar 保留包内权限
         SystemHelper::git_clone_and_extract("https://gitee.com/mo2/xfce-themes.git", "win10x",
                               "We10X.tar.xz", "/tmp/.WINDOWS_11_ICON_THEME", "/usr/share/icons");
-        Executor::shell("update-icon-caches /usr/share/icons/We10X-Valley-dark /usr/share/icons/We10X-Valley 2>/dev/null &");
+        Executor::shell("sudo update-icon-caches /usr/share/icons/We10X-Valley-dark /usr/share/icons/We10X-Valley 2>/dev/null &");
         desktop_manager_.set_default_xfce_icon_theme("We10X-Valley");
     }
 
@@ -569,7 +569,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
             // unzip + mv，unzip 保留 zip 内权限
             Executor::passthrough("cd /tmp && unzip -qo '" + tmp_zip + "' 2>/dev/null && "
                 "mv candy-icons-master /usr/share/icons/candy-icons 2>/dev/null || true");
-            Executor::shell("update-icon-caches /usr/share/icons/candy-icons 2>/dev/null &");
+            Executor::shell("sudo update-icon-caches /usr/share/icons/candy-icons 2>/dev/null &");
             std::error_code ec;
             fs::remove(tmp_zip, ec);
         }
@@ -585,7 +585,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
         Logger::step(_("gui.icon.uos_download_step"));
         SystemHelper::git_clone_and_extract("https://gitee.com/mo2/xfce-themes.git", "Uos",
                               "Uos.tar.xz", "/tmp/UosICONS", "/usr/share/icons");
-        Executor::shell("update-icon-caches /usr/share/icons/Uos 2>/dev/null &");
+        Executor::shell("sudo update-icon-caches /usr/share/icons/Uos 2>/dev/null &");
         desktop_manager_.set_default_xfce_icon_theme("Uos");
     }
 
@@ -593,7 +593,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
         Logger::step(_("gui.icon.paper_download_step"));
         if (SystemHelper::fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/manjaro/pool/overlay/",
                                      "paper-icon-theme.*pkg\\.tar", "paper_icons")) {
-            Executor::shell("update-icon-caches /usr/share/icons/Paper /usr/share/icons/Paper-Mono-Dark 2>/dev/null &");
+            Executor::shell("sudo update-icon-caches /usr/share/icons/Paper /usr/share/icons/Paper-Mono-Dark 2>/dev/null &");
         }
         desktop_manager_.set_default_xfce_icon_theme("Paper");
     }
@@ -604,9 +604,9 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
                                  "pixel-wallpaper.*all\\.deb", "pixel_wp");
         desktop_manager_.check_update_icon_caches_sh();
         if (fs::exists("/usr/share/icons/PiX"))
-            Executor::shell("update-icon-caches /usr/share/icons/PiX 2>/dev/null &");
+            Executor::shell("sudo update-icon-caches /usr/share/icons/PiX 2>/dev/null &");
         if (fs::exists("/usr/share/icons/raspberrypi"))
-            Executor::shell("update-icon-caches /usr/share/icons/raspberrypi 2>/dev/null &");
+            Executor::shell("sudo update-icon-caches /usr/share/icons/raspberrypi 2>/dev/null &");
 
         std::string home = SystemHelper::user_home();
         if (fs::exists("/usr/share/backgrounds/pixel")) {

@@ -161,16 +161,16 @@ namespace tmoe::domain {
                 case 2: {
                     if (!Executor::shell("test -f /etc/rc.local").ok()) {
                         Executor::shell(
-                            "cat >/etc/rc.local <<'EOF'\n#!/bin/sh -e\n# rc.local\n# Add your startup commands above exit 0\nexit 0\nEOF\n");
-                        Executor::shell("chmod a+rx /etc/rc.local");
+                            "sudo cat >/etc/rc.local <<'EOF'\n#!/bin/sh -e\n# rc.local\n# Add your startup commands above exit 0\nexit 0\nEOF\n");
+                        Executor::shell("sudo chmod a+rx /etc/rc.local");
                     }
                     if (!Executor::shell("test -f /etc/systemd/system/rc-local.service").ok()) {
                         Executor::shell(
                             "cat >/etc/systemd/system/rc-local.service <<'EOF'\n[Unit]\nDescription=/etc/rc.local\nConditionPathExists=/etc/rc.local\n[Service]\nType=forking\nExecStart=/etc/rc.local start\nTimeoutSec=0\nStandardOutput=tty\nRemainAfterExit=yes\nSysVStartPriority=99\n[Install]\nWantedBy=multi-user.target\nEOF\n");
                     }
                     Executor::passthrough("nano /etc/rc.local 2>/dev/null || vi /etc/rc.local");
-                    Executor::shell("systemctl daemon-reload 2>/dev/null");
-                    Executor::shell("systemctl enable rc-local.service 2>/dev/null");
+                    Executor::shell("sudo systemctl daemon-reload 2>/dev/null");
+                    Executor::shell("sudo systemctl enable rc-local.service 2>/dev/null");
                     Logger::ok(_("beta.sys_rc_local_ok"));
                     break;
                 }
@@ -220,7 +220,7 @@ namespace tmoe::domain {
                                 CommandBuilder("dd").add_arg("if=" + efi_disk).add_arg("of=/tmp/efi_backup.img").add_arg("bs=4M").add_raw("2>/dev/null").execute();
                             Logger::ok(_("beta.sys_efi_backed_up"));
                         } else if (bpick == "4") {
-                            Executor::passthrough("dd if=/tmp/efi_backup.img of=$(df -h | grep '/boot/efi' | awk '{print $1}' | head -n1) bs=4M 2>/dev/null");
+                            Executor::passthrough("sudo dd if=/tmp/efi_backup.img of=$(df -h | grep '/boot/efi' | awk '{print $1}' | head -n1) bs=4M 2>/dev/null");
                             Logger::ok(_("beta.sys_efi_restored"));
                         } else if (bpick == "5") {
                             PackageManager::install({"refind", "refind-install"}, family);
@@ -246,7 +246,7 @@ namespace tmoe::domain {
                     }
                     PackageManager::update(family);
                     PackageManager::install("software-properties-common", family);
-                    Executor::passthrough("add-apt-repository -y ppa:yannubuntu/boot-repair 2>/dev/null");
+                    Executor::passthrough("sudo add-apt-repository -y ppa:yannubuntu/boot-repair 2>/dev/null");
                     PackageManager::update(family);
                     PackageManager::install("boot-repair", family);
                     Logger::ok(_("beta.sys_bootrepair_installed"));
@@ -263,7 +263,7 @@ namespace tmoe::domain {
                         Executor::passthrough(
                             "curl -L -o /usr/local/bin/neofetch "
                             "'https://gitee.com/mirrors/neofetch/raw/master/neofetch' 2>/dev/null");
-                        Executor::shell("chmod a+rx /usr/local/bin/neofetch");
+                        Executor::shell("sudo chmod a+rx /usr/local/bin/neofetch");
                     }
                     // run with lolcat if available
                     if (Executor::has("lolcat") || Executor::shell("test -f /usr/games/lolcat").ok())

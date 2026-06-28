@@ -56,10 +56,10 @@ namespace tmoe::domain {
                 if (has_issue && Logger::confirm(_("env.confirm_repair_dpkg"))) {
                     Logger::step(_("env.repairing_dpkg"));
                     // 先清理残留锁文件（无进程持有时）
-                    Executor::shell("fuser /var/lib/dpkg/lock 2>/dev/null || "
+                    Executor::shell("sudo fuser /var/lib/dpkg/lock 2>/dev/null || "
                         "rm -f /var/lib/dpkg/lock /var/lib/dpkg/lock-frontend 2>/dev/null || true");
                     // 修复 dpkg 配置
-                    Executor::passthrough("dpkg --configure -a 2>&1 || true");
+                    Executor::passthrough("sudo dpkg --configure -a 2>&1 || true");
                     // 修复破损依赖
                     Executor::passthrough("apt --fix-broken install -y 2>&1 || true");
                     Logger::ok(_("env.dpkg_repair_ok"));

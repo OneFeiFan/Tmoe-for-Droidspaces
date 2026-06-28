@@ -50,7 +50,7 @@ namespace tmoe::domain {
 
         // dpkg 修复
         if (Executor::has("apt-get")) {
-            Executor::passthrough("dpkg --configure -a 2>/dev/null || true");
+            Executor::passthrough("sudo dpkg --configure -a 2>/dev/null || true");
         }
 
         vnc_manager_.configure_startvnc();

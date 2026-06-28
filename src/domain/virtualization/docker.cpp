@@ -151,7 +151,7 @@ namespace tmoe::domain {
         if (is_alpine()) {
             Executor::passthrough("apk add docker docker-cli-compose");
             Executor::passthrough("rc-update add docker boot");
-            return Executor::passthrough("service docker start").ok();
+            return Executor::passthrough("sudo service docker start").ok();
         }
 
         Logger::warn(_("docker.unsupported_distro"));
@@ -1062,7 +1062,7 @@ namespace tmoe::domain {
                 std::string confirm = cfg_.tui_bin +
                                       " --yesno \"" + _("docker.mirror_remove_confirm") + "\" 0 50";
                 if (Executor::passthrough(confirm).exit_code == 0) {
-                    Executor::shell("rm -fv /etc/apt/sources.list.d/docker-ce.list "
+                    Executor::shell("sudo rm -fv /etc/apt/sources.list.d/docker-ce.list "
                         "/etc/apt/sources.list.d/docker.list "
                         "/usr/share/keyrings/docker-ce-archive-keyring.gpg 2>/dev/null");
                 }
@@ -1163,7 +1163,7 @@ namespace tmoe::domain {
         auto pgrep = Executor::shell("pgrep docker 2>/dev/null");
         if (!pgrep.ok()) {
             Logger::step(_("docker.start_service"));
-            Executor::shell("service docker start 2>/dev/null || systemctl start docker 2>/dev/null");
+            Executor::shell("sudo service docker start 2>/dev/null || sudo systemctl start docker 2>/dev/null");
         }
     }
 
@@ -1331,7 +1331,7 @@ namespace tmoe::domain {
             "/usr/share/keyrings/docker-ce-archive-keyring.gpg");
 
         // 注释已有源
-        Executor::shell("sed -i 's@^[^#]*deb @#&@g' /etc/apt/sources.list.d/docker-ce.list 2>/dev/null");
+        Executor::shell("sudo sed -i 's@^[^#]*deb @#&@g' /etc/apt/sources.list.d/docker-ce.list 2>/dev/null");
 
         // TUI 选择源
         std::string src_menu = cfg_.tui_bin +

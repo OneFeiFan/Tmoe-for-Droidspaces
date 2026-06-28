@@ -1195,7 +1195,7 @@ namespace tmoe::domain {
 
         Logger::debug("Starting D-Bus daemon...");
         if (run_shell_command("service dbus start 2>/dev/null")) return true;
-        if (run_shell_command("systemctl start dbus 2>/dev/null")) return true;
+        if (run_shell_command("sudo systemctl start dbus 2>/dev/null")) return true;
 
         run_shell_command("mkdir -p /run/dbus /var/lib/dbus 2>/dev/null");
         if (run_shell_command("dbus-daemon --system --fork 2>/dev/null")) return true;
@@ -1240,7 +1240,7 @@ namespace tmoe::domain {
             fs::remove("/var/run/dbus/pid");
         }
 
-        run_shell_command("service dbus stop 2>/dev/null || systemctl stop dbus 2>/dev/null || "
+        run_shell_command("service dbus stop 2>/dev/null || sudo systemctl stop dbus 2>/dev/null || "
             "pkill dbus-daemon 2>/dev/null || true");
         run_shell_command("pkill dbus-launch 2>/dev/null || true");
 

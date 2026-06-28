@@ -666,7 +666,7 @@ namespace tmoe::domain {
             // 更新 .zshrc 中的 ZSH_THEME
             std::string zshrc = home + "/.zshrc";
             if (fs::exists(zshrc)) {
-                Executor::shell("sed -i 's/^ZSH_THEME=.*/ZSH_THEME=\"powerlevel10k\\/powerlevel10k\"/' " + zshrc);
+                Executor::shell("sudo sed -i 's/^ZSH_THEME=.*/ZSH_THEME=\"powerlevel10k\\/powerlevel10k\"/' " + zshrc);
             }
             Logger::ok(_("termux.p10k_installed"));
             return true;
@@ -778,7 +778,7 @@ namespace tmoe::domain {
             Executor::shell("chsh -s zsh");
         } else {
             // 容器内修改 /etc/passwd
-            Executor::shell("sed -E -i 's@(root:x:0:0:root:/root:/bin/)(ash|bash)@\\1zsh@' /etc/passwd");
+            Executor::shell("sudo sed -E -i 's@(root:x:0:0:root:/root:/bin/)(ash|bash)@\\1zsh@' /etc/passwd");
         }
 
         Logger::ok(_("termux.shell_switched_zsh"));
@@ -900,7 +900,7 @@ namespace tmoe::domain {
         }
 
         // 注释旧源
-        Executor::shell("sed -i 's/^\\(deb .*\\)/# \\1/' " + file_path);
+        Executor::shell("sudo sed -i 's/^\\(deb .*\\)/# \\1/' " + file_path);
 
         // 追加新源（如果还未添加）
         std::string grep_cmd = "grep -qF '" + new_source_line + "' " + file_path + " 2>/dev/null";
@@ -1044,7 +1044,7 @@ namespace tmoe::domain {
         // 处理主 sources.list
         std::string main_file = apt_dir + "/sources.list";
         if (fs::exists(main_file)) {
-            Executor::shell("sed -i '/^#/d' " + main_file);
+            Executor::shell("sudo sed -i '/^#/d' " + main_file);
             Executor::shell("sort -u -o " + main_file + " " + main_file);
         }
 
@@ -1054,7 +1054,7 @@ namespace tmoe::domain {
             for (auto &entry: fs::directory_iterator(list_d)) {
                 if (entry.path().extension() == ".list") {
                     std::string p = entry.path().string();
-                    Executor::shell("sed -i '/^#/d' " + p);
+                    Executor::shell("sudo sed -i '/^#/d' " + p);
                     Executor::shell("sort -u -o " + p + " " + p);
                 }
             }
@@ -1613,7 +1613,7 @@ namespace tmoe::domain {
         }
 
         // 清理旧配置并添加新配置
-        Executor::shell("sed -i '/auth-ip-acl/d;/module-native-protocol-tcp/d' " + pa_conf);
+        Executor::shell("sudo sed -i '/auth-ip-acl/d;/module-native-protocol-tcp/d' " + pa_conf);
         Executor::shell(
             "echo 'load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1' >> " + pa_conf);
 
@@ -1634,7 +1634,7 @@ namespace tmoe::domain {
 
         // 设置 exit-idle-time = 3600 (1小时)
         if (Executor::shell("grep -q 'exit-idle-time' " + daemon_conf).ok()) {
-            Executor::shell("sed -i 's/^[#; ]*exit-idle-time.*$/exit-idle-time = 3600/' " + daemon_conf);
+            Executor::shell("sudo sed -i 's/^[#; ]*exit-idle-time.*$/exit-idle-time = 3600/' " + daemon_conf);
         } else {
             Executor::shell("echo 'exit-idle-time = 3600' >> " + daemon_conf);
         }
@@ -1668,7 +1668,7 @@ namespace tmoe::domain {
         }
 
         // 移除旧的 auth-ip-acl 行
-        Executor::shell("sed -i '/auth-ip-acl/d' " + pa_conf);
+        Executor::shell("sudo sed -i '/auth-ip-acl/d' " + pa_conf);
 
         if (lan_enabled) {
             // 禁用局域网, 仅限 localhost
@@ -1866,7 +1866,7 @@ namespace tmoe::domain {
                 "sed -i 's|http[s]*://[^/]*/alpine|https://mirrors.tuna.tsinghua.edu.cn/alpine|g' " + apk_repos);
             Logger::ok(_("termux.alpine_mirror_switched_tuna"));
         } else if (choice == "2") {
-            Executor::shell("sed -i 's|http[s]*://[^/]*/alpine|https://dl-cdn.alpinelinux.org/alpine|g' " + apk_repos);
+            Executor::shell("sudo sed -i 's|http[s]*://[^/]*/alpine|https://dl-cdn.alpinelinux.org/alpine|g' " + apk_repos);
             Logger::ok(_("termux.alpine_mirror_restored_official"));
         }
     }
@@ -1895,11 +1895,11 @@ namespace tmoe::domain {
 
             if (choice == "1") {
                 CommandBuilder("cp").add_arg("/etc/apt/sources.list").add_arg("/etc/apt/sources.list.bak").add_raw("2>/dev/null").execute();
-                Executor::shell("sed -i 's|http[s]*://[^/]*/|" + mirror_url + "/|g' /etc/apt/sources.list");
+                Executor::shell("sudo sed -i 's|http[s]*://[^/]*/|" + mirror_url + "/|g' /etc/apt/sources.list");
                 Logger::ok(_("termux.linux_mirror_switched_tuna"));
             } else if (choice == "2") {
                 if (fs::exists("/etc/apt/sources.list.bak")) {
-                    Executor::shell("cp /etc/apt/sources.list.bak /etc/apt/sources.list");
+                    Executor::shell("sudo cp /etc/apt/sources.list.bak /etc/apt/sources.list");
                     Logger::ok(_("termux.linux_mirror_restored"));
                 } else {
                     Logger::warn(_("termux.linux_mirror_no_backup"));

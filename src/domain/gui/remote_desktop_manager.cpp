@@ -181,7 +181,7 @@ namespace tmoe::domain {
         configure_xrdp_session("xfce");
 
         // 启动
-        Executor::passthrough("service xrdp start 2>/dev/null || systemctl start xrdp 2>/dev/null || true");
+        Executor::passthrough("sudo service xrdp start 2>/dev/null || sudo systemctl start xrdp 2>/dev/null || true");
 
         Logger::ok(_("gui.xrdp.install_ok"));
         return true;
@@ -277,7 +277,7 @@ namespace tmoe::domain {
 
     bool RemoteDesktopManager::start_xrdp() {
         Logger::step(_("gui.xrdp.starting"));
-        if (Executor::passthrough("service xrdp start 2>/dev/null || systemctl start xrdp 2>/dev/null").ok()) {
+        if (Executor::passthrough("sudo service xrdp start 2>/dev/null || sudo systemctl start xrdp 2>/dev/null").ok()) {
             Logger::ok(_("gui.xrdp.started"));
             return true;
         }
@@ -293,7 +293,7 @@ namespace tmoe::domain {
 
     bool RemoteDesktopManager::stop_xrdp() {
         Logger::step(_("gui.xrdp.stopping"));
-        Executor::passthrough("service xrdp stop 2>/dev/null || systemctl stop xrdp 2>/dev/null || "
+        Executor::passthrough("sudo service xrdp stop 2>/dev/null || sudo systemctl stop xrdp 2>/dev/null || "
             "pkill xrdp 2>/dev/null || true");
         Logger::ok(_("gui.xrdp.stopped"));
         return true;
@@ -547,8 +547,8 @@ namespace tmoe::domain {
                 install_xrdp();
                 configure_xrdp_desktop();
             }
-            Executor::passthrough("service xrdp restart 2>/dev/null || "
-                "systemctl restart xrdp 2>/dev/null || /usr/sbin/xrdp 2>/dev/null &");
+            Executor::passthrough("sudo service xrdp restart 2>/dev/null || "
+                "sudo systemctl restart xrdp 2>/dev/null || /usr/sbin/xrdp 2>/dev/null &");
             if (is_running) Logger::ok(_("gui.xrdp.restarted"));
             else Logger::ok(_("gui.xrdp.started_msg"));
             Logger::press_enter();
@@ -559,7 +559,7 @@ namespace tmoe::domain {
         while (true) {
             std::string menu = cfg_.tui_bin +
                                " --title \"CONFIGURE XRDP\""
-                               " --menu \"Type service xrdp start to start it\" 0 0 0 "
+                               " --menu \"Type sudo service xrdp start to start it\" 0 0 0 "
                                "\"1\"  \"One-key conf 初始化一键配置\" "
                                "\"2\"  \"指定xrdp桌面环境\" "
                                "\"3\"  \"xrdp port 修改xrdp端口\" "
@@ -576,7 +576,7 @@ namespace tmoe::domain {
             if (ch == "0" || ch.empty()) break;
 
             if (ch == "1") {
-                Executor::passthrough("service xrdp stop 2>/dev/null || systemctl stop xrdp 2>/dev/null || true");
+                Executor::passthrough("sudo service xrdp stop 2>/dev/null || sudo systemctl stop xrdp 2>/dev/null || true");
                 install_xrdp();
                 configure_xrdp_desktop();
             } else if (ch == "2") configure_xrdp_desktop();
@@ -626,8 +626,8 @@ namespace tmoe::domain {
             } else if (ch == "9") {
                 auto r = Executor::passthrough(cfg_.tui_bin + " --yesno \"确认重置 xrdp 配置？\" 0 0");
                 if (r.exit_code == 0) {
-                    Executor::passthrough("service xrdp stop 2>/dev/null || systemctl stop xrdp 2>/dev/null || true");
-                    Executor::passthrough("rm -rf /etc/xrdp/xrdp.ini /etc/xrdp/startwm.sh 2>/dev/null || true");
+                    Executor::passthrough("sudo service xrdp stop 2>/dev/null || sudo systemctl stop xrdp 2>/dev/null || true");
+                    Executor::passthrough("sudo rm -rf /etc/xrdp/xrdp.ini /etc/xrdp/startwm.sh 2>/dev/null || true");
                     install_xrdp();
                     configure_xrdp_desktop();
                 }
@@ -1043,7 +1043,7 @@ namespace tmoe::domain {
             }
         }
         while (!rdp_port.empty() && (rdp_port.back() == '\n' || rdp_port.back() == '\r')) rdp_port.pop_back();
-        Executor::passthrough("service xrdp restart 2>/dev/null || systemctl restart xrdp 2>/dev/null || "
+        Executor::passthrough("sudo service xrdp restart 2>/dev/null || sudo systemctl restart xrdp 2>/dev/null || "
             "/etc/init.d/xrdp restart 2>/dev/null || true");
         check_xrdp_status();
         Logger::info(_("gui.xrdp.port_info") + rdp_port);
@@ -1185,7 +1185,7 @@ namespace tmoe::domain {
             return;
         }
 
-        Executor::passthrough("service xrdp stop 2>/dev/null || systemctl stop xrdp 2>/dev/null || "
+        Executor::passthrough("sudo service xrdp stop 2>/dev/null || sudo systemctl stop xrdp 2>/dev/null || "
             "pkill xrdp 2>/dev/null || true");
 
         CommandBuilder("rm").add_flag("-f").add_arg("/etc/polkit-1/localauthority/50-local.d/45-allow.colord.pkla")

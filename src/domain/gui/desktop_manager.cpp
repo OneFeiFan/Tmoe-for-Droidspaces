@@ -539,15 +539,15 @@ namespace tmoe::domain {
             if (ch == "0" || ch.empty()) return;
             if (ch == "1") Executor::passthrough(cfg_.install_command + " " + dm_pkg + " 2>/dev/null || true");
             else if (ch == "2") Executor::passthrough(
-                "systemctl start " + dm_service + " 2>/dev/null || service " + dm_service +
+                "sudo systemctl start " + dm_service + " 2>/dev/null || service " + dm_service +
                 " restart 2>/dev/null || true");
             else if (ch == "3") Executor::passthrough(
-                "systemctl stop " + dm_service + " 2>/dev/null || service " + dm_service + " stop 2>/dev/null || true");
+                "sudo systemctl stop " + dm_service + " 2>/dev/null || service " + dm_service + " stop 2>/dev/null || true");
             else if (ch == "4") Executor::passthrough(
-                "systemctl enable " + dm_service + " 2>/dev/null || rc-update add " + dm_service +
+                "sudo systemctl enable " + dm_service + " 2>/dev/null || rc-update add " + dm_service +
                 " 2>/dev/null || true");
             else if (ch == "5") Executor::passthrough(
-                "systemctl disable " + dm_service + " 2>/dev/null || rc-update del " + dm_service +
+                "sudo systemctl disable " + dm_service + " 2>/dev/null || rc-update del " + dm_service +
                 " 2>/dev/null || true");
             Logger::press_enter();
         }
@@ -680,7 +680,7 @@ namespace tmoe::domain {
             auto [code, path] = select_random_mint_wallpaper();
             // Kali: 把 kali-16x9 壁纸复制到 backgrounds
             if (fs::exists("/usr/share/backgrounds/kali-16x9")) {
-                Executor::shell("cp -sv /usr/share/backgrounds/kali-16x9/* "
+                Executor::shell("sudo cp -sv /usr/share/backgrounds/kali-16x9/* "
                                 "/usr/share/backgrounds/ 2>/dev/null || true");
             }
             return path;
@@ -688,7 +688,7 @@ namespace tmoe::domain {
         case DistroFamily::Arch:
             // 把 xfce 子目录壁纸移到顶层
             if (fs::exists("/usr/share/backgrounds/xfce")) {
-                Executor::shell("mv -f /usr/share/backgrounds/xfce/* "
+                Executor::shell("sudo mv -f /usr/share/backgrounds/xfce/* "
                                 "/usr/share/backgrounds/ 2>/dev/null || true");
             }
             return select_random_mint_wallpaper().second;

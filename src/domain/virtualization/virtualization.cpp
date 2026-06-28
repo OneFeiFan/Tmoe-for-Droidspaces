@@ -49,14 +49,14 @@ namespace tmoe::domain {
         Logger::step(_f("virt.installing_wine", std::string(branch)));
 
         if (is_debian() || is_ubuntu()) {
-            Executor::passthrough("dpkg --add-architecture i386 2>/dev/null");
+            Executor::passthrough("sudo dpkg --add-architecture i386 2>/dev/null");
             Executor::passthrough(cfg_.update_command);
 
             auto result = Executor::passthrough(cfg_.install_command +
                                                 " wine wine32 wine64 2>/dev/null");
 
             if (!result.ok()) {
-                Executor::passthrough("mkdir -p /etc/apt/keyrings");
+                Executor::passthrough("sudo mkdir -p /etc/apt/keyrings");
                 Executor::passthrough("wget -qO- https://dl.winehq.org/wine-builds/winehq.key | "
                     "gpg --dearmor -o /etc/apt/keyrings/winehq-archive-keyring.gpg");
                 Executor::passthrough(cfg_.update_command);
@@ -100,9 +100,9 @@ namespace tmoe::domain {
             Logger::ok(_("virt.winetricks_installed"));
         } else {
             Logger::warn(_("virt.winetricks_fallback"));
-            Executor::passthrough("wget -O /usr/local/bin/winetricks "
+            Executor::passthrough("sudo wget -O /usr/local/bin/winetricks "
                 "https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks 2>/dev/null");
-            Executor::shell("chmod +x /usr/local/bin/winetricks");
+            Executor::shell("sudo chmod +x /usr/local/bin/winetricks");
         }
         return true;
     }

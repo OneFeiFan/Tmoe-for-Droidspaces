@@ -229,8 +229,8 @@ namespace tmoe::app {
                     Executor::passthrough("ntpdate time.windows.com 2>/dev/null");
                     Executor::passthrough("timedatectl set-ntp true 2>/dev/null");
                     Executor::passthrough(
-                        "systemctl enable chrony 2>/dev/null || "
-                        "systemctl enable chronyd 2>/dev/null || "
+                        "sudo systemctl enable chrony 2>/dev/null || "
+                        "sudo sudo systemctl enable chronyd 2>/dev/null || "
                         "rc-update add chrony 2>/dev/null");
                     Executor::passthrough("chronyc sourcestats -v 2>/dev/null");
                     break;

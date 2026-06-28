@@ -7,6 +7,8 @@
 #include "domain/system/package_manager.h"
 #include <fstream>
 
+#include "core/system_helper.h"
+
 namespace tmoe::domain {
     BrowserManager::BrowserManager(const TmoeConfig &cfg) : cfg_(cfg) {
     }
@@ -502,8 +504,8 @@ namespace tmoe::domain {
         }
         if (!has_ppa) {
             Logger::step(_("browser.firefox_ppa"));
-            Executor::passthrough("add-apt-repository -y ppa:mozillateam/ppa 2>/dev/null || "
-                "add-apt-repository -y ppa:mozillateam/ppa 2>/dev/null || true");
+            Executor::passthrough("sudo add-apt-repository -y ppa:mozillateam/ppa 2>/dev/null || "
+                "sudo add-apt-repository -y ppa:mozillateam/ppa 2>/dev/null || true");
             needs_update = true;
         }
 
@@ -535,35 +537,41 @@ namespace tmoe::domain {
         std::error_code ec;
         if (fs::exists("/etc/apt/sources.list.d", ec)) {
             for (const auto &entry: fs::directory_iterator("/etc/apt/sources.list.d")) {
-                if (entry.path().filename().string().find("saiarcot895") != std::string::npos)
+                if (entry.path().filename().string().find("xtradeb") != std::string::npos)
                     return;
             }
         }
 
         Logger::step(_("browser.chromium_ppa"));
         Executor::passthrough(
-            "add-apt-repository -y ppa:saiarcot895/chromium-dev || "
-            "add-apt-repository -y ppa:saiarcot895/chromium-dev || true"
+            "sudo add-apt-repository -y ppa:xtradeb/apps || "
+            "sudo add-apt-repository -y ppa:xtradeb/apps || true"
         );
     }
 
     void BrowserManager::ensure_edge_repo() {
-        // 源文件已存在就跳过
         if (fs::exists("/etc/apt/sources.list.d/microsoft-edge.list") ||
             fs::exists("/etc/apt/sources.list.d/microsoft-edge-dev.list"))
             return;
 
+        // Microsoft Edge 仅提供 amd64 包
+        auto arch_result = Executor::shell("dpkg --print-architecture 2>/dev/null");
+        std::string arch = arch_result.stdout_data;
+        while (!arch.empty() && (arch.back() == '\n' || arch.back() == '\r')) arch.pop_back();
+        if (arch != "amd64") {
+            Logger::warn("Microsoft Edge only supports amd64, skipped (current: " + arch + ")");
+            return;
+        }
+
         Logger::step(_("browser.edge_repo") + ": GPG key");
         Executor::passthrough(
             "curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | "
-            "gpg --dearmor -o /etc/apt/trusted.gpg.d/microsoft.gpg"
-        );
+            "sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/microsoft.gpg 2>/dev/null || true");
 
         Logger::step(_("browser.edge_repo") + ": sources.list");
         fs::create_directories("/etc/apt/sources.list.d");
-        std::ofstream ofs("/etc/apt/sources.list.d/microsoft-edge.list");
-        ofs << "deb [arch=amd64] https://packages.microsoft.com/repos/edge stable main\n";
-        ofs.close();
+        SystemHelper::write_file("/etc/apt/sources.list.d/microsoft-edge.list",
+            "deb [arch=amd64] https://packages.microsoft.com/repos/edge stable main\n");
 
         Logger::step(_("browser.edge_repo") + ": apt update");
         PackageManager::update(DistroFamily::Debian);

@@ -1094,7 +1094,7 @@ namespace tmoe::domain {
                                     "/usr/local/bin/tightvnc","/usr/local/bin/tigervnc",
                                     "/usr/local/bin/gnome-shell-x11","/usr/local/bin/budgie-desktop-builtin"})
             Executor::passthrough(std::string("rm -f ") + script + " 2>/dev/null || true");
-        Executor::passthrough("rm -rf /etc/X11/xinit 2>/dev/null || true");
+        Executor::passthrough("sudo rm -rf /etc/X11/xinit 2>/dev/null || true");
     }
 
     void SoftwareCenter::remove_browser() {

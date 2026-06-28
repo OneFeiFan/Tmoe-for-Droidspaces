@@ -27,7 +27,7 @@ void DdeDesktop::post_install_config(const PostInstallContext& ctx) {
             Executor::passthrough(
                 "apt update 2>/dev/null; "
                 "apt install -y software-properties-common gnupg 2>/dev/null; "
-                "yes | add-apt-repository ppa:ubuntudde-dev/stable 2>/dev/null || true");
+                "yes | sudo add-apt-repository ppa:ubuntudde-dev/stable 2>/dev/null || true");
         }
         desktop_utils::install_noto_fonts(ctx.family, true);
     }

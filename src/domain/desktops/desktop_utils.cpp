@@ -37,7 +37,7 @@ namespace tmoe::domain::desktop_utils {
 
     void dpkg_configure_and_keyboard(bool is_debian) {
         if (!is_debian) return;
-        Executor::passthrough("dpkg --configure -a 2>/dev/null || true");
+        Executor::passthrough("sudo dpkg --configure -a 2>/dev/null || true");
     }
 
     void remove_udisks_gvfs_for_proot(
