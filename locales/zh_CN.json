@@ -1906,6 +1906,7 @@
   "termux.gui_no_file_manager": "Deepin 字体管理",
   "termux.signal9_disable_monitor": "Deepin 系统监视器",
   "browser.chromium_install_remove_title": "CHROMIUM安装与卸载",
+  "browser.chromium_policy_cleaned": "Chromium 策略文件已清理，搜索引擎可自由切换",
   "browser.chromium_install_remove_yesno": "Do you want to install chromium or remove it?",
   "browser.confirm_remove_edge": "确认卸载 Microsoft Edge？",
   "browser.confirm_remove_firefox_esr": "确认卸载 Firefox ESR？",
