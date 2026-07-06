@@ -17,6 +17,7 @@ struct CinnamonDesktop : DesktopBase {
     }
     PreInstallChoices pre_install_choices(DistroFamily, bool) override;
     void post_install_config(const PostInstallContext&) override;
+    void post_install_extras(const PostInstallContext&) override;
 private:
     const DesktopInfo& info_;
 };

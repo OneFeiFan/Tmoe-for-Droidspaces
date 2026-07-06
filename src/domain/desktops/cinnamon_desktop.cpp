@@ -23,4 +23,18 @@ void CinnamonDesktop::post_install_config(const PostInstallContext& ctx) {
     desktop_utils::install_language_packs(cfg_);
 }
 
+void CinnamonDesktop::post_install_extras(const PostInstallContext& ctx) {
+    // Cinnamon 主题和壁纸
+    auto family = ctx.family;
+    // Linux Mint 专有壁纸
+    auto issue = SystemHelper::read_file("/etc/issue");
+    if (issue.find("Linux Mint") != std::string::npos) {
+        PackageManager::install({"mint-backgrounds-*", "mint-themes"}, family);
+    }
+    // 通用 GTK 主题
+    if (family != DistroFamily::Alpine) {
+        PackageManager::install({"arc-theme", "papirus-icon-theme"}, family);
+    }
+}
+
 } // namespace tmoe::domain
