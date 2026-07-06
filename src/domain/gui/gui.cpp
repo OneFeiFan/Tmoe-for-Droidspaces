@@ -785,13 +785,22 @@ namespace tmoe::domain {
         auto ch = Executor::tui_select(dm_menu);
         auto fam = get_family(cfg_);
         if (ch == "1") {
-            PackageManager::install({"lightdm", "lightdm-gtk-greeter"}, fam);
+            // Bash: Alpine 需要 setup-xorg-base + xf86-input-* + polkit + consolekit2
+            if (fam == DistroFamily::Alpine) {
+                Executor::passthrough("sudo setup-xorg-base 2>/dev/null || true");
+                PackageManager::install({"lightdm", "lightdm-gtk-greeter",
+                    "xf86-input-mouse", "xf86-input-keyboard", "polkit", "consolekit2"}, fam);
+            } else {
+                PackageManager::install({"lightdm", "lightdm-gtk-greeter",
+                    "lightdm-gtk-greeter-settings", "ukui-greeter"}, fam);
+            }
             desktop_manager_.tmoe_display_manager_systemctl("lightdm", "lightdm");
         } else if (ch == "2") {
             PackageManager::install({"sddm", "sddm-theme-breeze"}, fam);
             desktop_manager_.tmoe_display_manager_systemctl("sddm", "sddm");
         } else if (ch == "3") {
-            PackageManager::install("gdm3", fam);
+            // Bash: DEPENDENCY_01=gdm + DEPENDENCY_02=gdm3
+            PackageManager::install({"gdm", "gdm3"}, fam);
             desktop_manager_.tmoe_display_manager_systemctl("gdm3", "gdm");
         } else if (ch == "4") {
             PackageManager::install("slim", fam);

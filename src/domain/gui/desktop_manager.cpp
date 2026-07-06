@@ -490,27 +490,49 @@ namespace tmoe::domain {
         while (true) {
             std::string menu = cfg_.tui_bin +
                                " --title \"" + _("gui.dm.menu_title") + "\" --menu \"" + _("gui.dm.menu_prompt") +
-                               "\" 0 50 0 "
+                               "\" 0 55 0 "
                                "\"1\" \"" + _("gui.dm.opt_install") + "\" "
-                               "\"2\" \"" + _("gui.dm.opt_start") + "\" "
-                               "\"3\" \"" + _("gui.dm.opt_stop") + "\" "
-                               "\"4\" \"" + _("gui.dm.opt_enable") + "\" "
-                               "\"5\" \"" + _("gui.dm.opt_disable") + "\" "
+                               "\"2\" \"" + _("gui.dm.opt_remove") + "\" "
+                               "\"3\" \"" + _("gui.dm.opt_start") + "\" "
+                               "\"4\" \"" + _("gui.dm.opt_stop") + "\" "
+                               "\"5\" \"" + _("gui.dm.opt_enable") + "\" "
+                               "\"6\" \"" + _("gui.dm.opt_disable") + "\" "
                                "\"0\" \"" + _("gui.dm.opt_back") + "\"";
             auto ch = Executor::tui_select(menu);
             if (ch == "0" || ch.empty()) return;
-            if (ch == "1") Executor::passthrough(cfg_.install_command + " " + dm_pkg + " 2>/dev/null || true");
-            else if (ch == "2") Executor::passthrough(
-                "sudo systemctl start " + dm_service + " 2>/dev/null || sudo service " + dm_service +
-                " restart 2>/dev/null || true");
-            else if (ch == "3") Executor::passthrough(
-                "sudo systemctl stop " + dm_service + " 2>/dev/null || sudo service " + dm_service + " stop 2>/dev/null || true");
-            else if (ch == "4") Executor::passthrough(
-                "sudo systemctl enable " + dm_service + " 2>/dev/null || rc-update add " + dm_service +
-                " 2>/dev/null || true");
-            else if (ch == "5") Executor::passthrough(
-                "sudo systemctl disable " + dm_service + " 2>/dev/null || rc-update del " + dm_service +
-                " 2>/dev/null || true");
+            if (ch == "1") {
+                // install: 确认后安装（包可能已装，此处提供补装路径）
+                if (Logger::confirm(_f("gui.dm.confirm_install", dm_pkg)))
+                    Executor::passthrough(cfg_.install_command + " " + dm_pkg + " 2>/dev/null || true");
+            } else if (ch == "2") {
+                // remove: 确认后卸载（Bash: beta_features_quick_install 支持卸载）
+                if (Logger::confirm(_f("gui.dm.confirm_remove", dm_pkg)))
+                    Executor::passthrough(cfg_.remove_command + " " + dm_pkg + " 2>/dev/null || true");
+            } else if (ch == "3") {
+                // start: 确认后启动
+                if (Logger::confirm(_("gui.dm.confirm_start")))
+                    Executor::passthrough(
+                        "sudo systemctl start " + dm_service + " 2>/dev/null || sudo service " + dm_service +
+                        " start 2>/dev/null || true");
+            } else if (ch == "4") {
+                // stop: 确认后停止
+                if (Logger::confirm(_("gui.dm.confirm_stop")))
+                    Executor::passthrough(
+                        "sudo systemctl stop " + dm_service + " 2>/dev/null || sudo service " + dm_service +
+                        " stop 2>/dev/null || true");
+            } else if (ch == "5") {
+                // enable: 确认后启用自启
+                if (Logger::confirm(_("gui.dm.confirm_enable")))
+                    Executor::passthrough(
+                        "sudo systemctl enable " + dm_service + " 2>/dev/null || rc-update add " + dm_service +
+                        " 2>/dev/null || true");
+            } else if (ch == "6") {
+                // disable: 确认后禁用自启
+                if (Logger::confirm(_("gui.dm.confirm_disable")))
+                    Executor::passthrough(
+                        "sudo systemctl disable " + dm_service + " 2>/dev/null || rc-update del " + dm_service +
+                        " 2>/dev/null || true");
+            }
             Logger::press_enter();
         }
     }
