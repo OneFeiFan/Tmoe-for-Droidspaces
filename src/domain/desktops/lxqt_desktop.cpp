@@ -51,6 +51,7 @@ namespace tmoe::domain {
     void LxqtDesktop::post_install_config(const PostInstallContext &ctx) {
         desktop_utils::dpkg_configure_and_keyboard(ctx.is_debian);
         desktop_utils::purge_libfprint_and_clean(ctx.is_proot, ctx.is_debian);
+        desktop_utils::remove_udisks_gvfs_for_proot(get_id(), ctx.is_proot, ctx.is_debian);
         if (ctx.is_debian)
             desktop_utils::install_noto_fonts(ctx.family, true);
         desktop_utils::install_language_packs(cfg_);

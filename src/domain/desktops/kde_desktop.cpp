@@ -67,7 +67,7 @@ namespace tmoe::domain {
 
     // ── 阶段3: 系统配置 ──
     void KdeDesktop::post_install_config(const PostInstallContext &ctx) {
-        kde_warning();
+        if (!kde_warning()) return;
         desktop_utils::dpkg_configure_and_keyboard(ctx.is_debian);
         desktop_utils::purge_libfprint_and_clean(ctx.is_proot, ctx.is_debian);
         if (ctx.is_debian) desktop_utils::install_noto_fonts(ctx.family, true);
@@ -93,8 +93,17 @@ namespace tmoe::domain {
     // private
     // ═══════════════════════════════════════════
 
-    void KdeDesktop::kde_warning() const {
+    bool KdeDesktop::kde_warning() const {
+        // Bash 原版有 whiptail 确认
         Logger::info(_("gui.kde.warning"));
+        auto r = Executor::passthrough(cfg_.tui_bin +
+            " --title \"KDE Plasma\""
+            " --yesno '" + std::string(_("gui.kde.warning.continue")) + "' 0 0");
+        if (r.exit_code != 0) {
+            Logger::warn(_("gui.kde.warning.cancelled"));
+            return false;
+        }
+        return true;
     }
 
     void KdeDesktop::choose_wayland_or_x11(const PostInstallContext & /*ctx*/) {
@@ -128,4 +137,9 @@ namespace tmoe::domain {
             Logger::ok(_("gui.plasma_wayland.configured"));
         }
     }
+    void KdeDesktop::post_install_extras(const PostInstallContext& /*ctx*/) {
+        // 安装 Breeze 主题全套（Bash 原版在 KDE 安装后自动安装）
+        desktop_utils::install_breeze_theme_ext(cfg_);
+    }
+
 } // namespace tmoe::domain

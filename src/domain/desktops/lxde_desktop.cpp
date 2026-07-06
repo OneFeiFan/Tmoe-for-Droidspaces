@@ -24,6 +24,18 @@ PreInstallChoices LxdeDesktop::pre_install_choices(
     PreInstallChoices c;
     if (is_auto_mode || family != DistroFamily::Debian) return c;
 
+    // Ubuntu: 先选 lubuntu-desktop
+    if (cfg_.sub_distro == "ubuntu") {
+        auto r = Executor::passthrough(cfg_.tui_bin +
+            " --title \"Lxde or Lubuntu-desktop\""
+            " --yes-button \"lxde\" --no-button \"lubuntu\""
+            " --yesno '前者为普通lxde,后者为lubuntu' 0 0");
+        if (r.exit_code == 1) {
+            c.pkg_list = "lubuntu-desktop";
+            return c;
+        }
+    }
+
     auto r = Executor::passthrough(cfg_.tui_bin +
         " --title \"LXDE-CORE or LXDE-LITE\""
         " --yes-button \"core\" --no-button \"lite\""
@@ -38,6 +50,7 @@ PreInstallChoices LxdeDesktop::pre_install_choices(
 void LxdeDesktop::post_install_config(const PostInstallContext& ctx) {
     desktop_utils::dpkg_configure_and_keyboard(ctx.is_debian);
     desktop_utils::purge_libfprint_and_clean(ctx.is_proot, ctx.is_debian);
+    desktop_utils::remove_udisks_gvfs_for_proot(get_id(), ctx.is_proot, ctx.is_debian);
     if (ctx.is_debian)
         desktop_utils::install_noto_fonts(ctx.family, true);
     desktop_utils::install_language_packs(cfg_);
