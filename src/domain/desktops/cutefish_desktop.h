@@ -7,6 +7,7 @@ struct CutefishDesktop : DesktopBase {
     const DesktopInfo& get_info() const override { return info_; }
     void will_be_installed_message() const override { Logger::info("Cutefish: cutefish-session / cutefish-launcher"); }
     void post_install_config(const PostInstallContext&) override;
+    void post_install_extras(const PostInstallContext&) override;
 private: const DesktopInfo& info_;
 };
 }

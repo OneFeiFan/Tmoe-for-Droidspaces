@@ -17,4 +17,14 @@ void CutefishDesktop::post_install_config(const PostInstallContext& ctx) {
     if (ctx.family == DistroFamily::Arch) PackageManager::install({"cutefish","cutefish-core"}, ctx.family);
 }
 
+void CutefishDesktop::post_install_extras(const PostInstallContext& ctx) {
+    // Cutefish 是极简 DE，没有额外美化需求
+    // 仅安装 fish-pi 基础配置工具（如果存在）
+    auto family = ctx.family;
+    if (family == DistroFamily::Arch) {
+        PackageManager::install({"cutefish-icons", "cutefish-wallpapers"}, family);
+    }
+    // 其他发行版：Cutefish 包本身已包含默认主题，无需额外安装
+}
+
 } // namespace tmoe::domain
