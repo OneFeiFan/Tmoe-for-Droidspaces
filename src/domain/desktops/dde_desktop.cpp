@@ -34,4 +34,19 @@ void DdeDesktop::post_install_config(const PostInstallContext& ctx) {
     desktop_utils::install_language_packs(cfg_);
 }
 
+void DdeDesktop::post_install_extras(const PostInstallContext& ctx) {
+    // DDE 专用壁纸和主题
+    auto family = ctx.family;
+    if (family == DistroFamily::Debian) {
+        PackageManager::install({"deepin-wallpapers", "dde-introduction", "deepin-icon-theme"}, family);
+        // UbuntuDDE 额外壁纸
+        if (ctx.is_ubuntu) {
+            PackageManager::install("ubuntu-wallpapers", family);
+        }
+    }
+    if (family == DistroFamily::Arch) {
+        PackageManager::install({"deepin-wallpapers", "deepin-icon-theme"}, family);
+    }
+}
+
 } // namespace tmoe::domain
