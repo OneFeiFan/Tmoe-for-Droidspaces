@@ -34,4 +34,15 @@ namespace tmoe::domain {
         }
         desktop_utils::install_language_packs(cfg_);
     }
+void DeepinDesktop::post_install_extras(const PostInstallContext& ctx) {
+    // Deepin 专用主题和壁纸（与 DDE 共用 deepin 生态）
+    auto family = ctx.family;
+    if (family == DistroFamily::Debian) {
+        PackageManager::install({"deepin-wallpapers", "deepin-icon-theme", "deepin-gtk-theme"}, family);
+    }
+    if (family == DistroFamily::Arch) {
+        PackageManager::install({"deepin-wallpapers", "deepin-icon-theme", "deepin-gtk-theme"}, family);
+    }
+}
+
 } // namespace tmoe::domain
