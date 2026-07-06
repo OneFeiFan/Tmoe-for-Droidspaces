@@ -47,8 +47,9 @@ namespace tmoe::domain {
                 "/opt/novnc 2>/dev/null || true");
             if (fs::exists("/opt/novnc")) {
                 // 创建符号链接
-                CommandBuilder("sudo").add_arg("ln").add_flag("-sf").add_arg("/opt/novnc").add_arg("/usr/share/novnc").add_raw(
-                    "2>/dev/null || true").execute();
+                CommandBuilder("sudo").add_arg("ln").add_flag("-sf").add_arg("/opt/novnc").add_arg("/usr/share/novnc").
+                        add_raw(
+                            "2>/dev/null || true").execute();
             }
         }
 
@@ -155,8 +156,9 @@ namespace tmoe::domain {
             "sudo chmod 644 /etc/xrdp/cert.pem 2>/dev/null || true");
         // 旧 Bash: chroot/proot 下 xrdp 需要 aid_inet 组才能联网
         if (cfg_.is_termux || cfg_.linux_distro == "Android") {
-            CommandBuilder("sudo").add_arg("usermod").add_flag("-a").add_flag("-G").add_arg("aid_inet").add_arg("xrdp").add_raw(
-                "2>/dev/null || true").execute();
+            CommandBuilder("sudo").add_arg("usermod").add_flag("-a").add_flag("-G").add_arg("aid_inet").add_arg("xrdp").
+                    add_raw(
+                        "2>/dev/null || true").execute();
         }
 
         // 配置 polkit 规则 (允许远程连接)
@@ -196,6 +198,7 @@ namespace tmoe::domain {
         // 如果发行版未提供 startwm.sh，生成包含标准环境初始化的模板.
         // 必须保留 /etc/profile 等加载逻辑，否则 PATH/LANG 等变量缺失。
         if (!fs::exists("/etc/xrdp/startwm.sh")) {
+            Logger::debug("11111111111111111111111111111111111");
             SystemHelper::write_file("/etc/xrdp/startwm.sh",
                                      "#!/bin/sh\n"
                                      "# tmoe-linux xrdp startwm\n\n"
@@ -204,7 +207,8 @@ namespace tmoe::domain {
                                      "fi\n\n"
                                      "test -x /etc/X11/Xsession && exec /etc/X11/Xsession\n"
                                      "exec /etc/X11/xinit/Xsession\n");
-            CommandBuilder("sudo").add_arg("chmod").add_arg("+x").add_arg("/etc/xrdp/startwm.sh").add_raw("2>/dev/null || true").
+            CommandBuilder("sudo").add_arg("chmod").add_arg("+x").add_arg("/etc/xrdp/startwm.sh").add_raw(
+                        "2>/dev/null || true").
                     execute();
         }
 
@@ -277,7 +281,8 @@ namespace tmoe::domain {
 
     bool RemoteDesktopManager::start_xrdp() {
         Logger::step(_("gui.xrdp.starting"));
-        if (Executor::passthrough("sudo service xrdp start 2>/dev/null || sudo systemctl start xrdp 2>/dev/null").ok()) {
+        if (Executor::passthrough("sudo service xrdp start 2>/dev/null || sudo systemctl start xrdp 2>/dev/null").
+            ok()) {
             Logger::ok(_("gui.xrdp.started"));
             return true;
         }
@@ -397,7 +402,8 @@ namespace tmoe::domain {
                                  "port=3389\n"
                                  "username=ask\n"
                                  "password=ask\n");
-        CommandBuilder("sudo").add_arg("chmod").add_arg("644").add_arg("/etc/xrdp/xrdp.ini").add_raw("2>/dev/null || true").execute();
+        CommandBuilder("sudo").add_arg("chmod").add_arg("644").add_arg("/etc/xrdp/xrdp.ini").add_raw(
+            "2>/dev/null || true").execute();
 
         // 验证 xrdp 用户能否读取配置
         auto readable = Executor::shell(
@@ -576,7 +582,8 @@ namespace tmoe::domain {
             if (ch == "0" || ch.empty()) break;
 
             if (ch == "1") {
-                Executor::passthrough("sudo service xrdp stop 2>/dev/null || sudo systemctl stop xrdp 2>/dev/null || true");
+                Executor::passthrough(
+                    "sudo service xrdp stop 2>/dev/null || sudo systemctl stop xrdp 2>/dev/null || true");
                 install_xrdp();
                 configure_xrdp_desktop();
             } else if (ch == "2") configure_xrdp_desktop();
@@ -591,10 +598,12 @@ namespace tmoe::domain {
                     }
                 }
             } else if (ch == "4") {
-                CommandBuilder("sudo").add_arg("mkdir").add_flag("-p").add_arg("/etc/xrdp").add_raw("2>/dev/null || true").execute();
+                CommandBuilder("sudo").add_arg("mkdir").add_flag("-p").add_arg("/etc/xrdp").add_raw(
+                    "2>/dev/null || true").execute();
                 Executor::passthrough("${EDITOR:-nano} /etc/xrdp/xrdp.ini 2>/dev/null || nano /etc/xrdp/xrdp.ini");
             } else if (ch == "5") {
-                CommandBuilder("sudo").add_arg("mkdir").add_flag("-p").add_arg("/etc/xrdp").add_raw("2>/dev/null || true").execute();
+                CommandBuilder("sudo").add_arg("mkdir").add_flag("-p").add_arg("/etc/xrdp").add_raw(
+                    "2>/dev/null || true").execute();
                 Executor::passthrough("${EDITOR:-nano} /etc/xrdp/startwm.sh 2>/dev/null || nano /etc/xrdp/startwm.sh");
             } else if (ch == "6") stop_xrdp();
             else if (ch == "7") {
@@ -626,7 +635,8 @@ namespace tmoe::domain {
             } else if (ch == "9") {
                 auto r = Executor::passthrough(cfg_.tui_bin + " --yesno \"确认重置 xrdp 配置？\" 0 0");
                 if (r.exit_code == 0) {
-                    Executor::passthrough("sudo service xrdp stop 2>/dev/null || sudo systemctl stop xrdp 2>/dev/null || true");
+                    Executor::passthrough(
+                        "sudo service xrdp stop 2>/dev/null || sudo systemctl stop xrdp 2>/dev/null || true");
                     Executor::passthrough("sudo rm -rf /etc/xrdp/xrdp.ini /etc/xrdp/startwm.sh 2>/dev/null || true");
                     install_xrdp();
                     configure_xrdp_desktop();
@@ -744,7 +754,8 @@ namespace tmoe::domain {
                                  "x11vnc -storepasswd \"$VNC_HOME/x11passwd\" 2>/dev/null || "
                                  "x11vnc -storepasswd ~/.vnc/x11passwd 2>/dev/null || true\n"
                                  "echo 'x11vnc password configured'\n");
-        CommandBuilder("sudo").add_arg("chmod").add_arg("a+rx").add_arg("/usr/local/bin/x11vncpasswd").add_raw("2>/dev/null || true").
+        CommandBuilder("sudo").add_arg("chmod").add_arg("a+rx").add_arg("/usr/local/bin/x11vncpasswd").add_raw(
+                    "2>/dev/null || true").
                 execute();
 
         // 3. 确保 x11passwd 存在
@@ -818,14 +829,19 @@ namespace tmoe::domain {
                         content.erase(pos, 19);
                     }
                 }
-                // 替换 exec /etc/X11/Xsession -> exec dbus-launch [...] session_cmd
+
+                // 定义常量靶标，彻底消除越界风险
+                const std::string target_str = "exec /etc/X11/Xsession";
                 std::string replacement = "exec dbus-launch" +
                                           std::string(is_proot ? "" : " --exit-with-session") + " " + session_cmd;
-                for (auto pos = content.find("exec /etc/X11/Xsession");
+
+                // 使用 target_str.length() 替代魔术数字 24
+                for (auto pos = content.find(target_str);
                      pos != std::string::npos;
-                     pos = content.find("exec /etc/X11/Xsession", pos + replacement.size())) {
-                    content.replace(pos, 24, replacement);
+                     pos = content.find(target_str, pos + replacement.length())) {
+                    content.replace(pos, target_str.length(), replacement);
                 }
+
                 SystemHelper::write_file("/etc/xrdp/startwm.sh", content);
             }
         }
@@ -838,7 +854,6 @@ namespace tmoe::domain {
         check_xrdp_status();
         Logger::ok(std::string(_("gui.xrdp_session_done")));
     }
-
 
     bool RemoteDesktopManager::stop_novnc() {
         Logger::step(_("gui.novnc.stopping"));
@@ -894,8 +909,9 @@ namespace tmoe::domain {
             "sudo chmod 640 /etc/xrdp/key.pem 2>/dev/null || true; "
             "sudo chmod 644 /etc/xrdp/cert.pem 2>/dev/null || true");
         if (cfg_.is_termux || cfg_.linux_distro == "Android") {
-            CommandBuilder("sudo").add_arg("usermod").add_flag("-a").add_flag("-G").add_arg("aid_inet").add_arg("xrdp").add_raw(
-                "2>/dev/null || true").execute();
+            CommandBuilder("sudo").add_arg("usermod").add_flag("-a").add_flag("-G").add_arg("aid_inet").add_arg("xrdp").
+                    add_raw(
+                        "2>/dev/null || true").execute();
         }
         // polkit 规则
         CommandBuilder("sudo").add_arg("mkdir").add_flag("-pv").add_arg("/etc/polkit-1/localauthority.conf.d").add_arg(
@@ -1059,7 +1075,8 @@ namespace tmoe::domain {
     void RemoteDesktopManager::remove_x11vnc_ext() {
         Logger::step(_("gui.x11vnc.stopping_and_removing"));
         vnc_manager_.stop_x11vnc();
-        CommandBuilder("sudo").add_arg("rm").add_flag("-rfv").add_arg("/usr/local/bin/startx11vnc").add_raw("2>/dev/null || true").
+        CommandBuilder("sudo").add_arg("rm").add_flag("-rfv").add_arg("/usr/local/bin/startx11vnc").add_raw(
+                    "2>/dev/null || true").
                 execute();
         auto family = infer_family_from_config(cfg_.linux_distro);
         if (family == DistroFamily::Unknown) family = PackageManager::detect_distro_family();
@@ -1188,7 +1205,8 @@ namespace tmoe::domain {
         Executor::passthrough("sudo service xrdp stop 2>/dev/null || sudo systemctl stop xrdp 2>/dev/null || "
             "pkill xrdp 2>/dev/null || true");
 
-        CommandBuilder("sudo").add_arg("rm").add_flag("-f").add_arg("/etc/polkit-1/localauthority/50-local.d/45-allow.colord.pkla")
+        CommandBuilder("sudo").add_arg("rm").add_flag("-f").add_arg(
+                    "/etc/polkit-1/localauthority/50-local.d/45-allow.colord.pkla")
                 .add_arg("/etc/polkit-1/localauthority.conf.d/02-allow-colord.conf").add_raw("2>/dev/null || true").
                 execute();
 
@@ -1239,4 +1257,3 @@ namespace tmoe::domain {
         return gui_config::POLKIT_COLORD_PKLA;
     }
 } // namespace tmoe::domain
-

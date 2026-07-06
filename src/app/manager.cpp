@@ -145,35 +145,8 @@ namespace tmoe::app {
                 case 2: // notes_of_tmoe_sudo_02 — 完整原文
                     Logger::info(_("faq.a2"));
                     break;
-                case 3: // xfce permission — 确认后执行
+                case 3: // xfce permission — 显示说明
                     Logger::info(_("faq.a3"));
-                    if (!Logger::confirm(_("faq.confirm_exec"))) break;
-                    {
-                        // 从 HOME 反查真实用户 (和 docker add_user_to_docker_group 一致)
-                        std::string user;
-                        const char* sudo_u = std::getenv("SUDO_USER");
-                        if (sudo_u && sudo_u[0]) user = sudo_u;
-                        else {
-                            const char* home = std::getenv("HOME");
-                            if (home) {
-                                auto r = Executor::shell(
-                                    std::string("grep '") + home + "' /etc/passwd | awk -F':' '{print $1}' | head -n1");
-                                if (r.ok() && !r.stdout_data.empty()) {
-                                    user = r.stdout_data;
-                                    user.erase(std::remove(user.begin(), user.end(), '\n'), user.end());
-                                }
-                            }
-                        }
-                        if (user.empty() || user == "root") {
-                            Logger::warn(_("faq.cannot_determine_user"));
-                            break;
-                        }
-                        const char* home = std::getenv("HOME");
-                        std::string homedir = home ? home : "/home/" + user;
-                        Logger::step("chown -R " + user + ":" + user + " " + homedir + "/.config/xfce4");
-                        auto r = CommandBuilder("chown").add_flag("-Rv").add_arg(user + ":" + user).add_arg(homedir + "/.config/xfce4").execute();
-                        if (r.ok()) Logger::ok(_f("faq.xfce_ownership_restored", user));
-                    }
                     break;
                 case 4: // dbus/settings — 仅显示
                     Logger::info(_("faq.a4"));
@@ -528,8 +501,6 @@ namespace tmoe::app {
         fs::create_directories(fs::path(marker).parent_path());
         std::ofstream ofs(marker);
         if (ofs) ofs << "1\n";
-        // 统一修复 sudo 造成的 root 归属
-        SystemHelper::fix_user_home_ownership();
         Logger::ok(_("init.done"));
     }
 

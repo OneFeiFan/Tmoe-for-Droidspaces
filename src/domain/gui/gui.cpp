@@ -194,22 +194,11 @@ namespace tmoe::domain {
                             .build_string() + " 2>/dev/null || true");
         }
 
-        // 5f. 权限修复
+        // 5f. 预建桌面环境需要的用户目录
         if (home != "/root") {
-            // 预建桌面环境需要的用户目录（避免 "No such file or directory" 错误）
             Executor::shell("mkdir -p " + home + "/.local/share "
                             + home + "/.config/autostart "
                             + home + "/.cache/sessions 2>/dev/null || true");
-            Executor::passthrough(CommandBuilder("chown")
-                                  .add_arg("-R")
-                                  .add_arg("${SUDO_USER:-$(id -un)}:${SUDO_USER:-$(id -gn)}")
-                                  .add_arg(home + "/.vnc")
-                                  .add_arg(home + "/.Xauthority")
-                                  .add_arg(home + "/.ICEauthority")
-                                  .add_arg(home + "/.cache")
-                                  .add_arg(home + "/.dbus")
-                                  .add_arg(home + "/.local")
-                                  .build_string() + " 2>/dev/null || true");
         }
 
         vnc_manager_.configure_vnc_defaults();
@@ -303,8 +292,6 @@ namespace tmoe::domain {
 
         Logger::info(std::string(_("gui.section_four")) + "：");
         Logger::info(_("gui.vnc.unlock_achievement_hint"));
-        // 修复 sudo 提权安装导致的 root 归属问题
-        vnc_manager_.fix_vnc_permissions();
 
         Logger::press_enter();
         remote_desktop_manager_.do_you_want_to_configure_novnc();
@@ -980,7 +967,6 @@ namespace tmoe::domain {
         }
 
         desktop_manager_.install_fcitx();
-        vnc_manager_.fix_vnc_permissions();
         vnc_manager_.deploy_startup_scripts();
         vnc_manager_.fix_vnc_dbus();
 
