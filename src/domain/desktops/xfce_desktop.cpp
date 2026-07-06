@@ -40,9 +40,10 @@ namespace tmoe::domain {
 
     // ── 阶段3: 系统配置 (原 DesktopManager::post_install_xfce 全部内容) ──
     void XfceDesktop::post_install_config(const PostInstallContext &ctx) {
-        xfce_warning();
+        if (!xfce_warning()) return;
         desktop_utils::dpkg_configure_and_keyboard(ctx.is_debian);
         desktop_utils::purge_libfprint_and_clean(ctx.is_proot, ctx.is_debian);
+        desktop_utils::remove_udisks_gvfs_for_proot(get_id(), ctx.is_proot, ctx.is_debian);
 
         // ── debian_xfce4_extras ──
         if (ctx.is_debian) {
@@ -111,9 +112,17 @@ namespace tmoe::domain {
     // private helpers
     // ═══════════════════════════════════════════
 
-    void XfceDesktop::xfce_warning() const {
-        // bash 原版有 whiptail 确认 + 兼容性表格。简化版用日志提示。
+    bool XfceDesktop::xfce_warning() const {
+        // Bash 原版有 whiptail 确认 + 兼容性表格
         Logger::info(_("gui.xfce4.warning"));
+        auto r = Executor::passthrough(cfg_.tui_bin +
+            " --title \"XFCE Desktop\""
+            " --yesno '" + std::string(_("gui.xfce4.warning.continue")) + "' 0 0");
+        if (r.exit_code != 0) {
+            Logger::warn(_("gui.xfce4.warning.cancelled"));
+            return false;
+        }
+        return true;
     }
 
     void XfceDesktop::install_debian_extras(const PostInstallContext &ctx) {
@@ -143,6 +152,8 @@ namespace tmoe::domain {
             PackageManager::install("kali-themes-common", DistroFamily::Debian);
             Executor::shell(
                 "dbus-launch xfconf-query -c xsettings -np /Net/IconThemeName -s Windows-10-Icons 2>/dev/null || true");
+            // 下载 kali-themes-common 图标主题（Bash: git_clone_kali_themes_common）
+            desktop_utils::download_kali_themes_common();
         }
 
         if (!Executor::has("xfce4-panel-profiles")) {

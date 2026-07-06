@@ -1,6 +1,8 @@
 #include "xfce_lite_desktop.h"
+#include "desktop_utils.h"
 #include "core/executor.h"
 #include "core/logger.h"
+#include "domain/system/package_manager.h"
 #include <filesystem>
 
 namespace tmoe::domain {
@@ -18,6 +20,37 @@ void XfceLiteDesktop::will_be_installed_message() const {
 }
 
 // xfce-lite: 跳过壁纸和 papirus 图标，其他和 xfce 一样
+void XfceLiteDesktop::post_install_config(const PostInstallContext& ctx) {
+    // xfce-lite: 跳过 xfce_warning() whiptail 确认
+    // 跳过 install_debian_extras（whiskermenu/taskmanager/gvfs 等 20+ 包）
+    // 跳过 xfce_color_scheme / configure_xfce_settings
+    // 只保留精简基础配置
+
+    desktop_utils::dpkg_configure_and_keyboard(ctx.is_debian);
+    desktop_utils::purge_libfprint_and_clean(ctx.is_proot, ctx.is_debian);
+    desktop_utils::remove_udisks_gvfs_for_proot(get_id(), ctx.is_proot, ctx.is_debian);
+
+    if (ctx.is_debian) {
+        desktop_utils::install_noto_fonts(ctx.family, true);
+    }
+    if (ctx.family == DistroFamily::RedHat) {
+        Executor::passthrough("sudo rm -v /etc/xdg/autostart/xfce-polkit.desktop 2>/dev/null || true");
+    }
+
+    // qt5ct（lite 也需要，调用父类 protected 方法）
+    setup_qt5ct_env();
+
+    // proot: 移除电源管理/屏保
+    if (ctx.is_proot) {
+        PackageManager::remove("xfce4-power-manager", ctx.family);
+        PackageManager::remove("xfce4-power-manager-data", ctx.family);
+        PackageManager::remove("xfce4-power-manager-plugins", ctx.family);
+        PackageManager::remove("xfce4-screensaver", ctx.family);
+    }
+
+    desktop_utils::install_language_packs(cfg_);
+}
+
 void XfceLiteDesktop::post_install_extras(const PostInstallContext& ctx) {
     // 仅保留光标主题
     if (ctx.family != DistroFamily::Alpine) {
