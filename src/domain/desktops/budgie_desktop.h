@@ -10,6 +10,7 @@ struct BudgieDesktop : DesktopBase {
     SessionCmds get_session_commands() const override;
     PreInstallChoices pre_install_choices(DistroFamily, bool) override;
     void post_install_config(const PostInstallContext&) override;
+    void post_install_extras(const PostInstallContext&) override;
     std::string session_ = "desktop"; // "panel" or "desktop"
 private: const DesktopInfo& info_;
 };

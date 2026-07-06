@@ -34,4 +34,18 @@ void BudgieDesktop::post_install_config(const PostInstallContext& ctx) {
     desktop_utils::install_language_packs(cfg_);
 }
 
+void BudgieDesktop::post_install_extras(const PostInstallContext& ctx) {
+    // Budgie 扩展和主题（Bash 原版在 Budgie 安装后安装 gnome-tweaks 等 GNOME 工具）
+    auto family = ctx.family;
+    // budgie 基于 GNOME，可与 GNOME tweaks 共用
+    PackageManager::install({"gnome-tweaks", "budgie-extras"}, family);
+    if (family == DistroFamily::Debian) {
+        PackageManager::install({"arc-theme", "papirus-icon-theme"}, family);
+    }
+    // ubuntu-budgie 专有壁纸
+    if (ctx.is_debian && ctx.is_ubuntu) {
+        PackageManager::install("ubuntu-budgie-wallpapers", family);
+    }
+}
+
 } // namespace tmoe::domain
