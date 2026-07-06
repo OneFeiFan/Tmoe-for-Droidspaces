@@ -3,75 +3,130 @@
 #include "core/executor.h"
 #include "core/command_builder.hpp"
 #include "core/i18n.h"
+
 #include <fstream>
 #include <sstream>
+#include <random>
+#include <regex>
+#include <system_error>
+
+#ifdef _WIN32
+// === Windows 编译环境的 Polyfill (垫片) ===
+#include <process.h>
+inline int getpid() { return _getpid(); }
+inline int getuid() { return 0; } // 伪造 UID 以骗过编译器
+#else
+// === Linux / WSL 原生环境 ===
+#include <pwd.h>
+#include <unistd.h>
+#include <sys/types.h>
+#endif
 
 namespace tmoe {
 
-// ---------- 文件 I/O ----------
-
 namespace {
-    // 直接问内核：当前进程能否写此路径？（文件不存在时检查父目录）
-    bool can_write_to(const fs::path &path) {
-#ifdef _WIN32
-        return true;
-#else
+    namespace fs = std::filesystem;
+
+    // 内部防注入转义（针对必须进 Shell 的路径）
+    std::string safe_escape(std::string_view arg) {
+        if (arg.empty()) return "''";
+        std::string escaped = "'";
+        for (char c : arg) {
+            if (c == '\'') escaped += "'\\''";
+            else escaped += c;
+        }
+        escaped += "'";
+        return escaped;
+    }
+
+    // 生成高离散本地临时文件，防御 Symlink 攻击
+    fs::path generate_temp_path(const std::string& prefix = "tmoe") {
+        auto temp_dir = fs::temp_directory_path();
+        std::random_device rd;
+        std::mt19937_64 gen(rd());
+        std::uniform_int_distribution<uint64_t> dis;
+        std::stringstream ss;
+        ss << "." << prefix << "_" << getpid() << "_" << std::hex << dis(gen) << ".tmp";
+        return temp_dir / ss.str();
+    }
+
+    bool run_sudo(const std::string& cmd) {
+        return Executor::shell("sudo " + cmd).ok();
+    }
+
+    // 安全的目录级联创建
+    bool ensure_parent_dir(const fs::path& parent) {
+        if (parent.empty() || fs::exists(parent)) return true;
         std::error_code ec;
-        if (fs::exists(path, ec)) {
-            return access(path.c_str(), W_OK) == 0;
+        fs::create_directories(parent, ec);
+        if (!ec) return true;
+        if (ec.value() == static_cast<int>(std::errc::permission_denied)) {
+            return run_sudo("mkdir -p " + safe_escape(parent.string()));
         }
-        return access(path.parent_path().c_str(), W_OK) == 0;
-#endif
+        return false;
     }
 
-    bool write_via_shell(const fs::path &path, std::string_view content, bool append) {
-        std::string escaped(content);
-        size_t pos = 0;
-        while ((pos = escaped.find('\'', pos)) != std::string::npos) {
-            escaped.replace(pos, 1, "'\\''");
-            pos += 4;
-        }
-        std::string op = append ? "tee -a" : "tee";
-        auto r = Executor::shell("echo '" + escaped + "' | sudo " + op + " '" +
-                                 path.string() + "' > /dev/null 2>&1");
-        return r.ok();
-    }
+    // 自适应写入原子操作核心
+    bool adaptive_write_core(const fs::path &path, std::string_view content, bool append) {
+        fs::path tmp_path = generate_temp_path("write");
+        struct TempRemover { fs::path p; ~TempRemover() { std::error_code e; fs::remove(p, e); } } rm{tmp_path};
 
-    bool do_write(const fs::path &path, std::string_view content, bool append) {
-        fs::create_directories(path.parent_path());
-        auto mode = append ? (std::ios::app | std::ios::out) : std::ios::trunc;
-        std::ofstream ofs(path, mode);
-        if (!ofs.is_open()) return false;
-        ofs << content;
-        return ofs.good();
+        try {
+            if (append && fs::exists(path)) {
+                std::error_code ec;
+                fs::copy_file(path, tmp_path, fs::copy_options::overwrite_existing, ec);
+                if (ec && ec.value() == static_cast<int>(std::errc::permission_denied)) {
+                    if (!run_sudo("cp -f " + safe_escape(path.string()) + " " + safe_escape(tmp_path.string()))) {
+                        return false;
+                    }
+                    run_sudo("chown " + std::to_string(getuid()) + " " + safe_escape(tmp_path.string()));
+                }
+            }
+
+            auto mode = append ? (std::ios::app | std::ios::out) : (std::ios::trunc | std::ios::out);
+            std::ofstream ofs(tmp_path, mode);
+            if (!ofs.is_open()) return false;
+            ofs << content;
+            ofs.flush();
+            if (!ofs.good()) return false;
+            ofs.close();
+
+            if (!ensure_parent_dir(path.parent_path())) return false;
+
+            std::error_code move_ec;
+            if (fs::exists(path)) {
+                fs::copy_file(tmp_path, path, fs::copy_options::overwrite_existing, move_ec);
+                if (!move_ec) fs::remove(tmp_path);
+            } else {
+                fs::rename(tmp_path, path, move_ec);
+            }
+
+            if (move_ec && move_ec.value() == static_cast<int>(std::errc::permission_denied)) {
+                return run_sudo("cp -f " + safe_escape(tmp_path.string()) + " " + safe_escape(path.string()));
+            }
+            return move_ec.value() == 0;
+        } catch (...) {
+            return false;
+        }
     }
 }
 
+// ---------- 文件 I/O ----------
+
 bool SystemHelper::write_file(const fs::path &path, std::string_view content) {
-    if (!can_write_to(path)) {
-        return write_via_shell(path, content, false);
-    }
-    try {
-        return do_write(path, content, false);
-    } catch (const std::exception &e) {
-        Logger::error(std::string("Write file failed: ") + path.string() + " — " + e.what());
-        return false;
-    }
+    bool ok = adaptive_write_core(path, content, false);
+    if (!ok) Logger::error("Write file failed: " + path.string());
+    return ok;
 }
 
 bool SystemHelper::append_file(const fs::path &path, std::string_view content) {
-    if (!can_write_to(path)) {
-        return write_via_shell(path, content, true);
-    }
-    try {
-        return do_write(path, content, true);
-    } catch (const std::exception &e) {
-        Logger::error(std::string("Append file failed: ") + path.string() + " — " + e.what());
-        return false;
-    }
+    bool ok = adaptive_write_core(path, content, true);
+    if (!ok) Logger::error("Append file failed: " + path.string());
+    return ok;
 }
 
 std::string SystemHelper::read_file(const fs::path &path) {
+    // 保持旧版接口签名与异常吞噬机制，确保兼容上层
     try {
         std::ifstream ifs(path);
         if (!ifs.is_open()) return {};
@@ -88,7 +143,10 @@ std::string SystemHelper::read_file(const fs::path &path) {
 bool SystemHelper::install_packages(const std::vector<std::string> &packages,
                                     const std::string &install_command) {
     std::ostringstream oss;
-    for (const auto &pkg : packages) oss << pkg << " ";
+    for (const auto &pkg : packages) {
+        // 对包名强制转义，杜绝 "pkg; rm -rf /" 的注入攻击
+        oss << safe_escape(pkg) << " ";
+    }
 #ifndef _WIN32
     bool need_sudo = (geteuid() != 0);
 #else
@@ -102,103 +160,66 @@ bool SystemHelper::install_packages(const std::vector<std::string> &packages,
 // ---------- 用户路径 ----------
 
 std::string SystemHelper::user_home() {
+#ifndef _WIN32
     const char* sudo_user = std::getenv("SUDO_USER");
     if (sudo_user && sudo_user[0]) {
-        auto r = Executor::shell(
-            std::string("getent passwd ") + sudo_user + " | cut -d: -f6 2>/dev/null");
-        if (r.ok() && !r.stdout_data.empty()) {
-            std::string h = r.stdout_data;
-            while (!h.empty() && (h.back() == '\n' || h.back() == '\r')) h.pop_back();
-            if (!h.empty()) return h;
+        // 废弃原版存在严重注入漏洞的 getent shell 调用，改用内存级 POSIX API
+        struct passwd* pw = getpwnam(sudo_user);
+        if (pw && pw->pw_dir) {
+            return std::string(pw->pw_dir);
         }
     }
+#endif
     const char* home = std::getenv("HOME");
     return home ? home : "/root";
 }
 
-// ---------- 权限修复 ----------
-
-void SystemHelper::fix_user_home_ownership() {
-    // 仅 root 且存在 $SUDO_USER 时修复（非 sudo 环境无需此操作）
-    const char* sudo_user = std::getenv("SUDO_USER");
-    if (!sudo_user || !sudo_user[0]) return;
-    std::string home = user_home();
-
-    // 预建常用目录
-    Executor::shell("mkdir -p " + home +
-                    "/.local/share " + home + "/.config/autostart " +
-                    home + "/.cache/sessions 2>/dev/null || true");
-
-    // 一次性修复所有用户目录归属
-    std::string user(sudo_user);
-    for (const auto* dir : {
-        "/.vnc","/.config","/.cache","/.local","/.dbus",
-        "/.Xauthority","/.ICEauthority",
-        "/.profile","/.bashrc","/.zshrc",
-        "/.zsh_history","/.bash_history",
-        "/.aria2","/.conky","/Pictures","/github"
-    }) {
-        Executor::passthrough(
-            "chown -R " + user + ":" + user + " " + home + dir + " 2>/dev/null || true");
-    }
-}
-
-    // ---------- 下载 / 解压 ----------
+// ---------- 下载 / 解压 ----------
 
 bool SystemHelper::download_file(const std::string &url, const std::string &dest_path) {
-    // curl -# = 显示进度条；wget --show-progress；aria2c 无 -q 显示控制台进度
-    auto curl_cmd = CommandBuilder("curl")
-        .add_flag("-#L").add_arg(url)
-        .add_arg("-o").add_arg(dest_path)
-        .build_string();
-    auto wget_cmd = CommandBuilder("wget")
-        .add_flag("--show-progress").add_arg("-O").add_arg(dest_path).add_arg(url)
-        .build_string();
-    auto aria2_cmd = CommandBuilder("aria2c")
-        .add_flag("--no-conf").add_flag("--allow-overwrite=true")
-        .add_arg("-o").add_arg(dest_path).add_arg(url)
-        .build_string();
+    auto curl_cmd = CommandBuilder("curl").add_flag("-#L").add_arg(url).add_arg("-o").add_arg(dest_path).build_string();
+    auto wget_cmd = CommandBuilder("wget").add_flag("--show-progress").add_arg("-O").add_arg(dest_path).add_arg(url).build_string();
+    auto aria2_cmd = CommandBuilder("aria2c").add_flag("--no-conf").add_flag("--allow-overwrite=true").add_arg("-o").add_arg(dest_path).add_arg(url).build_string();
 
-    Executor::passthrough("(" + curl_cmd + " || " + wget_cmd + " || " + aria2_cmd + ")");
+    // 控制流由 Shell 剥离回 C++，避免管道挂死
+    if (Executor::has("curl") && Executor::passthrough(curl_cmd).ok()) return true;
+    if (Executor::has("wget") && Executor::passthrough(wget_cmd).ok()) return true;
+    if (Executor::has("aria2c") && Executor::passthrough(aria2_cmd).ok()) return true;
+
     return fs::exists(dest_path);
 }
 
 std::string SystemHelper::http_get_cached(const std::string &url, const std::string &cache_name) {
-    fs::path cache_path = fs::path("/tmp") / cache_name;
+    // 使用带进程号和随机数的临时路径，防止缓存被 Symlink 劫持
+    fs::path cache_path = generate_temp_path(cache_name);
     download_file(url, cache_path.string());
-    return read_file(cache_path);
+    std::string data = read_file(cache_path);
+    std::error_code ec;
+    fs::remove(cache_path, ec);
+    return data;
 }
 
 void SystemHelper::extract_archive(const std::string &archive_path, const std::string &dest) {
     bool has_pv = Executor::has("pv");
+    std::string safe_archive = safe_escape(archive_path);
 
-    // tar: pv 管道显示进度，回退到直接 tar
-    std::string tar_cmd;
-    if (has_pv) {
-        tar_cmd = std::string("pv \"") + archive_path + "\" | tar -xf -";
-    } else {
-        tar_cmd = std::string("tar -xf \"") + archive_path + "\"";
-    }
+    // tar (安全拼接)
+    std::string tar_cmd = has_pv
+        ? "pv " + safe_archive + " | tar -xf -"
+        : "tar -xf " + safe_archive;
 
-    // deb: ar 解出 data.tar.xz → pv 管道 → tar
-    std::string deb_cmd;
-    if (has_pv) {
-        deb_cmd = std::string("ar x \"") + archive_path +
-                  "\" data.tar.xz 2>/dev/null && "
-                  "pv data.tar.xz | tar -Jxf - && rm -f data.tar.xz";
-    } else {
-        deb_cmd = std::string("ar x \"") + archive_path +
-                  "\" data.tar.xz 2>/dev/null && "
-                  "tar -Jxf data.tar.xz && rm -f data.tar.xz";
-    }
+    // deb: ar 解包
+    std::string deb_cmd = has_pv
+        ? "ar x " + safe_archive + " data.tar.xz 2>/dev/null && pv data.tar.xz | tar -Jxf - && rm -f data.tar.xz"
+        : "ar x " + safe_archive + " data.tar.xz 2>/dev/null && tar -Jxf data.tar.xz && rm -f data.tar.xz";
 
-    // unzip: 自带进度条（无 -q）
-    auto zip_cmd = CommandBuilder("unzip")
-        .add_flag("-o").add_arg(archive_path).add_arg("-d").add_arg(dest)
-        .build_string();
+    auto zip_cmd = CommandBuilder("unzip").add_flag("-o").add_arg(archive_path).add_arg("-d").add_arg(dest).build_string();
 
-    Executor::passthrough(
-        "cd " + dest + " && (" + tar_cmd + " || (" + deb_cmd + ") || " + zip_cmd + " || true)");
+    // 执行管道转义与容错 (C++级状态控制)
+    std::string chdir = "cd " + safe_escape(dest) + " && ";
+
+    // 因为这里有复杂的短路逻辑，继续使用 shell 进行串联，但已确保所有参数都被安全转义
+    Executor::passthrough(chdir + "(" + tar_cmd + " || (" + deb_cmd + ") || " + zip_cmd + " || true)");
 }
 
 std::string SystemHelper::find_latest_href(const std::string &html, const std::string &pkg_pattern) {
@@ -220,21 +241,20 @@ bool SystemHelper::fetch_latest_and_extract(const std::string &repo_url,
                                              const std::string &pkg_pattern,
                                              const std::string &tmp_prefix,
                                              const std::string &extract_to) {
-    std::string html = http_get_cached(repo_url, "." + tmp_prefix + "_index.html");
+    std::string html = http_get_cached(repo_url, tmp_prefix + "_index");
     if (html.empty()) return false;
 
     std::string pkg_name = find_latest_href(html, pkg_pattern);
     if (pkg_name.empty()) return false;
 
-    std::string pkg_path = "/tmp/." + tmp_prefix + "_pkg";
-    if (!download_file(repo_url + pkg_name, pkg_path)) return false;
+    // 使用安全临时路径替换硬编码
+    fs::path pkg_path = generate_temp_path(tmp_prefix + "_pkg");
+    if (!download_file(repo_url + pkg_name, pkg_path.string())) return false;
 
-    extract_archive(pkg_path, extract_to);
+    extract_archive(pkg_path.string(), extract_to);
 
     std::error_code ec;
     fs::remove(pkg_path, ec);
-    fs::remove("/tmp/." + tmp_prefix + "_index.html", ec);
-    fs::remove("/tmp/data.tar.xz", ec);
     return true;
 }
 
@@ -256,7 +276,7 @@ bool SystemHelper::git_clone_and_extract(const std::string &git_url,
         .add_arg("-C").add_arg(extract_to)
         .add_raw("2>/dev/null").build_string();
 
-    Executor::passthrough("cd " + tmp_dir + " && " + clone_cmd + " && " + tar_cmd);
+    Executor::passthrough("cd " + safe_escape(tmp_dir) + " && " + clone_cmd + " && " + tar_cmd);
     fs::remove_all(tmp_dir, ec);
     return true;
 }

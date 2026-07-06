@@ -46,9 +46,6 @@ public:
     /** 获取真实用户 home 路径（兼容 sudo 环境）。 */
     static std::string user_home();
 
-    // ---------- 权限修复 ----------
-    /** sudo 提权操作后统一修复用户 home 目录归属。 */
-    static void fix_user_home_ownership();
 
     /** 从 HTML 索引页中查找匹配正则的最新包文件名。 */
     static std::string find_latest_href(const std::string &html, const std::string &pkg_pattern);
