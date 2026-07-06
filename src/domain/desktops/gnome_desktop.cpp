@@ -85,4 +85,18 @@ namespace tmoe::domain {
         if (session_ == "5") wr("gnome-session-classic",
                                 "#!/bin/sh\nexport GNOME_SHELL_SESSION_MODE=classic\nexec gnome-session --session=gnome-classic --disable-acceleration-check \"$@\"\n");
     }
+void GnomeDesktop::post_install_extras(const PostInstallContext& ctx) {
+    // GNOME tweaks 和扩展（Bash 原版在 GNOME 安装后安装）
+    auto family = ctx.family;
+    PackageManager::install({"gnome-tweaks", "gnome-shell-extensions"}, family);
+    // chrome-gnome-shell 用于浏览器集成安装扩展
+    if (family == DistroFamily::Debian) {
+        PackageManager::install("chrome-gnome-shell", family);
+    }
+    // GNOME 壁纸
+    if (ctx.is_debian && ctx.is_ubuntu) {
+        PackageManager::install("ubuntu-wallpapers", family);
+    }
+}
+
 } // namespace tmoe::domain
