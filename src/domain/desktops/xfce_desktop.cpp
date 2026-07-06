@@ -191,10 +191,10 @@ namespace tmoe::domain {
         CommandBuilder("mkdir").add_flag("-p").add_arg(xfce_conf).add_raw("2>/dev/null").execute();
 
         if (!fs::exists(xfce_conf + "xfce4-desktop.xml"))
-            Executor::shell("sudo cp -f /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml "
+            Executor::shell("cp -f /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml "
                             + xfce_conf + " 2>/dev/null || true");
         if (!fs::exists(xfce_conf + "xfce4-panel.xml"))
-            Executor::shell("sudo cp -f /etc/xdg/xfce4/panel/default.xml "
+            Executor::shell("cp -f /etc/xdg/xfce4/panel/default.xml "
                             + xfce_conf + "xfce4-panel.xml 2>/dev/null || true");
 
         // 图标主题
