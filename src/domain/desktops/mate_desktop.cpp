@@ -77,4 +77,11 @@ void MateDesktop::post_install_config(const PostInstallContext& ctx) {
     desktop_utils::install_language_packs(cfg_);
 }
 
+void MateDesktop::post_install_extras(const PostInstallContext& /*ctx*/) {
+    // 安装 ubuntu-mate 壁纸（Bash 原版在 MATE 安装后下载）
+    desktop_utils::download_ubuntu_mate_wallpaper();
+    // 安装 mate-tweak（MATE 配置工具）
+    PackageManager::install("mate-tweak", DistroFamily::Debian);
+}
+
 } // namespace tmoe::domain
