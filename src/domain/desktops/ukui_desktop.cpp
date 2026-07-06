@@ -26,4 +26,15 @@ void UkuiDesktop::post_install_config(const PostInstallContext& ctx) {
     desktop_utils::install_language_packs(cfg_);
 }
 
+void UkuiDesktop::post_install_extras(const PostInstallContext& ctx) {
+    // UKUI 主题和壁纸（Bash 原版在 UKUI 安装后安装主题包）
+    auto family = ctx.family;
+    if (family == DistroFamily::Debian) {
+        PackageManager::install({"ukui-themes", "ukui-wallpapers", "ubuntukylin-wallpapers"}, family);
+    }
+    if (family == DistroFamily::Arch) {
+        PackageManager::install({"ukui-themes", "ukui-wallpapers"}, family);
+    }
+}
+
 } // namespace tmoe::domain
