@@ -1104,18 +1104,8 @@ namespace tmoe::domain {
     }
 
     // ================================================================
-    // 权限 / D-Bus / 脚本部署
+    // D-Bus / 脚本部署
     // ================================================================
-
-    bool VncManager::fix_vnc_permissions() {
-        Logger::step(_("gui.vnc.fixing_permissions"));
-        SystemHelper::fix_user_home_ownership();
-        Executor::passthrough(CommandBuilder("chmod").add_flag("-R").add_arg("700").add_arg(vnc_config_.vnc_home_dir.string()).add_raw("2>/dev/null || true").build_string());
-        if (fs::exists(vnc_config_.passwd_file))
-            Executor::passthrough(CommandBuilder("chmod").add_arg("600").add_arg(vnc_config_.passwd_file.string()).add_raw("2>/dev/null || true").build_string());
-        Logger::ok(_("gui.vnc.permissions_fixed"));
-        return true;
-    }
 
     bool VncManager::deploy_startup_scripts() {
         Logger::step(_("gui.vnc.deploying_scripts"));
@@ -1281,25 +1271,6 @@ namespace tmoe::domain {
         if (cfg_.sub_distro == "centos") {
             Executor::passthrough("sudo sed -i -E 's@(AUTO_START_DBUS=).*@\\1false@' "
                 "/usr/local/bin/startvnc /usr/local/bin/startxsdl 2>/dev/null || true");
-        }
-    }
-
-    // ================================================================
-    // 权限修复
-    // ================================================================
-
-    void VncManager::fix_non_root_permissions() {
-        std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
-        if (home != "/root") {
-            Logger::info(_f("gui.vnc.fixing_nonroot_perms", home));
-            const char* sudo_user = std::getenv("SUDO_USER");
-            std::string user = sudo_user ? sudo_user : Executor::shell("id -un").stdout_data;
-            while (!user.empty() && (user.back() == '\n' || user.back() == '\r')) user.pop_back();
-            Executor::passthrough(CommandBuilder("chown").add_flag("-R").add_arg(user + ":" + user)
-                              .add_arg(home + "/.vnc").add_arg(home + "/.Xauthority")
-                              .add_arg(home + "/.ICEauthority").add_arg(home + "/.config")
-                              .add_arg(home + "/.cache").add_arg(home + "/.dbus").add_arg(home + "/.local")
-                              .add_raw("2>/dev/null || true").build_string());
         }
     }
 

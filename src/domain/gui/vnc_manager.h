@@ -116,9 +116,7 @@ namespace tmoe::domain {
         // 环境检测
         void detect_wsl_environment();
 
-        // 权限 / D-Bus / 脚本部署
-        bool fix_vnc_permissions();
-
+        // D-Bus / 脚本部署
         bool launch_dbus_daemon();
 
         bool fix_vnc_dbus();
@@ -207,9 +205,6 @@ namespace tmoe::domain {
 
         // ---------- 环境检测 ----------
         bool detect_android_resolution(int &width, int &height) const;
-
-        // ---------- 权限修复 ----------
-        void fix_non_root_permissions();
 
         // ---------- 辅助工具 ----------
         [[nodiscard]] bool ensure_vnc_home_dir() const;
