@@ -760,7 +760,7 @@ namespace tmoe::domain {
                     ++i;
                     if (i == sel) {
                         desktop_manager_.install_window_manager(d.id);
-                        first_configure_vnc(d.id);
+                        // xstartup 已在 install_desktop 管线中配置
                         desktop_manager_.after_desktop_install_hint();
                         break;
                     }

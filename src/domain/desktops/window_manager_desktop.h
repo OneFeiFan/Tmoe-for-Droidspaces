@@ -15,6 +15,7 @@ public:
 
     bool is_window_manager() const override { return true; }
     bool needs_root() const override { return false; }
+    void will_be_installed_message() const override;
 
 private:
     const DesktopInfo& info_;
