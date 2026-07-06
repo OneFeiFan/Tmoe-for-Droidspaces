@@ -459,32 +459,11 @@ namespace tmoe::domain {
 
 
     void DesktopManager::download_arch_breeze_adapta_cursor_theme() {
-        if (fs::exists("/usr/share/icons/Breeze-Adapta-Cursor")) return;
-        Logger::step(_("gui.breeze.cursor_download"));
-        Executor::shell("mkdir -pv /tmp/.breeze_theme && cd /tmp/.breeze_theme && "
-            "curl -Lo index.html 'https://mirrors.bfsu.edu.cn/archlinuxcn/any/' 2>/dev/null && "
-            "GREP_NAME='breeze-adapta-cursor-theme-git' && "
-            "LATEST=$(cat index.html | grep \"$GREP_NAME\" | grep '.pkg.tar.zst' | tail -n1 | "
-            "cut -d '=' -f3 | cut -d '\"' -f2) && "
-            "[ -n \"$LATEST\" ] && curl -Lo data.tar.zst \"https://mirrors.bfsu.edu.cn/archlinuxcn/any/$LATEST\" 2>/dev/null && "
-            "tar --use-compress-program zstd -xvf data.tar.zst 2>/dev/null && "
-            "sudo cp -rf usr / 2>/dev/null || true");
-        Executor::shell("rm -rf /tmp/.breeze_theme 2>/dev/null || true");
+        desktop_utils::download_arch_breeze_adapta_cursor_theme();
     }
 
     void DesktopManager::install_breeze_theme_ext() {
-        Logger::step(_("gui.breeze.install"));
-        download_arch_breeze_adapta_cursor_theme();
-        auto family = resolved_family();
-        if (family == DistroFamily::Arch) {
-            PackageManager::install({"breeze-icons", "breeze-gtk", "xfwm4-theme-breeze", "capitaine-cursors"},
-                                    DistroFamily::Arch);
-        } else {
-            Executor::passthrough(
-                cfg_.install_command +
-                " breeze-icon-theme breeze-cursor-theme breeze-gtk-theme xfwm4-theme-breeze 2>/dev/null || true");
-        }
-        Logger::ok(_("gui.breeze.ok"));
+        desktop_utils::install_breeze_theme_ext(cfg_);
     }
 
 
@@ -570,17 +549,7 @@ namespace tmoe::domain {
     }
 
     void DesktopManager::download_kali_themes_common() {
-        check_update_icon_caches_sh();
-        // 主源 → 回退源
-        if (!SystemHelper::fetch_latest_and_extract(
-                "https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-themes/",
-                "kali-themes-common.*all\\.deb", "kali_themes"))
-            SystemHelper::fetch_latest_and_extract(
-                "http://http.kali.org/kali/pool/main/k/kali-themes/",
-                "kali-themes-common.*all\\.deb", "kali_themes_fb");
-        Executor::shell(
-            "sudo update-icon-caches /usr/share/icons/Flat-Remix-Blue-Dark /usr/share/icons/Flat-Remix-Blue-Light /usr/share/icons/desktop-base 2>/dev/null &");
-        set_xfce_cursor_theme("Breeze-Adapta-Cursor");
+        desktop_utils::download_kali_themes_common();
     }
 
     void DesktopManager::download_kali_theme() {
@@ -616,10 +585,7 @@ namespace tmoe::domain {
     }
 
     void DesktopManager::download_ubuntu_mate_wallpaper() {
-        Logger::step(_("gui.wallpaper.ubuntu_mate"));
-        SystemHelper::fetch_latest_and_extract(
-            "https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/u/ubuntu-mate-artwork/",
-            "ubuntu-mate-wallpapers-photos.*all\\.deb", "umate_wp");
+        desktop_utils::download_ubuntu_mate_wallpaper();
     }
 
     // ═══════════════════════════════════════════════════════════════

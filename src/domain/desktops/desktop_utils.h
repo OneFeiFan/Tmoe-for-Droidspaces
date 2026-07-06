@@ -29,4 +29,23 @@ void remove_udisks_gvfs_for_proot(
 std::string resolve_distro_pkg_list(
     const DesktopInfo& info, DistroFamily family);
 
+// ═══════════════════════════════════════════════════════════════
+// 主题/壁纸/光标 — 从 DesktopManager 提取供 DesktopBase 子类使用
+// ═══════════════════════════════════════════════════════════════
+
+/** 确保 update-icon-caches 脚本存在 */
+void check_update_icon_caches_sh();
+
+/** 下载 Arch Breeze-Adapta-Cursor 光标主题 */
+void download_arch_breeze_adapta_cursor_theme();
+
+/** 安装 Breeze 全家桶（光标 + 图标 + GTK + xfwm4 主题） */
+void install_breeze_theme_ext(const TmoeConfig& cfg);
+
+/** 下载 ubuntu-mate 壁纸 */
+void download_ubuntu_mate_wallpaper();
+
+/** 下载并安装 kali-themes-common（图标主题 + 光标主题） */
+void download_kali_themes_common();
+
 } // namespace tmoe::domain::desktop_utils

@@ -1,8 +1,14 @@
 #include "desktop_utils.h"
+#include "core/command_builder.hpp"
 #include "core/executor.h"
 #include "core/logger.h"
 #include "core/i18n.h"
-#include "../gui/vnc_manager.h"
+#include "core/system_helper.h"
+#include "../gui_config/templates.h"
+#include <filesystem>
+#include <algorithm>
+
+namespace fs = std::filesystem;
 
 namespace tmoe::domain::desktop_utils {
     void install_noto_fonts(DistroFamily family, bool is_debian) {
@@ -63,4 +69,74 @@ namespace tmoe::domain::desktop_utils {
         }
         return info.pkg_group;
     }
+// ═══════════════════════════════════════════════════════════════
+// 主题/壁纸/光标 — 从 DesktopManager 提取供 DesktopBase 子类使用
+// ═══════════════════════════════════════════════════════════════
+
+void check_update_icon_caches_sh() {
+    if (!Executor::has("update-icon-caches")) {
+        SystemHelper::write_file("/usr/local/bin/update-icon-caches",
+                                 gui_config::UPDATE_ICON_CACHES_SCRIPT);
+        CommandBuilder("sudo").add_arg("chmod").add_arg("a+rx")
+            .add_arg("/usr/local/bin/update-icon-caches").execute();
+    }
+}
+
+void download_arch_breeze_adapta_cursor_theme() {
+    if (fs::exists("/usr/share/icons/Breeze-Adapta-Cursor")) return;
+    Logger::step(_("gui.breeze.cursor_download"));
+    Executor::shell("mkdir -pv /tmp/.breeze_theme && cd /tmp/.breeze_theme && "
+        "curl -Lo index.html 'https://mirrors.bfsu.edu.cn/archlinuxcn/any/' 2>/dev/null && "
+        "GREP_NAME='breeze-adapta-cursor-theme-git' && "
+        "LATEST=$(cat index.html | grep \"$GREP_NAME\" | grep '.pkg.tar.zst' | tail -n1 | "
+        "cut -d '=' -f3 | cut -d '\"' -f2) && "
+        "[ -n \"$LATEST\" ] && curl -Lo data.tar.zst \"https://mirrors.bfsu.edu.cn/archlinuxcn/any/$LATEST\" 2>/dev/null && "
+        "tar --use-compress-program zstd -xvf data.tar.zst 2>/dev/null && "
+        "sudo cp -rf usr / 2>/dev/null || true");
+    Executor::shell("rm -rf /tmp/.breeze_theme 2>/dev/null || true");
+}
+
+void install_breeze_theme_ext(const TmoeConfig& cfg) {
+    Logger::step(_("gui.breeze.install"));
+    download_arch_breeze_adapta_cursor_theme();
+    auto family = infer_family_from_config(cfg.linux_distro);
+    if (family == DistroFamily::Unknown)
+        family = PackageManager::detect_distro_family();
+    if (family == DistroFamily::Arch) {
+        PackageManager::install({"breeze-icons", "breeze-gtk", "xfwm4-theme-breeze", "capitaine-cursors"},
+                                DistroFamily::Arch);
+    } else {
+        Executor::passthrough(
+            cfg.install_command +
+            " breeze-icon-theme breeze-cursor-theme breeze-gtk-theme xfwm4-theme-breeze 2>/dev/null || true");
+    }
+    Logger::ok(_("gui.breeze.ok"));
+}
+
+void download_ubuntu_mate_wallpaper() {
+    Logger::step(_("gui.wallpaper.ubuntu_mate"));
+    SystemHelper::fetch_latest_and_extract(
+        "https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/u/ubuntu-mate-artwork/",
+        "ubuntu-mate-wallpapers-photos.*all\\.deb", "umate_wp");
+}
+
+void download_kali_themes_common() {
+    check_update_icon_caches_sh();
+    // 主源 → 回退源
+    if (!SystemHelper::fetch_latest_and_extract(
+            "https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-themes/",
+            "kali-themes-common.*all\\.deb", "kali_themes"))
+        SystemHelper::fetch_latest_and_extract(
+            "http://http.kali.org/kali/pool/main/k/kali-themes/",
+            "kali-themes-common.*all\\.deb", "kali_themes_fb");
+    Executor::shell(
+        "sudo update-icon-caches /usr/share/icons/Flat-Remix-Blue-Dark "
+        "/usr/share/icons/Flat-Remix-Blue-Light "
+        "/usr/share/icons/desktop-base 2>/dev/null &");
+    // Set Breeze-Adapta-Cursor as default cursor theme
+    Executor::shell(
+        "dbus-launch xfconf-query -c xsettings -t string "
+        "-np /Gtk/CursorThemeName -s \"Breeze-Adapta-Cursor\" 2>/dev/null || true");
+}
+
 } // namespace tmoe::domain::desktop_utils
