@@ -299,14 +299,17 @@ namespace tmoe::domain {
         Logger::info(_("gui.vnc.configured_x11vnc_next"));
         Logger::info("------------------------");
 
-        // ── 三：x11vnc — Bash 原版始终配置，无是否跳过选择 ──
+        // ── 三：x11vnc
         Logger::info(std::string(_("gui.section_three")));
         remote_desktop_manager_.x11vnc_warning();
-        // Bash: 交互模式有 press_enter_to_continue（给用户阅读+Ctrl+C 的机会），自动模式静默
         if (!desktop_manager_.is_auto_install_mode()) {
-            Logger::press_enter();
+            if (!Logger::confirm_yes_default(_("gui.confirm_x11vnc")))
+                Logger::info(_("gui.x11vnc_skipped"));
+            else
+                remote_desktop_manager_.configure_x11vnc_remote_desktop_session();
+        } else {
+            remote_desktop_manager_.configure_x11vnc_remote_desktop_session();
         }
-        remote_desktop_manager_.configure_x11vnc_remote_desktop_session();
         Logger::info("------------------------");
 
         // ── 四：noVNC — Bash 原版始终安装 ──
