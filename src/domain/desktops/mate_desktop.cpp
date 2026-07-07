@@ -2,6 +2,7 @@
 #include "desktop_utils.h"
 #include "core/executor.h"
 #include "core/logger.h"
+#include "core/i18n.h"
 #include "core/system_helper.h"
 #include "domain/system/package_manager.h"
 
@@ -17,6 +18,13 @@ const DesktopInfo& MateDesktop::get_info() const { return info_; }
 
 void MateDesktop::will_be_installed_message() const {
     Logger::info("MATE: mate-session / mate-panel");
+    Logger::info(_("gui.mate.package_list"));
+    // Bash: apt-cache show 包信息预览
+    auto family = infer_family_from_config(cfg_.linux_distro);
+    if (family == DistroFamily::Unknown)
+        family = PackageManager::detect_distro_family();
+    if (family == DistroFamily::Debian && Executor::has("apt-cache"))
+        Executor::passthrough("apt-cache show mate-desktop-environment 2>/dev/null | head -20 || true");
 }
 
 // ── 阶段2: mate/ubuntu-mate + core/lite + Linux Mint ──
@@ -56,16 +64,21 @@ PreInstallChoices MateDesktop::pre_install_choices(
 
 // ── 阶段3: fonts + arch warning + apt clean ──
 void MateDesktop::post_install_config(const PostInstallContext& ctx) {
+    // Bash: do_you_want_to_continue 终端 Y/N 确认
+    if (!Logger::confirm_yes_default(_("gui.mate.confirm_install"))) return;
+
+    // Arch proot 警告: 终端 Y/N 确认 + 提示替代方案
     if (ctx.family == DistroFamily::Arch && ctx.is_proot) {
-        auto r = Executor::passthrough(cfg_.tui_bin +
-            " --title \"MATE on Arch proot\""
-            " --yes-button \"continue\" --no-button \"switch\""
-            " --yesno 'MATE may flicker in Arch proot. Continue anyway?\\n[No]=switch to LXDE/LXQt/XFCE' 0 0");
-        if (r.exit_code != 0) {
-            Logger::warn("MATE install aborted for Arch proot — try lxde, lxqt, or xfce instead");
+        Logger::warn("MATE may flicker in Arch proot.");
+        Logger::info("Alternatives: try lxde, lxqt, or xfce instead.");
+        if (!Logger::confirm_yes_default(_("gui.mate.arch_proot_warning")))
             return;
-        }
     }
+
+    // 非 Debian 发行版时显示不支持的警告
+    if (!ctx.is_debian && ctx.family == DistroFamily::Solus)
+        Logger::warn("ERROR!未适配solus");
+
     desktop_utils::dpkg_configure_and_keyboard(ctx.is_debian);
     desktop_utils::purge_libfprint_and_clean(ctx.is_proot, ctx.is_debian);
     // fonts + clean
