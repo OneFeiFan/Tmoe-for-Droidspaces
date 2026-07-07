@@ -38,25 +38,30 @@ namespace tmoe::domain {
                            + "\" --menu \"\" 0 0 0 "
                            "\"1\" \"" + _("input.fcitx4_googlepinyin") + "\" "
                            "\"2\" \"" + _("input.fcitx4_rime") + "\" "
-                           "\"3\" \"" + _("input.fcitx4_libpinyin") + "\" "
-                           "\"4\" \"" + _("input.fcitx4_sunpinyin") + "\" "
-                           "\"5\" \"" + _("input.fcitx4_cloudpinyin") + "\" "
-                           "\"6\" \"" + _("input.fcitx4_kde_config") + "\" "
-                           "\"7\" \"" + _("input.fcitx4_tools") + "\" "
+                           // Bash: 顺序 google→rime→FAQ→libpinyin→sunpinyin→cloud→KDE→tools
+                           "\"3\" \"" + _("input.fcitx4_faq") + "\" "
+                           "\"4\" \"" + _("input.fcitx4_libpinyin") + "\" "
+                           "\"5\" \"" + _("input.fcitx4_sunpinyin") + "\" "
+                           "\"6\" \"" + _("input.fcitx4_cloudpinyin") + "\" "
+                           "\"7\" \"" + _("input.fcitx4_kde_config") + "\" "
+                           "\"8\" \"" + _("input.fcitx4_tools") + "\" "
                            "\"0\" \"" + _("menu.tui.back") + "\"";
         auto ch = Executor::tui_select(menu);
         if (ch == "0" || ch.empty()) return;
 
-        // 确保基础 fcitx 已安装
+        // Bash: FAQ 只显示不安装
+        if (ch == "3") { show_input_faq(); Logger::press_enter(); return; }
+
+        // Bash: 选引擎后才装基础包
         PackageManager::install({"fcitx", "fcitx-config-gtk", "fcitx-im"}, family);
 
         if (ch == "1") PackageManager::install("fcitx-googlepinyin", family);
         else if (ch == "2") PackageManager::install("fcitx-rime", family);
-        else if (ch == "3") PackageManager::install("fcitx-libpinyin", family);
-        else if (ch == "4") PackageManager::install("fcitx-sunpinyin", family);
-        else if (ch == "5") PackageManager::install("fcitx-module-cloudpinyin", family);
-        else if (ch == "6") PackageManager::install("kde-config-fcitx", family);
-        else if (ch == "7")
+        else if (ch == "4") PackageManager::install("fcitx-libpinyin", family);
+        else if (ch == "5") PackageManager::install("fcitx-sunpinyin", family);
+        else if (ch == "6") PackageManager::install("fcitx-module-cloudpinyin", family);
+        else if (ch == "7") PackageManager::install("kde-config-fcitx", family);
+        else if (ch == "8")
             PackageManager::install({
                                         "fcitx", "fcitx-tools", "fcitx-config-gtk",
                                         "fcitx-im", "fcitx-configtool", "fcitx-googlepinyin", "fcitx-rime",
@@ -98,21 +103,24 @@ namespace tmoe::domain {
         auto family = infer_family_from_config(cfg_.linux_distro);
         std::string menu = cfg_.tui_bin + " --title \"" + _("input.ibus_menu")
                            + "\" --menu \"\" 0 0 0 "
+                           // Bash: pinyin→rime→FAQ→sunpinyin→chewing
                            "\"1\" \"" + _("input.ibus_pinyin") + "\" "
                            "\"2\" \"" + _("input.ibus_rime") + "\" "
-                           "\"3\" \"" + _("input.ibus_sunpinyin") + "\" "
-                           "\"4\" \"" + _("input.ibus_chewing") + "\" "
-                           "\"5\" \"" + _("input.ibus_onboard") + "\" "
+                           "\"3\" \"" + _("input.ibus_faq") + "\" "
+                           "\"4\" \"" + _("input.ibus_sunpinyin") + "\" "
+                           "\"5\" \"" + _("input.ibus_chewing") + "\" "
                            "\"0\" \"" + _("menu.tui.back") + "\"";
         auto ch = Executor::tui_select(menu);
         if (ch == "0" || ch.empty()) return;
 
+        // Bash: FAQ 只显示
+        if (ch == "3") { show_input_faq(); Logger::press_enter(); return; }
+
         PackageManager::install("ibus", family);
         if (ch == "1") PackageManager::install("ibus-libpinyin", family);
         else if (ch == "2") PackageManager::install("ibus-rime", family);
-        else if (ch == "3") PackageManager::install("ibus-sunpinyin", family);
-        else if (ch == "4") PackageManager::install("ibus-chewing", family);
-        else if (ch == "5") PackageManager::install("onboard", family);
+        else if (ch == "4") PackageManager::install("ibus-sunpinyin", family);
+        else if (ch == "5") PackageManager::install("ibus-chewing", family);
         Logger::press_enter();
 
         // ibus 自动启动
