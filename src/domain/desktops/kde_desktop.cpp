@@ -114,7 +114,7 @@ namespace tmoe::domain {
 
         // Bash: do_you_want_to_continue — 终端 read [Y/n]
         Logger::info(_("gui.kde.warning.continue"));
-        if (!Logger::confirm(_("gui.kde.warning.continue"))) return false;
+        if (!Logger::confirm_yes_default(_("gui.kde.warning.continue"))) return false;
         return true;
     }
 
