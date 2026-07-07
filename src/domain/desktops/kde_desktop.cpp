@@ -18,7 +18,9 @@ namespace tmoe::domain {
     const DesktopInfo &KdeDesktop::get_info() const { return info_; }
 
     void KdeDesktop::will_be_installed_message() const {
+        // Bash: 终端 printf 详细包列表
         Logger::info("KDE Plasma: startplasma-x11 / startkde");
+        Logger::info(_("gui.kde.package_list"));
     }
 
     // ── 阶段2: 装包前版本选择 ──
@@ -94,15 +96,25 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════
 
     bool KdeDesktop::kde_warning() const {
-        // Bash 原版有 whiptail 确认
+        // Bash: catimg 预览图 + ASCII 兼容性表格 + proot 警告 + tiger 推荐 + do_you_want_to_continue
+        Logger::info("------------------------");
         Logger::info(_("gui.kde.warning"));
-        auto r = Executor::passthrough(cfg_.tui_bin +
-            " --title \"KDE Plasma\""
-            " --yesno '" + std::string(_("gui.kde.warning.continue")) + "' 0 0");
-        if (r.exit_code != 0) {
-            Logger::warn(_("gui.kde.warning.cancelled"));
-            return false;
+        Logger::info("");
+
+        // Bash: proot 环境特殊警告
+        if (cfg_.is_termux || cfg_.linux_distro == "Android") {
+            Logger::warn("PROOT " + std::string(_("gui.kde.proot_warn")));
+            Logger::info("  " + std::string(_("gui.kde.proot_dolphin_hint")));
+            Logger::info("  " + std::string(_("gui.kde.proot_startup_warn")));
         }
+
+        // Bash: tips_of_tiger_vnc_server — 推荐 tiger VNC
+        Logger::info(_("gui.kde.tiger_recommend"));
+        Logger::info("");
+
+        // Bash: do_you_want_to_continue — 终端 read [Y/n]
+        Logger::info(_("gui.kde.warning.continue"));
+        if (!Logger::confirm(_("gui.kde.warning.continue"))) return false;
         return true;
     }
 
