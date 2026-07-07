@@ -41,8 +41,10 @@ public:
     /** 等待用户按回车继续。 */
     static void press_enter();
 
-    /** 询问 y/n 问题；返回 true 表示同意。 */
+    /** 询问 y/n 问题；返回 true 表示同意（默认 No，需输入 y 确认）。 */
     static bool confirm(std::string_view question);
+    /** 询问 y/n 问题；默认 Yes（回车=继续，输入 n=取消）。匹配 Bash do_you_want_to_continue。 */
+    static bool confirm_yes_default(std::string_view question);
 
 private:
     static const char* ansi(Level lv);

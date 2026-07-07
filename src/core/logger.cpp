@@ -3,6 +3,10 @@
 #include <cstdio>
 #include <ctime>
 #include <sstream>
+#ifndef _WIN32
+#include <unistd.h>
+#include <termios.h>
+#endif
 #include <iomanip>
 #ifndef _WIN32
 #include <unistd.h>
@@ -111,5 +115,24 @@ namespace tmoe {
         if (ch != '\n') { while (std::getchar() != '\n') {} }
 #endif
         return (ch == 'y' || ch == 'Y');
+    }
+
+    bool Logger::confirm_yes_default(std::string_view question) {
+        std::fprintf(stderr, "%s[?] %s [Y/n] %s", ansi(WARN), question.data(), RESET);
+        std::fflush(stderr);
+
+        int ch = EOF;
+#ifndef _WIN32
+        tcflush(STDIN_FILENO, TCIFLUSH);
+        char c;
+        while (::read(STDIN_FILENO, &c, 1) == 1 && c != '\n') {
+            if (c != ' ' && c != '\t' && c != '\r') ch = c;
+        }
+#else
+        ch = std::getchar();
+        if (ch != '\n') { while (std::getchar() != '\n') {} }
+#endif
+        // 默认 Yes：回车/空 → true，只有显式输入 'n'/'N' 才 false
+        return !(ch == 'n' || ch == 'N');
     }
 } // namespace tmoe
