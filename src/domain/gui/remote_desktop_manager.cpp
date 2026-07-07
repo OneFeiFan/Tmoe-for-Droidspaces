@@ -1200,7 +1200,7 @@ namespace tmoe::domain {
 
         // Bash: 交互模式 → Y/N 终端确认；自动模式 → if_container_is_arm → ARM 跳过
         if (!desktop_manager_.is_auto_install_mode()) {
-            if (!Logger::confirm(_("gui.novnc.confirm_install"))) return;
+            if (!Logger::confirm_yes_default(_("gui.novnc.confirm_install"))) return;
         } else {
             // Bash if_container_is_arm: ARM 架构在自动模式下跳过 noVNC（包可能不可用）
             bool is_arm = (cfg_.arch.find("arm") != std::string::npos);
