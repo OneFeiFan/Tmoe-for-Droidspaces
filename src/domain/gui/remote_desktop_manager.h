@@ -89,6 +89,8 @@ namespace tmoe::domain {
         void set_auto_install_mode(bool v) { auto_install_mode_ = v; }
 
     private:
+        /// 返回 sudo 前缀。proot/Termux/已是 root 则不需要 sudo
+        std::string sudo_cmd() const;
         const TmoeConfig &cfg_;
         VncManager &vnc_manager_;
         DesktopManager &desktop_manager_;

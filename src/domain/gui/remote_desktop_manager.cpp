@@ -20,6 +20,12 @@ namespace tmoe::domain {
         : cfg_(cfg), vnc_manager_(vnc_manager), desktop_manager_(desktop_manager) {
     }
 
+    std::string RemoteDesktopManager::sudo_cmd() const {
+        // proot/Termux/已是 root → 不需要 sudo
+        if (cfg_.is_termux || cfg_.is_root) return "";
+        return "sudo ";
+    }
+
     bool RemoteDesktopManager::install_packages(const std::vector<std::string> &packages) const {
         return SystemHelper::install_packages(packages, cfg_.install_command);
     }
@@ -54,6 +60,36 @@ namespace tmoe::domain {
         }
 
         if (fs::exists("/usr/share/novnc") || fs::exists("/opt/novnc")) {
+            // 部署 /usr/local/bin/novnc wrapper（Bash 原版从 install_novnc 拷贝）
+            std::string novnc_dir = fs::exists("/usr/share/novnc") ? "/usr/share/novnc" : "/opt/novnc";
+            std::string wrapper = "#!/bin/bash\n# tmoe-linux novnc — 自包含启动脚本，对齐 Bash 原版\n"
+                "NOVNC_DIR=\"" + novnc_dir + "\"\n"
+                "PORT=\"${1:-36080}\"\n"
+                "VNC_BACKEND=\"${2:-5902}\"\n"
+                "\n# ── 自动启动 VNC（如果未运行）──\n"
+                "VNC_DISPLAY=$((VNC_BACKEND - 5900))\n"
+                "if ! pgrep -f \"X(vnc|tigervnc|tightvnc).*:${VNC_DISPLAY}\" >/dev/null 2>&1; then\n"
+                "  echo \">> VNC not running on :${VNC_DISPLAY}, starting...\"\n"
+                "  [ -x /usr/local/bin/startvnc ] && /usr/local/bin/startvnc 2>/dev/null &\n"
+                "  sleep 2\n"
+                "fi\n"
+                "\n# ── 显示局域网地址 ──\n"
+                "echo \"noVNC: http://localhost:$PORT/vnc.html\"\n"
+                "ip -4 -br a 2>/dev/null | awk '{print $NF}' | grep -v '127.0.0.1' | while read ip; do\n"
+                "  echo \"  LAN:  http://${ip%/*}:$PORT/vnc.html\"\n"
+                "done\n"
+                "\n# ── 启动 websockify ──\n"
+                "websockify --web=\"$NOVNC_DIR\" \"$PORT\" localhost:\"$VNC_BACKEND\" &\n"
+                "sleep 1\n"
+                "\n# ── WSL 自动打开浏览器 ──\n"
+                "if grep -qi microsoft /proc/version 2>/dev/null; then\n"
+                "  /mnt/c/WINDOWS/system32/cmd.exe /c \"start http://localhost:$PORT/vnc.html\" 2>/dev/null &\n"
+                "fi\n";
+            SystemHelper::write_file("/usr/local/bin/novnc", wrapper);
+            CommandBuilder("sudo").add_arg("chmod").add_arg("+x").add_arg("/usr/local/bin/novnc")
+                .add_raw("2>/dev/null || true").execute();
+            CommandBuilder("sudo").add_arg("ln").add_flag("-sf").add_arg("novnc")
+                .add_arg("/usr/local/bin/startnovnc").add_raw("2>/dev/null || true").execute();
             Logger::ok(_("gui.novnc.install_ok"));
             return true;
         }
@@ -122,6 +158,9 @@ namespace tmoe::domain {
 
         Logger::ok(_f("gui.novnc.url", get_novnc_url()));
         Logger::info(_f("gui.novnc.vnc_backend_port", std::to_string(vnc_manager_.config().rfb_port)));
+        // Bash: 显示局域网地址
+        std::string lan_ips = vnc_manager_.get_local_ip_addresses();
+        if (!lan_ips.empty()) Logger::info(lan_ips);
         return true;
     }
 
@@ -147,13 +186,13 @@ namespace tmoe::domain {
         // 修复 xrdp 证书权限: key.pem 默认 640 root:ssl-cert，
         // xrdp 用户必须在 ssl-cert 组中才能读取，否则报 Permission denied
         Executor::shell(
-            "if getent group ssl-cert >/dev/null 2>&1; then "
-            "  sudo usermod -a -G ssl-cert xrdp 2>/dev/null || true; "
-            "fi; "
+            std::string("if getent group ssl-cert >/dev/null 2>&1; then ")
+            + sudo_cmd() + "usermod -a -G ssl-cert xrdp 2>/dev/null || true; "
+            + "fi; "
             // 确保 /etc/xrdp 目录权限正确
-            "sudo chown -R root:ssl-cert /etc/xrdp/ 2>/dev/null || true; "
-            "sudo chmod 640 /etc/xrdp/key.pem 2>/dev/null || true; "
-            "sudo chmod 644 /etc/xrdp/cert.pem 2>/dev/null || true");
+            + sudo_cmd() + "chown -R root:ssl-cert /etc/xrdp/ 2>/dev/null || true; "
+            + sudo_cmd() + "chmod 640 /etc/xrdp/key.pem 2>/dev/null || true; "
+            + sudo_cmd() + "chmod 644 /etc/xrdp/cert.pem 2>/dev/null || true");
         // 旧 Bash: chroot/proot 下 xrdp 需要 aid_inet 组才能联网
         if (cfg_.is_termux || cfg_.linux_distro == "Android") {
             CommandBuilder("sudo").add_arg("usermod").add_flag("-a").add_flag("-G").add_arg("aid_inet").add_arg("xrdp").
@@ -176,14 +215,11 @@ namespace tmoe::domain {
                 "</policyconfig>\n";
         SystemHelper::write_file("/usr/share/polkit-1/actions/xrdp-sesman.policy", polkit_rule);
 
-        // 写入 WSL 兼容的 xrdp.ini (必须先于 startwm.sh，因为后者内部 restart 需要完整 ini)
+        // 写入 WSL 兼容的 xrdp.ini
         set_xrdp_port(3389);
 
-        // 配置 startwm.sh
-        configure_xrdp_session("xfce");
-
-        // 启动
-        Executor::passthrough("sudo service xrdp start 2>/dev/null || sudo systemctl start xrdp 2>/dev/null || true");
+        // 启动（session 配置由调用方通过 configure_xrdp_desktop 完成，Bash 原版安装时不自动配置桌面）
+        Executor::passthrough(sudo_cmd() + "service xrdp start 2>/dev/null || " + sudo_cmd() + "systemctl start xrdp 2>/dev/null || true");
 
         Logger::ok(_("gui.xrdp.install_ok"));
         return true;
@@ -281,7 +317,7 @@ namespace tmoe::domain {
 
     bool RemoteDesktopManager::start_xrdp() {
         Logger::step(_("gui.xrdp.starting"));
-        if (Executor::passthrough("sudo service xrdp start 2>/dev/null || sudo systemctl start xrdp 2>/dev/null").
+        if (Executor::passthrough(sudo_cmd() + "service xrdp start 2>/dev/null || " + sudo_cmd() + "systemctl start xrdp 2>/dev/null").
             ok()) {
             Logger::ok(_("gui.xrdp.started"));
             return true;
@@ -298,7 +334,7 @@ namespace tmoe::domain {
 
     bool RemoteDesktopManager::stop_xrdp() {
         Logger::step(_("gui.xrdp.stopping"));
-        Executor::passthrough("sudo service xrdp stop 2>/dev/null || sudo systemctl stop xrdp 2>/dev/null || "
+        Executor::passthrough(sudo_cmd() + "service xrdp stop 2>/dev/null || " + sudo_cmd() + "systemctl stop xrdp 2>/dev/null || "
             "pkill xrdp 2>/dev/null || true");
         Logger::ok(_("gui.xrdp.stopped"));
         return true;
@@ -320,11 +356,9 @@ namespace tmoe::domain {
     bool RemoteDesktopManager::set_xrdp_port(int port) {
         // xrdp 守护进程以 xrdp 用户运行，必须确保它能读取 /etc/xrdp/
         Executor::shell(
-            "sudo mkdir -p /etc/xrdp 2>/dev/null; "
-            // 确保目录和文件对 xrdp 用户可读
-            "sudo chmod 755 /etc/xrdp 2>/dev/null || true; "
-            // 确保 xrdp 用户存在 (proot/容器里 postinst 可能没创建)
-            "id xrdp >/dev/null 2>&1 || sudo useradd -r -s /usr/sbin/nologin xrdp 2>/dev/null || true");
+            std::string(sudo_cmd() + "mkdir -p /etc/xrdp 2>/dev/null; ")
+            + "id xrdp >/dev/null 2>&1 || " + sudo_cmd() + "useradd -r -s /usr/sbin/nologin xrdp 2>/dev/null || true; "
+            + sudo_cmd() + "chmod 755 /etc/xrdp 2>/dev/null || true");
 
         std::string port_str = std::to_string(port);
 
@@ -505,11 +539,13 @@ namespace tmoe::domain {
                     // 原生 C++ 替代 sed: 更新 NOVNC_PORT 配置值
                     auto content = SystemHelper::read_file("/usr/local/bin/novnc");
                     if (!content.empty()) {
-                        auto start = content.find("NOVNC_PORT=");
+                        // wrapper 使用 PORT= 而非 NOVNC_PORT=
+                        auto start = content.find("PORT=\"$");
+                        if (start == std::string::npos) start = content.find("PORT=");
                         if (start != std::string::npos) {
-                            auto end = content.find('\n', start);
+                            auto end = content.find_first_of("\n\"", start);
                             content.replace(start, (end != std::string::npos ? end - start : content.size() - start),
-                                            "NOVNC_PORT=" + port);
+                                            "PORT=\"" + port + "\"");
                         }
                         SystemHelper::write_file("/usr/local/bin/novnc", content);
                     }
@@ -553,8 +589,8 @@ namespace tmoe::domain {
                 install_xrdp();
                 configure_xrdp_desktop();
             }
-            Executor::passthrough("sudo service xrdp restart 2>/dev/null || "
-                "sudo systemctl restart xrdp 2>/dev/null || /usr/sbin/xrdp 2>/dev/null &");
+            Executor::passthrough(sudo_cmd() + "service xrdp restart 2>/dev/null || "
+                + sudo_cmd() + "systemctl restart xrdp 2>/dev/null || true");
             if (is_running) Logger::ok(_("gui.xrdp.restarted"));
             else Logger::ok(_("gui.xrdp.started_msg"));
             Logger::press_enter();
@@ -582,8 +618,9 @@ namespace tmoe::domain {
             if (ch == "0" || ch.empty()) break;
 
             if (ch == "1") {
+                Logger::step(_("gui.xrdp.onekey_config"));
                 Executor::passthrough(
-                    "sudo service xrdp stop 2>/dev/null || sudo systemctl stop xrdp 2>/dev/null || true");
+                    sudo_cmd() + "service xrdp stop 2>/dev/null || " + sudo_cmd() + "systemctl stop xrdp 2>/dev/null || true");
                 install_xrdp();
                 configure_xrdp_desktop();
             } else if (ch == "2") configure_xrdp_desktop();
@@ -635,9 +672,10 @@ namespace tmoe::domain {
             } else if (ch == "9") {
                 auto r = Executor::passthrough(cfg_.tui_bin + " --yesno \"确认重置 xrdp 配置？\" 0 0");
                 if (r.exit_code == 0) {
+                    Logger::step(_("gui.xrdp.reset"));
                     Executor::passthrough(
-                        "sudo service xrdp stop 2>/dev/null || sudo systemctl stop xrdp 2>/dev/null || true");
-                    Executor::passthrough("sudo rm -rf /etc/xrdp/xrdp.ini /etc/xrdp/startwm.sh 2>/dev/null || true");
+                        sudo_cmd() + "service xrdp stop 2>/dev/null || " + sudo_cmd() + "systemctl stop xrdp 2>/dev/null || true");
+                    Executor::passthrough(sudo_cmd() + "rm -rf /etc/xrdp/xrdp.ini /etc/xrdp/startwm.sh 2>/dev/null || true");
                     install_xrdp();
                     configure_xrdp_desktop();
                 }
@@ -866,8 +904,9 @@ namespace tmoe::domain {
     bool RemoteDesktopManager::remove_novnc() {
         Logger::step(_("gui.novnc.removing"));
         stop_novnc();
-        // 清理目录（git clone 安装的）
-        CommandBuilder("sudo").add_arg("rm").add_flag("-rf").add_arg("/opt/novnc").add_arg("/usr/share/novnc").add_raw(
+        // 清理目录和 wrapper 脚本
+        CommandBuilder("sudo").add_arg("rm").add_flag("-rf").add_arg("/opt/novnc").add_arg("/usr/share/novnc")
+            .add_arg("/usr/local/bin/novnc").add_arg("/usr/local/bin/startnovnc").add_raw(
             "2>/dev/null || true").execute();
         // apt 装的包（和 install_novnc 对应：novnc, python3-websockify, python3-numpy）
         auto family = infer_family_from_config(cfg_.linux_distro);
@@ -902,12 +941,12 @@ namespace tmoe::domain {
         }
         // 修复 xrdp 证书权限: key.pem 默认 640 root:ssl-cert
         Executor::shell(
-            "if getent group ssl-cert >/dev/null 2>&1; then "
-            "  sudo usermod -a -G ssl-cert xrdp 2>/dev/null || true; "
-            "fi; "
-            "sudo chown -R root:ssl-cert /etc/xrdp/ 2>/dev/null || true; "
-            "sudo chmod 640 /etc/xrdp/key.pem 2>/dev/null || true; "
-            "sudo chmod 644 /etc/xrdp/cert.pem 2>/dev/null || true");
+            std::string("if getent group ssl-cert >/dev/null 2>&1; then ")
+            + sudo_cmd() + "usermod -a -G ssl-cert xrdp 2>/dev/null || true; "
+            + "fi; "
+            + sudo_cmd() + "chown -R root:ssl-cert /etc/xrdp/ 2>/dev/null || true; "
+            + sudo_cmd() + "chmod 640 /etc/xrdp/key.pem 2>/dev/null || true; "
+            + sudo_cmd() + "chmod 644 /etc/xrdp/cert.pem 2>/dev/null || true");
         if (cfg_.is_termux || cfg_.linux_distro == "Android") {
             CommandBuilder("sudo").add_arg("usermod").add_flag("-a").add_flag("-G").add_arg("aid_inet").add_arg("xrdp").
                     add_raw(
@@ -1038,29 +1077,28 @@ namespace tmoe::domain {
 
     void RemoteDesktopManager::xrdp_restart() {
         // 原生 C++ 替代 cat|grep|cut 管道: 从 xrdp.ini 提取端口号
-        std::string rdp_port; {
+        // 从 xrdp.ini 提取端口号，支持 port=3389 和 port=tcp://0.0.0.0:3389 两种格式
+        std::string rdp_port = "3389";
+        {
             auto content = SystemHelper::read_file("/etc/xrdp/xrdp.ini");
             auto pos = content.find("port=");
             if (pos != std::string::npos) {
                 auto val_start = pos + 5;
-                auto eq_or_nl = content.find_first_of("=\n", val_start);
-                if (eq_or_nl != std::string::npos && content[eq_or_nl] == '=') {
-                    auto colon = content.rfind(':', eq_or_nl);
-                    if (colon != std::string::npos && colon > eq_or_nl) {
-                        auto end = content.find_first_of("\n\r ", colon);
-                        rdp_port = content.substr(colon + 1,
-                                                  (end != std::string::npos ? end - colon - 1 : std::string::npos));
-                    }
-                } else {
-                    auto end = content.find_first_of("\n\r ", val_start);
-                    rdp_port = content.substr(val_start,
-                                              (end != std::string::npos ? end - val_start : std::string::npos));
-                }
+                auto end = content.find_first_of("\n\r", val_start);
+                std::string raw = content.substr(val_start,
+                    (end != std::string::npos ? end - val_start : std::string::npos));
+                // 去掉空白
+                while (!raw.empty() && (raw.back() == '\r' || raw.back() == ' ')) raw.pop_back();
+                // port=tcp://0.0.0.0:3389 → 取冒号后的数字
+                auto colon = raw.rfind(':');
+                if (colon != std::string::npos && colon + 1 < raw.size())
+                    rdp_port = raw.substr(colon + 1);
+                else
+                    rdp_port = raw;
             }
         }
-        while (!rdp_port.empty() && (rdp_port.back() == '\n' || rdp_port.back() == '\r')) rdp_port.pop_back();
-        Executor::passthrough("sudo service xrdp restart 2>/dev/null || sudo systemctl restart xrdp 2>/dev/null || "
-            "/etc/init.d/xrdp restart 2>/dev/null || true");
+        Executor::passthrough(sudo_cmd() + "service xrdp restart 2>/dev/null || "
+            + sudo_cmd() + "systemctl restart xrdp 2>/dev/null || true");
         check_xrdp_status();
         Logger::info(_("gui.xrdp.port_info") + rdp_port);
         Logger::info(_("gui.xrdp.localhost_addr") + rdp_port);
@@ -1094,6 +1132,20 @@ namespace tmoe::domain {
         Logger::info(std::string(_("gui.vnc.performance_accel")));
         Logger::info(std::string(_("gui.vnc.configure_multiple")));
         Logger::info("------------------------");
+
+        // Bash: 自动检测并安装 x11vnc、xvfb 依赖
+        auto family = infer_family_from_config(cfg_.linux_distro);
+        if (family == DistroFamily::Unknown) family = PackageManager::detect_distro_family();
+        if (!Executor::has("x11vnc"))
+            PackageManager::install("x11vnc", family);
+        if (!Executor::has("Xvfb"))
+            PackageManager::install("xvfb", family);
+        if (family == DistroFamily::Debian || family == DistroFamily::Arch)
+            PackageManager::install("pavucontrol", family);
+
+        // Bash: 交互模式 → do_you_want_to_continue
+        if (!desktop_manager_.is_auto_install_mode())
+            Logger::press_enter();
     }
 
 
@@ -1139,22 +1191,25 @@ namespace tmoe::domain {
 
     void RemoteDesktopManager::do_you_want_to_configure_novnc() {
         // 对应旧 Bash do_you_want_to_configure_novnc (gui:5792-5826)
+        // Bash 原版：总是安装 noVNC（不询问是/否），交互模式按回车确认，自动模式静默安装
         vnc_manager_.check_the_which_command();
         Logger::info(_("gui.novnc.startup_hint"));
         Logger::info(_("gui.novnc.config_complete_hint"));
         Logger::info("------------------------");
         Logger::info(_("gui.novnc.configure_prompt"));
 
-        // 对应旧 Bash: 先询问用户是否要配置 novnc
-        auto confirm = Executor::passthrough(cfg_.tui_bin +
-                                             " --yesno \"" + std::string(_("gui.confirm_novnc")) + "\" 0 0");
-        if (confirm.exit_code != 0) {
-            Logger::info(std::string(_("gui.skip_novnc")));
-            return;
+        // Bash: 交互模式 → do_you_want_to_continue（按回车）；自动模式 → if_container_is_arm → ARM 跳过
+        if (!desktop_manager_.is_auto_install_mode()) {
+            Logger::press_enter();
+        } else {
+            // Bash if_container_is_arm: ARM 架构在自动模式下跳过 noVNC（包可能不可用）
+            bool is_arm = (cfg_.arch.find("arm") != std::string::npos);
+            if (is_arm) {
+                Logger::info(_("gui.novnc.arm_skip"));
+                return;
+            }
         }
-
         install_novnc();
-        if (!vnc_manager_.is_arm_container()) install_novnc();
 
         // Achievement 解锁
         std::string tmoe_dir = "/usr/local/etc/tmoe-linux";
@@ -1164,11 +1219,19 @@ namespace tmoe::domain {
             CommandBuilder("mkdir").add_flag("-p").add_arg(tmoe_dir).add_raw("2>/dev/null || true").execute();
             SystemHelper::write_file(tmoe_dir + "/achievement01", "vnc master\n");
         }
-        std::string vnc_msg = Executor::has("apt-get")
-                                  ? _("gui.novnc.vnc_commands_with_tiger")
-                                  : _("gui.novnc.vnc_commands");
-        Executor::passthrough(cfg_.tui_bin + " --title \"VNC COMMANDS\" --msgbox \"" + vnc_msg + "\" 12 55");
+        // VNC 命令提示 → 终端输出（Bash 原版也是 printf；交互模式额外有 whiptail msgbox）
+        Logger::info(Executor::has("apt-get")
+                     ? _("gui.novnc.vnc_commands_with_tiger")
+                     : _("gui.novnc.vnc_commands"));
         Logger::info(_("gui.novnc.vnc_master"));
+
+        // Bash: 交互模式最后再弹一个 whiptail msgbox 展示 VNC 命令摘要
+        if (!desktop_manager_.is_auto_install_mode()) {
+            std::string vnc_msg = Executor::has("apt-get")
+                                      ? _("gui.novnc.vnc_commands_with_tiger")
+                                      : _("gui.novnc.vnc_commands");
+            Executor::passthrough(cfg_.tui_bin + " --title \"VNC COMMANDS\" --msgbox \"" + vnc_msg + "\" 12 55");
+        }
     }
 
 
@@ -1202,7 +1265,7 @@ namespace tmoe::domain {
             return;
         }
 
-        Executor::passthrough("sudo service xrdp stop 2>/dev/null || sudo systemctl stop xrdp 2>/dev/null || "
+        Executor::passthrough(sudo_cmd() + "service xrdp stop 2>/dev/null || " + sudo_cmd() + "systemctl stop xrdp 2>/dev/null || "
             "pkill xrdp 2>/dev/null || true");
 
         CommandBuilder("sudo").add_arg("rm").add_flag("-f").add_arg(
