@@ -172,7 +172,7 @@ namespace tmoe::domain {
                     "lxde", "🕊 LXDE", "🕊", "lxsession", "startlxde", "lightdm", false, false, false, "lxde lxde-common",
                     "轻量化桌面,资源占用低",
                     {{"gentoo","media-fonts/wqy-bitmapfont lxde-base/lxde-meta"},{"alpine","lxsession"},
-                     {"redhat","@lxde-desktop"},{"suse","patterns-lxde-lxde"},{"arch","lxde"}}
+                     {"redhat","@lxde-desktop"},{"suse","patterns-lxde-lxde"},{"arch","lxde"},{"void","lxde"}}
                 },
                 {
                     "mate", "🌿 MATE", "🌿", "mate-session", "mate-panel", "lightdm", false, false, false,
@@ -200,12 +200,12 @@ namespace tmoe::domain {
                     "gnome-session gnome-shell", "GNU网络对象模型环境",
                     {{"arch","gnome-tweaks gnome"},{"redhat","@GNOME"},
                      {"gentoo","gnome-shell gdm gnome-terminal"},
-                     {"suse","patterns-gnome-gnome_x11"},{"alpine","gnome-session gnome-shell"}}
+                     {"suse","patterns-gnome-gnome_x11"},{"solus","gnome-session gnome-shell"},{"alpine","gnome-session gnome-shell"}}
                 },
                 {
                     "budgie", "🦜 Budgie", "🦜", "budgie-desktop", "budgie-panel", "lightdm", true, false, true,
                     "budgie-desktop", "虎皮鹦鹉,基于GNOME",
-                    {{"arch","budgie-desktop"},{"void","budgie-desktop"}}
+                    {{"arch","budgie-desktop"},{"void","budgie-desktop"},{"solus","budgie-desktop"}}
                 },
                 {
                     "dde", "🐋 Deepin DDE", "🐋", "startdde", "dde-launcher", "lightdm", true, false, true, "dde dde-desktop",
