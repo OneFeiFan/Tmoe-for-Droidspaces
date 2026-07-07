@@ -327,8 +327,9 @@ namespace tmoe::domain {
 
             switch (std::stoi(ch)) {
                 case 1:
-                    // aptitude — 仅 Debian 系
-                    if (cfg_.linux_distro == "debian") {
+                    // Bash: non_debian_function 先安装 aptitude，再运行
+                    PackageManager::install("aptitude", family);
+                    if (Executor::has("aptitude")) {
                         Executor::passthrough("aptitude");
                     } else {
                         Logger::error(_("beta.store_aptitude_debian_only"));
