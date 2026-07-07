@@ -113,12 +113,9 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════
 
     bool XfceDesktop::xfce_warning() const {
-        // Bash 原版有 whiptail 确认 + 兼容性表格
+        // Bash: 终端输出兼容性表格 + do_you_want_to_continue (终端 read Y/N)
         Logger::info(_("gui.xfce4.warning"));
-        auto r = Executor::passthrough(cfg_.tui_bin +
-            " --title \"XFCE Desktop\""
-            " --yesno '" + std::string(_("gui.xfce4.warning.continue")) + "' 0 0");
-        if (r.exit_code != 0) {
+        if (!Logger::confirm(_("gui.xfce4.warning.continue"))) {
             Logger::warn(_("gui.xfce4.warning.cancelled"));
             return false;
         }
