@@ -68,39 +68,42 @@ namespace tmoe::domain {
             PackageManager::install("fonts-noto-color-emoji", family);
         }
 
-        // 5b. 选择 VNC 服务端
+        // 5b. VNC 服务端：Bash 仅在交互模式 + debian 下弹 whiptail，否则默认 tiger
         auto info = desktop_manager_.get_desktop_info(desktop);
-        bool recommend_tiger = info.recommends_tiger_vnc;
-
-        std::string prompt = recommend_tiger
-                                 ? _("gui.vnc.tiger_recommend_prompt")
-                                 : _("gui.vnc.server_select_prompt");
-
-        auto r = Executor::passthrough(CommandBuilder(cfg_.tui_bin)
-            .add_arg("--title").add_arg(_("gui.vnc.server_select_title"))
-            .add_arg("--yes-button").add_arg(_("gui.vnc.tiger"))
-            .add_arg("--no-button").add_arg(_("gui.vnc.tight"))
-            .add_arg("--yesno").add_arg(prompt)
-            .add_arg("0").add_arg("50")
-            .build_string());
-        if (r.exit_code == 0) {
+        family = get_family(cfg_);
+        bool interactive = !desktop_manager_.is_auto_install_mode();
+        if (interactive && family == DistroFamily::Debian) {
+            // Bash: which_vnc_server_do_you_prefer → 非 auto 模式 + debian 才弹 whiptail
+            std::string prompt = info.recommends_tiger_vnc
+                                     ? _("gui.vnc.tiger_recommend_prompt")
+                                     : _("gui.vnc.server_select_prompt");
+            auto r = Executor::passthrough(CommandBuilder(cfg_.tui_bin)
+                .add_arg("--title").add_arg(_("gui.vnc.server_select_title"))
+                .add_arg("--yes-button").add_arg(_("gui.vnc.tiger"))
+                .add_arg("--no-button").add_arg(_("gui.vnc.tight"))
+                .add_arg("--yesno").add_arg(prompt)
+                .add_arg("0").add_arg("50")
+                .build_string());
+            if (r.exit_code == 0) {
+                vnc_manager_.config().server = "tiger";
+                vnc_manager_.config().server_bin = "tigervnc";
+            } else {
+                vnc_manager_.config().server = "tight";
+                vnc_manager_.config().server_bin = "tightvnc";
+            }
+        } else {
+            // Auto / 非debian: 默认 tiger（Bash 原版行为）
             vnc_manager_.config().server = "tiger";
             vnc_manager_.config().server_bin = "tigervnc";
-        } else if (r.exit_code == 1) {
-            vnc_manager_.config().server = "tight";
-            vnc_manager_.config().server_bin = "tightvnc";
         }
 
         vnc_manager_.modify_to_xfwm4_breeze_theme();
 
-        // 5c. 设置 VNC 密码（每次安装桌面都必须设定）
+        // 5c. 设置 VNC 密码（每次必须设定；Bash: 密码文件不存在时才弹 whiptail）
         vnc_manager_.configure_vnc_password();
 
-        // 5d. 选择 VNC 端口
-        if (desktop_manager_.is_auto_install_mode()) {
-            vnc_manager_.config().display = 2;
-            vnc_manager_.config().update_port();
-        } else {
+        // 5d. VNC 端口：Bash 仅在交互模式弹 whiptail 二选一，auto 默认 5902
+        if (interactive) {
             auto port_r = Executor::passthrough(CommandBuilder(cfg_.tui_bin)
                 .add_arg("--title").add_arg(_("gui.vnc.port"))
                 .add_arg("--yes-button").add_arg("5902")
@@ -109,14 +112,11 @@ namespace tmoe::domain {
                 .add_arg(_("gui.vnc.port_select_prompt"))
                 .add_arg("0").add_arg("50")
                 .build_string());
-            if (port_r.exit_code == 0) {
-                vnc_manager_.config().display = 2;
-                vnc_manager_.config().update_port();
-            } else if (port_r.exit_code == 1) {
-                vnc_manager_.config().display = 3;
-                vnc_manager_.config().update_port();
-            }
+            vnc_manager_.config().display = (port_r.exit_code == 0) ? 2 : 3;
+        } else {
+            vnc_manager_.config().display = 2;
         }
+        vnc_manager_.config().update_port();
 
         // 5e. HiDPI 检测
         if (desktop_manager_.is_auto_install_mode()) {
@@ -221,6 +221,29 @@ namespace tmoe::domain {
                             .add_arg("0:0")
                             .add_arg("/root/.vnc")
                             .build_string() + " 2>/dev/null || true");
+
+            // Bash 5579-5590: 修复家目录权限 — VNC 配置可能以 root 写入，需 chown 回当前用户
+            auto user_name = Executor::shell("id -un 2>/dev/null");
+            auto user_group = Executor::shell("id -gn 2>/dev/null");
+            std::string uname = user_name.ok() ? user_name.stdout_data : "";
+            std::string ugroup = user_group.ok() ? user_group.stdout_data : "";
+            // trim newlines
+            while (!uname.empty() && (uname.back() == '\n' || uname.back() == '\r')) uname.pop_back();
+            while (!ugroup.empty() && (ugroup.back() == '\n' || ugroup.back() == '\r')) ugroup.pop_back();
+
+            if (!uname.empty() && uname != "root") {
+                Logger::info(_("gui.vnc.fixing_nonroot_perms"));
+                for (const char* dir : {".ICEauthority", ".Xauthority", ".vnc", ".cache", ".dbus", ".local", ".config"}) {
+                    std::string p = home + "/" + dir;
+                    if (fs::exists(p)) {
+                        Executor::passthrough(CommandBuilder("sudo")
+                            .add_arg("-E").add_arg("chown").add_arg("-R")
+                            .add_arg(uname + ":" + ugroup)
+                            .add_arg(p)
+                            .build_string() + " 2>/dev/null || true");
+                    }
+                }
+            }
         }
 
         // 7. WSL 环境网络处理
@@ -276,24 +299,20 @@ namespace tmoe::domain {
         Logger::info(_("gui.vnc.configured_x11vnc_next"));
         Logger::info("------------------------");
 
+        // ── 三：x11vnc — Bash 原版始终配置，无是否跳过选择 ──
         Logger::info(std::string(_("gui.section_three")));
-        vnc_manager_.check_xvnc_command();
         remote_desktop_manager_.x11vnc_warning();
-        Logger::press_enter();
-        auto x11vnc_confirm = Executor::passthrough(CommandBuilder(cfg_.tui_bin)
-            .add_arg("--yesno")
-            .add_arg(std::string(_("gui.confirm_x11vnc")))
-            .add_arg("0").add_arg("0")
-            .build_string());
-        if (x11vnc_confirm.exit_code == 0) {
-            remote_desktop_manager_.configure_x11vnc_remote_desktop_session();
+        // Bash: 交互模式有 press_enter_to_continue（给用户阅读+Ctrl+C 的机会），自动模式静默
+        if (!desktop_manager_.is_auto_install_mode()) {
+            Logger::press_enter();
         }
+        remote_desktop_manager_.configure_x11vnc_remote_desktop_session();
         Logger::info("------------------------");
 
+        // ── 四：noVNC — Bash 原版始终安装 ──
         Logger::info(std::string(_("gui.section_four")) + "：");
         Logger::info(_("gui.vnc.unlock_achievement_hint"));
 
-        Logger::press_enter();
         remote_desktop_manager_.do_you_want_to_configure_novnc();
     }
 
@@ -341,9 +360,9 @@ namespace tmoe::domain {
             Logger::info("DISPLAY=" + display);
         }
 
-        std::string cmd = env + " xfce4-session 2>/dev/null || " + env + " startxfce4 2>/dev/null || "
-                          + env + " openbox 2>/dev/null &";
-        Executor::passthrough(cmd);
+        // Bash 原版使用系统 Xsession 脚本，支持任意已安装的桌面环境
+        std::string xsession = env + " /etc/X11/xinit/Xsession 2>/dev/null &";
+        Executor::passthrough(xsession);
 
         Logger::ok(std::string(_("gui.xsdl.started")) + display);
         return true;
@@ -465,6 +484,7 @@ namespace tmoe::domain {
 
     void GUIManager::run_vnc_config_menu() {
         while (true) {
+            // 菜单顺序对齐 Bash modify_other_vnc_conf
             std::string menu_cmd = CommandBuilder(cfg_.tui_bin)
                     .add_arg("--title").add_arg(_("gui.vnc_config_title"))
                     .add_arg("--menu")
@@ -473,20 +493,20 @@ namespace tmoe::domain {
                     .add_arg("edit_startvnc").add_arg(_("gui.vnc.edit_startvnc"))
                     .add_arg("1").add_arg(std::string(_("gui.vnc_password")))
                     .add_arg("2").add_arg(std::string(_("gui.vnc_switch_server")))
-                    .add_arg("3").add_arg(std::string(_("gui.vnc_resolution")) + " " +
-                                          std::to_string(vnc_manager_.config().resolution_w) + "x" +
-                                          std::to_string(vnc_manager_.config().resolution_h) + ")")
-                    .add_arg("4").add_arg(std::string(_("gui.vnc_port")) + " " +
-                                          std::to_string(vnc_manager_.config().rfb_port) + ")")
-                    .add_arg("5").add_arg(std::string(_("gui.vnc_depth")) + " " +
-                                          std::to_string(vnc_manager_.config().pixel_depth) + ")")
+                    .add_arg("3").add_arg(std::string(_("gui.vnc_pulseaudio")))
+                    .add_arg("4").add_arg(_("gui.vnc.edit_xsession"))
+                    .add_arg("5").add_arg(_("gui.vnc.edit_tigervnc_config"))
                     .add_arg("6").add_arg(std::string(_("gui.vnc_zlib")) + " " +
                                           std::to_string(vnc_manager_.config().zlib_level) + ")")
-                    .add_arg("7").add_arg(std::string(_("gui.vnc_pulseaudio")))
-                    .add_arg("8").add_arg(_("gui.vnc.edit_xsession"))
-                    .add_arg("9").add_arg(_("gui.vnc.edit_tigervnc_config"))
-                    .add_arg("10").add_arg(_("gui.vnc.window_scaling"))
-                    .add_arg("11").add_arg(_("gui.vnc.wsl_pulseaudio"))
+                    .add_arg("7").add_arg(std::string(_("gui.vnc_depth")) + " " +
+                                          std::to_string(vnc_manager_.config().pixel_depth) + ")")
+                    .add_arg("8").add_arg(_("gui.vnc.window_scaling"))
+                    .add_arg("9").add_arg(std::string(_("gui.vnc_port")) + " " +
+                                          std::to_string(vnc_manager_.config().rfb_port) + ")")
+                    .add_arg("10").add_arg(_("gui.vnc.wsl_pulseaudio"))
+                    .add_arg("11").add_arg(std::string(_("gui.vnc_resolution")) + " " +
+                                           std::to_string(vnc_manager_.config().resolution_w) + "x" +
+                                           std::to_string(vnc_manager_.config().resolution_h) + ")")
                     .add_arg("0").add_arg(std::string(_("menu.tui.back")))
                     .build_string();
 
@@ -522,32 +542,21 @@ namespace tmoe::domain {
                         vnc_manager_.configure_vnc_defaults();
                     }
                 }
-            } else if (choice == "4") {
+            } else if (choice == "9") {
                 std::string port_cmd = CommandBuilder(cfg_.tui_bin)
                         .add_arg("--title").add_arg(std::string(_("gui.port_title")))
-                        .add_arg("--menu").add_arg(std::string(_("gui.port_prompt")))
-                        .add_arg("0").add_arg("0").add_arg("0")
-                        .add_arg("5902").add_arg(std::string(_("gui.port_5902")))
-                        .add_arg("5903").add_arg(std::string(_("gui.port_5903")))
-                        .add_arg("5901").add_arg(std::string(_("gui.port_5901")))
+                        .add_arg("--inputbox").add_arg(std::string(_("gui.port_prompt")))
+                        .add_arg("10").add_arg("50")
+                        .add_arg(std::to_string(vnc_manager_.config().rfb_port))
                         .build_string();
                 std::string port = Executor::tui_select(port_cmd);
                 if (!port.empty()) {
-                    int p = std::stoi(port);
-                    vnc_manager_.config().display = p - 5900;
-                    vnc_manager_.config().rfb_port = p;
-                    Executor::shell(CommandBuilder("sed")
-                                    .add_arg("-i")
-                                    .add_arg("s@tmoe-linux.*:.*@tmoe-linux :" +
-                                             std::to_string(vnc_manager_.config().display) + "@")
-                                    .add_arg("/usr/local/bin/startvnc")
-                                    .build_string() + " 2>/dev/null || true");
-                    Executor::shell(CommandBuilder("sed")
-                                    .add_arg("-i")
-                                    .add_arg("s@VNC_DISPLAY=.*@VNC_DISPLAY=" +
-                                             std::to_string(vnc_manager_.config().display) + "@")
-                                    .add_arg("/usr/local/bin/startvnc")
-                                    .build_string() + " 2>/dev/null || true");
+                    try {
+                        int p = std::stoi(port);
+                        vnc_manager_.config().display = p - 5900;
+                        vnc_manager_.config().rfb_port = p;
+                    } catch (...) {}
+                    vnc_manager_.configure_vnc_defaults();
                 }
             } else if (choice == "5") {
                 std::string depth_cmd = CommandBuilder(cfg_.tui_bin)
@@ -558,20 +567,32 @@ namespace tmoe::domain {
                         .add_arg("16").add_arg(std::string(_("gui.depth_16")))
                         .build_string();
                 std::string depth = Executor::tui_select(depth_cmd);
-                if (!depth.empty()) vnc_manager_.config().pixel_depth = std::stoi(depth);
+                if (!depth.empty()) {
+                    vnc_manager_.config().pixel_depth = std::stoi(depth);
+                    vnc_manager_.configure_vnc_defaults();
+                }
             } else if (choice == "6") {
                 std::string zlib_cmd = CommandBuilder(cfg_.tui_bin)
                         .add_arg("--title").add_arg(std::string(_("gui.zlib_title")))
                         .add_arg("--menu").add_arg(std::string(_("gui.zlib_prompt")))
                         .add_arg("0").add_arg("0").add_arg("0")
-                        .add_arg("0").add_arg(std::string(_("gui.zlib_0")))
-                        .add_arg("3").add_arg(std::string(_("gui.zlib_3")))
-                        .add_arg("6").add_arg(std::string(_("gui.zlib_6")))
-                        .add_arg("9").add_arg(std::string(_("gui.zlib_9")))
+                        .add_arg("0").add_arg("0 (" + std::string(_("gui.zlib_default")) + ")")
+                        .add_arg("1").add_arg("1")
+                        .add_arg("2").add_arg("2")
+                        .add_arg("3").add_arg("3")
+                        .add_arg("4").add_arg("4")
+                        .add_arg("5").add_arg("5")
+                        .add_arg("6").add_arg("6")
+                        .add_arg("7").add_arg("7")
+                        .add_arg("8").add_arg("8")
+                        .add_arg("9").add_arg("9 (" + std::string(_("gui.zlib_highest")) + ")")
                         .build_string();
                 std::string zlib = Executor::tui_select(zlib_cmd);
-                if (!zlib.empty()) vnc_manager_.config().zlib_level = std::stoi(zlib);
-            } else if (choice == "7") {
+                if (!zlib.empty()) {
+                    vnc_manager_.config().zlib_level = std::stoi(zlib);
+                    vnc_manager_.configure_vnc_defaults();
+                }
+            } else if (choice == "3") {
                 std::string pa_cmd = CommandBuilder(cfg_.tui_bin)
                         .add_arg("--title").add_arg(_("gui.vnc.pulse_server_title"))
                         .add_arg("--inputbox")
@@ -597,14 +618,15 @@ namespace tmoe::domain {
                     }
                     Logger::ok(std::string(_("gui.vnc.pulse_server_updated")) + pa_addr);
                 }
-            } else if (choice == "8") {
+            } else if (choice == "4") {
                 std::string editor = std::getenv("EDITOR") ? std::getenv("EDITOR") : "nano";
                 Executor::passthrough(editor + " /etc/X11/xinit/Xsession");
-            } else if (choice == "9") {
+            } else if (choice == "5") {
+                // Bash: 编辑系统级 TigerVNC 配置 /etc/tigervnc/vncserver-config-tmoe
                 std::string editor = std::getenv("EDITOR") ? std::getenv("EDITOR") : "nano";
-                std::string cfg_path = vnc_manager_.config().vnc_home_dir.string() + "/config";
-                Executor::passthrough(editor + " " + cfg_path);
-            } else if (choice == "10") {
+                Executor::passthrough(editor + " /etc/tigervnc/vncserver-config-tmoe 2>/dev/null || "
+                    + editor + " " + vnc_manager_.config().vnc_home_dir.string() + "/config");
+            } else if (choice == "8") {
                 std::string scale_cmd = CommandBuilder(cfg_.tui_bin)
                         .add_arg("--title").add_arg(_("gui.vnc.scaling_title"))
                         .add_arg("--inputbox")
@@ -612,26 +634,33 @@ namespace tmoe::domain {
                         .add_arg("12").add_arg("50").add_arg("1")
                         .build_string();
                 std::string scale = Executor::tui_select(scale_cmd);
-                if (!scale.empty() && (scale == "1" || scale == "2")) {
+                if (!scale.empty()) {
+                    int s = 1;
+                    try { s = std::stoi(scale); } catch (...) {}
                     Executor::shell(CommandBuilder("dbus-launch")
                                     .add_arg("xfconf-query")
                                     .add_arg("-c").add_arg("xsettings")
                                     .add_arg("-t").add_arg("int")
                                     .add_arg("-np").add_arg("/Gdk/WindowScalingFactor")
-                                    .add_arg("-s").add_arg(scale)
+                                    .add_arg("-s").add_arg(std::to_string(s))
                                     .build_string() + " 2>/dev/null || true");
-                    if (scale == "2") {
+                    // Bash: 缩放 > 1 时设置 HiDPI 主题
+                    if (s > 1) {
                         auto os_rel_content = SystemHelper::read_file("/etc/os-release");
                         if (os_rel_content.find("Focal Fossa") != std::string::npos ||
                             os_rel_content.find("focal") != std::string::npos) {
                             Executor::shell(CommandBuilder("dbus-launch")
-                                            .add_arg("xfconf-query")
-                                            .add_arg("-c").add_arg("xfwm4")
-                                            .add_arg("-t").add_arg("string")
-                                            .add_arg("-np").add_arg("/general/theme")
-                                            .add_arg("-s").add_arg("Kali-Light-xHiDPI")
-                                            .build_string() + " 2>/dev/null || true");
-                            Logger::info(_("gui.vnc.focal_hidpi_theme"));
+                                .add_arg("xfconf-query").add_arg("-c").add_arg("xfwm4")
+                                .add_arg("-t").add_arg("string").add_arg("-np").add_arg("/general/theme")
+                                .add_arg("-s").add_arg("Kali-Light-xHiDPI")
+                                .build_string() + " 2>/dev/null || true");
+                        } else {
+                            // Bash 非 Focal 回退: Default-xhdpi
+                            Executor::shell(CommandBuilder("dbus-launch")
+                                .add_arg("xfconf-query").add_arg("-c").add_arg("xfwm4")
+                                .add_arg("-t").add_arg("string").add_arg("-np").add_arg("/general/theme")
+                                .add_arg("-s").add_arg("Default-xhdpi")
+                                .build_string() + " 2>/dev/null || true");
                         }
                     }
                     Logger::ok(std::string(_("gui.vnc.scaling_set")) + scale);
@@ -853,7 +882,7 @@ namespace tmoe::domain {
                 if (!val.empty())
                     Executor::shell(CommandBuilder("sed")
                                     .add_arg("-i")
-                                    .add_arg("s@DISPLAY_NUM=.*@DISPLAY_NUM=" + val + "@")
+                                    .add_arg("s@\\${1:-[^}]*@${1:-127.0.0.1:" + val + "@")
                                     .add_arg(script)
                                     .build_string() + " 2>/dev/null || true");
             } else if (ch == "3") {
@@ -866,7 +895,7 @@ namespace tmoe::domain {
                 if (!val.empty())
                     Executor::shell(CommandBuilder("sed")
                                     .add_arg("-i")
-                                    .add_arg("s@XSDL_IP=.*@XSDL_IP=" + val + "@")
+                                    .add_arg("s@\\${1:-[^:]*@${1:-" + val + "@")
                                     .add_arg(script)
                                     .build_string() + " 2>/dev/null || true");
             } else if (ch == "4") {
@@ -893,7 +922,7 @@ namespace tmoe::domain {
                 if (!val.empty())
                     Executor::shell(CommandBuilder("sed")
                                     .add_arg("-i")
-                                    .add_arg("s@VCXSRV_DISPLAY=.*@VCXSRV_DISPLAY=" + val + "@")
+                                    .add_arg("s@\\${1:-[^}]*@${1:-127.0.0.1:" + val + "@")
                                     .add_arg(script)
                                     .build_string() + " 2>/dev/null || true");
             }
