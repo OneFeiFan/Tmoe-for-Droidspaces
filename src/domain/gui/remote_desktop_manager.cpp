@@ -1191,16 +1191,16 @@ namespace tmoe::domain {
 
     void RemoteDesktopManager::do_you_want_to_configure_novnc() {
         // 对应旧 Bash do_you_want_to_configure_novnc (gui:5792-5826)
-        // Bash 原版：总是安装 noVNC（不询问是/否），交互模式按回车确认，自动模式静默安装
+        // Bash: 终端 printf 引导文本 + do_you_want_to_continue (Y/N read)
         vnc_manager_.check_the_which_command();
         Logger::info(_("gui.novnc.startup_hint"));
         Logger::info(_("gui.novnc.config_complete_hint"));
         Logger::info("------------------------");
         Logger::info(_("gui.novnc.configure_prompt"));
 
-        // Bash: 交互模式 → do_you_want_to_continue（按回车）；自动模式 → if_container_is_arm → ARM 跳过
+        // Bash: 交互模式 → Y/N 终端确认；自动模式 → if_container_is_arm → ARM 跳过
         if (!desktop_manager_.is_auto_install_mode()) {
-            Logger::press_enter();
+            if (!Logger::confirm(_("gui.novnc.confirm_install"))) return;
         } else {
             // Bash if_container_is_arm: ARM 架构在自动模式下跳过 noVNC（包可能不可用）
             bool is_arm = (cfg_.arch.find("arm") != std::string::npos);
