@@ -20,7 +20,19 @@ namespace tmoe::domain {
     const DesktopInfo &XfceDesktop::get_info() const { return info_; }
 
     void XfceDesktop::will_be_installed_message() const {
+        // Bash: 终端 printf 包信息 + 依赖预览
         Logger::info("XFCE: xfce4-session / startxfce4");
+        Logger::info(_("gui.xfce4.package_list"));
+        // Bash: apt-cache depends/pacman -Si/apk info 预览
+        auto family = infer_family_from_config(cfg_.linux_distro);
+        if (family == DistroFamily::Unknown)
+            family = PackageManager::detect_distro_family();
+        if (family == DistroFamily::Debian && Executor::has("apt-cache"))
+            Executor::passthrough("apt-cache depends xfce4 2>/dev/null | head -20 || true");
+        else if (family == DistroFamily::Arch && Executor::has("pacman"))
+            Executor::passthrough("pacman -Si xfdesktop 2>/dev/null || true");
+        else if (Executor::has("apk"))
+            Executor::passthrough("apk info xfce4 2>/dev/null || true");
     }
 
     // ── 阶段2: 装包前版本选择 ──
@@ -115,7 +127,7 @@ namespace tmoe::domain {
     bool XfceDesktop::xfce_warning() const {
         // Bash: 终端输出兼容性表格 + do_you_want_to_continue (终端 read Y/N)
         Logger::info(_("gui.xfce4.warning"));
-        if (!Logger::confirm(_("gui.xfce4.warning.continue"))) {
+        if (!Logger::confirm_yes_default(_("gui.xfce4.warning.continue"))) {
             Logger::warn(_("gui.xfce4.warning.cancelled"));
             return false;
         }

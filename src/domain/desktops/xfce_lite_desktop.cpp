@@ -5,6 +5,8 @@
 #include "domain/system/package_manager.h"
 #include <filesystem>
 
+#include "core/i18n.h"
+
 namespace tmoe::domain {
 
 XfceLiteDesktop::XfceLiteDesktop(const TmoeConfig& cfg)
@@ -16,7 +18,14 @@ std::string XfceLiteDesktop::get_id() const        { return info_.id; }
 const DesktopInfo& XfceLiteDesktop::get_info() const { return info_; }
 
 void XfceLiteDesktop::will_be_installed_message() const {
+    // Bash: 显示 package info + do_you_want_to_continue (Y/N 确认精简安装)
     Logger::info("XFCE Lite: xfce4-session / startxfce4");
+    auto family = infer_family_from_config(cfg_.linux_distro);
+    if (family == DistroFamily::Unknown)
+        family = PackageManager::detect_distro_family();
+    if (family == DistroFamily::Debian && Executor::has("apt-cache"))
+        Executor::passthrough("apt-cache depends xfce4 2>/dev/null | head -20 || true");
+    Logger::info(_("gui.xfce4.lite_confirm"));
 }
 
 // xfce-lite: 跳过壁纸和 papirus 图标，其他和 xfce 一样
