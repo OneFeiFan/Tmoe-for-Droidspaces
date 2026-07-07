@@ -8,3 +8,19 @@ build/
 tmoe_tests
 /.idea/
 /.tmoe-optimized/
+
+# Claude Code 内部状态（仅保留项目共享配置）
+.claude/*
+!.claude/settings.json
+!.claude/settings.local.json
+!.claude/skills/
+!.claude/projects/
+
+# Claude Code GUI
+.claude-code-gui/
+
+# CodeGraph 索引缓存
+.codegraph/
+
+# 工具自动备份
+backups/
