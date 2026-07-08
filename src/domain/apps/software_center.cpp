@@ -383,6 +383,7 @@ namespace tmoe::domain {
     // 4. 🎶 Multimedia — 对应旧 Bash tmoe_multimedia_menu (12项)
     // ═══════════════════════════════════════════════════════════════
     void SoftwareCenter::run_media_menu() {
+        while (true) {
         auto family = infer_family_from_config(cfg_.linux_distro);
         std::string menu = cfg_.tui_bin + " --title \"" + _("swcenter.media_menu")
                            + "\" --menu \"" + _("swcenter.media.menu_prompt") + "\" 0 0 0 "
@@ -420,6 +421,7 @@ namespace tmoe::domain {
         else if (ch == "11") install_with_check("ardour", family);
         else if (ch == "12") install_spotify();
         Logger::press_enter();
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════
