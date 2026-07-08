@@ -403,20 +403,55 @@ namespace tmoe::domain {
             return;
         }
         Logger::step(_("gui.kali.undercover_install"));
-        Executor::shell("mkdir -pv /tmp/.kali-undercover-win10-theme && cd /tmp/.kali-undercover-win10-theme");
-        std::string repo = "https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-undercover";
-        Executor::shell("cd /tmp/.kali-undercover-win10-theme && "
-                        "UNDERCOVERlatestLINK=\"$(curl -L '" + repo + "/' 2>/dev/null | grep all.deb | tail -n 1 | "
-                        "cut -d '=' -f 3 | cut -d '\"' -f 2)\" && "
-                        "(aria2c --console-log-level=warn --no-conf --allow-overwrite=true -s 5 -x 5 -k 1M "
-                        "-o kali-undercover.deb '" + repo + "/'\"$UNDERCOVERlatestLINK\" 2>/dev/null || "
-                        "apt download kali-undercover 2>/dev/null && mv *deb kali-undercover.deb) && "
-                        "ar xv kali-undercover.deb && cd / && "
-                        "sudo tar -Jxvf /tmp/.kali-undercover-win10-theme/data.tar.xz ./usr 2>/dev/null && "
-                        "sudo mv -f /usr/bin/kali-undercover /usr/local/bin/ 2>/dev/null; "
-                        "sudo update-icon-caches /usr/share/icons/Windows-10-Icons 2>/dev/null &");
-        Executor::shell("rm -rfv /tmp/.kali-undercover-win10-theme 2>/dev/null || true");
-        Logger::ok(_("gui.kali.undercover_ok"));
+
+        Executor::shell("mkdir -pv /tmp/.kali-undercover-win10-theme");
+
+        // 优先用 apt download（Kali 基于 Debian，最可靠）
+        bool deb_ok = Executor::shell(
+            "cd /tmp/.kali-undercover-win10-theme && "
+            "apt download kali-undercover 2>/dev/null && "
+            "mv kali-undercover_*.deb kali-undercover.deb"
+        ).ok();
+
+        // fallback: 从镜像站抓取最新 deb 包
+        if (!deb_ok) {
+            std::string repo = "https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-undercover";
+            deb_ok = Executor::shell(
+                "cd /tmp/.kali-undercover-win10-theme && "
+                "UNDERCOVER_LINK=\"$(curl -sL '" + repo + "/' | grep -oP 'href=\"\\K[^\"]+_all\\.deb' | tail -1)\" && "
+                "[ -n \"$UNDERCOVER_LINK\" ] && "
+                "aria2c --console-log-level=warn --no-conf --allow-overwrite=true -s5 -x5 -k1M "
+                "-o kali-undercover.deb '" + repo + "/'\"$UNDERCOVER_LINK\""
+            ).ok();
+        }
+
+        if (!deb_ok) {
+            Logger::error(_("gui.kali.undercover_fail"));
+            Executor::shell("rm -rf /tmp/.kali-undercover-win10-theme 2>/dev/null || true");
+            return;
+        }
+
+        // 解包 deb → 提取 data.tar.* (自动适配 xz/gz/zst 等压缩格式)
+        Executor::shell(
+            "cd /tmp/.kali-undercover-win10-theme && "
+            "ar xv kali-undercover.deb && "
+            "cd / && "
+            "sudo tar -xf /tmp/.kali-undercover-win10-theme/data.tar.* -C / ./usr"
+        );
+
+        // 移动可执行文件
+        Executor::shell("sudo mv -f /usr/bin/kali-undercover /usr/local/bin/ 2>/dev/null || true");
+
+        // 清理临时文件
+        Executor::shell("rm -rf /tmp/.kali-undercover-win10-theme 2>/dev/null || true");
+
+        // 验证安装结果
+        if (fs::exists("/usr/share/icons/Windows-10-Icons")) {
+            Executor::shell("sudo update-icon-caches /usr/share/icons/Windows-10-Icons 2>/dev/null &");
+            Logger::ok(_("gui.kali.undercover_ok"));
+        } else {
+            Logger::error(_("gui.kali.undercover_fail"));
+        }
     }
 
 
@@ -468,10 +503,9 @@ namespace tmoe::domain {
 
 
     void DesktopManager::install_arc_gtk_theme_ext() {
-        Executor::passthrough(cfg_.install_command + " arc-icon-theme 2>/dev/null || true");
         auto family = resolved_family();
         std::string arc_pkg = (family == DistroFamily::Arch) ? "arc-gtk-theme" : "arc-theme";
-        Executor::passthrough(cfg_.install_command + " " + arc_pkg + " 2>/dev/null || true");
+        SystemHelper::install_packages({"arc-icon-theme", arc_pkg}, cfg_.install_command);
     }
 
 
@@ -550,14 +584,19 @@ namespace tmoe::domain {
         if (!Executor::has("update-icon-caches")) create_update_icon_caches();
     }
 
-    void DesktopManager::download_xubuntu_wallpaper(const std::string &code_name, const std::string &) {
+    void DesktopManager::download_xubuntu_wallpaper(const std::string &code_name) {
         Logger::step(_f("gui.wallpaper.xubuntu", code_name));
-        std::string home = SystemHelper::user_home();
-        std::string dest = home + "/Pictures/xubuntu-community-artwork";
-        fs::create_directories(dest);
+        // deb 内部路径为 /usr/share/xfce4/backdrops/，提取到 /（系统根）
         SystemHelper::fetch_latest_and_extract(
             "https://mirrors.bfsu.edu.cn/ubuntu/pool/universe/x/xubuntu-community-artwork/",
-            "xubuntu-community-wallpapers-" + code_name + ".*all\\.deb", "xubuntu_wp", dest);
+            "xubuntu-community-wallpapers-" + code_name + ".*all\\.deb", "xubuntu_wp");
+        // 建 symlink 到用户 Pictures
+        // std::string home = SystemHelper::user_home();
+        // std::string link = home + "/Pictures/xubuntu-community-artwork";
+        // fs::create_directories(SystemHelper::user_pictures_dir());
+        // std::error_code ec;
+        // fs::remove(link, ec);
+        // fs::create_directory_symlink("/usr/share/xfce4/backdrops", link, ec);
     }
 
     void DesktopManager::download_mint_backgrounds(const std::string &mint_code) {

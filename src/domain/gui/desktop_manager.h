@@ -78,7 +78,7 @@ namespace tmoe::domain {
 
         std::string generate_update_icon_caches_script();
 
-        void download_xubuntu_wallpaper(const std::string &code_name, const std::string &folder_name);
+        void download_xubuntu_wallpaper(const std::string &code_name);
 
         void download_ubuntu_mate_wallpaper();
 
