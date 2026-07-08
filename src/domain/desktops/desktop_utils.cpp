@@ -6,6 +6,7 @@
 #include "core/system_helper.h"
 #include "../gui_config/templates.h"
 #include <filesystem>
+#include <sstream>
 #include <algorithm>
 
 namespace fs = std::filesystem;
@@ -21,15 +22,29 @@ namespace tmoe::domain::desktop_utils {
         auto lang = std::string(I18n::current_lang());
         if (lang.find("zh") != 0) return;
 
-        std::vector<std::string> pkgs = {"language-pack-zh-hans"};
         auto family = infer_family_from_config(cfg.linux_distro);
         if (family == DistroFamily::Unknown)
             family = PackageManager::detect_distro_family();
 
+        // Quick path: zh_CN base language packs
+        std::vector<std::string> pkgs = {"language-pack-zh-hans"};
         if (Executor::has("startplasma-x11") || Executor::has("plasmashell"))
             pkgs.emplace_back("language-pack-kde-zh-hans");
         if (Executor::has("gnome-shell") || Executor::has("gnome-session"))
             pkgs.emplace_back("language-pack-gnome-zh-hans");
+
+        // Install language-selector-common to get check-language-support
+        PackageManager::install("language-selector-common", family);
+
+        // Run check-language-support to find all missing language packs
+        auto result = Executor::shell("check-language-support 2>/dev/null");
+        if (result.ok() && !result.stdout_data.empty()) {
+            std::istringstream iss(result.stdout_data);
+            std::string pkg;
+            while (iss >> pkg) {
+                pkgs.push_back(pkg);
+            }
+        }
 
         PackageManager::install(pkgs, family);
     }
@@ -43,6 +58,9 @@ namespace tmoe::domain::desktop_utils {
 
     void dpkg_configure_and_keyboard(bool is_debian) {
         if (!is_debian) return;
+        Executor::passthrough("printf 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections 2>/dev/null || true");
+        Executor::passthrough("printf 'keyboard-configuration keyboard-configuration/layout select English (US)' | sudo debconf-set-selections 2>/dev/null || true");
+        Executor::passthrough("echo keyboard-configuration keyboard-configuration/layoutcode select us | sudo debconf-set-selections 2>/dev/null || true");
         Executor::passthrough("sudo dpkg --configure -a 2>/dev/null || true");
     }
 
