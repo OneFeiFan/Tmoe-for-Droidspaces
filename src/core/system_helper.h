@@ -30,7 +30,7 @@ public:
     static bool fetch_latest_and_extract(const std::string &repo_url,
                                           const std::string &pkg_pattern,
                                           const std::string &tmp_prefix,
-                                          const std::string &extract_to = "/");
+                                          const std::string &extract_to = "/usr/share/backgrounds");
 
     /** git clone 浅克隆 + tar 解压到目标目录。 */
     static bool git_clone_and_extract(const std::string &git_url,
@@ -45,6 +45,9 @@ public:
     // ---------- 用户路径 ----------
     /** 获取真实用户 home 路径（兼容 sudo 环境）。 */
     static std::string user_home();
+
+    /** 获取用户图片目录：$XDG_PICTURES_DIR → ~/.config/user-dirs.dirs → ~/Pictures */
+    static std::string user_pictures_dir();
 
 
     /** 从 HTML 索引页中查找匹配正则的最新包文件名。 */
