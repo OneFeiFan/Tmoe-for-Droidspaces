@@ -6,7 +6,7 @@ struct DeepinDesktop : DesktopBase {
     std::string get_id() const override { return info_.id; }
     const DesktopInfo& get_info() const override { return info_; }
     bool recommends_tiger_vnc() const override { return true; }
-    void will_be_installed_message() const override { Logger::info("Deepin: deepin-session / deepin-launcher"); }
+    void will_be_installed_message() const override;
     PreInstallChoices pre_install_choices(DistroFamily, bool) override;
     void post_install_config(const PostInstallContext&) override;
     void post_install_extras(const PostInstallContext&) override;
