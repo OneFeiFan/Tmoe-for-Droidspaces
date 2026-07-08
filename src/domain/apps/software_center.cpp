@@ -1,14 +1,19 @@
 #include "domain/apps/software_center.h"
+#include "domain/apps/media_tools.h"
 #include "core/i18n.h"
 #include "core/executor.h"
 #include "core/logger.h"
 #include "core/config.h"
 #include "core/command_builder.hpp"
+#include "core/system_helper.h"
 #include "domain/system/package_manager.h"
 
 namespace tmoe::domain {
-    SoftwareCenter::SoftwareCenter(const TmoeConfig &cfg) : cfg_(cfg) {
+    SoftwareCenter::SoftwareCenter(const TmoeConfig &cfg) : cfg_(cfg),
+        media_tools_(std::make_unique<MediaTools>(cfg)) {
     }
+
+    SoftwareCenter::~SoftwareCenter() = default;
 
     void SoftwareCenter::run_software_center_menu() {
         while (true) {
@@ -381,37 +386,164 @@ namespace tmoe::domain {
         auto family = infer_family_from_config(cfg_.linux_distro);
         std::string menu = cfg_.tui_bin + " --title \"" + _("swcenter.media_menu")
                            + "\" --menu \"" + _("swcenter.media.menu_prompt") + "\" 0 0 0 "
-                           "\"1\"  \"🗜️ " + _("swcenter.batch_compress") + "\" "
-                           "\"2\"  \"📽️ " + _("swcenter.mpv") + "\" "
-                           "\"3\"  \"🎥 " + _("swcenter.smplayer") + "\" "
-                           "\"4\"  \"🇵 " + _("swcenter.peek") + "\" "
-                           "\"5\"  \"🖼 " + _("swcenter.gimp") + "\" "
+                           "\"1\"  \"" + _("swcenter.batch_compress") + "\" "
+                           "\"2\"  \"" + _("swcenter.mpv") + "\" "
+                           "\"3\"  \"" + _("swcenter.smplayer") + "\" "
+                           "\"4\"  \"" + _("swcenter.peek") + "\" "
+                           "\"5\"  \"" + _("swcenter.gimp") + "\" "
                            "\"6\"  \"" + _("swcenter.kolourpaint") + "\" "
-                           "\"7\"  \"🍊 " + _("swcenter.clementine") + "\" "
-                           "\"8\"  \"🎞️ " + _("swcenter.parole") + "\" "
-                           "\"9\"  \"🎧 " + _("swcenter.netease") + "\" "
-                           "\"10\" \"🎼 " + _("swcenter.audacity") + "\" "
-                           "\"11\" \"🎶 " + _("swcenter.ardour") + "\" "
+                           "\"7\"  \"" + _("swcenter.clementine") + "\" "
+                           "\"8\"  \"" + _("swcenter.parole") + "\" "
+                           "\"9\"  \"" + _("swcenter.netease") + "\" "
+                           "\"10\" \"" + _("swcenter.audacity") + "\" "
+                           "\"11\" \"" + _("swcenter.ardour") + "\" "
                            "\"12\" \"" + _("swcenter.spotify") + "\" "
                            "\"0\"  \"" + _("menu.tui.back") + "\"";
         auto ch = Executor::tui_select(menu);
         if (ch == "0" || ch.empty()) return;
 
         if (ch == "1") {
-            Logger::step(_("swcenter.media.batch_compress_step"));
-            PackageManager::install("imagemagick", family);
-        } else if (ch == "2") PackageManager::install("mpv", family);
-        else if (ch == "3") PackageManager::install("smplayer", family);
-        else if (ch == "4") PackageManager::install("peek", family);
-        else if (ch == "5") PackageManager::install("gimp", family);
-        else if (ch == "6") PackageManager::install("kolourpaint", family);
-        else if (ch == "7") PackageManager::install("clementine", family);
-        else if (ch == "8") PackageManager::install("parole", family);
-        else if (ch == "9") PackageManager::install("netease-cloud-music", family);
-        else if (ch == "10") PackageManager::install("audacity", family);
-        else if (ch == "11") PackageManager::install("ardour", family);
-        else if (ch == "12") PackageManager::install("spotify-client", family);
+            media_tools_->run_image_compression_menu();
+        } else if (ch == "2") {
+            if (family == DistroFamily::RedHat)
+                install_with_check("kmplayer", family);
+            else
+                install_with_check("mpv", family);
+        } else if (ch == "3") install_with_check("smplayer", family);
+        else if (ch == "4") install_with_check("peek", family);
+        else if (ch == "5") install_with_check("gimp", family);
+        else if (ch == "6") install_with_check("kolourpaint", family);
+        else if (ch == "7") install_with_check("clementine", family);
+        else if (ch == "8") install_with_check("parole", family);
+        else if (ch == "9") install_netease_cloud_music();
+        else if (ch == "10") install_with_check("audacity", family);
+        else if (ch == "11") install_with_check("ardour", family);
+        else if (ch == "12") install_spotify();
         Logger::press_enter();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // install_with_check — 模拟 Bash beta_features_quick_install
+    // ═══════════════════════════════════════════════════════════════
+    void SoftwareCenter::install_with_check(const std::string &pkg, DistroFamily family) {
+        if (Executor::has(pkg)) {
+            Logger::info(_f("swcenter.already_installed", pkg));
+            if (!Logger::confirm_yes_default(_f("swcenter.reinstall_confirm", pkg)))
+                return;
+        }
+        Logger::step(_f("swcenter.installing", pkg));
+        PackageManager::install(pkg, family);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // install_spotify — 还原 Bash install_spotify (line 502-532)
+    // ═══════════════════════════════════════════════════════════════
+    void SoftwareCenter::install_spotify() {
+        if (cfg_.arch != "amd64") {
+            Logger::error(_("swcenter.spotify.arch_unsupported"));
+            return;
+        }
+
+        Logger::info("https://www.spotify.com/tw/download/linux/");
+        auto family = infer_family_from_config(cfg_.linux_distro);
+
+        if (family == DistroFamily::Debian) {
+            Logger::step(_("swcenter.spotify.installing"));
+            // 下载并安装 GPG 公钥
+            Executor::passthrough(
+                "curl -LsS https://download.spotify.com/debian/pubkey.gpg | "
+                "gpg --dearmor > /tmp/spotify.gpg && "
+                "sudo install -o root -g root -m 644 /tmp/spotify.gpg "
+                "/etc/apt/trusted.gpg.d/spotify.gpg && rm -f /tmp/spotify.gpg");
+            Executor::passthrough(
+                "curl -LsS https://download.spotify.com/debian/pubkey_0D811D58.gpg | "
+                "gpg --dearmor > /tmp/spotify_pub.gpg && "
+                "sudo install -o root -g root -m 644 /tmp/spotify_pub.gpg "
+                "/etc/apt/trusted.gpg.d/spotify_pub.gpg && rm -f /tmp/spotify_pub.gpg");
+            // 添加 apt 源
+            SystemHelper::write_file("/etc/apt/sources.list.d/spotify.list",
+                "deb http://repository.spotify.com stable non-free\n");
+            Logger::info(_("swcenter.spotify.uninstall_hint"));
+            PackageManager::update(family);
+            PackageManager::install("spotify-client", family);
+        } else if (family == DistroFamily::Arch) {
+            Logger::info(_("swcenter.spotify.arch_hint"));
+            PackageManager::install("spotify", family);
+        } else {
+            Logger::info(_("swcenter.spotify.use_snap"));
+            Executor::passthrough("sudo snap install spotify");
+        }
+        Logger::ok(_("swcenter.spotify.install_done"));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // install_netease_cloud_music — 还原 Bash (line 1030-1098)
+    // ═══════════════════════════════════════════════════════════════
+    void SoftwareCenter::install_netease_cloud_music() {
+        auto family = infer_family_from_config(cfg_.linux_distro);
+
+        // 下载图标
+        std::string icon_dir = cfg_.work_dir.string() + "/icons";
+        std::string icon_file = icon_dir + "/netease-cloud-music.jpg";
+        if (!fs::exists(icon_file)) {
+            Executor::shell("sudo mkdir -pv " + icon_dir);
+            Executor::passthrough(
+                "sudo aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
+                "-d " + icon_dir + " -o netease-cloud-music.jpg "
+                "\"https://gitee.com/ak2/icons/raw/master/netease-cloud-music.jpg\"");
+        }
+
+        Logger::step(_("swcenter.netease.checking_version"));
+        Logger::info(_("swcenter.netease.manual_hint") + std::string(": https://music.163.com/st/download"));
+
+        // 从优麒麟仓库获取版本号
+        std::string kylin_repo = "http://archive.ubuntukylin.com/software/pool/partner/";
+        auto ver_result = Executor::shell(
+            "curl -sL '" + kylin_repo + "' 2>/dev/null | "
+            "grep netease-cloud-music | grep -oP 'href=\"\\K[^\"]+' | head -1");
+        std::string latest_ver = ver_result.stdout_data;
+        while (!latest_ver.empty() && (latest_ver.back() == '\n' || latest_ver.back() == '\r'))
+            latest_ver.pop_back();
+
+        if (!latest_ver.empty())
+            Logger::info(_f("swcenter.netease.version_detected", latest_ver));
+
+        // 架构检查
+        if (cfg_.arch != "amd64" && cfg_.arch != "i386" && family != DistroFamily::Arch) {
+            Logger::error(_("swcenter.netease.arch_unsupported"));
+            return;
+        }
+
+        if (family == DistroFamily::Arch) {
+            PackageManager::install("netease-cloud-music", family);
+        } else if (family == DistroFamily::RedHat) {
+            Executor::passthrough("curl -LsS https://dl.senorsen.com/pub/package/linux/add_repo.sh | sudo bash");
+            Executor::passthrough("sudo dnf install -y "
+                "http://dl-http.senorsen.com/pub/package/linux/rpm/senorsen-repo-0.0.1-1.noarch.rpm");
+            Executor::passthrough("sudo dnf install -y netease-cloud-music");
+        } else {
+            // Debian 系：从优麒麟或debiancn下载deb
+            std::string deb_url;
+            if (cfg_.arch == "amd64") {
+                deb_url = kylin_repo;
+            } else {
+                deb_url = "http://mirrors.ustc.edu.cn/debiancn/pool/main/n/netease-cloud-music/";
+            }
+            Executor::passthrough(
+                "cd /tmp && "
+                "LATEST=$(curl -sL '" + deb_url + "' 2>/dev/null | "
+                "  grep netease-cloud-music | grep -oP 'href=\"\\K[^\"]+' | tail -1) && "
+                "aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
+                "  -s 5 -x 5 -k 1M -o netease-cloud-music.deb "
+                "  \"" + deb_url + "${LATEST}\" && "
+                "sudo apt install -y ./netease-cloud-music.deb || sudo apt install -f -y && "
+                "rm -f netease-cloud-music.deb");
+        }
+
+        // 保存版本信息
+        std::string ver_path = cfg_.work_dir.string() + "/netease-cloud-music-version";
+        Executor::shell("echo '" + latest_ver + "' | sudo tee " + ver_path + " > /dev/null");
+        Logger::ok(_("swcenter.netease.install_done"));
     }
 
     // ═══════════════════════════════════════════════════════════════

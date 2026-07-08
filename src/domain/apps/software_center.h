@@ -3,13 +3,18 @@
 #pragma once
 #include "core/config.h"
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
+#include "domain/system/package_manager.h"
+
 namespace tmoe::domain {
+    class MediaTools;
     class SoftwareCenter {
     public:
         explicit SoftwareCenter(const TmoeConfig &cfg);
+        ~SoftwareCenter();
 
         void run_software_center_menu();
 
@@ -78,6 +83,11 @@ namespace tmoe::domain {
 
         void run_debian_opt_menu();
 
+        // ── 多媒体安装 (还原Bash体验) ──
+        void install_spotify();
+        void install_netease_cloud_music();
+        void install_with_check(const std::string &pkg, DistroFamily family);
+
         const TmoeConfig &cfg_;
         std::string apps_lnk_dir_ = "/usr/share/applications";
         std::function<void()> browser_cb_;
@@ -85,6 +95,7 @@ namespace tmoe::domain {
         std::function<void()> office_cb_;
         std::function<void()> download_cb_;
         std::function<void()> zsh_cb_;
+        std::unique_ptr<MediaTools> media_tools_;
     };
 } // namespace tmoe::domain
 #endif
