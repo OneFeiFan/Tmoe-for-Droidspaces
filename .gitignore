@@ -11,10 +11,7 @@ tmoe_tests
 
 # Claude Code 内部状态（仅保留项目共享配置）
 .claude/*
-!.claude/settings.json
-!.claude/settings.local.json
 !.claude/skills/
-!.claude/projects/
 
 # Claude Code GUI
 .claude-code-gui/
