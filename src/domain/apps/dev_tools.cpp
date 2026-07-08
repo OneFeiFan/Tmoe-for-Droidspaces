@@ -85,11 +85,11 @@ namespace tmoe::domain {
                     break;
 
                 case 6: // CLion
-                    grep_name_ = "clion-1";
-                    lnk_file_ = "clion-1.desktop";
-                    bin_file_ = "/opt/clion-1/bin/clion.sh";
-                    icon_name_ = "clion-1.png";
-                    app_opt_dir_ = "/opt/clion-1";
+                    grep_name_ = "clion";
+                    lnk_file_ = "clion.desktop";
+                    bin_file_ = "/opt/clion/bin/clion.sh";
+                    icon_name_ = "clion.png";
+                    app_opt_dir_ = "/opt/clion";
                     run_ide_submenu_01();
                     break;
 
@@ -294,7 +294,7 @@ namespace tmoe::domain {
             }
 
             // Symlink
-            Executor::shell(CommandBuilder("ln").add_flag("-sfv")
+            Executor::shell(CommandBuilder("sudo").add_arg("ln").add_flag("-sfv")
                 .add_arg("/usr/share/code/bin/code").add_arg("/usr/bin").build_string());
             Logger::ok(_("devtools.ok.vscode_install_done"));
         }
@@ -764,9 +764,9 @@ namespace tmoe::domain {
 
         if (!fs::exists(tmoe_linux_dir + "/lib/libxcb.so.1")) {
             Executor::shell(
-                "mkdir -pv " + tmoe_linux_dir + "/lib && "
-                "cp " + gnu_libxcb + " " + tmoe_linux_dir + "/lib/libxcb.so.1 && "
-                "sed -i 's@BIG-REQUESTS@_IG-REQUESTS@' " + tmoe_linux_dir + "/lib/libxcb.so.1"
+                "sudo mkdir -pv " + tmoe_linux_dir + "/lib && "
+                "sudo cp " + gnu_libxcb + " " + tmoe_linux_dir + "/lib/libxcb.so.1 && "
+                "sudo sed -i 's@BIG-REQUESTS@_IG-REQUESTS@' " + tmoe_linux_dir + "/lib/libxcb.so.1"
             );
         }
 
@@ -1049,7 +1049,7 @@ namespace tmoe::domain {
             SystemHelper::write_file(apps_lnk_dir_.string() + "/github-desktop.desktop", desktop_content);
             // 获取图标
             Executor::shell(
-                "curl -sL https://raw.githubusercontent.com/shiftkey/desktop/development/app/static/logos/256x256.png -o /usr/share/pixmaps/github-desktop.png 2>/dev/null || true");
+                "sudo curl -sL https://raw.githubusercontent.com/shiftkey/desktop/development/app/static/logos/256x256.png -o /usr/share/pixmaps/github-desktop.png 2>/dev/null || true");
         }
 
         // 记录版本，供菜单比对
@@ -1135,7 +1135,7 @@ namespace tmoe::domain {
         if (grep_name_.find("idea") != std::string::npos) pattern = "*idea*";
         else if (grep_name_.find("pycharm") != std::string::npos) pattern = "*pycharm*";
         else if (grep_name_ == "webstorm") pattern = "*WebStorm*";
-        else if (grep_name_ == "clion-1") pattern = "*CLion*";
+        else if (grep_name_ == "clion") pattern = "*CLion*";
         else if (grep_name_ == "goland") pattern = "*GoLand*";
         else if (grep_name_ == "github-desktop-bin") pattern = "*GitHubDesktop*";
 
@@ -1202,7 +1202,7 @@ namespace tmoe::domain {
             if (grep_name_.find("intellij-idea") != std::string::npos) cli_link = "/usr/local/bin/idea";
             else if (grep_name_.find("pycharm") != std::string::npos) cli_link = "/usr/local/bin/pycharm";
             else if (grep_name_ == "webstorm") cli_link = "/usr/local/bin/webstorm";
-            else if (grep_name_ == "clion-1") cli_link = "/usr/local/bin/clion";
+            else if (grep_name_ == "clion") cli_link = "/usr/local/bin/clion";
             else if (grep_name_ == "goland") cli_link = "/usr/local/bin/goland";
         }
 
@@ -1228,9 +1228,9 @@ namespace tmoe::domain {
                     "tac '" + manifest_file + "' | while read -r item; do "
                     "  target=\"/${item}\"; "
                     "  if [ -f \"$target\" ] || [ -L \"$target\" ]; then "
-                    "    rm -f \"$target\"; "
+                    "    sudo rm -f \"$target\"; "
                     "  elif [ -d \"$target\" ]; then "
-                    "    rmdir \"$target\" 2>/dev/null || true; "
+                    "    sudo rmdir \"$target\" 2>/dev/null || true; "
                     "  fi; "
                     "done";
             Executor::shell(clean_cmd);
@@ -1239,24 +1239,24 @@ namespace tmoe::domain {
         }
 
         if (is_jetbrains) {
-            Executor::shell(CommandBuilder("rm").add_flag("-rf").add_arg(app_opt_dir_)
+            Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf").add_arg(app_opt_dir_)
                 .add_raw("2>/dev/null").build_string());
-            Executor::shell(CommandBuilder("rm").add_flag("-f")
+            Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-f")
                 .add_arg(lnk_dir + "/" + lnk_file_)
                 .add_raw("2>/dev/null").build_string());
-            if (!cli_link.empty()) Executor::shell(CommandBuilder("rm").add_flag("-f")
+            if (!cli_link.empty()) Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-f")
                 .add_arg(cli_link).add_raw("2>/dev/null").build_string());
             Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(version_file)
                 .add_raw("2>/dev/null").build_string());
 
             if (grep_name_.find("intellij-idea-community") != std::string::npos) {
-                Executor::shell(CommandBuilder("rm").add_flag("-rf")
+                Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
                     .add_arg("/usr/share/licenses/idea")
                     .add_arg("/usr/share/icons/hicolor/scalable/apps/idea.svg")
                     .add_raw("2>/dev/null").build_string());
             }
             if (grep_name_.find("pycharm-community") != std::string::npos) {
-                Executor::shell(CommandBuilder("rm").add_flag("-rf")
+                Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
                     .add_arg("/usr/share/licenses/pycharm")
                     .add_arg("/usr/share/icons/hicolor/scalable/apps/pycharm.svg")
                     .add_raw("2>/dev/null").build_string());
@@ -1267,14 +1267,14 @@ namespace tmoe::domain {
             PackageManager::remove("github-desktop", PackageManager::detect_distro_family());
 
             // 清理残余的 AppImage 配置和版本号文件
-            Executor::shell(CommandBuilder("rm").add_flag("-rvf")
+            Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rvf")
                 .add_arg("/opt/github-desktop")
                 .add_arg("/usr/share/pixmaps/github-desktop.png")
                 .add_arg(apps_lnk_dir_.string() + "/github-desktop.desktop")
                 .add_arg(download_path_.string() + "/" + grep_name_ + "-version.txt")
                 .add_raw("2>/dev/null").build_string());
         } else {
-            Executor::shell(CommandBuilder("rm").add_flag("-rvf")
+            Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rvf")
                 .add_arg(app_opt_dir_)
                 .add_arg(lnk_dir + "/" + lnk_file_)
                 .add_arg("/usr/share/pixmaps/" + icon_name_)
@@ -1305,9 +1305,9 @@ namespace tmoe::domain {
             return;
 
         // 主目录 + 桌面图标 + 版本记录
-        Executor::shell(CommandBuilder("rm").add_flag("-rf").add_arg(app_opt_dir_)
+        Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf").add_arg(app_opt_dir_)
             .add_raw("2>/dev/null").build_string());
-        Executor::shell(CommandBuilder("rm").add_flag("-f")
+        Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-f")
             .add_arg(lnk_dir + "/" + lnk_file_)
             .add_raw("2>/dev/null").build_string());
         Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(version_file)
@@ -1562,10 +1562,10 @@ namespace tmoe::domain {
 
         std::string extract_cmd =
                 "if command -v pv >/dev/null 2>&1; then "
-                "  pv '" + pkg_full_path + "' | tar --use-compress-program zstd -Ppxf - -C / --exclude=.*; "
+                "  pv '" + pkg_full_path + "' | sudo tar --use-compress-program zstd -Ppxf - -C / --exclude=.*; "
                 "else "
                 "  echo '正在后台解压，请稍候...'; "
-                "  tar --use-compress-program zstd -Ppxf '" + pkg_full_path + "' -C / --exclude=.*; "
+                "  sudo tar --use-compress-program zstd -Ppxf '" + pkg_full_path + "' -C / --exclude=.*; "
                 "fi";
 
         auto extract_ret = Executor::passthrough(extract_cmd);
@@ -1597,7 +1597,7 @@ namespace tmoe::domain {
         if (grep_name_ == "intellij-idea-community-edition") return "IIC";
         if (grep_name_ == "pycharm-community-edition") return "PCC";
         if (grep_name_ == "webstorm") return "WS";
-        if (grep_name_ == "clion-1") return "CL";
+        if (grep_name_ == "clion") return "CL";
         if (grep_name_ == "goland") return "GO";
         return ""; // 非 JetBrains 产品
     }
@@ -1671,7 +1671,7 @@ namespace tmoe::domain {
             icon = "bin/webstorm.png";
             display_name = "WebStorm";
             wm_class = "jetbrains-webstorm";
-        } else if (grep_name_ == "clion-1") {
+        } else if (grep_name_ == "clion") {
             launcher = "bin/clion";
             icon = "bin/clion.png";
             display_name = "CLion";
@@ -1723,7 +1723,7 @@ namespace tmoe::domain {
             cli_name = "pycharm";
         else if (grep_name_ == "webstorm")
             cli_name = "webstorm";
-        else if (grep_name_ == "clion-1")
+        else if (grep_name_ == "clion")
             cli_name = "clion";
         else if (grep_name_ == "goland")
             cli_name = "goland";
@@ -1793,7 +1793,7 @@ namespace tmoe::domain {
 
         if (!extract_ret.ok()) {
             Logger::error(_("devtools.error.extract_failed_rollback"));
-            Executor::shell(CommandBuilder("rm").add_flag("-rf")
+            Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
                 .add_arg("/opt/" + extracted_dir)
                 .add_raw("2>/dev/null").build_string());
             return false;
@@ -1898,7 +1898,7 @@ namespace tmoe::domain {
         if (!extract_ret.ok()) {
             Logger::error(_("devtools.error.extract_failed_rollback"));
             if (!extracted_dir.empty()) {
-                Executor::shell(CommandBuilder("rm").add_flag("-rf")
+                Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
                 .add_arg("/opt/" + extracted_dir)
                 .add_raw("2>/dev/null").build_string());
             }

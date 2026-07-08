@@ -113,7 +113,7 @@ namespace tmoe::domain {
         if (fs::exists("/opt/electron/electron")) return;
 
         Logger::step(_("swcenter.electron.install_runtime"));
-        CommandBuilder("mkdir").add_flag("-pv").add_arg("/opt").execute();
+        CommandBuilder("sudo").add_arg("mkdir").add_flag("-pv").add_arg("/opt/electron").execute();
 
         // 下载最新 Electron
         auto result = Executor::passthrough(
@@ -123,7 +123,7 @@ namespace tmoe::domain {
             "rm -rf .electron_tmp 2>/dev/null; mkdir -pv .electron_tmp; cd .electron_tmp; "
             "aria2c --console-log-level=warn --no-conf --continue=true "
             "--allow-overwrite=true -s 3 -x 3 -k 1M -o electron.zip \"${ELECTRON_URL}\" && "
-            "unzip -qo electron.zip -d /opt/electron && "
+            "sudo unzip -qo electron.zip -d /opt/electron && "
             "sudo chmod a+rx /opt/electron/electron && "
             "sudo ln -sf /opt/electron/electron /usr/bin/electron"
         );
@@ -145,7 +145,7 @@ namespace tmoe::domain {
 
         CommandBuilder("rm").add_flag("-rf").add_arg(tmp_dir).add_raw("2>/dev/null").execute();
         CommandBuilder("mkdir").add_flag("-pv").add_arg(tmp_dir).execute();
-        CommandBuilder("mkdir").add_flag("-pv").add_arg("/opt").execute();
+        CommandBuilder("sudo").add_arg("mkdir").add_flag("-pv").add_arg("/opt").execute();
 
         Logger::step(_f("swcenter.electron.downloading", app_name));
         auto dl_ret = Executor::passthrough(
@@ -185,15 +185,15 @@ namespace tmoe::domain {
         // 修复权限并复制 .desktop 文件
         Executor::shell(
             "sudo chmod -Rv 755 /opt/" + app_name + "/usr/bin/ 2>/dev/null || true; "
-            "find /opt/" + app_name + " -type d -print | xargs chmod -v a+rx 2>/dev/null || true; "
-            "find /opt/" + app_name + " -type f -print | xargs chmod a+r 2>/dev/null || true"
+            "find /opt/" + app_name + " -type d -print | xargs sudo chmod -v a+rx 2>/dev/null || true; "
+            "find /opt/" + app_name + " -type f -print | xargs sudo chmod a+r 2>/dev/null || true"
         );
 
         // 复制 .desktop 到系统
         Executor::shell(
             "cd /opt/" + app_name + " && "
             "if [ -e ." + apps_lnk_dir_ + "/" + app_name + ".desktop ]; then "
-            "  cp -vf ." + apps_lnk_dir_ + "/" + app_name + ".desktop " + apps_lnk_dir_ + "/; "
+            "  sudo cp -vf ." + apps_lnk_dir_ + "/" + app_name + ".desktop " + apps_lnk_dir_ + "/; "
             "fi"
         );
 
@@ -206,7 +206,7 @@ namespace tmoe::domain {
         Logger::warn("  rm -rv /opt/" + app_name + " " + apps_lnk_dir_ + "/" + app_name + ".desktop");
         if (!Logger::confirm(_f("swcenter.electron.confirm_remove", app_name)))
             return;
-        CommandBuilder("rm").add_flag("-rf")
+        CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
             .add_arg("/opt/" + app_name)
             .add_arg(apps_lnk_dir_ + "/" + app_name + ".desktop")
             .add_raw("2>/dev/null").execute();
@@ -356,7 +356,7 @@ namespace tmoe::domain {
                 Logger::warn(_("swcenter.electron.mgr_remove_warn"));
                 Logger::warn(_("swcenter.electron.runtime_rm_path_warn"));
                 if (Logger::confirm(_("swcenter.electron.mgr_confirm_remove"))) {
-                    CommandBuilder("rm").add_flag("-rf")
+                    CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
                         .add_arg("/opt/electron")
                         .add_arg("/usr/bin/electron")
                         .add_raw("2>/dev/null").execute();
