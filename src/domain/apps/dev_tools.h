@@ -115,9 +115,6 @@ namespace tmoe::domain {
         /** 从 archlinuxcn 抓取最新 .pkg.tar.zst 版本号 */
         std::string fetch_latest_archlinuxcn_version();
 
-        /** 下载并解压 archlinuxcn 的 tar.zst 包 (仅 github-desktop 等非 JetBrains 包) */
-        bool download_and_extract_arch_pkg();
-
         /** 根据 grep_name_ 返回 JetBrains 产品代码 (空=非 JetBrains) */
         std::string jetbrains_product_code() const;
 

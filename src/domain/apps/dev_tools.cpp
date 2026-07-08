@@ -288,9 +288,8 @@ namespace tmoe::domain {
             if (!share_ret.ok()) {
                 Logger::warn(_("devtools.warn.vscode_share_failed"));
             } else {
-                Executor::passthrough(
-                    "cd /tmp && sudo tar -Jxvf .VSCODE_USR_SHARE.tar.xz -C /; rm -vf .VSCODE_USR_SHARE.tar.xz"
-                );
+                SystemHelper::extract_archive("/tmp/.VSCODE_USR_SHARE.tar.xz", "/");
+                Executor::shell("rm -vf /tmp/.VSCODE_USR_SHARE.tar.xz");
             }
 
             // Symlink
@@ -665,11 +664,8 @@ namespace tmoe::domain {
             }
 
             // 解压
-            Executor::passthrough(
-                "sudo mkdir -pv /opt/vscodium-data && "
-                "cd /tmp && sudo tar -zxvf VSCodium.tar.gz -C /opt/vscodium-data && "
-                "rm -vf VSCodium.tar.gz"
-            );
+            SystemHelper::extract_archive("/tmp/VSCodium.tar.gz", "/opt/vscodium-data");
+            Executor::shell("rm -vf /tmp/VSCodium.tar.gz");
 
             // Create launcher script /usr/local/bin/codium
             std::string codium_script =
@@ -685,9 +681,8 @@ namespace tmoe::domain {
                     "    esac\n"
                     "    ;;\n"
                     "esac\n";
-            Executor::shell(
-                "sudo sh -c 'cat > /usr/local/bin/codium' <<'CODIUMEOF'\n" + codium_script +
-                "CODIUMEOF\nsudo chmod a+rx /usr/local/bin/codium");
+            SystemHelper::write_file("/usr/local/bin/codium", codium_script);
+            Executor::shell("sudo chmod a+rx /usr/local/bin/codium");
 
             // Create desktop file
             std::string lnk_dir = apps_lnk_dir_.string();
@@ -1482,110 +1477,6 @@ namespace tmoe::domain {
         }
     }
 
-    bool DeveloperTools::download_and_extract_arch_pkg() {
-        check_download_path();
-
-        std::string dl_path = download_path_.string();
-        const char *curl_opts = "--connect-timeout 15 --max-time 60 -sL";
-
-        Logger::step(_("devtools.step.downloading") + grep_name_ + " ...");
-
-        // 根据版本类型选择镜像源
-        std::string mirror_list;
-        if (community_edition_) {
-            // 社区版 → Arch Linux community 镜像
-            mirror_list =
-                    "'https://mirrors.kernel.org/archlinux/community/os/x86_64/' "
-                    "'https://mirror.rackspace.com/archlinux/community/os/x86_64/' "
-                    "'https://mirrors.bfsu.edu.cn/archlinux/community/os/x86_64/'";
-        } else {
-            // 旗舰版 → archlinuxcn 镜像
-            mirror_list =
-                    "'https://mirrors.bfsu.edu.cn/archlinuxcn/x86_64/' "
-                    "'https://mirrors.tuna.tsinghua.edu.cn/archlinuxcn/x86_64/' "
-                    "'https://repo.archlinuxcn.org/x86_64/'";
-        }
-
-        // 步骤1: 查找并下载 .pkg.tar.zst (passthrough 显示实时进度)
-        auto dl_ret = Executor::passthrough(
-            "cd " + dl_path + " && "
-            "for url in " + mirror_list + "; do "
-            "  echo '🔍 正在扫描: '${url}' ...'; "
-            "  LATEST_PKG=$(curl " + std::string(curl_opts) + " \"${url}\" 2>/dev/null | "
-            "    grep '\\.pkg\\.tar\\.zst' | grep -Ev '\\.sig' | "
-            "    grep -v '\\-jre\\-' | grep '" + grep_name_ + "' | tail -n 1 | "
-            "    grep -oP 'href=\"\\K[^\"]+' || true); "
-            "  if [ -n \"${LATEST_PKG}\" ]; then "
-            "    echo '✅ 找到: '${LATEST_PKG}; "
-            "    aria2c --console-log-level=warn --no-conf --continue=true "
-            "      --allow-overwrite=true -s 5 -x 5 -k 1M \"${url}${LATEST_PKG}\" && break; "
-            "  else "
-            "    echo '❌ 此镜像未找到 " + grep_name_ + "'; "
-            "  fi; "
-            "done"
-        );
-
-        // 验证下载结果
-        auto pkg_check = Executor::shell(
-            "cd " + dl_path + " && ls -t " + grep_name_ + "*.pkg.tar.zst 2>/dev/null | head -n 1"
-        );
-        std::string pkg_file = pkg_check.stdout_data;
-        while (!pkg_file.empty() && (pkg_file.back() == '\n' || pkg_file.back() == '\r'))
-            pkg_file.pop_back();
-
-        if (pkg_file.empty()) {
-            Logger::error(_("devtools.error.download_not_found_all_mirrors") + grep_name_ + " 的 .pkg.tar.zst");
-            Logger::info(_("devtools.hint.manual_download"));
-            if (community_edition_) {
-                Logger::info("https://www.jetbrains.com/idea/download/#section=linux");
-            }
-            return false;
-        }
-
-        // 验证文件大小
-        auto size = fs::file_size(dl_path + "/" + pkg_file);
-        if (size == 0) {
-            Logger::error(_("devtools.error.pkg_file_empty") + pkg_file);
-            fs::remove(dl_path + "/" + pkg_file);
-            return false;
-        }
-        Logger::ok(_("devtools.ok.download_complete") + pkg_file + " (" + std::to_string(size / 1048576) + " MB)");
-
-        std::string pkg_full_path = dl_path + "/" + pkg_file;
-        std::string manifest_path = dl_path + "/" + grep_name_ + ".manifest";
-
-        // 步骤2: 生成安装清单并解压到根目录
-        Logger::step(_("devtools.step.generating_manifest"));
-        Executor::shell("tar -tf '" + pkg_full_path + "' > '" + manifest_path + "' 2>/dev/null");
-
-        Logger::step(_("devtools.step.extracting") + pkg_file + " ...");
-
-        std::string extract_cmd =
-                "if command -v pv >/dev/null 2>&1; then "
-                "  pv '" + pkg_full_path + "' | sudo tar --use-compress-program zstd -Ppxf - -C / --exclude=.*; "
-                "else "
-                "  echo '正在后台解压，请稍候...'; "
-                "  sudo tar --use-compress-program zstd -Ppxf '" + pkg_full_path + "' -C / --exclude=.*; "
-                "fi";
-
-        auto extract_ret = Executor::passthrough(extract_cmd);
-
-        if (!extract_ret.ok()) {
-            Logger::error(_("devtools.error.extract_failed_code") + std::to_string(extract_ret.exit_code));
-            // 解压失败时删掉不完整的清单文件
-            Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(manifest_path)
-                .add_raw("2>/dev/null").build_string());
-            return false;
-        }
-
-        Logger::ok(_("devtools.ok.extract_done"));
-
-        // 保存版本信息
-        std::string latest_ver = fetch_latest_archlinuxcn_version();
-        Executor::shell("echo '" + latest_ver + "' > " + dl_path + "/" + grep_name_ + "-version.txt 2>/dev/null");
-
-        return true;
-    }
 
     // ═══════════════════════════════════════════════════════════════════
     // JetBrains API — 官方直链，不依赖 archlinuxcn 抓取
