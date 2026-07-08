@@ -2,6 +2,7 @@
 #include "desktop_utils.h"
 #include "core/executor.h"
 #include "core/logger.h"
+#include "core/i18n.h"
 #include "domain/system/package_manager.h"
 
 namespace tmoe::domain {
@@ -16,6 +17,13 @@ const DesktopInfo& LxdeDesktop::get_info() const { return info_; }
 
 void LxdeDesktop::will_be_installed_message() const {
     Logger::info("LXDE: lxsession / startlxde");
+    Logger::info(_("gui.lxde.package_list"));
+    // Bash: apt-cache show 包信息预览
+    auto family = infer_family_from_config(cfg_.linux_distro);
+    if (family == DistroFamily::Unknown)
+        family = PackageManager::detect_distro_family();
+    if (family == DistroFamily::Debian && Executor::has("apt-cache"))
+        Executor::passthrough("apt-cache show lxde-core 2>/dev/null | head -20 || true");
 }
 
 PreInstallChoices LxdeDesktop::pre_install_choices(
@@ -48,6 +56,13 @@ PreInstallChoices LxdeDesktop::pre_install_choices(
 }
 
 void LxdeDesktop::post_install_config(const PostInstallContext& ctx) {
+    // Bash: do_you_want_to_continue 终端 Y/N 确认
+    if (!Logger::confirm_yes_default(_("gui.lxde.confirm_install"))) return;
+
+    // 非 Debian 发行版时显示不支持的警告
+    if (!ctx.is_debian && ctx.family == DistroFamily::Solus)
+        Logger::warn("ERROR!未适配solus");
+
     desktop_utils::dpkg_configure_and_keyboard(ctx.is_debian);
     desktop_utils::purge_libfprint_and_clean(ctx.is_proot, ctx.is_debian);
     desktop_utils::remove_udisks_gvfs_for_proot(get_id(), ctx.is_proot, ctx.is_debian);

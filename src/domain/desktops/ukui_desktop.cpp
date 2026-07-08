@@ -3,6 +3,8 @@
 #include "domain/system/package_manager.h"
 #include <cstdlib>
 
+#include "domain/gui/desktop_manager.h"
+
 namespace tmoe::domain {
 
 void UkuiDesktop::will_be_installed_message() const {
