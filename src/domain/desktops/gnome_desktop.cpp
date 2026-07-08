@@ -1,6 +1,8 @@
 #include "gnome_desktop.h"
 #include "desktop_utils.h"
 #include "core/command_builder.hpp"
+#include "core/logger.h"
+#include "core/i18n.h"
 #include "core/system_helper.h"
 #include "domain/system/package_manager.h"
 
@@ -54,14 +56,27 @@ namespace tmoe::domain {
         return c;
     }
 
+    void GnomeDesktop::will_be_installed_message() const {
+        Logger::info("GNOME: gnome-session / gnome-shell-x11");
+        Logger::info(_("gui.gnome.package_list"));
+        auto family = infer_family_from_config(cfg_.linux_distro);
+        if (family == DistroFamily::Unknown)
+            family = PackageManager::detect_distro_family();
+        if (family == DistroFamily::Debian && Executor::has("apt-cache"))
+            Executor::passthrough("apt-cache depends gnome-session 2>/dev/null | head -20 || true");
+        else if (family == DistroFamily::Arch && Executor::has("pacman"))
+            Executor::passthrough("pacman -Si gnome-shell 2>/dev/null || true");
+    }
+
     void GnomeDesktop::post_install_config(const PostInstallContext &ctx) {
+        if (!gnome_warning()) return;
         Logger::info("GNOME desktop install");
         desktop_utils::dpkg_configure_and_keyboard(ctx.is_debian);
         desktop_utils::purge_libfprint_and_clean(ctx.is_proot, ctx.is_debian);
         if (ctx.is_debian) {
             desktop_utils::install_noto_fonts(ctx.family, true);
-            write_session_scripts();
         }
+        write_session_scripts();
         desktop_utils::install_language_packs(cfg_);
     }
 
@@ -81,7 +96,7 @@ namespace tmoe::domain {
             wr("gnome-flashback-metacity", fb);
         }
         if (session_ == "4") wr("gnome-session-ubuntu",
-                                "#!/bin/sh\nexport DESKTOP_SESSION=ubuntu\nexport GNOME_SHELL_SESSION_MODE=ubuntu\nexport XDG_CONFIG_DIRS=/etc/xdg/xdg-ubuntu:/etc/xdg\nexec gnome-session --session=ubuntu --disable-acceleration-check \"$@\"\n");
+                                "#!/bin/sh\nexport DESKTOP_SESSION=ubuntu\nexport GNOME_SHELL_SESSION_MODE=ubuntu\nexport XDG_CURRENT_DESKTOP=\"ubuntu:GNOME\"\nexport XDG_CONFIG_DIRS=/etc/xdg/xdg-ubuntu:/etc/xdg\nexec gnome-session --session=ubuntu --disable-acceleration-check \"$@\"\n");
         if (session_ == "5") wr("gnome-session-classic",
                                 "#!/bin/sh\nexport GNOME_SHELL_SESSION_MODE=classic\nexec gnome-session --session=gnome-classic --disable-acceleration-check \"$@\"\n");
     }
@@ -97,6 +112,16 @@ void GnomeDesktop::post_install_extras(const PostInstallContext& ctx) {
     if (ctx.is_debian && ctx.is_ubuntu) {
         PackageManager::install("ubuntu-wallpapers", family);
     }
+}
+
+bool GnomeDesktop::gnome_warning() const {
+    Logger::info("------------------------");
+    Logger::info(_("gui.gnome.warning.continue"));
+    if (!Logger::confirm_yes_default(_("gui.gnome.warning.continue"))) {
+        Logger::warn(_("gui.gnome.warning.cancelled"));
+        return false;
+    }
+    return true;
 }
 
 } // namespace tmoe::domain

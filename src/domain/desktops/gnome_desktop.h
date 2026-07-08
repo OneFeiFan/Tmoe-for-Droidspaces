@@ -9,7 +9,7 @@ namespace tmoe::domain {
         std::string get_id() const override { return info_.id; }
         const DesktopInfo &get_info() const override { return info_; }
         bool recommends_tiger_vnc() const override { return true; }
-        void will_be_installed_message() const override { Logger::info("GNOME: gnome-session / gnome-shell-x11"); }
+        void will_be_installed_message() const override;
 
         SessionCmds get_session_commands() const override;
 
@@ -22,5 +22,7 @@ namespace tmoe::domain {
         std::string session_ = "1";
 
         void write_session_scripts();
+    private:
+        bool gnome_warning() const;
     };
 } // namespace tmoe::domain
