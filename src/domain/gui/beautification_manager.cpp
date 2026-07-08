@@ -610,7 +610,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
 
         std::string home = SystemHelper::user_home();
         if (fs::exists("/usr/share/backgrounds/pixel")) {
-            fs::create_directories(home + "/Pictures");
+            fs::create_directories(SystemHelper::user_pictures_dir());
             std::error_code ec;
             fs::create_symlink("/usr/share/backgrounds/pixel",
                                home + "/Pictures/raspberrypi-pixel-wallpapers", ec);
@@ -696,11 +696,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
     }
 
     void BeautificationManager::xubuntu_wallpapers_menu() {
-        const char *items[] = {"xubuntu-trusty", "xubuntu-xenial", "xubuntu-bionic", "xubuntu-focal", nullptr};
-        const char *folders[] = {
-            "xubuntu-community-artwork/trusty", "xubuntu-community-artwork/xenial",
-            "xubuntu-community-artwork/bionic", "xubuntu-community-artwork/focal"
-        };
+        const char *items[] = {"trusty", "xenial","jammy", "bionic", "focal", nullptr};
         CommandBuilder menu(cfg_.tui_bin);
         menu.add_arg("--title").add_arg(_("gui.wallpaper.xubuntu_title"))
                 .add_arg("--menu").add_arg(_("gui.wallpaper.xubuntu_prompt"))
@@ -711,7 +707,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
         auto ch = Executor::tui_select(menu.build_string());
         if (ch == "0" || ch.empty()) return;
         int idx = std::stoi(ch) - 1;
-        if (idx >= 0 && idx < 4) desktop_manager_.download_xubuntu_wallpaper(items[idx], folders[idx]);
+        if (idx >= 0 && idx < 5) desktop_manager_.download_xubuntu_wallpaper(items[idx]);
     }
 
     void BeautificationManager::linux_mint_backgrounds_menu() {
@@ -744,41 +740,39 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
 
     void BeautificationManager::download_deepin_wallpaper() {
         Logger::step(_("gui.wallpaper.deepin_download"));
-        // 尝试两个包名模式
-        if (!SystemHelper::fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/deepin/pool/main/d/deepin-wallpapers/",
-                                      "deepin-community-wallpapers.*all\\.deb", "deepin_wp"))
-            SystemHelper::fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/deepin/pool/main/d/deepin-wallpapers/",
-                                     "deepin-wallpapers_.*all\\.deb", "deepin_wp2");
+        SystemHelper::fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/deepin/pool/main/d/deepin-wallpapers/",
+                                     "deepin-wallpapers_.*tar\\.xz", "deepin_wp");
     }
 
     void BeautificationManager::download_elementary_wallpaper() {
         Logger::step(_("gui.wallpaper.elementary_download"));
-        SystemHelper::fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/archlinux/pool/community/",
-                                 "elementary-wallpapers.*pkg\\.tar", "elementary_wp");
+        SystemHelper::fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/archlinux/extra/os/x86_64/",
+                                 "elementary-wallpapers.*tar\\.zst$", "elementary_wp");
     }
 
     void BeautificationManager::download_arch_wallpaper() {
         link_to_debian_wallpaper();
         Logger::step(_("gui.wallpaper.arch_download"));
-        SystemHelper::fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/archlinux/pool/community/",
-                                 "archlinux-wallpaper.*pkg\\.tar", "arch_wp");
+        SystemHelper::fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/archlinux/extra/os/x86_64/",
+                                 "archlinux-wallpaper.*tar\\.zst$", "arch_wp");
     }
 
     void BeautificationManager::download_manjaro_wallpaper() {
         Logger::step(_("gui.wallpaper.manjaro_download"));
         // Manjaro 壁纸是固定名称的 pkg.tar.xz，直接下载
-        std::string tmp1 = "/tmp/.manjaro_wp2018.tar.xz";
-        std::string tmp2 = "/tmp/.manjaro_wp2017.tar.xz";
-        SystemHelper::download_file("https://mirrors.bfsu.edu.cn/manjaro/pool/overlay/wallpapers-2018-1.2-1-any.pkg.tar.xz", tmp1);
+        std::string tmp1 = "/tmp/.manjaro_wp2018.deb";// zst似乎是和deb有关系来着，反正走deb解析就对了
+        // std::string tmp2 = "/tmp/.manjaro_wp2017.tar.xz";
+        SystemHelper::download_file("https://mirrors.tuna.tsinghua.edu.cn/manjaro/pool/overlay/wallpapers-2018-1.2-2-any.pkg.tar.zst", tmp1);
         if (fs::exists(tmp1)) { SystemHelper::extract_archive(tmp1); std::error_code ec; fs::remove(tmp1, ec); }
-        SystemHelper::download_file("https://mirrors.bfsu.edu.cn/manjaro/pool/overlay/manjaro-sx-wallpapers-20171023-1-any.pkg.tar.xz", tmp2);
-        if (fs::exists(tmp2)) { SystemHelper::extract_archive(tmp2); std::error_code ec; fs::remove(tmp2, ec); }
+        // 找不到下载地址，暂时注释
+        // SystemHelper::download_file("https://mirrors.tuna.tsinghua.edu.cn/manjaro/pool/overlay/manjaro-sx-wallpapers-20171023-1-any.pkg.tar.xz", tmp2);
+        // if (fs::exists(tmp2)) { SystemHelper::extract_archive(tmp2); std::error_code ec; fs::remove(tmp2, ec); }
     }
 
     void BeautificationManager::download_arch_xfce_artwork() {
         Logger::step(_("gui.wallpaper.arch_xfce_artwork"));
-        SystemHelper::fetch_latest_and_extract("https://mirrors.bfsu.edu.cn/archlinux/extra/os/x86_64/",
-                                 "xfce4-artwork.*pkg\\.tar", "xfce_art");
+        SystemHelper::fetch_latest_and_extract("https://mirrors.tuna.tsinghua.edu.cn/ubuntu/pool/universe/x/xfce4-artwork/",
+                                 "xfce4-artwork.*all\\.deb", "xfce_art");
     }
 
     void BeautificationManager::download_debian_gnome_wallpaper() {
@@ -818,7 +812,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
 
     void BeautificationManager::link_to_debian_wallpaper() {
         std::string home = SystemHelper::user_home();
-        fs::create_directories(home + "/Pictures");
+        fs::create_directories(SystemHelper::user_pictures_dir());
         std::error_code ec;
         if (fs::exists("/usr/share/backgrounds/kali/"))
             fs::create_symlink("/usr/share/backgrounds/kali/", home + "/Pictures/kali", ec);
