@@ -111,7 +111,7 @@ namespace tmoe::domain {
         // Wallpaper: 仅全量 xfce (非 xfce-lite) 才设壁纸
         {
             std::string home = SystemHelper::user_home();
-            std::string wp_dir = home + "/Pictures";
+            std::string wp_dir = SystemHelper::user_pictures_dir();
             fs::create_directories(wp_dir);
             Executor::shell(
                 "cd /usr/share/backgrounds && "
