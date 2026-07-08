@@ -1,5 +1,8 @@
 #include "cinnamon_desktop.h"
 #include "desktop_utils.h"
+#include "core/executor.h"
+#include "core/logger.h"
+#include "core/i18n.h"
 #include "core/system_helper.h"
 #include "domain/system/package_manager.h"
 
@@ -14,7 +17,18 @@ PreInstallChoices CinnamonDesktop::pre_install_choices(DistroFamily f, bool a) {
     else c.pkg_list = "cinnamon-l10n cinnamon-desktop-environment cinnamon";
     return c;
 }
+void CinnamonDesktop::will_be_installed_message() const {
+    Logger::info("Cinnamon: cinnamon-session / cinnamon");
+    Logger::info(_("gui.cinnamon.package_list"));
+    auto family = infer_family_from_config(cfg_.linux_distro);
+    if (family == DistroFamily::Unknown)
+        family = PackageManager::detect_distro_family();
+    if (family == DistroFamily::Debian && Executor::has("apt-cache"))
+        Executor::passthrough("apt-cache depends cinnamon-desktop-environment 2>/dev/null | head -20 || true");
+}
+
 void CinnamonDesktop::post_install_config(const PostInstallContext& ctx) {
+    if (!cinnamon_warning()) return;
     desktop_utils::dpkg_configure_and_keyboard(ctx.is_debian);
     desktop_utils::purge_libfprint_and_clean(ctx.is_proot, ctx.is_debian);
     if (ctx.is_debian) { desktop_utils::install_noto_fonts(ctx.family, true); }
@@ -35,6 +49,16 @@ void CinnamonDesktop::post_install_extras(const PostInstallContext& ctx) {
     if (family != DistroFamily::Alpine) {
         PackageManager::install({"arc-theme", "papirus-icon-theme"}, family);
     }
+}
+
+bool CinnamonDesktop::cinnamon_warning() const {
+    Logger::info("------------------------");
+    Logger::info(_("gui.cinnamon.warning.continue"));
+    if (!Logger::confirm_yes_default(_("gui.cinnamon.warning.continue"))) {
+        Logger::warn(_("gui.cinnamon.warning.cancelled"));
+        return false;
+    }
+    return true;
 }
 
 } // namespace tmoe::domain
