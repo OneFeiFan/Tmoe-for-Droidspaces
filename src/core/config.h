@@ -14,17 +14,17 @@ namespace tmoe {
     /** 发行版家族枚举。
      *  统一表示 Linux 发行版家族，替代裸字符串比较。 */
     enum class DistroFamily {
-        Debian,     // apt/eatmydata
-        Arch,       // pacman
-        RedHat,     // dnf/yum
-        Alpine,     // apk
-        Gentoo,     // emerge
-        Suse,       // zypper
-        Solus,      // eopkg
-        Void_,      // xbps
-        Slackware,  // slackpkg
-        OpenWrt,    // opkg
-        Unknown
+        Unknown = 0, // 默认值（零初始化安全）
+        Debian,      // apt/eatmydata
+        Arch,        // pacman
+        RedHat,      // dnf/yum
+        Alpine,      // apk
+        Gentoo,      // emerge
+        Suse,        // zypper
+        Solus,       // eopkg
+        Void_,       // xbps
+        Slackware,   // slackpkg
+        OpenWrt,     // opkg
     };
 
     /** 全局配置 — 替代 Bash 中所有 $TMOE_XXX 全局变量。 */
