@@ -30,8 +30,11 @@ public:
 
     // ── 子项管理 ──
 
-    /** 添加子菜单项。 */
+    /** 添加子菜单项（追加到末尾）。 */
     void add_child(std::shared_ptr<IMenuItem> item);
+
+    /** 添加子菜单项到指定位置。 */
+    void add_child_at(size_t index, std::shared_ptr<IMenuItem> item);
 
     /** 批量添加子菜单项（字面量语法：{a, b, c}）。 */
     void add_children(std::initializer_list<std::shared_ptr<IMenuItem>> items);

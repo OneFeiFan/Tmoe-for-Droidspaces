@@ -9,6 +9,14 @@ void IUIMenu::add_child(std::shared_ptr<IMenuItem> item) {
     children_.push_back(std::move(item));
 }
 
+void IUIMenu::add_child_at(size_t index, std::shared_ptr<IMenuItem> item) {
+    if (index >= children_.size()) {
+        children_.push_back(std::move(item));
+    } else {
+        children_.insert(children_.begin() + static_cast<long>(index), std::move(item));
+    }
+}
+
 void IUIMenu::add_children(std::initializer_list<std::shared_ptr<IMenuItem>> items) {
     for (auto& item : items) {
         children_.push_back(item);

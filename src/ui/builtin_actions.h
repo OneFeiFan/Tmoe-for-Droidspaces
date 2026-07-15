@@ -27,11 +27,17 @@ public:
 
 // ── 辅助方法 ──────────────────────────────────────────
 
-/** 为 sub_menu 自动添加"返回"和"退出"选项。
- *  内部调用 sub_menu->add_children({BackAction, ExitAction})。 */
+/** 为 sub_menu 添加标准导航（底部：返回 + 退出）。 */
 inline void add_navigation_items(std::shared_ptr<IUIMenu> sub_menu) {
     sub_menu->add_child(std::make_shared<BackAction>());
     sub_menu->add_child(std::make_shared<ExitAction>());
+}
+
+/** "夹心饼"导航：上(返回) → 内容 → 下(退出)。
+ *  在所有内容添加完毕后调用。 */
+inline void add_sandwich_nav(std::shared_ptr<IUIMenu> menu) {
+    menu->add_child_at(0, std::make_shared<BackAction>());       // 上饼干
+    menu->add_child(std::make_shared<ExitAction>());             // 下饼干
 }
 
 /** 创建一个带标准导航选项的子菜单。 */

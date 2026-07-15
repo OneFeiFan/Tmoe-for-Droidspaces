@@ -581,9 +581,10 @@ namespace tmoe::app {
         // 显式注册内置插件（静态库下 AutoRegister 不会被链接器拉入）
         // TODO: 后续各模块迁移后，这里改为遍历所有 IAction 子类工厂
         {
-            // 浏览器子菜单
             auto browser_menu = make_plugin_menu(
                 _("browser.menu_title"), _("browser.menu_prompt"), "plugin_browser");
+
+            // 内容项在前
             browser_menu->add_child(make_install_action(
                 _("browser.firefox"), "inst_firefox",
                 []() { return domain::PackageManager::install("firefox",
@@ -592,6 +593,9 @@ namespace tmoe::app {
                 _("browser.chromium"), "inst_chromium",
                 []() { return domain::PackageManager::install("chromium",
                     domain::PackageManager::detect_distro_family()); }));
+
+            // 夹心饼导航：上(返回) → 内容 → 下(返回+退出)
+            add_sandwich_nav(browser_menu);
             MenuRegistry::register_item(browser_menu);
         }
 

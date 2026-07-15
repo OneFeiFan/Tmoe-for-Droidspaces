@@ -60,14 +60,12 @@ public:
 
 // ── 插件构建辅助 ──────────────────────────────────────
 
-/** 快捷创建带标准导航的 SimpleMenu。 */
+/** 快捷创建 SimpleMenu（不含导航项，由调用方在所有内容之后添加）。 */
 inline std::shared_ptr<SimpleMenu> make_plugin_menu(
     std::string title, std::string label, std::string tag)
 {
-    auto menu = std::make_shared<SimpleMenu>(
+    return std::make_shared<SimpleMenu>(
         std::move(title), std::move(label), std::move(tag));
-    add_navigation_items(menu);
-    return menu;
 }
 
 /** 创建"安装 → 确认 → Logger 输出"模式的 LambdaAction。 */
