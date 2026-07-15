@@ -7,9 +7,7 @@
 
 namespace tmoe::ui::menus {
 
-namespace {
-
-std::vector<std::shared_ptr<IMenuItem>> make_items(
+std::vector<std::shared_ptr<IMenuItem>> MenuBuilder::make_items(
     const MenuBuilder::RouteMap& routes,
     const std::vector<std::pair<std::string, std::string>>& key_labels)
 {
@@ -23,8 +21,6 @@ std::vector<std::shared_ptr<IMenuItem>> make_items(
     }
     return items;
 }
-
-} // anonymous namespace
 
 std::shared_ptr<IUIMenu> MenuBuilder::build_main_menu(
     const std::string& title,
