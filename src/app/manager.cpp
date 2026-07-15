@@ -2,6 +2,8 @@
 #include "domain/system/package_manager.h"
 #include "core/command_builder.hpp"
 #include "core/system_helper.h"
+#include "ui/menus/main_menu.h"
+#include "ui/menu_engine.h"
 #include <algorithm>
 #include <fstream>
 
@@ -549,6 +551,40 @@ namespace tmoe::app {
     int Manager::run_interactive() {
         // 对应 Bash: Android/Termux → 容器管理, Linux → 工具箱
         return cfg_.is_termux ? run_manager_ui() : run_tool_ui();
+    }
+
+    int Manager::run_interactive_new() {
+        using namespace tmoe::ui;
+        using namespace tmoe::ui::menus;
+
+        MenuContext ctx{cfg_};
+
+        // 标题格式与旧版一致: "TMOE 工具箱" + OS 友好名称
+        std::string title = _("menu.tui.title_bar") + " " + cfg_.os_pretty_name;
+
+        std::shared_ptr<IUIMenu> root;
+        if (cfg_.is_termux) {
+            root = MenuBuilder::build_manager_menu(title, tui_routes_);
+        } else {
+            root = MenuBuilder::build_tool_menu(title, tui_routes_);
+        }
+
+        MenuEngine engine(ctx);
+        return engine.run(root);
+    }
+
+    int Manager::run_interactive_plugin() {
+        using namespace tmoe::ui;
+        using namespace tmoe::ui::menus;
+
+        MenuContext ctx{cfg_};
+
+        // 从 MenuRegistry 收集所有已注册插件构建主菜单
+        std::string title = _("menu.tui.title_bar") + " " + cfg_.os_pretty_name;
+        auto root = MenuBuilder::build_from_registry(title);
+
+        MenuEngine engine(ctx);
+        return engine.run(root);
     }
 
     /** 直接从命令行参数执行领域逻辑。 */

@@ -151,6 +151,9 @@ if (TMOE_DEBUG)
     target_compile_definitions(tmoes PRIVATE TMOE_DEBUG)
 endif ()
 
+# ── UI 插件化框架 ──────────────────────────────
+add_subdirectory(src/ui)
+
 # ── 单元测试 ─────────────────────────────────────
 option(TMOE_BUILD_TESTS "Build unit tests" OFF)
 

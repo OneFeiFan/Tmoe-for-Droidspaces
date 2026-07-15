@@ -40,8 +40,16 @@ namespace tmoe::app {
         explicit Manager(TmoeConfig cfg,
                          LocaleSaveFunc save_locale = nullptr);
 
-        /** 运行交互式 TUI 循环。 */
+        /** 运行交互式 TUI 循环（旧版：字符串拼接路由）。 */
         int run_interactive();
+
+        /** 运行交互式 TUI 循环（新版：插件化 MenuEngine）。
+         *  使用旧 tui_routes_ 包装为 DelegateAction。 */
+        int run_interactive_new();
+
+        /** 运行交互式 TUI 循环（插件版：MenuRegistry 驱动）。
+         *  所有菜单项由各模块通过 AutoRegister 自行注册。 */
+        int run_interactive_plugin();
 
         /** 根据预解析的 LaunchContext 执行对应操作。 */
         int run_launch_context(const LaunchContext &ctx);
