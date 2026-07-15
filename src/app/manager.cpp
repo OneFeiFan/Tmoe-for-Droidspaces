@@ -4,6 +4,7 @@
 #include "core/system_helper.h"
 #include "ui/menus/main_menu.h"
 #include "ui/menu_engine.h"
+#include "ui/plugin_helpers.h"
 #include <algorithm>
 #include <fstream>
 
@@ -577,9 +578,25 @@ namespace tmoe::app {
         using namespace tmoe::ui;
         using namespace tmoe::ui::menus;
 
+        // 显式注册内置插件（静态库下 AutoRegister 不会被链接器拉入）
+        // TODO: 后续各模块迁移后，这里改为遍历所有 IAction 子类工厂
+        {
+            // 浏览器子菜单
+            auto browser_menu = make_plugin_menu(
+                _("browser.menu_title"), _("browser.menu_prompt"), "plugin_browser");
+            browser_menu->add_child(make_install_action(
+                _("browser.firefox"), "inst_firefox",
+                []() { return domain::PackageManager::install("firefox",
+                    domain::PackageManager::detect_distro_family()); }));
+            browser_menu->add_child(make_install_action(
+                _("browser.chromium"), "inst_chromium",
+                []() { return domain::PackageManager::install("chromium",
+                    domain::PackageManager::detect_distro_family()); }));
+            MenuRegistry::register_item(browser_menu);
+        }
+
         MenuContext ctx{cfg_};
 
-        // 从 MenuRegistry 收集所有已注册插件构建主菜单
         std::string title = _("menu.tui.title_bar") + " " + cfg_.os_pretty_name;
         auto root = MenuBuilder::build_from_registry(title);
 
