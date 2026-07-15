@@ -77,6 +77,7 @@ TmoeConfig TmoeConfig::detect() {
     if (content.find("debian") != std::string::npos || content.find("ubuntu") != std::string::npos ||
         content.find("deepin") != std::string::npos || content.find("kali") != std::string::npos) {
         cfg.linux_distro = "debian";
+        cfg.distro_family = DistroFamily::Debian;
         cfg.update_command = "apt update";
         cfg.install_command = "apt install -y";
         cfg.remove_command = "apt purge -y";
@@ -85,12 +86,14 @@ TmoeConfig TmoeConfig::detect() {
     }
     else if (content.find("Arch") != std::string::npos || content.find("Manjaro") != std::string::npos) {
         cfg.linux_distro = "arch";
+        cfg.distro_family = DistroFamily::Arch;
         cfg.update_command = "pacman -Syy";
         cfg.install_command = "pacman -Syu --noconfirm --needed";
         cfg.remove_command = "pacman -Rsc";
     }
     else if (content.find("Alpine") != std::string::npos) {
         cfg.linux_distro = "alpine";
+        cfg.distro_family = DistroFamily::Alpine;
         cfg.update_command = "apk update";
         cfg.install_command = "apk add";
         cfg.remove_command = "sudo apk del";

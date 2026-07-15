@@ -27,18 +27,6 @@ namespace tmoe {
 namespace {
     namespace fs = std::filesystem;
 
-    // 内部防注入转义（针对必须进 Shell 的路径）
-    std::string safe_escape(std::string_view arg) {
-        if (arg.empty()) return "''";
-        std::string escaped = "'";
-        for (char c : arg) {
-            if (c == '\'') escaped += "'\\''";
-            else escaped += c;
-        }
-        escaped += "'";
-        return escaped;
-    }
-
     // 生成高离散本地临时文件，防御 Symlink 攻击
     fs::path generate_temp_path(const std::string& prefix = "tmoe") {
         auto temp_dir = fs::temp_directory_path();
@@ -61,7 +49,7 @@ namespace {
         fs::create_directories(parent, ec);
         if (!ec) return true;
         if (ec.value() == static_cast<int>(std::errc::permission_denied)) {
-            return run_sudo("mkdir -p " + safe_escape(parent.string()));
+            return run_sudo("mkdir -p " + shell_escape(parent.string()));
         }
         return false;
     }
@@ -76,10 +64,10 @@ namespace {
                 std::error_code ec;
                 fs::copy_file(path, tmp_path, fs::copy_options::overwrite_existing, ec);
                 if (ec && ec.value() == static_cast<int>(std::errc::permission_denied)) {
-                    if (!run_sudo("cp -f " + safe_escape(path.string()) + " " + safe_escape(tmp_path.string()))) {
+                    if (!run_sudo("cp -f " + shell_escape(path.string()) + " " + shell_escape(tmp_path.string()))) {
                         return false;
                     }
-                    run_sudo("chown " + std::to_string(getuid()) + " " + safe_escape(tmp_path.string()));
+                    run_sudo("chown " + std::to_string(getuid()) + " " + shell_escape(tmp_path.string()));
                 }
             }
 
@@ -102,7 +90,7 @@ namespace {
             }
 
             if (move_ec && move_ec.value() == static_cast<int>(std::errc::permission_denied)) {
-                return run_sudo("cp -f " + safe_escape(tmp_path.string()) + " " + safe_escape(path.string()));
+                return run_sudo("cp -f " + shell_escape(tmp_path.string()) + " " + shell_escape(path.string()));
             }
             return move_ec.value() == 0;
         } catch (...) {
@@ -145,7 +133,7 @@ bool SystemHelper::install_packages(const std::vector<std::string> &packages,
     std::ostringstream oss;
     for (const auto &pkg : packages) {
         // 对包名强制转义，杜绝 "pkg; rm -rf /" 的注入攻击
-        oss << safe_escape(pkg) << " ";
+        oss << shell_escape(pkg) << " ";
     }
 #ifndef _WIN32
     bool need_sudo = (geteuid() != 0);
@@ -201,8 +189,8 @@ std::string SystemHelper::http_get_cached(const std::string &url, const std::str
 
 void SystemHelper::extract_archive(const std::string &archive_path, const std::string &dest) {
     bool has_pv = Executor::has("pv");
-    std::string safe_archive = safe_escape(archive_path);
-    std::string safe_dest = safe_escape(dest);
+    std::string safe_archive = shell_escape(archive_path);
+    std::string safe_dest = shell_escape(dest);
 
     // --- 1. 创建隔离环境 ---
     // SANDBOX 用于存放解压中间物，PAYLOAD 用于存放提取出的纯净系统树
@@ -211,20 +199,10 @@ void SystemHelper::extract_archive(const std::string &archive_path, const std::s
     // --- 2. 各格式解压到 PAYLOAD 的命令 ---
 
     // tar: 动态探测并直接解压数据到 PAYLOAD
-    std::string tar_cmd =
-        "FTYPE=$(file -b " + safe_archive + " | tr '[:upper:]' '[:lower:]'); "
-        "if echo \"$FTYPE\" | grep -q 'zstandard'; then DEC='zstd -d -c'; "
-        "elif echo \"$FTYPE\" | grep -q 'xz'; then DEC='xz -d -c'; "
-        "elif echo \"$FTYPE\" | grep -q 'gzip'; then DEC='gzip -d -c'; "
-        "elif echo \"$FTYPE\" | grep -q 'bzip2'; then DEC='bzip2 -d -c'; "
-        "else DEC='cat'; fi; "
-        + (has_pv ? "pv " + safe_archive + " | $DEC 2>/dev/null | sudo tar -xf - -C $PAYLOAD"
-                  : "$DEC " + safe_archive + " 2>/dev/null | sudo tar -xf - -C $PAYLOAD");
+        std::string tar_cmd = build_tar_pipe_cmd(safe_archive, has_pv);
 
-    // deb: 在 SANDBOX 解开 ar 外壳，【只把其中的 data.tar.*】 解压到 PAYLOAD
-    std::string deb_cmd =
-        "cd $SANDBOX && sudo ar x " + safe_archive + " 2>/dev/null && "
-        "for f in data.tar.*; do [ -e \"$f\" ] && sudo tar -xaf \"$f\" -C $PAYLOAD 2>/dev/null; done";
+    // deb: 在 SANDBOX 解开 ar 外壳，只提取 data.tar.* 到 PAYLOAD
+        std::string deb_cmd = build_deb_extract_cmd(safe_archive);
 
     // zip: 解压到 PAYLOAD
     std::string zip_cmd = "sudo unzip -q -o " + safe_archive + " -d $PAYLOAD";
@@ -232,34 +210,10 @@ void SystemHelper::extract_archive(const std::string &archive_path, const std::s
     // zst兜底: 单文件时生成特定文件
     std::string zst_cmd = "sudo sh -c 'zstd -d -c " + safe_archive + " > $PAYLOAD/extracted_file'";
 
-    // --- 3. 尊重作者意图的“目录树合并”逻辑 ---
-    std::string smart_transfer =
-        // 修复部分 Github 源码包恶心的单层外壳嵌套 (例如 解压后变成 /payload/ubuntu-wallpapers-master/usr/...)
-        "if [ $(ls -1qA $PAYLOAD | wc -l) -eq 1 ]; then "
-        "  WRAPPER=$(ls -A $PAYLOAD); "
-        "  if [ -d \"$PAYLOAD/$WRAPPER/usr\" ]; then "
-        "    sudo mv \"$PAYLOAD/$WRAPPER/\"* \"$PAYLOAD/\" 2>/dev/null; "
-        "  fi; "
-        "fi; "
+    // 智能目录树合并逻辑（单层外壳修复 + 系统目录合并）
+        std::string smart_transfer = build_smart_transfer_cmd(safe_dest);
 
-        // 核心合并逻辑：判定这是否是一个具有系统目录结构的包
-        "if [ -d \"$PAYLOAD/usr\" ]; then "
-        // 这是一个标准包：作者意图是按系统层级覆盖。
-        // 我们提取 usr, etc, opt, var, lib 等标准目录并直接合并到系统根目录 '/'
-        // 这样不仅保留了嵌套结构，还能完美过滤掉 Arch 留在包根目录下的 '.PKGINFO' 等垃圾文件！
-        "  for sysdir in usr etc opt var lib; do "
-        "    if [ -d \"$PAYLOAD/$sysdir\" ]; then "
-        "      sudo cp -rf \"$PAYLOAD/$sysdir\" / 2>/dev/null; "
-        "    fi; "
-        "  done; "
-        "else "
-        // 这是一个平铺的文件包（例如只有 .jpg 文件），没有系统层级
-        // 此时我们才动用 dest 参数作为兜底位置
-        "  sudo mkdir -p " + safe_dest + "; "
-        "  sudo cp -rf \"$PAYLOAD/\"* " + safe_dest + "/ 2>/dev/null; "
-        "fi";
-
-    // --- 4. 组合执行流程 ---
+        // --- 4. 组合执行流程 ---
     std::string extract_cmd =
         prep_cmd + " && "
         "( "
@@ -344,7 +298,7 @@ bool SystemHelper::git_clone_and_extract(const std::string &git_url,
         .add_arg("-C").add_arg(extract_to)
         .add_raw("2>/dev/null").build_string();
 
-    Executor::passthrough("cd " + safe_escape(tmp_dir) + " && " + clone_cmd + " && " + tar_cmd);
+    Executor::passthrough("cd " + shell_escape(tmp_dir) + " && " + clone_cmd + " && " + tar_cmd);
     fs::remove_all(tmp_dir, ec);
     return true;
 }
@@ -376,6 +330,52 @@ std::string SystemHelper::user_pictures_dir() {
         }
     }
     return user_home() + "/Pictures";
+}
+
+// ── extract_archive 命令片段构建器 ───────────────────────────
+// 将这些 shell 脚本片段提取为独立方法，便于调试、日志追踪和未来的 C++ 重写。
+
+std::string SystemHelper::build_tar_pipe_cmd(const std::string& safe_archive, bool has_pv) {
+    // 用 file(1) 动态探测压缩格式，选择对应解压器，管道传给 tar
+    std::string detect =
+        "FTYPE=$(file -b " + safe_archive + " | tr '[:upper:]' '[:lower:]'); "
+        "if echo \"$FTYPE\" | grep -q 'zstandard'; then DEC='zstd -d -c'; "
+        "elif echo \"$FTYPE\" | grep -q 'xz'; then DEC='xz -d -c'; "
+        "elif echo \"$FTYPE\" | grep -q 'gzip'; then DEC='gzip -d -c'; "
+        "elif echo \"$FTYPE\" | grep -q 'bzip2'; then DEC='bzip2 -d -c'; "
+        "else DEC='cat'; fi; ";
+
+    if (has_pv)
+        return detect + "pv " + safe_archive + " | $DEC 2>/dev/null | sudo tar -xf - -C $PAYLOAD";
+    else
+        return detect + "$DEC " + safe_archive + " 2>/dev/null | sudo tar -xf - -C $PAYLOAD";
+}
+
+std::string SystemHelper::build_deb_extract_cmd(const std::string& safe_archive) {
+    // 在隔离沙盒中解开 .deb 的 ar 外壳，只提取 data.tar.* 到 PAYLOAD
+    return "cd $SANDBOX && sudo ar x " + safe_archive + " 2>/dev/null && "
+           "for f in data.tar.*; do [ -e \"$f\" ] && sudo tar -xaf \"$f\" -C $PAYLOAD 2>/dev/null; done";
+}
+
+std::string SystemHelper::build_smart_transfer_cmd(const std::string& safe_dest) {
+    // 单层外壳嵌套修复 + 系统目录智能合并
+    return
+        "if [ $(ls -1qA $PAYLOAD | wc -l) -eq 1 ]; then "
+        "  WRAPPER=$(ls -A $PAYLOAD); "
+        "  if [ -d \"$PAYLOAD/$WRAPPER/usr\" ]; then "
+        "    sudo mv \"$PAYLOAD/$WRAPPER/\"* \"$PAYLOAD/\" 2>/dev/null; "
+        "  fi; "
+        "fi; "
+        "if [ -d \"$PAYLOAD/usr\" ]; then "
+        "  for sysdir in usr etc opt var lib; do "
+        "    if [ -d \"$PAYLOAD/$sysdir\" ]; then "
+        "      sudo cp -rf \"$PAYLOAD/$sysdir\" / 2>/dev/null; "
+        "    fi; "
+        "  done; "
+        "else "
+        "  sudo mkdir -p " + safe_dest + "; "
+        "  sudo cp -rf \"$PAYLOAD/\"* " + safe_dest + "/ 2>/dev/null; "
+        "fi";
 }
 
 } // namespace tmoe

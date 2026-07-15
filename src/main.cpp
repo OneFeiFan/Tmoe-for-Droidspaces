@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
     }
 
     // 阶段5: 确保工作目录存在（非 root 时静默跳过系统级目录）
-    cfg.ensure_dirs();
+    cfg.ensure_dirs();// 需要修改
 
     // 阶段5.1: WSL 系统初始化（通过 sudo 写系统配置文件）
     if (cfg.is_wsl) {

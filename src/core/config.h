@@ -11,6 +11,22 @@
 namespace fs = std::filesystem;
 
 namespace tmoe {
+    /** 发行版家族枚举。
+     *  统一表示 Linux 发行版家族，替代裸字符串比较。 */
+    enum class DistroFamily {
+        Debian,     // apt/eatmydata
+        Arch,       // pacman
+        RedHat,     // dnf/yum
+        Alpine,     // apk
+        Gentoo,     // emerge
+        Suse,       // zypper
+        Solus,      // eopkg
+        Void_,      // xbps
+        Slackware,  // slackpkg
+        OpenWrt,    // opkg
+        Unknown
+    };
+
     /** 全局配置 — 替代 Bash 中所有 $TMOE_XXX 全局变量。 */
     struct TmoeConfig {
         // ── 路径 ──
@@ -34,7 +50,8 @@ namespace tmoe {
         // ── 镜像源 ──
         std::string mirror_region = "auto"; // cn / auto
 
-        std::string linux_distro = "unknown";
+        std::string linux_distro = "unknown";  // 发行版家族字符串（debian/arch/alpine…）
+        DistroFamily distro_family = DistroFamily::Unknown;  // 类型化发行版家族
         std::string sub_distro = "unknown";
         std::string update_command = "apt update";
         std::string install_command = "apt install -y";

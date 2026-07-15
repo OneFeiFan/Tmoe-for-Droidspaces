@@ -21,6 +21,7 @@ FetchContent_MakeAvailable(nlohmann_json)
 
 option(TMOE_USE_LIBARCHIVE "Use libarchive for tar operations" OFF)
 option(TMOE_USE_LIBCURL "Use libcurl for downloads" OFF)
+option(TMOE_DEBUG "Enable debug logging (disable for release builds)" OFF)
 
 # ── i18n & 数据驱动嵌入 (纯 CMake 零依赖架构) ────
 # 先确保输出目录存在
@@ -143,4 +144,34 @@ if (TMOE_USE_LIBCURL)
     find_package(CURL REQUIRED)
     target_link_libraries(tmoes PRIVATE CURL::libcurl)
     target_compile_definitions(tmoes PRIVATE TMOE_HAS_LIBCURL)
+endif ()
+
+# ── 调试日志编译期控制 ─────────────────────────
+if (TMOE_DEBUG)
+    target_compile_definitions(tmoes PRIVATE TMOE_DEBUG)
+endif ()
+
+# ── 单元测试 ─────────────────────────────────────
+option(TMOE_BUILD_TESTS "Build unit tests" OFF)
+
+if (TMOE_BUILD_TESTS)
+    enable_testing()
+    include(FetchContent)
+    FetchContent_Declare(
+            doctest
+            GIT_REPOSITORY https://github.com/doctest/doctest.git
+            GIT_TAG v2.4.11
+    )
+    FetchContent_MakeAvailable(doctest)
+
+    file(GLOB TEST_SOURCES tests/*.cpp tests/core/*.cpp)
+    add_executable(tmoe_tests ${TEST_SOURCES})
+    target_link_libraries(tmoe_tests PRIVATE doctest)
+    target_include_directories(tmoe_tests PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+            ${CMAKE_CURRENT_BINARY_DIR}/gen
+    )
+    target_compile_definitions(tmoe_tests PRIVATE TMOE_PLATFORM_LINUX)
+
+    add_test(NAME tmoe_unit COMMAND tmoe_tests)
 endif ()

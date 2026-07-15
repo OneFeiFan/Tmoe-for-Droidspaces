@@ -5,22 +5,10 @@
 #include <string_view>
 #include <vector>
 #include <memory>
+#include "core/config.h"
 
 namespace tmoe::domain {
-    /** 发行版家族枚举 */
-    enum class DistroFamily {
-        Debian, // apt/eatmydata
-        Arch, // pacman
-        RedHat, // dnf/yum
-        Alpine, // apk
-        Gentoo, // emerge
-        Suse, // zypper
-        Solus, // eopkg
-        Void_, // xbps
-        Slackware, // slackpkg
-        OpenWrt, // opkg
-        Unknown
-    };
+    using tmoe::DistroFamily;  // 从 config.h 重新导出
 
     /** 跨发行版包管理器抽象 */
     class PackageManager {

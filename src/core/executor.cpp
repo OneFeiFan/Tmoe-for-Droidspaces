@@ -18,8 +18,7 @@
 #include <chrono>
 
 namespace tmoe {
-    /** 对字符串进行单引号 Shell 转义。 */
-    static std::string shell_escape(std::string_view arg) {
+    std::string shell_escape(std::string_view arg) {
         if (arg.empty()) return "''";
         std::string escaped = "'";
         for (char c: arg) {

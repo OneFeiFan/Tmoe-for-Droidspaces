@@ -84,7 +84,7 @@ namespace tmoe {
     }
 
     CommandBuilder &CommandBuilder::add_env(std::string key, std::string value) {
-        envs_.push_back(std::move(key) + "=" + std::move(value));
+        envs_.push_back(std::move(key) + "=" + shell_escape(value));
         return *this;
     }
 
@@ -96,16 +96,6 @@ namespace tmoe {
     CommandBuilder &CommandBuilder::add_raw(std::string text) {
         raw_parts_.push_back(std::move(text));
         return *this;
-    }
-
-    std::string CommandBuilder::shell_escape(std::string_view arg) {
-        std::string escaped = "'";
-        for (char c: arg) {
-            if (c == '\'') escaped += "'\\''";
-            else escaped += c;
-        }
-        escaped += "'";
-        return escaped;
     }
 
     std::string CommandBuilder::build_string() const {

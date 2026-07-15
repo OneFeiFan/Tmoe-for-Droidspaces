@@ -52,6 +52,12 @@ public:
 
     /** 从 HTML 索引页中查找匹配正则的最新包文件名。 */
     static std::string find_latest_href(const std::string &html, const std::string &pkg_pattern);
+
+private:
+    // extract_archive 命令片段构建器（拆分 shell 脚本便于调试和测试）
+    static std::string build_tar_pipe_cmd(const std::string& safe_archive, bool has_pv);
+    static std::string build_deb_extract_cmd(const std::string& safe_archive);
+    static std::string build_smart_transfer_cmd(const std::string& safe_dest);
 };
 
 } // namespace tmoe

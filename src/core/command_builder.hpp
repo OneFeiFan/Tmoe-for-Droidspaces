@@ -75,8 +75,6 @@ private:
     std::vector<std::string> envs_;
     std::string prefix_;
     std::vector<std::string> raw_parts_; // 不转义，直接拼在末尾
-
-    static std::string shell_escape(std::string_view arg);
 };
 
 } // namespace tmoe

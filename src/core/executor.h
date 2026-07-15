@@ -79,4 +79,8 @@ namespace tmoe {
          */
         [[noreturn]] static void escalate_privileges(int argc, char *argv[]);
     };
+
+    /** 对字符串进行单引号 Shell 转义。
+     *  空串 → ''，含单引号 → '→'\''→'，普通字符原样保留。 */
+    std::string shell_escape(std::string_view arg);
 } // namespace tmoe

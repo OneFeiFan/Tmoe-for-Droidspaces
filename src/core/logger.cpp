@@ -16,6 +16,8 @@
 namespace tmoe {
     bool Logger::enable_color = true;
     bool Logger::quiet_mode = false;
+    std::ofstream Logger::log_file_;
+    std::mutex Logger::log_mutex_;
 
     const char *Logger::ansi(Level lv) {
         if (!enable_color) return "";
@@ -48,6 +50,12 @@ namespace tmoe {
                 break;
         }
         std::fprintf(stderr, "%s%s%s%s\n", ansi(lv), prefix, RESET, msg.data());
+
+        // 文件日志（纯文本，含时间戳）
+        if (log_file_.is_open()) {
+            std::lock_guard<std::mutex> lock(log_mutex_);
+            log_file_ << "[" << timestamp() << "] " << prefix << msg << std::endl;
+        }
     }
 
     void Logger::ok_or_fail(bool ok, std::string_view task) {
@@ -55,6 +63,12 @@ namespace tmoe {
             std::fprintf(stderr, "%s[✓] %s%s\n", ansi(OK), RESET, task.data());
         } else {
             std::fprintf(stderr, "%s[✗] %s failed%s\n", ansi(ERROR), RESET, task.data());
+        }
+        if (log_file_.is_open()) {
+            std::lock_guard<std::mutex> lock(log_mutex_);
+            log_file_ << "[" << timestamp() << "] "
+                      << (ok ? "[✓] " : "[✗] ") << task
+                      << (ok ? "" : " failed") << std::endl;
         }
     }
 
@@ -81,6 +95,10 @@ namespace tmoe {
 
     void Logger::step(std::string_view msg) {
         std::fprintf(stderr, "%s => %s%s\n", ansi(INFO), RESET, msg.data());
+        if (log_file_.is_open()) {
+            std::lock_guard<std::mutex> lock(log_mutex_);
+            log_file_ << "[" << timestamp() << "] => " << msg << std::endl;
+        }
     }
 
     void Logger::press_enter() {
@@ -134,5 +152,23 @@ namespace tmoe {
 #endif
         // 默认 Yes：回车/空 → true，只有显式输入 'n'/'N' 才 false
         return !(ch == 'n' || ch == 'N');
+    }
+    void Logger::init_file_log(const std::string& path) {
+        std::error_code ec;
+        auto parent = std::filesystem::path(path).parent_path();
+        if (!parent.empty()) {
+            std::filesystem::create_directories(parent, ec);
+        }
+        log_file_.open(path, std::ios::app);
+        if (log_file_.is_open()) {
+            log_file_ << "[" << timestamp() << "] === tmoes log started ===" << std::endl;
+        }
+    }
+
+    void Logger::close_file_log() {
+        if (log_file_.is_open()) {
+            log_file_ << "[" << timestamp() << "] === tmoes log ended ===" << std::endl;
+            log_file_.close();
+        }
     }
 } // namespace tmoe

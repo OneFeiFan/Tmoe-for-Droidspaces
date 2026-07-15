@@ -3,6 +3,9 @@
 #include <string_view>
 #include <chrono>
 #include <iostream>
+#include <fstream>
+#include <filesystem>
+#include <mutex>
 
 namespace tmoe {
 
@@ -23,7 +26,11 @@ public:
     static void ok(std::string_view msg)    { log(OK, msg); }
     static void warn(std::string_view msg)  { log(WARN, msg); }
     static void error(std::string_view msg) { log(ERROR, msg); }
+#ifdef TMOE_DEBUG
     static void debug(std::string_view msg) { log(DEBUG, msg); }
+#else
+    static void debug(std::string_view) {}  // Release 构建下编译期消除
+#endif
     /// @}
 
     /** 根据布尔结果输出 [✓] 或 [✗]。 */
@@ -46,8 +53,17 @@ public:
     /** 询问 y/n 问题；默认 Yes（回车=继续，输入 n=取消）。匹配 Bash do_you_want_to_continue。 */
     static bool confirm_yes_default(std::string_view question);
 
+    // ── 文件日志 ──
+    /** 开启文件日志（自动创建父目录），写入纯文本（无 ANSI 颜色）。 */
+    static void init_file_log(const std::string& path);
+    /** 关闭文件日志。 */
+    static void close_file_log();
+
 private:
     static const char* ansi(Level lv);
+
+    static std::ofstream log_file_;
+    static std::mutex log_mutex_;
 };
 
 } // namespace tmoe
