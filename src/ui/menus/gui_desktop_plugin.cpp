@@ -1,15 +1,16 @@
 /** GUI 桌面安装菜单插件 — DesktopMenuPlugin 类。
  *
  *  菜单结构:
- *  ┌─ 顶层 SimpleMenu (add_navigation_items)
- *  │   ├─ 免 Root 桌面 (IUIMenu) → 动态 DE 列表 + sandwich nav
- *  │   ├─ 需 Root 桌面 (IUIMenu) → 动态 DE 列表 + sandwich nav
- *  │   ├─ 窗口管理器  (IUIMenu) → 动态 WM 列表 + sandwich nav
- *  │   └─ 显示管理器  (IUIMenu) → 固定 DM 列表 + sandwich nav
+ *  ┌─ 顶层 SimpleMenu (add_sandwich_nav)
+ *  │   ├─ 1. 免 Root 桌面 → LambdaAction → MenuEngine(build_rootless_menu())
+ *  │   ├─ 2. 需 Root 桌面 → LambdaAction → MenuEngine(build_rootful_menu())
+ *  │   ├─ 3. 窗口管理器  → LambdaAction → MenuEngine(build_wm_menu())
+ *  │   └─ 4. 显示管理器  → LambdaAction → MenuEngine(build_dm_menu())
  */
 #include "ui/menus/gui_desktop_plugin.h"
 #include "ui/plugin_helpers.h"
 #include "ui/builtin_actions.h"
+#include "ui/menu_engine.h"
 #include "domain/gui/gui.hpp"
 #include "domain/system/package_manager.h"
 
@@ -19,14 +20,41 @@ DesktopMenuPlugin::DesktopMenuPlugin(domain::GUIManager* gui) : gui_(gui) {}
 
 std::shared_ptr<IUIMenu> DesktopMenuPlugin::build() {
     auto menu = make_plugin_menu(
-        _("gui.de_install_title"), _("menu.tui.title"), "plugin_gui_desktop");
+        _("gui.de_install_title"), _("menu.tui.title"), "gui_desktop");
 
-    menu->add_child(build_rootless_menu());
-    menu->add_child(build_rootful_menu());
-    menu->add_child(build_wm_menu());
-    menu->add_child(build_dm_menu());
-    add_navigation_items(menu);
+    auto rootless = build_rootless_menu();
+    menu->add_child(std::make_shared<LambdaAction>(
+        _("gui.de_rootless"), "1",
+        [rootless](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(rootless);
+            return true;
+        }));
 
+    auto rootful = build_rootful_menu();
+    menu->add_child(std::make_shared<LambdaAction>(
+        _("gui.de_rootful"), "2",
+        [rootful](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(rootful);
+            return true;
+        }));
+
+    auto wm_menu = build_wm_menu();
+    menu->add_child(std::make_shared<LambdaAction>(
+        _("gui.de_install_wm"), "3",
+        [wm_menu](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(wm_menu);
+            return true;
+        }));
+
+    auto dm_menu = build_dm_menu();
+    menu->add_child(std::make_shared<LambdaAction>(
+        _("gui.de_install_dm"), "4",
+        [dm_menu](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(dm_menu);
+            return true;
+        }));
+
+    add_sandwich_nav(menu);
     return menu;
 }
 
