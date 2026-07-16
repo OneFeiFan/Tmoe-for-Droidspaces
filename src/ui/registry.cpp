@@ -23,6 +23,14 @@ std::vector<std::shared_ptr<IMenuItem>> MenuRegistry::items() {
     return registry();
 }
 
+std::shared_ptr<IMenuItem> MenuRegistry::find_by_tag(const std::string& tag) {
+    std::lock_guard<std::mutex> lock(mutex());
+    for (auto& item : registry()) {
+        if (item && item->get_tag() == tag) return item;
+    }
+    return nullptr;
+}
+
 void MenuRegistry::clear() {
     std::lock_guard<std::mutex> lock(mutex());
     registry().clear();

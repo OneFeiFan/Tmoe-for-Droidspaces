@@ -35,8 +35,43 @@ add_custom_command(
         DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_i18n.cmake
         COMMENT "Embedding i18n data..."
 )
-add_custom_target(gen_embedded_data DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/gen/i18n_data.h)
-set(GENERATED_HEADERS ${CMAKE_CURRENT_BINARY_DIR}/gen/i18n_data.h)
+
+# ── JSON 数据嵌入 ──────────────────────────────────────
+add_custom_command(
+        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gen/rootfs_data.h
+        COMMAND ${CMAKE_COMMAND}
+        -DINPUT_FILE="${CMAKE_CURRENT_SOURCE_DIR}/data/rootfs_map.json"
+        -DOUTPUT_FILE="${CMAKE_CURRENT_BINARY_DIR}/gen/rootfs_data.h"
+        -DVAR_NAME=ROOTFS_MAP_JSON
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_json.cmake
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_json.cmake
+                ${CMAKE_CURRENT_SOURCE_DIR}/data/rootfs_map.json
+        COMMENT "Embedding rootfs registry JSON..."
+)
+
+add_custom_command(
+        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gen/mirror_data.h
+        COMMAND ${CMAKE_COMMAND}
+        -DINPUT_FILE="${CMAKE_CURRENT_SOURCE_DIR}/data/mirror_registry.json"
+        -DOUTPUT_FILE="${CMAKE_CURRENT_BINARY_DIR}/gen/mirror_data.h"
+        -DVAR_NAME=MIRROR_REGISTRY_JSON
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_json.cmake
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_json.cmake
+                ${CMAKE_CURRENT_SOURCE_DIR}/data/mirror_registry.json
+        COMMENT "Embedding mirror registry JSON..."
+)
+
+add_custom_target(gen_embedded_data DEPENDS
+    ${CMAKE_CURRENT_BINARY_DIR}/gen/i18n_data.h
+    ${CMAKE_CURRENT_BINARY_DIR}/gen/rootfs_data.h
+    ${CMAKE_CURRENT_BINARY_DIR}/gen/mirror_data.h
+)
+
+set(GENERATED_HEADERS
+    ${CMAKE_CURRENT_BINARY_DIR}/gen/i18n_data.h
+    ${CMAKE_CURRENT_BINARY_DIR}/gen/rootfs_data.h
+    ${CMAKE_CURRENT_BINARY_DIR}/gen/mirror_data.h
+)
 
 # ═══════════════════════════════════════════════════════
 # 源码

@@ -30,13 +30,24 @@ TEST_CASE("LambdaAction::make: simplified factory") {
     CHECK(called == 1);
 }
 
-TEST_CASE("make_plugin_menu: creates SimpleMenu with navigation") {
+TEST_CASE("make_plugin_menu: creates SimpleMenu without navigation") {
     auto menu = make_plugin_menu("Title", "Label", "tag");
     CHECK(menu->get_title() == "Title");
     CHECK(menu->get_label() == "Label");
     CHECK(menu->get_tag() == "tag");
-    // 自动添加 back 和 exit
-    CHECK(menu->find_child("back") != nullptr);
+    // make_plugin_menu 只创建空容器，导航项由调用方显式添加
+    CHECK(menu->children().empty());
+}
+
+TEST_CASE("add_sandwich_nav: inserts back at top, exit at bottom") {
+    auto menu = make_plugin_menu("T", "L", "t");
+    menu->add_child(std::make_shared<LambdaAction>("Item", "item",
+        [](MenuContext&) -> bool { return true; }));
+    add_sandwich_nav(menu);
+    // 夹心饼：back 在索引 0，内容在中间，exit 在末尾
+    CHECK(menu->children().size() == 3);
+    CHECK(menu->children()[0]->get_tag() == "back");
+    CHECK(menu->find_child("item") != nullptr);
     CHECK(menu->find_child("exit") != nullptr);
 }
 

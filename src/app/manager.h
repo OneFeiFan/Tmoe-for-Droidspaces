@@ -26,6 +26,8 @@
 #include "domain/apps/download_tools.h"
 #include <memory>
 
+namespace tmoe::ui { class IUIMenu; }
+
 #include "core/launch_context.h"
 #include "domain/runtime/container_manager.h"
 
@@ -40,15 +42,7 @@ namespace tmoe::app {
         explicit Manager(TmoeConfig cfg,
                          LocaleSaveFunc save_locale = nullptr);
 
-        /** 运行交互式 TUI 循环（旧版：字符串拼接路由）。 */
-        int run_interactive();
-
-        /** 运行交互式 TUI 循环（新版：插件化 MenuEngine）。
-         *  使用旧 tui_routes_ 包装为 DelegateAction。 */
-        int run_interactive_new();
-
-        /** 运行交互式 TUI 循环（插件版：MenuRegistry 驱动）。
-         *  所有菜单项由各模块通过 AutoRegister 自行注册。 */
+        /** 运行交互式 TUI 循环（插件版：MenuRegistry 驱动）。 */
         int run_interactive_plugin();
 
         /** 根据预解析的 LaunchContext 执行对应操作。 */
@@ -93,26 +87,19 @@ namespace tmoe::app {
         /** 语言/区域切换菜单（支持中/英文）。 */
         void run_locale_menu();
 
-        /** 渲染 whiptail 菜单并返回用户选择的标签。 */
-        std::string render_and_get_choice();
-        std::string render_manager_menu();
-        std::string render_tool_menu();
-
-        /** 首次启动初始化 (标记文件 ~/.config/tmoe-linux/.initialized_v2) */
-        void ensure_initialized();
-
-        /** 通用菜单循环驱动 */
-        int run_menu_loop(std::function<std::string()> renderer,
-                          std::function<bool(const std::string&)> dispatcher);
-
-        /** 容器管理 UI (对应 Bash tmoe m) */
-        int run_manager_ui();
-
-        /** Linux 工具箱 UI (对应 Bash tmoe t) */
-        int run_tool_ui();
-
         /** 通用容器启动辅助方法 (Proot/Chroot/Nspawn)。 */
         int launch_container(const LaunchContext& ctx, domain::ContainerMode mode,
                              const std::string& mode_label, bool needs_root);
+
+        /** 将各领域模块注册到 MenuRegistry 并构建主菜单。 */
+        void register_plugins();
+
+        /** 从 tui_routes_ 构建主菜单（Termux 10 项 / Linux 7 项）。 */
+        std::shared_ptr<tmoe::ui::IUIMenu> build_root_menu();
+
+        /** 子菜单构建器 —— 逐步替换旧 whiptail 字符串拼接。 */
+        std::shared_ptr<tmoe::ui::IUIMenu> build_faq_menu();
+        std::shared_ptr<tmoe::ui::IUIMenu> build_locale_menu();
+        std::shared_ptr<tmoe::ui::IUIMenu> build_mirror_menu();
     };
 } // namespace tmoe::app

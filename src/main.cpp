@@ -135,14 +135,7 @@ int main(int argc, char *argv[]) {
         //   未设置或 "legacy" — 旧版字符串拼接路由
         //   "new"   — MenuEngine + DelegateAction 桥接（与旧版功能等价）
         //   "plugin" — MenuRegistry 驱动的纯插件化 UI
-        const char* ui_mode = std::getenv("TMOE_UI_MODE");
-        if (ui_mode && std::string(ui_mode) == "plugin") {
-            return manager.run_interactive_plugin();
-        }
-        if (ui_mode && std::string(ui_mode) == "new") {
-            return manager.run_interactive_new();
-        }
-        return manager.run_interactive();
+        return manager.run_interactive_plugin();
     }
 
     // 复刻原版 Bash 行为：位置参数过多时发出警告

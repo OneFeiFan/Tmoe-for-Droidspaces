@@ -23,6 +23,9 @@ public:
     /** 返回所有已注册菜单项的拷贝（用于构建主菜单）。 */
     static std::vector<std::shared_ptr<IMenuItem>> items();
 
+    /** 按 tag 查找已注册项，找不到返回 nullptr。 */
+    static std::shared_ptr<IMenuItem> find_by_tag(const std::string& tag);
+
     /** 清空注册表（主要用于测试）。 */
     static void clear();
 
