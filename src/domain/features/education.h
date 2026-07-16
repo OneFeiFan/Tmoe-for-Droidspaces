@@ -30,11 +30,7 @@ public:
     /** 科学与教育主菜单入口 (L1) */
     void run_education_menu();
 
-private:
-    const TmoeConfig& cfg_;
-    std::string download_folder_;
-
-    // ═══ L1 → L2 子菜单 ═══
+    // ═══ L1 → L2 子菜单 (public for UI plugin dispatch) ═══
 
     /** L2: 高考 (真题 / 学习笔记) */
     void run_gaokao_menu();
@@ -53,6 +49,10 @@ private:
 
     /** L2: 化学软件 */
     void run_chemistry_menu();
+
+private:
+    const TmoeConfig& cfg_;
+    std::string download_folder_;
 
     // ═══ L3 子菜单 ═══
 

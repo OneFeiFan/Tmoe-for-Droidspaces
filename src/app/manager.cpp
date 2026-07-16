@@ -284,7 +284,7 @@ namespace tmoe::app {
         std::string title = _("menu.tui.title_bar") + " " + cfg_.os_pretty_name;
 
         if (cfg_.is_termux) {
-            // Termux 容器管理：10 项（tag 用数字匹配旧 UI）
+            // Termux 容器管理：10 项
             auto menu = make_plugin_menu(title, _("menu.tui.manager_prompt"), "main_manager");
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.proot"), "1",
@@ -295,9 +295,12 @@ namespace tmoe::app {
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.remove"), "3",
                 [this](MenuContext&) -> bool { tui_routes_["3"](); return true; }));
+            // 4: 语言切换 — 嵌套引擎运行新式菜单
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.locale"), "4",
-                [this](MenuContext&) -> bool { tui_routes_["4"](); return true; }));
+                [this](MenuContext& ctx) -> bool {
+                    MenuEngine(ctx).run(build_locale_menu()); return true;
+                }));
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.termux"), "5",
                 [this](MenuContext&) -> bool { tui_routes_["5"](); return true; }));
@@ -307,9 +310,12 @@ namespace tmoe::app {
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.update"), "7",
                 [this](MenuContext&) -> bool { tui_routes_["7"](); return true; }));
+            // 8: FAQ — 嵌套引擎运行新式菜单
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.faq"), "8",
-                [this](MenuContext&) -> bool { tui_routes_["8"](); return true; }));
+                [this](MenuContext& ctx) -> bool {
+                    MenuEngine(ctx).run(build_faq_menu()); return true;
+                }));
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.report"), "9",
                 [this](MenuContext&) -> bool { tui_routes_["9"](); return true; }));
@@ -319,7 +325,7 @@ namespace tmoe::app {
             add_navigation_items(menu);
             return menu;
         } else {
-            // Linux 工具箱：7 项（tag 用数字匹配旧 render_tool_menu）
+            // Linux 工具箱：7 项
             auto menu = make_plugin_menu(title, _("menu.tui.tool_prompt"), "main_tool");
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.gui_de"), "1",
@@ -336,12 +342,18 @@ namespace tmoe::app {
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.gui_remote"), "5",
                 [this](MenuContext&) -> bool { tui_routes_["13"](); return true; }));
+            // 6: 镜像源 — 嵌套引擎运行新式菜单
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.mirrors"), "6",
-                [this](MenuContext&) -> bool { tui_routes_["11"](); return true; }));
+                [this](MenuContext& ctx) -> bool {
+                    MenuEngine(ctx).run(build_mirror_menu()); return true;
+                }));
+            // 7: FAQ — 嵌套引擎运行新式菜单
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.faq"), "7",
-                [this](MenuContext&) -> bool { tui_routes_["8"](); return true; }));
+                [this](MenuContext& ctx) -> bool {
+                    MenuEngine(ctx).run(build_faq_menu()); return true;
+                }));
             add_navigation_items(menu);
             return menu;
         }
@@ -466,7 +478,7 @@ namespace tmoe::app {
                 I18n::init("zh_CN"); cfg_.locale = "zh_CN";
                 environment_->set_locale("zh_CN");
                 if (save_locale_) save_locale_("zh_CN");
-                Logger::ok(_("locale.switched"));
+                Logger::ok(_f("locale.switched_ok", "zh_CN"));
                 return true;
             }));
         menu->add_child(std::make_shared<LambdaAction>(
@@ -475,7 +487,7 @@ namespace tmoe::app {
                 I18n::init("en_US"); cfg_.locale = "en_US";
                 environment_->set_locale("en_US");
                 if (save_locale_) save_locale_("en_US");
-                Logger::ok(_("locale.switched"));
+                Logger::ok(_f("locale.switched_ok", "en_US"));
                 return true;
             }));
 
@@ -570,12 +582,14 @@ namespace tmoe::app {
 
     /** 从指定分类选择镜像（被 build_mirror_menu 的 1-3 项调用）。 */
     void Manager::select_mirror_from_category(const std::string& category) {
-        auto mirrors = MirrorRegistry::instance().by_category(category);
+        using namespace tmoe::ui;
+
+        auto mirrors = domain::MirrorRegistry::instance().by_category(category);
         if (category == "worldwide") {
-            auto extra = MirrorRegistry::instance().by_region("global");
+            auto extra = domain::MirrorRegistry::instance().by_region("global");
             mirrors.insert(mirrors.end(), extra.begin(), extra.end());
             for (const auto& r : {"hk", "tw", "jp", "kr", "us", "uk", "de", "fr", "ru", "au"}) {
-                auto reg = MirrorRegistry::instance().by_region(r);
+                auto reg = domain::MirrorRegistry::instance().by_region(r);
                 mirrors.insert(mirrors.end(), reg.begin(), reg.end());
             }
         }
@@ -593,9 +607,9 @@ namespace tmoe::app {
         for (size_t i = 0; i < mirrors.size(); ++i) {
             auto label = mirrors[i].name + " (" + mirrors[i].url + ")";
             auto id = mirrors[i].id;
-            menu->add_child(std::make_shared<LambdaAction>(
+            menu->add_child(std::make_shared<ui::LambdaAction>(
                 label, std::to_string(i + 1),
-                [this, id](MenuContext&) -> bool {
+                [this, id](ui::MenuContext&) -> bool {
                     mirror_mgr_->switch_to(id);
                     Logger::press_enter();
                     return true;
@@ -605,8 +619,8 @@ namespace tmoe::app {
         add_sandwich_nav(menu);
 
         // 驱动子菜单
-        MenuContext ctx{cfg_};
-        MenuEngine engine(ctx);
+        ui::MenuContext ctx{cfg_};
+        ui::MenuEngine engine(ctx);
         engine.run(menu);
     }
 

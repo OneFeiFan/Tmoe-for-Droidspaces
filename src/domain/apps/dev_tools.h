@@ -26,10 +26,8 @@ namespace tmoe::domain {
 
         void run_dev_tools_menu();
 
-    private:
-        // ═══════════════════════════════════════════════════════
-        // 一级菜单: development_programming_tools (11项)
-        // ═══════════════════════════════════════════════════════
+        // ── 插件可访问的菜单入口 ─────────────────────────────────
+        // (由 IUIMenu 框架的 LambdaAction 调用，替代旧 whiptail 菜单)
 
         /** VS Code 子菜单 (4项: Official/Server/Codium/fix tightvnc) */
         void run_vscode_menu();
@@ -54,6 +52,23 @@ namespace tmoe::domain {
 
         /** Sublime Text 安装 (添加官方源 + 安装) */
         void install_sublime_text();
+
+        /** PyCharm Community → 设置状态后进入 dev_menu_01 */
+        void prep_pycharm();
+
+        /** WebStorm → 设置状态后进入 dev_menu_01 */
+        void prep_webstorm();
+
+        /** CLion → 设置状态后进入 dev_menu_01 */
+        void prep_clion();
+
+        /** GoLand → 设置状态后进入 dev_menu_01 */
+        void prep_goland();
+
+        /** GitHub Desktop → 设置状态后进入 dev_menu_01 */
+        void prep_github_desktop();
+
+    private:
 
         // ═══════════════════════════════════════════════════════
         // VS Code 子菜单实现

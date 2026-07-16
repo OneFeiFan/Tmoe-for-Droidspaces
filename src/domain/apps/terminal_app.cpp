@@ -69,4 +69,20 @@ void TerminalAppManager::run_terminal_menu() {
     }
 }
 
+void TerminalAppManager::install_terminal(const std::string& pkg,
+                                              const std::string& label_key,
+                                              const std::string& hint_key) {
+    Logger::step(_(label_key));
+    PackageManager::install(pkg, family_);
+
+    if (!hint_key.empty()) {
+        Logger::info(_(hint_key));
+    }
+    if (pkg == "cool-retro-term" && cfg_.linux_distro == "debian") {
+        Logger::info(_("term.hint_cool_retro_term_failed"));
+    }
+
+    Logger::press_enter();
+}
+
 } // namespace tmoe::domain

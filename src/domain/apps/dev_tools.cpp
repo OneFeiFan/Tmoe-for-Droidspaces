@@ -790,6 +790,47 @@ namespace tmoe::domain {
         dev_menu_type_ = 2;
     }
 
+    void DeveloperTools::prep_pycharm() {
+        community_edition_ = true;
+        grep_name_ = "pycharm-community-edition";
+        lnk_file_ = "pycharm-community-edition.desktop";
+        bin_file_ = "/opt/pycharm-community-edition/bin/pycharm.sh";
+        icon_name_ = "pycharm-community-edition.png";
+        app_opt_dir_ = "/opt/pycharm-community-edition";
+    }
+
+    void DeveloperTools::prep_webstorm() {
+        grep_name_ = "webstorm";
+        lnk_file_ = "webstorm.desktop";
+        bin_file_ = "/opt/webstorm/bin/webstorm.sh";
+        icon_name_ = "webstorm.png";
+        app_opt_dir_ = "/opt/webstorm";
+    }
+
+    void DeveloperTools::prep_clion() {
+        grep_name_ = "clion";
+        lnk_file_ = "clion.desktop";
+        bin_file_ = "/opt/clion/bin/clion.sh";
+        icon_name_ = "clion.png";
+        app_opt_dir_ = "/opt/clion";
+    }
+
+    void DeveloperTools::prep_goland() {
+        grep_name_ = "goland";
+        lnk_file_ = "goland.desktop";
+        bin_file_ = "/opt/goland/bin/goland.sh";
+        icon_name_ = "goland.png";
+        app_opt_dir_ = "/opt/goland";
+    }
+
+    void DeveloperTools::prep_github_desktop() {
+        grep_name_ = "github-desktop-bin";
+        lnk_file_ = "github-desktop.desktop";
+        bin_file_ = "/usr/bin/github-desktop";
+        icon_name_ = "github-desktop.png";
+        app_opt_dir_ = "/opt/github-desktop";
+    }
+
     // ═══════════════════════════════════════════════════════════════════
     // IDEA 旗舰版 vs 社区版
     // ═══════════════════════════════════════════════════════════════════

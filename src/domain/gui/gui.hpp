@@ -81,6 +81,7 @@ namespace tmoe::domain {
         void run_desktop_install_menu();
 
         void run_remote_desktop_menu();
+        void run_xsdl_config_menu();
 
 
         // ═══════════════════════════════════════════════
@@ -147,8 +148,6 @@ namespace tmoe::domain {
         void run_wm_menu();
 
         void run_dm_menu();
-
-        void run_xsdl_config_menu();
 
         // ═══════════════════════════════════════════════
         // 主题管理子步骤

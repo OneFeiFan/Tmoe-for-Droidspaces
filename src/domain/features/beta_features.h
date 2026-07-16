@@ -38,14 +38,11 @@ public:
     void set_input_method_callback(std::function<void()> cb)  { input_method_cb_ = std::move(cb); }
     void set_terminal_callback(std::function<void()> cb)  { terminal_cb_ = std::move(cb); }
 
-private:
-    const TmoeConfig& cfg_;
-
-    // 跨模块回调
-    std::function<void()> virt_cb_;
-    std::function<void()> education_cb_;
-    std::function<void()> input_method_cb_;
-    std::function<void()> terminal_cb_;
+    // ── 跨模块委托调用 (供 UI 插件使用) ──
+    void virt_delegate() { if (virt_cb_) virt_cb_(); }
+    void education_delegate() { if (education_cb_) education_cb_(); }
+    void input_method_delegate() { if (input_method_cb_) input_method_cb_(); }
+    void terminal_delegate() { if (terminal_cb_) terminal_cb_(); }
 
     // ── 第1层子菜单 ──
 
@@ -72,6 +69,15 @@ private:
 
     /** 选项12: 其他 (OBS-Studio, seahorse, kodi, scrcpy, flameshot, telegram) */
     void run_other_menu();
+
+private:
+    const TmoeConfig& cfg_;
+
+    // 跨模块回调
+    std::function<void()> virt_cb_;
+    std::function<void()> education_cb_;
+    std::function<void()> input_method_cb_;
+    std::function<void()> terminal_cb_;
 
     // ── 第2层/第3层子菜单 ──
 

@@ -20,6 +20,9 @@ public:
 
     void set_docker_callback(std::function<void()> cb) { docker_cb_ = std::move(cb); }
 
+    /** 触发 Docker 回调（供 UI 插件使用，回调由 Manager 构造函数注入）。 */
+    void invoke_docker() { if (docker_cb_) docker_cb_(); }
+
     // ── Wine ──
     bool install_wine(std::string_view branch = "devel");
     bool install_winetricks();

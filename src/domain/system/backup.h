@@ -25,6 +25,9 @@ class BackupManager {
 public:
     explicit BackupManager(const TmoeConfig& cfg);
 
+    /** 获取配置引用，供插件层使用。 */
+    const TmoeConfig& config() const { return cfg_; }
+
     // ── TUI 入口 ──
     /** 备份/恢复主菜单 (whiptail TUI)。 */
     void run_backup_menu();
@@ -103,6 +106,15 @@ public:
     /** 安装跨发行版 Timeshift。 */
     bool install_timeshift();
 
+    /** TUI 让用户选择备份格式。 */
+    ArchiveFormat tui_select_format();
+
+    /** 使用 pv 显示进度的 tar 打包。 */
+    bool run_tar_backup_with_progress(std::string_view source_dir,
+                                       std::string_view output_file,
+                                       ArchiveFormat format,
+                                       const std::vector<std::string>& excludes = {});
+
     /** 容器移除前备份提示。 */
     bool prompt_backup_before_removal(std::string_view container_name,
                                        std::string_view rootfs_path);
@@ -117,15 +129,6 @@ private:
                         ArchiveFormat format,
                         const std::vector<std::string>& excludes = {},
                         const std::vector<std::string>& includes = {});
-
-    /** 使用 pv 显示进度的 tar 打包。 */
-    bool run_tar_backup_with_progress(std::string_view source_dir,
-                                       std::string_view output_file,
-                                       ArchiveFormat format,
-                                       const std::vector<std::string>& excludes = {});
-
-    /** TUI 让用户选择备份格式。 */
-    ArchiveFormat tui_select_format();
 
     /** TUI 让用户选择恢复模式。 */
     enum class RestoreMode { Normal, FromSD, ManualPath, FromDownload, Compat };

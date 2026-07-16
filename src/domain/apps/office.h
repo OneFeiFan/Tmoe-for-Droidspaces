@@ -10,8 +10,6 @@ class OfficeManager {
 public:
     explicit OfficeManager(const TmoeConfig& cfg);
     void run_office_menu();
-
-private:
     void install_libreoffice(bool with_zh);
     void install_wps();
     void install_yozo();
@@ -19,6 +17,8 @@ private:
     void install_meld();
     void install_kdiff3();
     void install_manpages_zh();
+
+private:
     void apply_libreoffice_proot_patch();
     void ensure_wps_fonts();
     void refresh_font_cache();

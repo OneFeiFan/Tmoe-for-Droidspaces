@@ -25,68 +25,50 @@ namespace tmoe::domain {
         void set_download_cb(std::function<void()> cb) { download_cb_ = std::move(cb); }
         void set_zsh_cb(std::function<void()> cb) { zsh_cb_ = std::move(cb); }
 
-    private:
-        // 13 项对应旧 Bash center
+        void invoke_browser_cb() { if (browser_cb_) browser_cb_(); }
+        void invoke_dev_cb() { if (dev_cb_) dev_cb_(); }
+        void invoke_office_cb() { if (office_cb_) office_cb_(); }
+        void invoke_download_cb() { if (download_cb_) download_cb_(); }
+        void invoke_zsh_cb() { if (zsh_cb_) zsh_cb_(); }
+
+        // ── 插件可访问的子菜单 ──
         void run_sns_menu();
-
-        void install_linux_qq();
-
-        void install_wechat();
-
-        void install_skype();
-
-        void install_mitalk();
-
         void run_games_menu();
-
         void run_media_menu();
-
-        void run_docs_menu();
-
         void run_fileshare_menu();
-
         void run_pkg_gui_menu();
-
         void run_cleanup_menu();
-
-        void remove_gui();
-
-        void remove_browser();
-
-        void remove_tmoe_tools();
-
         void run_electron_apps_menu();
-
-        void run_electron_music_menu();
-
-        void run_electron_video_menu();
-
-        void run_electron_note_menu();
-
-        void run_electron_vm_menu();
-
-        void run_electron_dev_menu();
-
-        void run_electron_manager();
-
-        void check_download_path();
-
-        void electron_install_or_remove(const std::string &app_name);
-
-        void install_electron_app(const std::string &app_name);
-
-        void remove_electron_app(const std::string &app_name);
-
-        void ensure_electron_runtime();
-
-        void download_tmoe_electron_app(const std::string &app_name);
-
         void run_debian_opt_menu();
+
+    private:
 
         // ── 多媒体安装 (还原Bash体验) ──
         void install_spotify();
         void install_netease_cloud_music();
         void install_with_check(const std::string &pkg, DistroFamily family);
+
+        // 内部子菜单（被公开 run_*_menu() 内部调用）
+        void run_electron_music_menu();
+        void run_electron_video_menu();
+        void run_electron_note_menu();
+        void run_electron_vm_menu();
+        void run_electron_dev_menu();
+        void run_electron_manager();
+        void check_download_path();
+        void electron_install_or_remove(const std::string &app_name);
+        void install_electron_app(const std::string &app_name);
+        void remove_electron_app(const std::string &app_name);
+        void ensure_electron_runtime();
+        void download_tmoe_electron_app(const std::string &app_name);
+        void install_linux_qq();
+        void install_wechat();
+        void install_skype();
+        void install_mitalk();
+        void run_docs_menu();
+        void remove_gui();
+        void remove_browser();
+        void remove_tmoe_tools();
 
         const TmoeConfig &cfg_;
         std::string apps_lnk_dir_ = "/usr/share/applications";

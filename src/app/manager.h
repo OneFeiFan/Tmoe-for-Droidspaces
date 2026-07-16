@@ -101,5 +101,8 @@ namespace tmoe::app {
         std::shared_ptr<tmoe::ui::IUIMenu> build_faq_menu();
         std::shared_ptr<tmoe::ui::IUIMenu> build_locale_menu();
         std::shared_ptr<tmoe::ui::IUIMenu> build_mirror_menu();
+
+        /** 镜像分类子菜单辅助（被 build_mirror_menu 调用）。 */
+        void select_mirror_from_category(const std::string& category);
     };
 } // namespace tmoe::app

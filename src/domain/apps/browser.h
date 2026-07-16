@@ -11,13 +11,18 @@ public:
     explicit BrowserManager(const TmoeConfig& cfg);
     void run_browser_menu();
 
-private:
-    // 旧 Bash 菜单结构
+    // 菜单入口 — 供 UI 插件 LambdaAction 直接调用
     void firefox_or_chromium();
-    void firefox_or_firefoxesr();
-    void chromium_browser_menu();
     void microsoft_edge_menu();
     void falkon_browser_menu();
+    void install_vivaldi();
+    void install_epiphany();
+    void install_midori();
+
+private:
+    // 旧 Bash 子菜单
+    void firefox_or_firefoxesr();
+    void chromium_browser_menu();
 
     // 安装
     void install_firefox();
@@ -25,9 +30,6 @@ private:
     void install_chromium();
     void install_edge();
     void install_falkon();
-    void install_vivaldi();
-    void install_midori();
-    void install_epiphany();
 
     // 卸载
     void remove_chromium();

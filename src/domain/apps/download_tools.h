@@ -11,10 +11,12 @@ public:
     explicit DownloadTools(const TmoeConfig& cfg);
     void run_download_menu();
 
-private:
+    // 子菜单入口（供 UI 插件直接调用）
     void run_aria2_menu();
     void run_video_dl_menu();
     void run_crawler_menu();
+
+private:
     void install_aria2();
     void configure_aria2();
     void start_aria2();

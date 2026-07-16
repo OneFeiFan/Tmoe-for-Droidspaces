@@ -11,14 +11,15 @@ public:
     explicit InputMethodManager(const TmoeConfig& cfg);
     void run_input_method_menu();
 
-private:
     void run_fcitx4_menu();
     void run_fcitx5_menu();
     void run_ibus_menu();
     void install_sogou();
+    void show_input_faq();
+
+private:
     void write_input_env_vars();
     void setup_fcitx_autostart();
-    void show_input_faq();
 
     const TmoeConfig& cfg_;
 };
