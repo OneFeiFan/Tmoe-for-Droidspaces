@@ -171,4 +171,44 @@ namespace tmoe::domain {
         Logger::info(_("input.faq_5"));
         Logger::info(_("input.faq_6"));
     }
+
+    // ── 插件子菜单所需的细粒度操作 ──────────────────────
+
+    void InputMethodManager::install_fcitx4_engine(const std::string& pkg_name) {
+        auto family = infer_family_from_config(cfg_.linux_distro);
+        PackageManager::install({"fcitx", "fcitx-config-gtk", "fcitx-im"}, family);
+        PackageManager::install(pkg_name, family);
+        write_input_env_vars();
+        setup_fcitx_autostart();
+    }
+
+    void InputMethodManager::install_fcitx4_tools() {
+        auto family = infer_family_from_config(cfg_.linux_distro);
+        PackageManager::install({
+            "fcitx", "fcitx-tools", "fcitx-config-gtk",
+            "fcitx-im", "fcitx-configtool", "fcitx-googlepinyin", "fcitx-rime",
+            "fcitx-libpinyin", "fcitx-sunpinyin"
+        }, family);
+        write_input_env_vars();
+        setup_fcitx_autostart();
+    }
+
+    void InputMethodManager::install_fcitx5_packages(const std::vector<std::string>& pkgs) {
+        auto family = infer_family_from_config(cfg_.linux_distro);
+        PackageManager::install(pkgs, family);
+        write_input_env_vars();
+    }
+
+    void InputMethodManager::install_ibus_engine(const std::string& pkg_name) {
+        auto family = infer_family_from_config(cfg_.linux_distro);
+        PackageManager::install("ibus", family);
+        PackageManager::install(pkg_name, family);
+        // ibus 自动启动
+        Logger::step(_("input.autostart"));
+        Executor::shell(
+            "if ! pgrep -x ibus-daemon >/dev/null 2>&1; then "
+            "  ibus-daemon -drx --panel=/usr/lib/ibus/ibus-ui-gtk3 2>/dev/null || "
+            "  ibus-daemon -drx 2>/dev/null || true; fi"
+        );
+    }
 } // namespace tmoe::domain

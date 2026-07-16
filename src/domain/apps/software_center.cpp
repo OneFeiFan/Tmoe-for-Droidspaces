@@ -54,6 +54,11 @@ namespace tmoe::domain {
         }
     }
 
+    // ── 公开包装：委托给 MediaTools 的图片压缩子菜单 ──
+    void SoftwareCenter::run_image_compression_menu() {
+        media_tools_->run_image_compression_menu();
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // 3. ⚛️ Electron Apps — 对应旧 Bash tmoe_electron_repo → sources/electron-apps
     //    所有应用从 https://packages.tmoe.me/apps/<name>/app.tar.xz 下载

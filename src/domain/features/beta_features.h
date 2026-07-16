@@ -70,16 +70,7 @@ public:
     /** 选项12: 其他 (OBS-Studio, seahorse, kodi, scrcpy, flameshot, telegram) */
     void run_other_menu();
 
-private:
-    const TmoeConfig& cfg_;
-
-    // 跨模块回调
-    std::function<void()> virt_cb_;
-    std::function<void()> education_cb_;
-    std::function<void()> input_method_cb_;
-    std::function<void()> terminal_cb_;
-
-    // ── 第2层/第3层子菜单 ──
+    // ── 第2层/第3层子菜单 (公开，供 UI 插件调用) ──
 
     /** Deepin 软件子菜单 (16项) */
     void run_deepin_menu();
@@ -89,6 +80,15 @@ private:
 
     /** scrcpy 子菜单 */
     void run_scrcpy_menu();
+
+private:
+    const TmoeConfig& cfg_;
+
+    // 跨模块回调
+    std::function<void()> virt_cb_;
+    std::function<void()> education_cb_;
+    std::function<void()> input_method_cb_;
+    std::function<void()> terminal_cb_;
 
     // ── 辅助 ──
 

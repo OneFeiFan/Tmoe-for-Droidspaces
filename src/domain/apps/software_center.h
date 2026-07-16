@@ -39,36 +39,40 @@ namespace tmoe::domain {
         void run_pkg_gui_menu();
         void run_cleanup_menu();
         void run_electron_apps_menu();
+        void run_electron_vm_menu();
         void run_debian_opt_menu();
 
-    private:
+        void electron_install_or_remove(const std::string &app_name);
 
-        // ── 多媒体安装 (还原Bash体验) ──
+        void ensure_electron_runtime();
+
+        void remove_gui();
+        void remove_browser();
+        void remove_tmoe_tools();
+
+        // ── 插件可访问的安装方法 ──
         void install_spotify();
         void install_netease_cloud_music();
         void install_with_check(const std::string &pkg, DistroFamily family);
+        void install_linux_qq();
+        void install_wechat();
+        void install_skype();
+        void install_mitalk();
+        void run_image_compression_menu();
+
+    private:
 
         // 内部子菜单（被公开 run_*_menu() 内部调用）
         void run_electron_music_menu();
         void run_electron_video_menu();
         void run_electron_note_menu();
-        void run_electron_vm_menu();
         void run_electron_dev_menu();
         void run_electron_manager();
         void check_download_path();
-        void electron_install_or_remove(const std::string &app_name);
         void install_electron_app(const std::string &app_name);
         void remove_electron_app(const std::string &app_name);
-        void ensure_electron_runtime();
         void download_tmoe_electron_app(const std::string &app_name);
-        void install_linux_qq();
-        void install_wechat();
-        void install_skype();
-        void install_mitalk();
         void run_docs_menu();
-        void remove_gui();
-        void remove_browser();
-        void remove_tmoe_tools();
 
         const TmoeConfig &cfg_;
         std::string apps_lnk_dir_ = "/usr/share/applications";

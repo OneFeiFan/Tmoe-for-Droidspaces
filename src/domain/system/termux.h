@@ -149,6 +149,60 @@ namespace tmoe::domain {
         /** 查询 Termux 各目录磁盘占用 (TUI)。 */
         void check_disk_usage();
 
+        /** 显示 Termux 目录大小排名。 */
+        void show_termux_dir_usage();
+
+        /** 显示 Termux 大文件 TOP30 列表。 */
+        void show_termux_large_files();
+
+        /** 显示 SD 卡空间占用。 */
+        void show_sdcard_usage();
+
+        /** 显示整体磁盘占用 (df -h)。 */
+        void show_overall_disk_usage();
+
+        // ═══════════════════════════════════════════════
+        // 配色方案与字体
+        // ═══════════════════════════════════════════════
+
+        /** Termux 配色方案选择菜单。 */
+        void termux_color_scheme_menu();
+
+        /** Termux 字体选择菜单。 */
+        void termux_font_menu();
+
+        // ═══════════════════════════════════════════════
+        // ADB / Signal 9 修复接口 (供 UI 插件调用)
+        // ═══════════════════════════════════════════════
+
+        /** ADB 连接并执行 Signal 9 修复。 */
+        bool connect_adb_and_fix();
+
+        /** 设置三星 ADB 兼容模式。 */
+        bool set_samsung_adb_comp_mode();
+
+        /** ADB 配对 + 连接双阶段流程。 */
+        bool adb_pair_and_connect_flow();
+
+        /** 可配置 ADB 服务器端口选择。 */
+        bool select_adb_port();
+
+        /** 基于 dumpsys 验证 Signal 9 修复结果。 */
+        bool verify_signal9_fix();
+
+        /** 执行 max_phantom_processes 修复命令。 */
+        bool execute_max_phantom_fix(const std::string &adb_target);
+
+        /** 统计已连接的 adb 设备数量。 */
+        int count_adb_devices();
+
+        // ═══════════════════════════════════════════════
+        // 镜像源接口 (供 UI 插件调用)
+        // ═══════════════════════════════════════════════
+
+        /** 修改 Termux sources.list 指向指定镜像 URL。 */
+        void modify_termux_sources_list(const std::string &mirror_url);
+
         // ═══════════════════════════════════════════════
         // 主菜单调度
         // ═══════════════════════════════════════════════
@@ -156,27 +210,33 @@ namespace tmoe::domain {
         /** Termux 专用功能总菜单 (TUI)。 */
         int run_termux_menu();
 
+        // ── 以下方法提升为 public，供 UI 插件直接调用 ──
+
+        /** 交互式选择桌面环境（xfce / lxqt）。 */
+        std::string select_desktop_environment();
+
+        /** 交互式选择 VNC 分辨率。 */
+        std::string select_vnc_resolution();
+
+        /** 手动选择备份文件（动态 whiptail 菜单）。 */
+        std::string select_backup_file_manually();
+
+        /** 获取备份文件名（inputbox）。 */
+        std::string get_backup_filename();
+
     private:
         const TmoeConfig &cfg_;
 
         // 环境
-        void termux_color_scheme_menu();
-
-        void termux_font_menu();
-
         void configure_extra_keys();
 
         // 备份
-        std::string get_backup_filename();
-
         std::string select_backup_directories();
 
         void backup_termux_prepare(std::string &out_dir, std::string &out_filename, std::string &out_timestamp);
 
         // 还原
         std::string detect_latest_backup();
-
-        std::string select_backup_file_manually();
 
         bool uncompress_restore_archive(const std::string &archive_path);
 
@@ -185,35 +245,16 @@ namespace tmoe::domain {
         bool uncompress_xz(const std::string &file);
 
         // 镜像源
-        void modify_termux_sources_list(const std::string &mirror_url);
-
         void write_termux_source(const std::string &file_path, const std::string &repo_name,
                                  const std::string &mirror_url, const std::string &component);
 
         void annotate_old_list(const std::string &file_path, const std::string &new_source_line);
 
         // Signal 9
-        bool connect_adb_and_fix();
-
         bool is_samsung_device();
-
-        bool execute_max_phantom_fix(const std::string &adb_target);
-
-        // 磁盘
-        void show_termux_dir_usage();
-
-        void show_termux_large_files();
-
-        void show_sdcard_usage();
-
-        void show_overall_disk_usage();
 
         // X11/GUI
         void create_startvnc_script(const std::string &resolution, const std::string &desktop_env);
-
-        std::string select_vnc_resolution();
-
-        std::string select_desktop_environment();
 
         /** 自动启动 RealVNC 查看器 (am start)。 */
         void auto_start_vnc_viewer();
@@ -239,21 +280,6 @@ namespace tmoe::domain {
         // Signal 9 增强
         /** 运行 ADB 命令并返回输出。 */
         std::string run_adb_cmd(const std::string &cmd);
-
-        /** 设置三星 ADB 兼容模式。 */
-        bool set_samsung_adb_comp_mode();
-
-        /** ADB 配对 + 连接双阶段流程。 */
-        bool adb_pair_and_connect_flow();
-
-        /** 可配置 ADB 服务器端口选择。 */
-        bool select_adb_port();
-
-        /** 基于 dumpsys 验证 Signal 9 修复。 */
-        bool verify_signal9_fix();
-
-        /** 统计 adb 设备数量。 */
-        int count_adb_devices();
 
         // 备份增强
         /** 调用 umount 脚本卸载挂载点。 */

@@ -89,8 +89,14 @@ public:
     /** 读取当前主机名。 */
     std::string current_hostname() const;
 
-private:
-    const TmoeConfig& cfg_;
+    /** 获取关联的 TmoeConfig 引用（供插件层构造依赖对象）。 */
+    const TmoeConfig& config() const { return cfg_; }
+
+    /** 获取 tmoe 配置目录路径。 */
+    std::string config_dir() const;
+
+    /** 写入配置文件（内部通过 SystemHelper 处理权限）。 */
+    bool write_config_file(const std::string& path, const std::string& content) const;
 
     // ── DNS 注册表 ──
     struct DnsEntry {
@@ -111,10 +117,10 @@ private:
     // ── Locale 注册表 ──
     static const std::vector<std::pair<std::string, std::vector<std::string>>>& locale_registry();
 
-    // ── 实用工具 ──
-    std::string config_dir() const;
+private:
+    const TmoeConfig& cfg_;
+
     std::string read_config_file(const std::string& path) const;
-    bool write_config_file(const std::string& path, const std::string& content) const;
 };
 
 } // namespace tmoe::domain

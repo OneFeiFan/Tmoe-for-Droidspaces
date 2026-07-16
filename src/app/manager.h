@@ -72,20 +72,9 @@ namespace tmoe::app {
         std::unique_ptr<domain::DeveloperTools> dev_tools_;
         std::unique_ptr<domain::DownloadTools> download_tools_;
 
-        // TUI 命令路由表
-        std::map<std::string, std::function<void()> > tui_routes_;
 
-        /** 初始化 tui_routes_ 中的菜单处理函数。 */
-        void init_routes();
-
-        /** 镜像源管理子菜单。 */
+        /** 镜像源管理子菜单（CLI 模式 -m 仍使用）。 */
         void run_mirror_menu();
-
-        /** 首次启动时让用户选择语言。 */
-        void first_run_locale_setup();
-
-        /** 语言/区域切换菜单（支持中/英文）。 */
-        void run_locale_menu();
 
         /** 通用容器启动辅助方法 (Proot/Chroot/Nspawn)。 */
         int launch_container(const LaunchContext& ctx, domain::ContainerMode mode,
@@ -94,15 +83,20 @@ namespace tmoe::app {
         /** 将各领域模块注册到 MenuRegistry 并构建主菜单。 */
         void register_plugins();
 
-        /** 从 tui_routes_ 构建主菜单（Termux 10 项 / Linux 7 项）。 */
+        /** 构建主菜单（Termux 10 项 / Linux 7 项）。 */
         std::shared_ptr<tmoe::ui::IUIMenu> build_root_menu();
 
-        /** 子菜单构建器 —— 逐步替换旧 whiptail 字符串拼接。 */
+        /** 子菜单构建器。 */
         std::shared_ptr<tmoe::ui::IUIMenu> build_faq_menu();
         std::shared_ptr<tmoe::ui::IUIMenu> build_locale_menu();
         std::shared_ptr<tmoe::ui::IUIMenu> build_mirror_menu();
-
-        /** 镜像分类子菜单辅助（被 build_mirror_menu 调用）。 */
         void select_mirror_from_category(const std::string& category);
+
+        /** 容器操作辅助方法（原 tui_routes_ 内联逻辑）。 */
+        void action_proot_container();
+        void action_chroot_container();
+        void action_remove_container();
+        void action_self_update();
+        void action_bug_report();
     };
 } // namespace tmoe::app

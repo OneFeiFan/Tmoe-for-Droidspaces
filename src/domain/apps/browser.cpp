@@ -13,6 +13,7 @@ namespace tmoe::domain {
     BrowserManager::BrowserManager(const TmoeConfig &cfg) : cfg_(cfg) {
     }
 
+    // DEPRECATED: replaced by create_browser_menu()
     void BrowserManager::run_browser_menu() {
         while (true) {
             std::string menu = cfg_.tui_bin + " --title \"" + _("browser.menu_title") + "\""

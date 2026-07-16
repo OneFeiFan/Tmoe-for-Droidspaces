@@ -68,11 +68,8 @@ namespace tmoe::domain {
         /** GitHub Desktop → 设置状态后进入 dev_menu_01 */
         void prep_github_desktop();
 
-    private:
-
-        // ═══════════════════════════════════════════════════════
-        // VS Code 子菜单实现
-        // ═══════════════════════════════════════════════════════
+        // ── 插件子菜单所需的细粒度操作 ──────────────────────
+        // (原为私有方法，现开放给 IUIMenu 框架的 LambdaAction 调用)
 
         /** VS Code 官方版安装 (Microsoft CDN) */
         void install_vscode_official();
@@ -80,30 +77,14 @@ namespace tmoe::domain {
         /** VS Code Server (code-server Web版) */
         void run_vscode_server_menu();
 
-        void configure_vscode_server();
-
-        void vscode_server_upgrade();
-
-        void vscode_server_restart();
-
-        void vscode_server_password();
-
-        void vscode_server_remove();
-
         /** VS Codium 安装 */
         void install_vscodium();
 
         /** 修复 tightvnc 下 vscode 无法启动 */
         void fix_tightvnc_vscode();
 
-        // ═══════════════════════════════════════════════════════
-        // IDE 安装/卸载核心逻辑
-        // ═══════════════════════════════════════════════════════
-
         /** dev_menu_01: JetBrains 等 tar.zst 安装 (从 archlinuxcn) */
         void install_ide_01();
-
-        void install_github_desktop();
 
         /** dev_menu_02: Android Studio tar.gz 安装 */
         void install_ide_02();
@@ -119,6 +100,19 @@ namespace tmoe::domain {
 
         /** 卸载 IDE (dev_menu_02) */
         void remove_ide_02();
+
+    private:
+
+        // ═══════════════════════════════════════════════════════
+        // VS Code Server 内部实现
+        // ═══════════════════════════════════════════════════════
+
+        void configure_vscode_server();
+        void vscode_server_upgrade();
+        void vscode_server_restart();
+        void vscode_server_password();
+        void vscode_server_remove();
+        void install_github_desktop();
 
         // ═══════════════════════════════════════════════════════
         // 辅助方法

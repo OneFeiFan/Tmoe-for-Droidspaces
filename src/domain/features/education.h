@@ -50,11 +50,7 @@ public:
     /** L2: 化学软件 */
     void run_chemistry_menu();
 
-private:
-    const TmoeConfig& cfg_;
-    std::string download_folder_;
-
-    // ═══ L3 子菜单 ═══
+    // ═══ L3 子菜单 (public for UI plugin dispatch) ═══
 
     /** L3: 高考真题 — 4个年份版本 */
     void run_gaokao_papers_menu();
@@ -68,15 +64,12 @@ private:
     /** L3: 四六级真题 */
     void run_cet_menu();
 
-    // ═══ 下载模型 (复刻 Bash check_tmoe_study_materials) ═══
+    // ═══ 下载模型 (复刻 Bash check_tmoe_study_materials, public for UI plugin dispatch) ═══
 
     /** 核心下载模型：检测已有 → 解压/重下 → git clone → tar -Jxvf */
     void download_study_materials(const std::string& repo_url,
                                   const std::string& branch,
                                   const std::string& filename);
-
-    /** 获取下载目录 (WSL → /mnt/c/Users/Public/Documents, 否则 ~/sd/Download/Documents) */
-    std::string get_download_folder() const;
 
     /** whiptail yes/no 对话框 */
     bool whiptail_yesno(const std::string& title,
@@ -84,6 +77,13 @@ private:
                         const std::string& no_btn,
                         const std::string& prompt,
                         int height = 0, int width = 50);
+
+private:
+    const TmoeConfig& cfg_;
+    std::string download_folder_;
+
+    /** 获取下载目录 (WSL → /mnt/c/Users/Public/Documents, 否则 ~/sd/Download/Documents) */
+    std::string get_download_folder() const;
 };
 
 } // namespace tmoe::domain

@@ -221,4 +221,91 @@ bt-tracker=udp://tracker.opentrackr.org:1337/announce,udp://tracker.openbittorre
             Logger::press_enter();
         }
     }
+
+    // ── 插件子菜单所需的细粒度操作 ──────────────────────
+
+    // 视频下载器子项
+
+    void DownloadTools::install_yt_dlp() {
+        Logger::step(_("download.yt_dlp_pip"));
+        Executor::shell("pip3 install yt-dlp 2>/dev/null || "
+            "pip install yt-dlp 2>/dev/null || "
+            "sudo apt install -y yt-dlp 2>/dev/null || "
+            "sudo pacman -S --noconfirm yt-dlp 2>/dev/null || true");
+        Logger::info("  " + _("download.yt_dlp_example"));
+    }
+
+    void DownloadTools::install_you_get() {
+        Logger::step(_("download.you_get"));
+        Executor::shell("pip3 install you-get 2>/dev/null || "
+            "pip install you-get 2>/dev/null || true");
+        Logger::info("  " + _("download.you_get_example"));
+    }
+
+    void DownloadTools::install_lux() {
+        Logger::step(_("download.lux"));
+        Executor::shell(
+            "if command -v go >/dev/null 2>&1; then "
+            "  go install github.com/iawia002/lux@latest 2>/dev/null; "
+            "elif [ -f /usr/local/bin/lux ]; then :; "
+            "else "
+            "  sudo wget -q https://github.com/iawia002/lux/releases/latest/download/"
+            "    lux_$(uname -s)_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
+            "    -O /usr/local/bin/lux 2>/dev/null && "
+            "  sudo chmod 755 /usr/local/bin/lux 2>/dev/null; "
+            "fi"
+        );
+        Logger::info("  " + _("download.lux_example"));
+    }
+
+    void DownloadTools::install_annie() {
+        Logger::step(_("download.annie"));
+        Executor::shell(
+            "if command -v go >/dev/null 2>&1; then "
+            "  go install github.com/iawia002/annie@latest 2>/dev/null; "
+            "else "
+            "  sudo wget -q https://github.com/iawia002/annie/releases/latest/download/"
+            "    annie_$(uname -s)_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
+            "    -O /usr/local/bin/annie 2>/dev/null && "
+            "  sudo chmod 755 /usr/local/bin/annie 2>/dev/null; "
+            "fi"
+        );
+    }
+
+    void DownloadTools::install_gallery_dl() {
+        Logger::step(_("download.gallery_dl"));
+        Executor::shell("pip3 install gallery-dl 2>/dev/null || "
+            "pip install gallery-dl 2>/dev/null || true");
+    }
+
+    // 爬虫工具子项
+
+    void DownloadTools::install_httrack() {
+        auto family = infer_family_from_config(cfg_.linux_distro);
+        Logger::step(_("download.crawler_installing"));
+        PackageManager::install("webhttrack", family);
+        Logger::info("  " + _("download.httrack_example"));
+    }
+
+    void DownloadTools::show_wget_mirror_info() {
+        Logger::info("  " + _("download.wget_mirror_example"));
+    }
+
+    void DownloadTools::install_aria2_batch() {
+        auto family = infer_family_from_config(cfg_.linux_distro);
+        Logger::step(_("download.crawler_installing"));
+        PackageManager::install("aria2", family);
+    }
+
+    void DownloadTools::install_scrapy() {
+        Logger::step(_("download.crawler_installing"));
+        Executor::shell("pip3 install scrapy 2>/dev/null || "
+            "pip install scrapy 2>/dev/null || true");
+    }
+
+    void DownloadTools::install_curl_batch() {
+        auto family = infer_family_from_config(cfg_.linux_distro);
+        Logger::step(_("download.crawler_installing"));
+        PackageManager::install("curl", family);
+    }
 } // namespace tmoe::domain
