@@ -10,91 +10,15 @@
 
 namespace tmoe::domain {
     SoftwareCenter::SoftwareCenter(const TmoeConfig &cfg) : cfg_(cfg),
-        media_tools_(std::make_unique<MediaTools>(cfg)) {
+                                                            media_tools_(std::make_unique<MediaTools>(cfg)) {
     }
 
     SoftwareCenter::~SoftwareCenter() = default;
-
-    void SoftwareCenter::run_software_center_menu() {
-        while (true) {
-            std::string menu = cfg_.tui_bin + " --title \"" + _("swcenter.menu_title")
-                               + "\" --menu \"" + _("swcenter.menu_prompt") + "\" 0 0 0 "
-                               "\"1\"  \"" + _("swcenter.browser") + "\" "
-                               "\"2\"  \"" + _("swcenter.dev") + "\" "
-                               "\"3\"  \"" + _("swcenter.electron") + "\" "
-                               "\"4\"  \"" + _("swcenter.media") + "\" "
-                               "\"5\"  \"" + _("swcenter.sns") + "\" "
-                               "\"6\"  \"" + _("swcenter.games") + "\" "
-                               "\"7\"  \"" + _("swcenter.docs") + "\" "
-                               "\"8\"  \"" + _("swcenter.debian_opt") + "\" "
-                               "\"9\"  \"" + _("swcenter.download") + "\" "
-                               "\"10\" \"" + _("swcenter.pkg_gui") + "\" "
-                               "\"11\" \"" + _("swcenter.zsh") + "\" "
-                               "\"12\" \"" + _("swcenter.fileshare") + "\" "
-                               "\"13\" \"" + _("swcenter.cleanup") + "\" "
-                               "\"0\"  \"" + _("menu.tui.back_upper") + "\"";
-
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) break;
-
-            if (ch == "1" && browser_cb_) browser_cb_();
-            else if (ch == "2" && dev_cb_) dev_cb_();
-            else if (ch == "3") run_electron_apps_menu();
-            else if (ch == "4") run_media_menu();
-            else if (ch == "5") run_sns_menu();
-            else if (ch == "6") run_games_menu();
-            else if (ch == "7" && office_cb_) office_cb_();
-            else if (ch == "8") run_debian_opt_menu();
-            else if (ch == "9" && download_cb_) download_cb_();
-            else if (ch == "10") run_pkg_gui_menu();
-            else if (ch == "11" && zsh_cb_) zsh_cb_();
-            else if (ch == "12") run_fileshare_menu();
-            else if (ch == "13") run_cleanup_menu();
-            // 各子菜单/callback 内部自行 handle press_enter
-        }
-    }
-
-    // ── 公开包装：委托给 MediaTools 的图片压缩子菜单 ──
-    void SoftwareCenter::run_image_compression_menu() {
-        media_tools_->run_image_compression_menu();
-    }
 
     // ═══════════════════════════════════════════════════════════════
     // 3. ⚛️ Electron Apps — 对应旧 Bash tmoe_electron_repo → sources/electron-apps
     //    所有应用从 https://packages.tmoe.me/apps/<name>/app.tar.xz 下载
     // ═══════════════════════════════════════════════════════════════
-
-    void SoftwareCenter::run_electron_apps_menu() {
-        while (true) {
-            if (!fs::exists("/opt/electron/electron")) {
-                Logger::info(_("swcenter.electron.repo_maintained_by"));
-                Logger::info(_("swcenter.electron.requirements"));
-                Logger::info(_("swcenter.electron.no_alpine"));
-                Logger::press_enter();
-            }
-
-            std::string menu = cfg_.tui_bin + " --title \"ELECTRON APPS\""
-                               " --menu \""
-                               + _("swcenter.electron.menu_prompt") + "\" 0 0 0 "
-                               "\"1\" \"" + _("swcenter.electron.music_item") + "\" "
-                               "\"2\" \"" + _("swcenter.electron.video_item") + "\" "
-                               "\"3\" \"" + _("swcenter.electron.note_item") + "\" "
-                               "\"4\" \"" + _("swcenter.electron.vm_item") + "\" "
-                               "\"5\" \"" + _("swcenter.electron.dev_item") + "\" "
-                               "\"6\" \"" + _("swcenter.electron.manager_item") + "\" "
-                               "\"0\" \"" + _("menu.tui.back") + "\"";
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
-
-            if (ch == "1") run_electron_music_menu();
-            else if (ch == "2") run_electron_video_menu();
-            else if (ch == "3") run_electron_note_menu();
-            else if (ch == "4") run_electron_vm_menu();
-            else if (ch == "5") run_electron_dev_menu();
-            else if (ch == "6") run_electron_manager();
-            Logger::press_enter();
-        }
-    }
 
     // ═══════════════════════════════════
     // 通用: 安装或卸载子菜单
@@ -217,218 +141,15 @@ namespace tmoe::domain {
         if (!Logger::confirm(_f("swcenter.electron.confirm_remove", app_name)))
             return;
         CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
-            .add_arg("/opt/" + app_name)
-            .add_arg(apps_lnk_dir_ + "/" + app_name + ".desktop")
-            .add_raw("2>/dev/null").execute();
+                .add_arg("/opt/" + app_name)
+                .add_arg(apps_lnk_dir_ + "/" + app_name + ".desktop")
+                .add_raw("2>/dev/null").execute();
         Logger::ok(_f("swcenter.electron.removed", app_name));
-    }
-
-    // ═══════════════════════════════════
-    // 各分类子菜单
-    // ═══════════════════════════════════
-    void SoftwareCenter::run_electron_music_menu() {
-        while (true) {
-            std::string menu = cfg_.tui_bin + " --title \"" + _("swcenter.electron.music_menu_title") + "\" --menu \"Music\" 0 0 0 "
-                               "\"1\" \"" + _("swcenter.electron.music_ncm") + "\" "
-                               "\"2\" \"" + _("swcenter.electron.music_yesplay") + "\" "
-                               "\"3\" \"" + _("swcenter.electron.music_listen1") + "\" "
-                               "\"4\" \"" + _("swcenter.electron.music_petal") + "\" "
-                               "\"0\" \"" + _("menu.tui.back") + "\"";
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
-            if (ch == "1") electron_install_or_remove("electron-netease-cloud-music");
-            else if (ch == "2") electron_install_or_remove("yesplaymusic");
-            else if (ch == "3") electron_install_or_remove("listen1");
-            else if (ch == "4") electron_install_or_remove("petal");
-            Logger::press_enter();
-        }
-    }
-
-    void SoftwareCenter::run_electron_video_menu() {
-        while (true) {
-            std::string menu = cfg_.tui_bin + " --title \"" + _("swcenter.electron.video_menu_title") + "\" --menu \"" + _("swcenter.electron.video_menu_prompt") + "\" 0 0 0 "
-                               "\"1\" \"" + _("swcenter.electron.video_bilibili") + "\" "
-                               "\"2\" \"" + _("swcenter.electron.video_zyplayer") + "\" "
-                               "\"3\" \"" + _("swcenter.electron.video_tencent") + "\" "
-                               "\"4\" \"" + _("swcenter.electron.video_lossless_cut") + "\" "
-                               "\"0\" \"" + _("menu.tui.back") + "\"";
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
-            if (ch == "1") electron_install_or_remove("bilibili");
-            else if (ch == "2") electron_install_or_remove("zy-player");
-            else if (ch == "3") electron_install_or_remove("tenvideo_universal");
-            else if (ch == "4") {
-                // lossless-cut 需要 ffmpeg
-                auto family = infer_family_from_config(cfg_.linux_distro);
-                PackageManager::install("ffmpeg", family);
-                electron_install_or_remove("lossless-cut");
-            }
-            Logger::press_enter();
-        }
-    }
-
-    void SoftwareCenter::run_electron_note_menu() {
-        while (true) {
-            std::string menu = cfg_.tui_bin + " --title \"" + _("swcenter.electron.note_menu_title") + "\" --menu \"" + _("swcenter.electron.note_menu_prompt") + "\" 0 0 0 "
-                               "\"1\" \"" + _("swcenter.electron.note_obsidian") + "\" "
-                               "\"2\" \"" + _("swcenter.electron.note_gridea") + "\" "
-                               "\"3\" \"" + _("swcenter.electron.note_drawio") + "\" "
-                               "\"4\" \"" + _("swcenter.electron.note_simplenote") + "\" "
-                               "\"0\" \"" + _("menu.tui.back") + "\"";
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
-            if (ch == "1") electron_install_or_remove("obsidian");
-            else if (ch == "2") electron_install_or_remove("gridea");
-            else if (ch == "3") {
-                auto family = infer_family_from_config(cfg_.linux_distro);
-                PackageManager::install({"libindicator3-7", "libappindicator3-1"}, family);
-                electron_install_or_remove("draw.io");
-            } else if (ch == "4") electron_install_or_remove("simplenote");
-            Logger::press_enter();
-        }
-    }
-
-    void SoftwareCenter::run_electron_vm_menu() {
-        while (true) {
-            std::string menu = cfg_.tui_bin + " --title \""
-                               + _("swcenter.electron.vm_title") + "\""
-                               " --menu \"" + _("swcenter.electron.vm_prompt") + "\" 0 0 0 "
-                               "\"1\" \"" + _("swcenter.electron.vm_macos8") + "\" "
-                               "\"2\" \"" + _("swcenter.electron.vm_win95") + "\" "
-                               "\"0\" \"" + _("menu.tui.back") + "\"";
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
-
-            if (ch == "1") {
-                Logger::info(_("swcenter.electron.vm_macos8_size"));
-                if (!Logger::confirm(_("swcenter.electron.vm_confirm_macos8"))) continue;
-                ensure_electron_runtime();
-                Executor::passthrough(
-                    "cd /tmp && "
-                    "TEMP_FOLDER='.macintosh.js_TEMP_FOLDER'; "
-                    "rm -rf ${TEMP_FOLDER} 2>/dev/null; "
-                    "git clone --depth=1 https://gitee.com/ak2/electron_macos8.git ${TEMP_FOLDER} && "
-                    "cd ${TEMP_FOLDER} && "
-                    "cat .vm_* >vm.tar.xz && "
-                    "tar -PpJxvf vm.tar.xz && "
-                    "cd .. && rm -rf ${TEMP_FOLDER}"
-                );
-                Logger::ok(_("swcenter.electron.vm_macos8_done"));
-            } else if (ch == "2") {
-                Logger::info(_("swcenter.electron.vm_win95_size"));
-                if (!Logger::confirm(_("swcenter.electron.vm_confirm_win95"))) continue;
-                ensure_electron_runtime();
-                Executor::passthrough(
-                    "cd /tmp && "
-                    "TEMP_FOLDER='.windows95_TEMP_FOLDER'; "
-                    "rm -rf ${TEMP_FOLDER} 2>/dev/null; "
-                    "git clone --depth=1 https://gitee.com/ak2/electron_win95.git ${TEMP_FOLDER} && "
-                    "cd ${TEMP_FOLDER} && "
-                    "cat .vm_* >vm.tar.xz && "
-                    "tar -PpJxvf vm.tar.xz && "
-                    "cd .. && rm -rf ${TEMP_FOLDER}"
-                );
-                Logger::ok(_("swcenter.electron.vm_win95_done"));
-            }
-            Logger::press_enter();
-        }
-    }
-
-    void SoftwareCenter::run_electron_dev_menu() {
-        while (true) {
-            std::string menu = cfg_.tui_bin + " --title \""
-                               + _("swcenter.electron.dev_title") + "\""
-                               " --menu \"" + _("swcenter.electron.dev_prompt") + "\" 0 0 0 "
-                               "\"1\" \"" + _("swcenter.electron.dev_netron") + "\" "
-                               "\"0\" \"" + _("menu.tui.back") + "\"";
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
-            if (ch == "1") electron_install_or_remove("netron");
-            Logger::press_enter();
-        }
-    }
-
-    void SoftwareCenter::run_electron_manager() {
-        while (true) {
-            std::string menu = cfg_.tui_bin + " --title \""
-                               + _("swcenter.electron.title_manager") + "\""
-                               " --menu \"" + _("swcenter.electron.mgr_prompt") + "\" 0 0 0 "
-                               "\"1\" \"" + _("swcenter.electron.mgr_install") + "\" "
-                               "\"2\" \"" + _("swcenter.electron.mgr_remove_stable") + "\" "
-                               "\"3\" \"" + _("swcenter.electron.mgr_remove_v8") + "\" "
-                               "\"0\" \"" + _("menu.tui.back") + "\"";
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
-
-            if (ch == "1") {
-                ensure_electron_runtime();
-            } else if (ch == "2") {
-                Logger::warn(_("swcenter.electron.mgr_remove_warn"));
-                Logger::warn(_("swcenter.electron.runtime_rm_path_warn"));
-                if (Logger::confirm(_("swcenter.electron.mgr_confirm_remove"))) {
-                    CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
-                        .add_arg("/opt/electron")
-                        .add_arg("/usr/bin/electron")
-                        .add_raw("2>/dev/null").execute();
-                    Logger::ok(_("swcenter.electron.mgr_removed"));
-                }
-            } else if (ch == "3") {
-                Logger::warn(_("swcenter.electron.mgr_remove_v8_warn"));
-                Logger::warn(_("swcenter.electron.runtime_rm_v8_path_warn"));
-                if (Logger::confirm(_("swcenter.electron.mgr_confirm_remove_v8"))) {
-                    CommandBuilder("sudo").add_arg("rm").add_flag("-rf").add_arg("/opt/electron-v8").add_raw("2>/dev/null").execute();
-                    Logger::ok(_("swcenter.electron.mgr_removed_v8"));
-                }
-            }
-            Logger::press_enter();
-        }
     }
 
     // ═══════════════════════════════════════════════════════════════
     // 4. 🎶 Multimedia — 对应旧 Bash tmoe_multimedia_menu (12项)
     // ═══════════════════════════════════════════════════════════════
-    void SoftwareCenter::run_media_menu() {
-        while (true) {
-        auto family = infer_family_from_config(cfg_.linux_distro);
-        std::string menu = cfg_.tui_bin + " --title \"" + _("swcenter.media_menu")
-                           + "\" --menu \"" + _("swcenter.media.menu_prompt") + "\" 0 0 0 "
-                           "\"1\"  \"" + _("swcenter.batch_compress") + "\" "
-                           "\"2\"  \"" + _("swcenter.mpv") + "\" "
-                           "\"3\"  \"" + _("swcenter.smplayer") + "\" "
-                           "\"4\"  \"" + _("swcenter.peek") + "\" "
-                           "\"5\"  \"" + _("swcenter.gimp") + "\" "
-                           "\"6\"  \"" + _("swcenter.kolourpaint") + "\" "
-                           "\"7\"  \"" + _("swcenter.clementine") + "\" "
-                           "\"8\"  \"" + _("swcenter.parole") + "\" "
-                           "\"9\"  \"" + _("swcenter.netease") + "\" "
-                           "\"10\" \"" + _("swcenter.audacity") + "\" "
-                           "\"11\" \"" + _("swcenter.ardour") + "\" "
-                           "\"12\" \"" + _("swcenter.spotify") + "\" "
-                           "\"0\"  \"" + _("menu.tui.back") + "\"";
-        auto ch = Executor::tui_select(menu);
-        if (ch == "0" || ch.empty()) return;
-
-        if (ch == "1") {
-            media_tools_->run_image_compression_menu();
-        } else if (ch == "2") {
-            if (family == DistroFamily::RedHat)
-                install_with_check("kmplayer", family);
-            else
-                install_with_check("mpv", family);
-        } else if (ch == "3") install_with_check("smplayer", family);
-        else if (ch == "4") install_with_check("peek", family);
-        else if (ch == "5") install_with_check("gimp", family);
-        else if (ch == "6") install_with_check("kolourpaint", family);
-        else if (ch == "7") install_with_check("clementine", family);
-        else if (ch == "8") install_with_check("parole", family);
-        else if (ch == "9") install_netease_cloud_music();
-        else if (ch == "10") install_with_check("audacity", family);
-        else if (ch == "11") install_with_check("ardour", family);
-        else if (ch == "12") install_spotify();
-        Logger::press_enter();
-        }
-    }
-
     // ═══════════════════════════════════════════════════════════════
     // install_with_check — 模拟 Bash beta_features_quick_install
     // ═══════════════════════════════════════════════════════════════
@@ -469,7 +190,7 @@ namespace tmoe::domain {
                 "/etc/apt/trusted.gpg.d/spotify_pub.gpg && rm -f /tmp/spotify_pub.gpg");
             // 添加 apt 源
             SystemHelper::write_file("/etc/apt/sources.list.d/spotify.list",
-                "deb http://repository.spotify.com stable non-free\n");
+                                     "deb http://repository.spotify.com stable non-free\n");
             Logger::info(_("swcenter.spotify.uninstall_hint"));
             PackageManager::update(family);
             PackageManager::install("spotify-client", family);
@@ -582,10 +303,10 @@ namespace tmoe::domain {
                 "-A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'";
 
         CommandBuilder("curl")
-            .add_raw(std::string(curl_opts))
-            .add_arg("https://cdn-go.cn/qq-web/im.qq.com_new/latest/rainbow/pcConfig.json")
-            .add_opt("-o", tmp_json)
-            .execute();
+                .add_raw(std::string(curl_opts))
+                .add_arg("https://cdn-go.cn/qq-web/im.qq.com_new/latest/rainbow/pcConfig.json")
+                .add_opt("-o", tmp_json)
+                .execute();
 
         if (Executor::shell("grep '\"Linux\"' " + tmp_json + " > /dev/null 2>&1").exit_code != 0) {
             Logger::error(_("swcenter.qq.fetch_config_failed"));
@@ -594,7 +315,8 @@ namespace tmoe::domain {
         }
 
         // 3. 提取版本号
-        std::string version = CommandBuilder("jq").add_flag("-r").add_arg(".Linux.version").add_arg(tmp_json).execute().stdout_data;
+        std::string version = CommandBuilder("jq").add_flag("-r").add_arg(".Linux.version").add_arg(tmp_json).execute().
+                stdout_data;
         while (!version.empty() && (version.back() == '\n' || version.back() == '\r')) version.pop_back();
 
         if (version.empty()) version = _("swcenter.qq.unknown_version");
@@ -682,7 +404,8 @@ namespace tmoe::domain {
                 " && rm -vf " + dest_file);
         } else if (ext == ".rpm") {
             Executor::passthrough(
-                "cd /tmp && sudo rpm -Uvh ./" + dest_file + " || sudo yum localinstall -y ./" + dest_file + " && rm -vf " +
+                "cd /tmp && sudo rpm -Uvh ./" + dest_file + " || sudo yum localinstall -y ./" + dest_file +
+                " && rm -vf " +
                 dest_file);
         } else {
             // AppImage 配置部署
@@ -698,7 +421,8 @@ namespace tmoe::domain {
                     "Type=Application\n"
                     "Icon=qq\n"
                     "Categories=Network;InstantMessaging;\n";
-            Executor::shell("sudo sh -c 'cat > /usr/share/applications/linuxqq.desktop' <<'EOF'\n" + desktop_content + "EOF\n");
+            Executor::shell(
+                "sudo sh -c 'cat > /usr/share/applications/linuxqq.desktop' <<'EOF'\n" + desktop_content + "EOF\n");
         }
 
         Logger::ok(_f("swcenter.qq.install_done", version));
@@ -724,10 +448,10 @@ namespace tmoe::domain {
                 "-A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'";
 
         CommandBuilder("curl")
-            .add_raw(std::string(curl_opts))
-            .add_arg("https://linux.weixin.qq.com/")
-            .add_opt("-o", tmp_html)
-            .execute();
+                .add_raw(std::string(curl_opts))
+                .add_arg("https://linux.weixin.qq.com/")
+                .add_opt("-o", tmp_html)
+                .execute();
 
         if (!fs::exists(tmp_html) || fs::file_size(tmp_html) == 0) {
             Logger::error(_("swcenter.wechat.fetch_page_failed"));
@@ -843,7 +567,8 @@ namespace tmoe::domain {
                     "Type=Application\n"
                     "Icon=wechat\n"
                     "Categories=Network;InstantMessaging;\n";
-            Executor::shell("sudo sh -c 'cat > " + app_lnk_dir + "/wechat.desktop' <<'EOF'\n" + desktop_content + "EOF\n");
+            Executor::shell(
+                "sudo sh -c 'cat > " + app_lnk_dir + "/wechat.desktop' <<'EOF'\n" + desktop_content + "EOF\n");
         }
 
         Logger::ok(_("swcenter.wechat.install_done"));
@@ -939,176 +664,30 @@ namespace tmoe::domain {
 
         if (family == DistroFamily::Debian || family == DistroFamily::Arch) {
             Executor::passthrough(
-                "cd /tmp && sudo dpkg -i ./" + dl_file + " || sudo apt install -y ./" + dl_file + " 2>/dev/null || true; "
+                "cd /tmp && sudo dpkg -i ./" + dl_file + " || sudo apt install -y ./" + dl_file +
+                " 2>/dev/null || true; "
                 "rm -vf " + dl_file
             );
         }
         Logger::ok(_("swcenter.mitalk.install_done"));
     }
 
-    void SoftwareCenter::run_sns_menu() {
-        while (true) {
-            auto family = infer_family_from_config(cfg_.linux_distro);
-            std::string menu = cfg_.tui_bin + " --title \"" + _("swcenter.sns_menu")
-                               + "\" --menu \"" + _("swcenter.sns.menu_prompt") + "\" 0 0 0 "
-                               "\"1\"  \"" + _("swcenter.sns.linuxqq") + "\" "
-                               "\"2\"  \"" + _("swcenter.sns.wechat") + "\" "
-                               "\"3\"  \"" + _("swcenter.sns.thunderbird") + "\" "
-                               "\"4\"  \"" + _("swcenter.sns.kmail") + "\" "
-                               "\"5\"  \"" + _("swcenter.sns.evolution") + "\" "
-                               "\"6\"  \"" + _("swcenter.sns.empathy") + "\" "
-                               "\"7\"  \"" + _("swcenter.sns.pidgin") + "\" "
-                               "\"8\"  \"" + _("swcenter.sns.xchat") + "\" "
-                               "\"9\"  \"" + _("swcenter.sns.skype") + "\" "
-                               "\"10\" \"" + _("swcenter.sns.mitalk") + "\" "
-                               "\"0\"  \"" + _("menu.tui.back") + "\"";
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
-
-            if (ch == "1") install_linux_qq();
-            else if (ch == "2") install_wechat();
-            else if (ch == "3") PackageManager::install("thunderbird", family);
-            else if (ch == "4") PackageManager::install("kmail", family);
-            else if (ch == "5") PackageManager::install("evolution", family);
-            else if (ch == "6") PackageManager::install("empathy", family);
-            else if (ch == "7") PackageManager::install("pidgin", family);
-            else if (ch == "8") PackageManager::install("xchat", family);
-            else if (ch == "9") install_skype();
-            else if (ch == "10") install_mitalk();
-            Logger::press_enter();
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // 6. 🎮 Games — 对应旧 Bash tmoe_games_menu (8项)
-    // ═══════════════════════════════════════════════════════════════
-    void SoftwareCenter::run_games_menu() {
-        auto family = infer_family_from_config(cfg_.linux_distro);
-        std::string menu = cfg_.tui_bin + " --title \"" + _("swcenter.games_menu")
-                           + "\" --menu \"" + _("swcenter.games.menu_prompt") + "\" 0 0 0 "
-                           "\"1\" \"" + _("swcenter.games.kde_games") + "\" "
-                           "\"2\" \"" + _("swcenter.games.gnome_games") + "\" "
-                           "\"3\" \"" + _("swcenter.games.steam") + "\" "
-                           "\"4\" \"" + _("swcenter.games.cataclysm") + "\" "
-                           "\"5\" \"" + _("swcenter.games.wesnoth") + "\" "
-                           "\"6\" \"" + _("swcenter.games.retroarch") + "\" "
-                           "\"7\" \"" + _("swcenter.games.dolphin") + "\" "
-                           "\"8\" \"" + _("swcenter.games.supertuxkart") + "\" "
-                           "\"0\" \"" + _("menu.tui.back") + "\"";
-        auto ch = Executor::tui_select(menu);
-        if (ch == "0" || ch.empty()) return;
-
-        if (ch == "1") PackageManager::install({"kdegames", "kde-full"}, family);
-        else if (ch == "2") PackageManager::install("gnome-games", family);
-        else if (ch == "3") PackageManager::install("steam-launcher", family);
-        else if (ch == "4") PackageManager::install("cataclysm-dda", family);
-        else if (ch == "5") PackageManager::install("wesnoth", family);
-        else if (ch == "6") PackageManager::install("retroarch", family);
-        else if (ch == "7") PackageManager::install("dolphin-emu", family);
-        else if (ch == "8") PackageManager::install("supertuxkart", family);
-        Logger::press_enter();
-    }
 
     // ═══════════════════════════════════════════════════════════════
     // 7. 📚 Documents → office_cb_ 重定向
     // 8. 🏤 Debian Opt Repo — 对应旧 Bash explore_debian_opt_repo
     // ═══════════════════════════════════════════════════════════════
-    void SoftwareCenter::run_debian_opt_menu() {
-        std::string menu = cfg_.tui_bin + " --title \""
-                           + _("swcenter.debian_opt.menu_title") + "\""
-                           " --menu \"" + _("swcenter.debian_opt.menu_prompt") + "\" 0 0 0 "
-                           "\"1\"  \"" + _("swcenter.debian_opt.music") + "\" "
-                           "\"2\"  \"" + _("swcenter.debian_opt.notes") + "\" "
-                           "\"3\"  \"" + _("swcenter.debian_opt.videos") + "\" "
-                           "\"4\"  \"" + _("swcenter.debian_opt.pictures") + "\" "
-                           "\"5\"  \"" + _("swcenter.debian_opt.reader") + "\" "
-                           "\"6\"  \"" + _("swcenter.debian_opt.games_item") + "\" "
-                           "\"7\"  \"" + _("swcenter.debian_opt.development") + "\" "
-                           "\"8\"  \"" + _("swcenter.debian_opt.tools") + "\" "
-                           "\"9\"  \"" + _("swcenter.debian_opt.internet") + "\" "
-                           "\"0\"  \"" + _("menu.tui.back") + "\"";
-        auto ch = Executor::tui_select(menu);
-        if (ch == "0" || ch.empty()) return;
-
-        Logger::info(_("swcenter.debian_opt.not_implemented"));
-        // 旧 Bash 中每个子项有独立的 install_* 函数，包名待补全
-        Logger::press_enter();
-    }
-
     // ═══════════════════════════════════════════════════════════════
     // 9. 🎁 Download → download_cb_ 重定向
     // 10. 🔯 Packages & System — 对应旧 Bash tmoe_software_package_menu
     // ═══════════════════════════════════════════════════════════════
-    void SoftwareCenter::run_pkg_gui_menu() {
-        auto family = infer_family_from_config(cfg_.linux_distro);
-        std::string menu = cfg_.tui_bin + " --title \"" + _("swcenter.pkg_gui_menu")
-                           + "\" --menu \"\" 0 0 0 "
-                           "\"1\" \"" + _("swcenter.synaptic") + "\" "
-                           "\"2\" \"" + _("swcenter.gdebi") + "\" "
-                           "\"3\" \"" + _("swcenter.pamac") + "\" "
-                           "\"4\" \"" + _("swcenter.bleachbit") + "\" "
-                           "\"0\" \"" + _("menu.tui.back") + "\"";
-        auto ch = Executor::tui_select(menu);
-        if (ch == "0" || ch.empty()) return;
-
-        if (ch == "1") PackageManager::install("synaptic", family);
-        else if (ch == "2") PackageManager::install("gdebi", family);
-        else if (ch == "3") PackageManager::install("pamac", family);
-        else if (ch == "4") PackageManager::install("bleachbit", family);
-        Logger::press_enter();
-    }
-
     // ═══════════════════════════════════════════════════════════════
     // 11. 🥙 Zsh → zsh_cb_ 重定向
     // 12. 🥗 File Shared — 对应旧 Bash personal_netdisk
     // ═══════════════════════════════════════════════════════════════
-    void SoftwareCenter::run_fileshare_menu() {
-        auto family = infer_family_from_config(cfg_.linux_distro);
-        std::string menu = cfg_.tui_bin + " --title \"" + _("swcenter.fileshare_menu")
-                           + "\" --menu \"\" 0 0 0 "
-                           "\"1\" \"" + _("swcenter.filebrowser") + "\" "
-                           "\"2\" \"" + _("swcenter.nginx_webdav") + "\" "
-                           "\"0\" \"" + _("menu.tui.back") + "\"";
-        auto ch = Executor::tui_select(menu);
-        if (ch == "0" || ch.empty()) return;
-
-        if (ch == "1") {
-            Logger::info(_("swcenter.downloading") + ": FileBrowser");
-            Executor::passthrough(
-                "curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash || true"
-            );
-        } else if (ch == "2") {
-            PackageManager::install("nginx", family);
-        }
-        Logger::press_enter();
-    }
-
     // ═══════════════════════════════════════════════════════════════
     // 13. 💔 Remove — 对应旧 Bash tmoe_other_options_menu
     // ═══════════════════════════════════════════════════════════════
-    void SoftwareCenter::run_cleanup_menu() {
-        while (true) {
-            std::string menu = cfg_.tui_bin + " --title \""
-                               + _("swcenter.cleanup.menu_title") + "\""
-                               " --menu \"" + _("swcenter.cleanup.menu_prompt") + "\" 0 0 0 "
-                               "\"1\" \"" + _("swcenter.cleanup_rm_gui") + "\" "
-                               "\"2\" \"" + _("swcenter.cleanup_rm_browser") + "\" "
-                               "\"3\" \"" + _("swcenter.cleanup_rm_tmoe") + "\" "
-                               "\"0\" \"" + _("menu.tui.back") + "\"";
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) break;
-
-            if (ch == "1") {
-                remove_gui();
-            } else if (ch == "2") {
-                remove_browser();
-            } else if (ch == "3") {
-                remove_tmoe_tools();
-            }
-            Logger::press_enter();
-        }
-    }
-
     void SoftwareCenter::remove_gui() {
         auto family = infer_family_from_config(cfg_.linux_distro);
         if (family == DistroFamily::Unknown)
@@ -1122,70 +701,71 @@ namespace tmoe::domain {
         switch (family) {
             case DistroFamily::Debian: {
                 // 每个包名独立移除，一个失败不影响其他
-                for (const auto& pkg : {
-                    // xfce
-                    "xfce4","xfce4-goodies","xfce4-terminal","xfce4-panel","thunar",
-                    "xfce4-whiskermenu-plugin","xfce4-taskmanager",
-                    "xfce4-places-plugin","xfce4-netload-plugin","xfce4-battery-plugin",
-                    "xfce4-datetime-plugin","xfce4-verve-plugin","xfce4-mount-plugin",
-                    "xfce4-screenshooter","xfce4-clipman-plugin","xfce4-pulseaudio-plugin",
-                    "xfce4-panel-profiles","xfpanel-switch",
-                    "thunar-archive-plugin","engrampa","ristretto","mousepad","menulibre",
-                    "qt5ct","mugshot","xfwm4-theme-breeze",
-                    "gvfs","gvfs-backends","gvfs-fuse",
-                    // lxde
-                    "lxde-core","lxterminal","lxde","lxde-common",
-                    // lxqt
-                    "lxqt-core","lxqt","lxqt-qtplugin","qterminal","qterminal-l10n",
-                    "pcmanfm-qt","pcmanfm-qt-l10n","openbox","lxqt-session","lxqt-config",
-                    "lxqt-theme-debian","lxqt-session-l10n",
-                    // mate
-                    "mate-desktop-environment","mate-desktop-environment-core","mate-terminal",
-                    "mate-session-manager","mate-settings-daemon","marco","mate-panel",
-                    // kde
-                    "kde-plasma-desktop","plasma-desktop","kde-full","kde-standard",
-                    "kubuntu-desktop",
-                    // gnome
-                    "gnome-session","gnome-shell","gnome-core",
-                    // cinnamon
-                    "cinnamon-desktop-environment","cinnamon","cinnamon-l10n",
-                    // budgie
-                    "budgie-desktop","budgie-core",
-                    // dde/deepin
-                    "ubuntudde-dde","ubuntudde-dde-extras","deepin-terminal",
-                    "deepin-desktop-environment",
-                    // ukui
-                    "ukui-session-manager","ukui-menu","ukui-control-center",
-                    "ukui-screensaver","ukui-themes","peony","ubuntukylin-desktop",
-                    // cutefish
-                    "cutefish","cutefish-core","cutefish-settings",
-                    "cutefish-dock","cutefish-launcher","cutefish-filemanager",
-                    "cutefish-terminal","cutefish-texteditor",
-                    // wm
-                    "icewm","openbox","fvwm","awesome","enlightenment","fluxbox",
-                    "i3","i3-wm","xmonad","metacity","twm","dwm",
-                    // common
-                    "tightvncserver","tigervnc-standalone-server","dbus-x11",
-                    "fonts-noto-cjk","fonts-noto-color-emoji",
-                }) {
+                for (const auto &pkg: {
+                         // xfce
+                         "xfce4", "xfce4-goodies", "xfce4-terminal", "xfce4-panel", "thunar",
+                         "xfce4-whiskermenu-plugin", "xfce4-taskmanager",
+                         "xfce4-places-plugin", "xfce4-netload-plugin", "xfce4-battery-plugin",
+                         "xfce4-datetime-plugin", "xfce4-verve-plugin", "xfce4-mount-plugin",
+                         "xfce4-screenshooter", "xfce4-clipman-plugin", "xfce4-pulseaudio-plugin",
+                         "xfce4-panel-profiles", "xfpanel-switch",
+                         "thunar-archive-plugin", "engrampa", "ristretto", "mousepad", "menulibre",
+                         "qt5ct", "mugshot", "xfwm4-theme-breeze",
+                         "gvfs", "gvfs-backends", "gvfs-fuse",
+                         // lxde
+                         "lxde-core", "lxterminal", "lxde", "lxde-common",
+                         // lxqt
+                         "lxqt-core", "lxqt", "lxqt-qtplugin", "qterminal", "qterminal-l10n",
+                         "pcmanfm-qt", "pcmanfm-qt-l10n", "openbox", "lxqt-session", "lxqt-config",
+                         "lxqt-theme-debian", "lxqt-session-l10n",
+                         // mate
+                         "mate-desktop-environment", "mate-desktop-environment-core", "mate-terminal",
+                         "mate-session-manager", "mate-settings-daemon", "marco", "mate-panel",
+                         // kde
+                         "kde-plasma-desktop", "plasma-desktop", "kde-full", "kde-standard",
+                         "kubuntu-desktop",
+                         // gnome
+                         "gnome-session", "gnome-shell", "gnome-core",
+                         // cinnamon
+                         "cinnamon-desktop-environment", "cinnamon", "cinnamon-l10n",
+                         // budgie
+                         "budgie-desktop", "budgie-core",
+                         // dde/deepin
+                         "ubuntudde-dde", "ubuntudde-dde-extras", "deepin-terminal",
+                         "deepin-desktop-environment",
+                         // ukui
+                         "ukui-session-manager", "ukui-menu", "ukui-control-center",
+                         "ukui-screensaver", "ukui-themes", "peony", "ubuntukylin-desktop",
+                         // cutefish
+                         "cutefish", "cutefish-core", "cutefish-settings",
+                         "cutefish-dock", "cutefish-launcher", "cutefish-filemanager",
+                         "cutefish-terminal", "cutefish-texteditor",
+                         // wm
+                         "icewm", "openbox", "fvwm", "awesome", "enlightenment", "fluxbox",
+                         "i3", "i3-wm", "xmonad", "metacity", "twm", "dwm",
+                         // common
+                         "tightvncserver", "tigervnc-standalone-server", "dbus-x11",
+                         "fonts-noto-cjk", "fonts-noto-color-emoji",
+                     }) {
                     PackageManager::remove(std::string(pkg), family);
                 }
-                Executor::passthrough("sudo apt autoremove --purge -y 2>/dev/null || sudo apt autoremove -y 2>/dev/null || true");
+                Executor::passthrough(
+                    "sudo apt autoremove --purge -y 2>/dev/null || sudo apt autoremove -y 2>/dev/null || true");
                 break;
             }
             case DistroFamily::Arch:
-                for (const auto& pkg : {
-                    "xfce4","xfce4-goodies","xfce4-terminal",
-                    "mate","mate-extra",
-                    "lxde","lxqt","plasma-desktop",
-                    "gnome","gnome-extra","gnome-tweaks",
-                    "cinnamon","cinnamon-translations",
-                    "deepin","deepin-extra","deepin-kwin",
-                    "ukui","cutefish",
-                    "i3-wm","i3status","i3lock","dmenu",
-                    "xmonad","xmobar","openbox","fluxbox",
-                    "awesome","enlightenment","icewm","twm","dwm",
-                })
+                for (const auto &pkg: {
+                         "xfce4", "xfce4-goodies", "xfce4-terminal",
+                         "mate", "mate-extra",
+                         "lxde", "lxqt", "plasma-desktop",
+                         "gnome", "gnome-extra", "gnome-tweaks",
+                         "cinnamon", "cinnamon-translations",
+                         "deepin", "deepin-extra", "deepin-kwin",
+                         "ukui", "cutefish",
+                         "i3-wm", "i3status", "i3lock", "dmenu",
+                         "xmonad", "xmobar", "openbox", "fluxbox",
+                         "awesome", "enlightenment", "icewm", "twm", "dwm",
+                     })
                     PackageManager::remove(std::string(pkg), family);
                 break;
             case DistroFamily::RedHat:
@@ -1197,42 +777,48 @@ namespace tmoe::domain {
                 PackageManager::remove("deepin-desktop", family);
                 break;
             default:
-                for (const auto& pkg : {
-                    "xfce4","xfce4-goodies","lxde","lxqt","mate-desktop",
-                    "kde-plasma-desktop","gnome-session","gnome-shell","cinnamon",
-                    "budgie-desktop","ukui-session-manager","cutefish",
-                    "deepin-desktop-environment",
-                })
+                for (const auto &pkg: {
+                         "xfce4", "xfce4-goodies", "lxde", "lxqt", "mate-desktop",
+                         "kde-plasma-desktop", "gnome-session", "gnome-shell", "cinnamon",
+                         "budgie-desktop", "ukui-session-manager", "cutefish",
+                         "deepin-desktop-environment",
+                     })
                     PackageManager::remove(std::string(pkg), family);
                 break;
         }
 
         // ── 共享清理：桌面配置残余（所有发行版通用）──
-        const char* home = std::getenv("HOME");
+        const char *home = std::getenv("HOME");
         std::string h = home ? home : "/root";
-        for (const auto* dir : {"/.config/xfce4","/.config/mate","/.config/lxde",
-                                 "/.config/lxqt","/.config/kde","/.config/plasma",
-                                 "/.config/kde.org","/.config/kdeconnect",
-                                 "/.config/dconf","/.config/gnome","/.config/cinnamon",
-                                 "/.config/budgie","/.config/deepin","/.config/ukui",
-                                 "/.config/cutefish","/.config/KDE","/.config/session",
-                                 "/.kde","/.local/share/kde","/.local/share/plasma",
-                                 "/.cache/xfce4","/.cache/mate","/.cache/lxde","/.cache/lxqt",
-                                 "/.cache/kde","/.cache/plasma"})
+        for (const auto *dir: {
+                 "/.config/xfce4", "/.config/mate", "/.config/lxde",
+                 "/.config/lxqt", "/.config/kde", "/.config/plasma",
+                 "/.config/kde.org", "/.config/kdeconnect",
+                 "/.config/dconf", "/.config/gnome", "/.config/cinnamon",
+                 "/.config/budgie", "/.config/deepin", "/.config/ukui",
+                 "/.config/cutefish", "/.config/KDE", "/.config/session",
+                 "/.kde", "/.local/share/kde", "/.local/share/plasma",
+                 "/.cache/xfce4", "/.cache/mate", "/.cache/lxde", "/.cache/lxqt",
+                 "/.cache/kde", "/.cache/plasma"
+             })
             Executor::passthrough("rm -rf " + h + dir + " 2>/dev/null || true");
         Executor::passthrough("rm -rf ~/.vnc ~/.dbus ~/.cache/sessions 2>/dev/null || true");
         Executor::passthrough("sudo rm -rf /etc/tigervnc 2>/dev/null || true");
         // ~/.local/share 各桌面数据
-        for (const auto* dir : {"/.local/share/xfce4","/.local/share/kde","/.local/share/plasma",
-                                 "/.local/share/mate","/.local/share/gnome","/.local/share/cinnamon",
-                                 "/.local/share/budgie","/.local/share/deepin","/.local/share/ukui",
-                                 "/.local/share/lxde","/.local/share/lxqt","/.local/share/cutefish"})
+        for (const auto *dir: {
+                 "/.local/share/xfce4", "/.local/share/kde", "/.local/share/plasma",
+                 "/.local/share/mate", "/.local/share/gnome", "/.local/share/cinnamon",
+                 "/.local/share/budgie", "/.local/share/deepin", "/.local/share/ukui",
+                 "/.local/share/lxde", "/.local/share/lxqt", "/.local/share/cutefish"
+             })
             Executor::passthrough("rm -rf " + h + dir + " 2>/dev/null || true");
-        for (const auto* script : {"/usr/local/bin/startvnc","/usr/local/bin/stopvnc",
-                                    "/usr/local/bin/startxsdl","/usr/local/bin/novnc",
-                                    "/usr/local/bin/startx11vnc","/usr/local/bin/x11vncpasswd",
-                                    "/usr/local/bin/tightvnc","/usr/local/bin/tigervnc",
-                                    "/usr/local/bin/gnome-shell-x11","/usr/local/bin/budgie-desktop-builtin"})
+        for (const auto *script: {
+                 "/usr/local/bin/startvnc", "/usr/local/bin/stopvnc",
+                 "/usr/local/bin/startxsdl", "/usr/local/bin/novnc",
+                 "/usr/local/bin/startx11vnc", "/usr/local/bin/x11vncpasswd",
+                 "/usr/local/bin/tightvnc", "/usr/local/bin/tigervnc",
+                 "/usr/local/bin/gnome-shell-x11", "/usr/local/bin/budgie-desktop-builtin"
+             })
             Executor::passthrough(std::string("sudo rm -f ") + script + " 2>/dev/null || true");
         Executor::passthrough("sudo rm -rf /etc/X11/xinit 2>/dev/null || true");
     }
@@ -1241,26 +827,33 @@ namespace tmoe::domain {
         // 对应旧 Bash: 火狐娘 vs chromium娘 二选一
         auto family = infer_family_from_config(cfg_.linux_distro);
         std::string confirm = cfg_.tui_bin +
-                              " --title \"" + _("swcenter.cleanup.browser_title") + "\" --yes-button \"Firefox\" --no-button \"chromium\""
+                              " --title \"" + _("swcenter.cleanup.browser_title") +
+                              "\" --yes-button \"Firefox\" --no-button \"chromium\""
                               " --yesno '" + _("swcenter.cleanup.browser_dialog_text") + "' 10 60";
         auto choice = Executor::passthrough(confirm);
         // exit_code: 0=Firefox(yes), 1=chromium(no), 255=ESC
 
         if (choice.exit_code == 0) {
             auto f_confirm = Executor::passthrough(cfg_.tui_bin +
-                                                   " --yesno \"" + _("swcenter.cleanup.browser_firefox_confirm") + "\" 0 0");
+                                                   " --yesno \"" + _("swcenter.cleanup.browser_firefox_confirm") +
+                                                   "\" 0 0");
             if (f_confirm.exit_code != 0) return;
-            for (const auto* pkg : {"firefox-esr","firefox-esr-l10n-zh-cn",
-                                     "firefox","firefox-l10n-zh-cn","firefox-locale-zh-hans"})
+            for (const auto *pkg: {
+                     "firefox-esr", "firefox-esr-l10n-zh-cn",
+                     "firefox", "firefox-l10n-zh-cn", "firefox-locale-zh-hans"
+                 })
                 PackageManager::remove(std::string(pkg), family);
         } else if (choice.exit_code == 1) {
             auto c_confirm = Executor::passthrough(cfg_.tui_bin +
-                                                   " --yesno \"" + _("swcenter.cleanup.browser_chromium_confirm") + "\" 0 0");
+                                                   " --yesno \"" + _("swcenter.cleanup.browser_chromium_confirm") +
+                                                   "\" 0 0");
             if (c_confirm.exit_code != 0) return;
             Executor::passthrough(
                 "apt-mark unhold chromium-browser chromium-browser-l10n chromium-codecs-ffmpeg-extra 2>/dev/null || true");
-            for (const auto* pkg : {"chromium","chromium-l10n",
-                                     "chromium-browser","chromium-browser-l10n"})
+            for (const auto *pkg: {
+                     "chromium", "chromium-l10n",
+                     "chromium-browser", "chromium-browser-l10n"
+                 })
                 PackageManager::remove(std::string(pkg), family);
         }
         Executor::passthrough("sudo apt autoremove --purge -y 2>/dev/null || true");
@@ -1275,26 +868,26 @@ namespace tmoe::domain {
         if (tm_confirm.exit_code != 0) return;
 
         CommandBuilder("sudo").add_arg("rm")
-            .add_flag("-rfv")
-            .add_arg("/usr/local/bin/tmoe")
-            .add_arg("/usr/local/bin/tmoes")
-            .add_arg("/usr/local/bin/tome")
-            .add_arg("/usr/local/bin/startvnc")
-            .add_arg("/usr/local/bin/stopvnc")
-            .add_arg("/usr/local/bin/novnc")
-            .add_arg("/usr/local/bin/startx11vnc")
-            .add_arg("/usr/local/bin/startxsdl")
-            .add_arg("/usr/local/bin/x11vncpasswd")
-            .add_arg("/usr/local/bin/debian")
-            .add_arg("/usr/local/bin/debian-i")
-            .add_arg("/usr/local/share/tmoe-linux")
-            .add_arg("~/.config/tmoe-linux")
-            .add_raw("2>/dev/null || true")
-            .execute();
+                .add_flag("-rfv")
+                .add_arg("/usr/local/bin/tmoe")
+                .add_arg("/usr/local/bin/tmoes")
+                .add_arg("/usr/local/bin/tome")
+                .add_arg("/usr/local/bin/startvnc")
+                .add_arg("/usr/local/bin/stopvnc")
+                .add_arg("/usr/local/bin/novnc")
+                .add_arg("/usr/local/bin/startx11vnc")
+                .add_arg("/usr/local/bin/startxsdl")
+                .add_arg("/usr/local/bin/x11vncpasswd")
+                .add_arg("/usr/local/bin/debian")
+                .add_arg("/usr/local/bin/debian-i")
+                .add_arg("/usr/local/share/tmoe-linux")
+                .add_arg("~/.config/tmoe-linux")
+                .add_raw("2>/dev/null || true")
+                .execute();
 
         // 移除依赖包
         auto family = infer_family_from_config(cfg_.linux_distro);
-        for (const auto* pkg : {"git","aria2","pv","wget","curl","less","xz-utils","newt","whiptail"})
+        for (const auto *pkg: {"git", "aria2", "pv", "wget", "curl", "less", "xz-utils", "newt", "whiptail"})
             PackageManager::remove(std::string(pkg), family);
 
         Logger::warn(_("swcenter.cleanup.remove_tmoe_done"));

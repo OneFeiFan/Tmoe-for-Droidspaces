@@ -16,8 +16,6 @@ namespace tmoe::domain {
         explicit SoftwareCenter(const TmoeConfig &cfg);
         ~SoftwareCenter();
 
-        void run_software_center_menu();
-
         // 跨模块回调 (Browser/Dev/Office/Download/Zsh)
         void set_browser_cb(std::function<void()> cb) { browser_cb_ = std::move(cb); }
         void set_dev_cb(std::function<void()> cb) { dev_cb_ = std::move(cb); }
@@ -30,17 +28,6 @@ namespace tmoe::domain {
         void invoke_office_cb() { if (office_cb_) office_cb_(); }
         void invoke_download_cb() { if (download_cb_) download_cb_(); }
         void invoke_zsh_cb() { if (zsh_cb_) zsh_cb_(); }
-
-        // ── 插件可访问的子菜单 ──
-        void run_sns_menu();
-        void run_games_menu();
-        void run_media_menu();
-        void run_fileshare_menu();
-        void run_pkg_gui_menu();
-        void run_cleanup_menu();
-        void run_electron_apps_menu();
-        void run_electron_vm_menu();
-        void run_debian_opt_menu();
 
         void electron_install_or_remove(const std::string &app_name);
 
@@ -58,21 +45,13 @@ namespace tmoe::domain {
         void install_wechat();
         void install_skype();
         void install_mitalk();
-        void run_image_compression_menu();
+        MediaTools* media_tools() { return media_tools_.get(); }
 
     private:
-
-        // 内部子菜单（被公开 run_*_menu() 内部调用）
-        void run_electron_music_menu();
-        void run_electron_video_menu();
-        void run_electron_note_menu();
-        void run_electron_dev_menu();
-        void run_electron_manager();
         void check_download_path();
         void install_electron_app(const std::string &app_name);
         void remove_electron_app(const std::string &app_name);
         void download_tmoe_electron_app(const std::string &app_name);
-        void run_docs_menu();
 
         const TmoeConfig &cfg_;
         std::string apps_lnk_dir_ = "/usr/share/applications";

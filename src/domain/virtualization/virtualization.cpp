@@ -4,32 +4,7 @@
 #include <algorithm>
 
 namespace tmoe::domain {
-
-    VirtualizationManager::VirtualizationManager(const TmoeConfig &cfg) : cfg_(cfg) {}
-
-    // ═══════════════════════════════════════════════════════════════
-    //  主菜单 — Docker / Wine
-    // ═══════════════════════════════════════════════════════════════
-
-    void VirtualizationManager::run_virt_menu() {
-        while (true) {
-            std::string menu = cfg_.tui_bin +
-                               " --title \"" + _("virt.title") + "\""
-                               " --menu \"" + _("virt.menu_prompt") + "\" 0 0 0 "
-                               "\"1\" \"" + _("virt.docker") + "\" "
-                               "\"2\" \"" + _("virt.wine") + "\" "
-                               "\"0\" \"" + _("menu.tui.back_upper") + "\"";
-
-            std::string choice = Executor::tui_select(menu);
-            if (choice == "0" || choice.empty()) break;
-
-            if (choice == "1") {
-                if (docker_cb_) docker_cb_();
-            } else if (choice == "2") {
-                run_wine_menu();
-            }
-            Logger::press_enter();
-        }
+    VirtualizationManager::VirtualizationManager(const TmoeConfig &cfg) : cfg_(cfg) {
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -113,54 +88,29 @@ namespace tmoe::domain {
 
         // Wine 不能以 root 运行。用 $SUDO_USER 或从 $HOME 反查真实用户
         std::string real_user;
-        const char* sudo_user = std::getenv("SUDO_USER");
+        const char *sudo_user = std::getenv("SUDO_USER");
         if (sudo_user && sudo_user[0]) real_user = sudo_user;
         else {
-            const char* home = std::getenv("HOME");
+            const char *home = std::getenv("HOME");
             if (home) {
                 auto r = Executor::shell(
                     std::string("grep \"") + home + "\" /etc/passwd | awk -F':' '{print $1}' | head -n1");
-                if (r.ok()) { real_user = r.stdout_data;
-                    real_user.erase(std::remove(real_user.begin(), real_user.end(), '\n'), real_user.end()); }
+                if (r.ok()) {
+                    real_user = r.stdout_data;
+                    real_user.erase(std::remove(real_user.begin(), real_user.end(), '\n'), real_user.end());
+                }
             }
         }
 
         std::string cmd = real_user.empty() || real_user == "root"
-            ? "winetricks dxvk 2>/dev/null"
-            : "su " + real_user + " -c \"winetricks dxvk\" 2>/dev/null";
+                              ? "winetricks dxvk 2>/dev/null"
+                              : "su " + real_user + " -c \"winetricks dxvk\" 2>/dev/null";
         return Executor::passthrough(cmd).ok();
     }
 
     bool VirtualizationManager::install_playonlinux() {
         Logger::step(_("virt.installing_pol"));
         return Executor::passthrough(cfg_.install_command + " playonlinux").ok();
-    }
-
-    void VirtualizationManager::run_wine_menu() {
-        while (true) {
-            std::string menu = cfg_.tui_bin +
-                               " --title \"" + _("virt.wine_title") + "\""
-                               " --menu \"" + _("virt.wine_prompt") + "\" 0 0 0 "
-                               "\"1\" \"" + _("virt.wine_devel") + "\" "
-                               "\"2\" \"" + _("virt.wine_staging") + "\" "
-                               "\"3\" \"" + _("virt.wine_stable") + "\" "
-                               "\"4\" \"" + _("virt.wine_winetricks") + "\" "
-                               "\"5\" \"" + _("virt.wine_dxvk") + "\" "
-                               "\"6\" \"" + _("virt.wine_playonlinux") + "\" "
-                               "\"0\" \"" + _("menu.tui.back") + "\"";
-
-            std::string choice = Executor::tui_select(menu);
-            if (choice == "0" || choice.empty()) break;
-
-            if (choice == "1") install_wine("devel");
-            else if (choice == "2") install_wine("staging");
-            else if (choice == "3") install_wine("stable");
-            else if (choice == "4") install_winetricks();
-            else if (choice == "5") install_dxvk();
-            else if (choice == "6") install_playonlinux();
-
-            Logger::press_enter();
-        }
     }
 
     // ═══════════════════════════════════════════════════════════════

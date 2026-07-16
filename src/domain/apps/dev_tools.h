@@ -24,25 +24,14 @@ namespace tmoe::domain {
     public:
         explicit DeveloperTools(const TmoeConfig &cfg);
 
-        void run_dev_tools_menu();
-
         // ── 插件可访问的菜单入口 ─────────────────────────────────
         // (由 IUIMenu 框架的 LambdaAction 调用，替代旧 whiptail 菜单)
-
-        /** VS Code 子菜单 (4项: Official/Server/Codium/fix tightvnc) */
-        void run_vscode_menu();
 
         /** Android Studio → 设置变量后进入 dev_menu_02 */
         void prep_android_studio();
 
         /** IDEA 旗舰版 vs 社区版选择 */
         void choose_idea_edition();
-
-        /** JetBrains IDE 二级菜单 (install/delete pkg/remove) — dev_menu_01 */
-        void run_ide_submenu_01();
-
-        /** Android Studio 二级菜单 (install/delete pkg/remove) — dev_menu_02 */
-        void run_ide_submenu_02();
 
         /** GNU Emacs 快速安装 */
         void install_emacs();
@@ -102,16 +91,20 @@ namespace tmoe::domain {
         void remove_ide_02();
 
     private:
-
         // ═══════════════════════════════════════════════════════
         // VS Code Server 内部实现
         // ═══════════════════════════════════════════════════════
 
         void configure_vscode_server();
+
         void vscode_server_upgrade();
+
         void vscode_server_restart();
+
         void vscode_server_password();
+
         void vscode_server_remove();
+
         void install_github_desktop();
 
         // ═══════════════════════════════════════════════════════

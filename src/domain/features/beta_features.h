@@ -29,9 +29,6 @@ class BetaFeaturesManager {
 public:
     explicit BetaFeaturesManager(const TmoeConfig& cfg);
 
-    /** 秘密花园主菜单入口。 */
-    void run_beta_menu();
-
     // ── 回调注入 (从 Manager 注入，用于跨模块委托) ──
     void set_virt_callback(std::function<void()> cb)  { virt_cb_ = std::move(cb); }
     void set_education_callback(std::function<void()> cb)  { education_cb_ = std::move(cb); }
@@ -44,42 +41,8 @@ public:
     void input_method_delegate() { if (input_method_cb_) input_method_cb_(); }
     void terminal_delegate() { if (terminal_cb_) terminal_cb_(); }
 
-    // ── 第1层子菜单 ──
-
-    /** 选项3: 系统管理 (sudo用户组, rc.local, UEFI启动项, 资源监视器等) */
-    void run_system_menu();
-
-    /** 选项4: 商店与下载 (aptitude, deepin商店, gnome-software, flatpak, snap, bauh, qbittorrent) */
-    void run_store_menu();
-
-    /** 选项5: 视频剪辑 (openshot, mkvtoolnix, kdenlive, flowblade, shotcut, olive, blender) */
-    void run_video_menu();
-
-    /** 选项6: 绘图 (krita, inkscape, kolourpaint, R语言, latexdraw, librecad, freecad, opencad, kicad, openscad, gnuplot) */
-    void run_paint_menu();
-
-    /** 选项7: 文件管理 (thunar/nautilus/dolphin, catfish, gparted, baobab, cfdisk, partitionmanager, mc, ranger, gnome-disks) */
-    void run_file_menu();
-
-    /** 选项8: 阅读器 (calibre, fbreader, typora, xournal, evince, okular, kchmviewer, pdfchain) */
-    void run_reader_menu();
-
     /** 选项9: 网络管理 (nmtui, 设备管理, WiFi扫描, 网卡驱动, IP查看, etc.) — 占位 */
     void run_network_menu();
-
-    /** 选项12: 其他 (OBS-Studio, seahorse, kodi, scrcpy, flameshot, telegram) */
-    void run_other_menu();
-
-    // ── 第2层/第3层子菜单 (公开，供 UI 插件调用) ──
-
-    /** Deepin 软件子菜单 (16项) */
-    void run_deepin_menu();
-
-    /** R语言子菜单 */
-    void run_r_lang_menu();
-
-    /** scrcpy 子菜单 */
-    void run_scrcpy_menu();
 
 private:
     const TmoeConfig& cfg_;

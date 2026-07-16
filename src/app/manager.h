@@ -73,9 +73,6 @@ namespace tmoe::app {
         std::unique_ptr<domain::DownloadTools> download_tools_;
 
 
-        /** 镜像源管理子菜单（CLI 模式 -m 仍使用）。 */
-        void run_mirror_menu();
-
         /** 通用容器启动辅助方法 (Proot/Chroot/Nspawn)。 */
         int launch_container(const LaunchContext& ctx, domain::ContainerMode mode,
                              const std::string& mode_label, bool needs_root);

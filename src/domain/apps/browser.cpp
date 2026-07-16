@@ -13,38 +13,13 @@ namespace tmoe::domain {
     BrowserManager::BrowserManager(const TmoeConfig &cfg) : cfg_(cfg) {
     }
 
-    // DEPRECATED: replaced by create_browser_menu()
-    void BrowserManager::run_browser_menu() {
-        while (true) {
-            std::string menu = cfg_.tui_bin + " --title \"" + _("browser.menu_title") + "\""
-                               " --menu \"" + _("browser.menu_prompt") + "\" 0 50 0 "
-                               "\"1\" \"" + _("browser.menu_item_firefox_chromium") + "\" "
-                               "\"2\" \"" + _("browser.menu_item_edge") + "\" "
-                               "\"3\" \"" + _("browser.menu_item_falkon") + "\" "
-                               "\"4\" \"" + _("browser.menu_item_vivaldi") + "\" "
-                               "\"5\" \"" + _("browser.menu_item_epiphany") + "\" "
-                               "\"6\" \"" + _("browser.menu_item_midori") + "\" "
-                               "\"0\" \"" + _("menu.tui.back_upper") + "\"";
-
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) break;
-
-            if (ch == "1") firefox_or_chromium();
-            else if (ch == "2") microsoft_edge_menu();
-            else if (ch == "3") falkon_browser_menu();
-            else if (ch == "4") install_vivaldi();
-            else if (ch == "5") install_epiphany();
-            else if (ch == "6") install_midori();
-            Logger::press_enter();
-        }
-    }
-
     // ═══════════════════════════════════════════════════════════════
     // 1. Firefox & Chromium — 对应旧 Bash firefox_or_chromium
     // ═══════════════════════════════════════════════════════════════
     void BrowserManager::firefox_or_chromium() {
         std::string cmd = cfg_.tui_bin +
-                          " --title \"" + _("browser.firefox_chromium_select_title") + "\" --yes-button \"chromium\" --no-button \"Firefox\""
+                          " --title \"" + _("browser.firefox_chromium_select_title") +
+                          "\" --yes-button \"chromium\" --no-button \"Firefox\""
                           " --yesno '" + _("browser.firefox_chromium_select_yesno") + "' 15 50";
         auto r = Executor::passthrough(cmd);
         if (r.exit_code == 0) chromium_browser_menu(); // yes=chromium
@@ -55,14 +30,16 @@ namespace tmoe::domain {
     void BrowserManager::firefox_or_firefoxesr() {
         // 先问安装还是卸载
         std::string cmd = cfg_.tui_bin +
-                          " --title \"" + _("browser.firefox_install_remove_title") + "\" --yes-button \"install 安装\" --no-button \"remove 卸载\""
+                          " --title \"" + _("browser.firefox_install_remove_title") +
+                          "\" --yes-button \"install 安装\" --no-button \"remove 卸载\""
                           " --yesno \"" + _("browser.firefox_install_remove_yesno") + "\" 8 50";
         auto r = Executor::passthrough(cmd);
         bool do_remove = (r.exit_code == 1);
 
         // 再选版本
         cmd = cfg_.tui_bin +
-              " --title \"" + _("browser.firefox_chromium_select_title") + "\" --yes-button \"Firefox\" --no-button \"ESR\""
+              " --title \"" + _("browser.firefox_chromium_select_title") +
+              "\" --yes-button \"Firefox\" --no-button \"ESR\""
               " --yesno '" + _("browser.firefox_esr_select_yesno") + "' 12 53";
         r = Executor::passthrough(cmd);
 
@@ -77,7 +54,8 @@ namespace tmoe::domain {
 
     void BrowserManager::chromium_browser_menu() {
         std::string cmd = cfg_.tui_bin +
-                          " --title \"" + _("browser.chromium_install_remove_title") + "\" --yes-button \"install\" --no-button \"remove\""
+                          " --title \"" + _("browser.chromium_install_remove_title") +
+                          "\" --yes-button \"install\" --no-button \"remove\""
                           " --yesno \"" + _("browser.chromium_install_remove_yesno") + "\" 8 50";
         auto r = Executor::passthrough(cmd);
         if (r.exit_code == 0) install_chromium();
@@ -96,7 +74,8 @@ namespace tmoe::domain {
 
     void BrowserManager::falkon_browser_menu() {
         std::string cmd = cfg_.tui_bin +
-                          " --title \"" + _("browser.falkon_install_remove_title") + "\" --yes-button \"install\" --no-button \"remove\""
+                          " --title \"" + _("browser.falkon_install_remove_title") +
+                          "\" --yes-button \"install\" --no-button \"remove\""
                           " --yesno \"" + _("browser.falkon_install_remove_yesno") + "\" 8 50";
         auto r = Executor::passthrough(cmd);
         if (r.exit_code == 0) install_falkon();
@@ -179,11 +158,15 @@ namespace tmoe::domain {
             ensure_chromium_ppa();
             if (cfg_.linux_distro.find("ubuntu") != std::string::npos
                 || cfg_.linux_distro.find("Ubuntu") != std::string::npos) {
-                ok = PackageManager::install({"chromium-browser", "chromium-browser-l10n",
-                                              "chromium-chromedriver", "chromium-shell"}, family);
+                ok = PackageManager::install({
+                                                 "chromium-browser", "chromium-browser-l10n",
+                                                 "chromium-chromedriver", "chromium-shell"
+                                             }, family);
             } else {
-                ok = PackageManager::install({"chromium", "chromium-l10n",
-                                              "chromium-driver", "chromium-shell"}, family);
+                ok = PackageManager::install({
+                                                 "chromium", "chromium-l10n",
+                                                 "chromium-driver", "chromium-shell"
+                                             }, family);
             }
         } else if (family == DistroFamily::Gentoo) {
             ok = PackageManager::install("www-client/chromium", family);
@@ -200,7 +183,8 @@ namespace tmoe::domain {
         if (!ok) return;
 
         // 移除 Debian 系强制锁定 DuckDuckGo 搜索引擎的 policy 文件
-        Executor::shell("sudo rm -rf /etc/chromium/policies/managed/ /etc/chromium-browser/policies/managed/ 2>/dev/null || true");
+        Executor::shell(
+            "sudo rm -rf /etc/chromium/policies/managed/ /etc/chromium-browser/policies/managed/ 2>/dev/null || true");
         Logger::info(_("browser.chromium_policy_cleaned"));
 
         create_no_sandbox_wrapper("Chromium", "chromium");
@@ -222,20 +206,20 @@ namespace tmoe::domain {
             case DistroFamily::RedHat:
                 Executor::passthrough(
                     CommandBuilder("sudo").add_arg("rpm").add_flag("--import")
-                        .add_arg("https://packages.microsoft.com/keys/microsoft.asc").build_string());
+                    .add_arg("https://packages.microsoft.com/keys/microsoft.asc").build_string());
                 Executor::passthrough(
                     CommandBuilder("sudo").add_arg("dnf").add_arg("config-manager").add_flag("--add-repo")
-                        .add_arg("https://packages.microsoft.com/yumrepos/edge").build_string());
+                    .add_arg("https://packages.microsoft.com/yumrepos/edge").build_string());
                 ok = PackageManager::install("microsoft-edge-dev", family);
                 break;
             case DistroFamily::Suse:
                 Executor::passthrough(
                     CommandBuilder("sudo").add_arg("rpm").add_flag("--import")
-                        .add_arg("https://packages.microsoft.com/keys/microsoft.asc").build_string());
+                    .add_arg("https://packages.microsoft.com/keys/microsoft.asc").build_string());
                 Executor::passthrough(
                     CommandBuilder("sudo").add_arg("zypper").add_flag("ar")
-                        .add_arg("https://packages.microsoft.com/yumrepos/edge")
-                        .add_arg("microsoft-edge-dev").build_string());
+                    .add_arg("https://packages.microsoft.com/yumrepos/edge")
+                    .add_arg("microsoft-edge-dev").build_string());
                 Executor::passthrough(CommandBuilder("sudo").add_arg("zypper").add_arg("refresh").build_string());
                 ok = PackageManager::install("microsoft-edge-dev", family);
                 break;
@@ -293,21 +277,21 @@ namespace tmoe::domain {
         if (family == DistroFamily::Debian)
             Executor::passthrough(
                 CommandBuilder("sudo").add_arg("apt-mark").add_flag("unhold")
-                    .add_arg("chromium-browser").add_arg("chromium-browser-l10n")
-                    .add_arg("chromium-codecs-ffmpeg-extra")
-                    .add_raw("2>/dev/null || true").build_string());
+                .add_arg("chromium-browser").add_arg("chromium-browser-l10n")
+                .add_arg("chromium-codecs-ffmpeg-extra")
+                .add_raw("2>/dev/null || true").build_string());
         Executor::passthrough("sudo add-apt-repository -ry ppa:xtradeb/apps 2>/dev/null || true");
         for (const auto &pkg: {"chromium", "chromium-l10n", "chromium-browser", "chromium-browser-l10n"})
             PackageManager::remove(pkg, family);
         Executor::passthrough(
             CommandBuilder("sudo").add_arg("rm").add_flag("-vf")
-                .add_arg("/usr/local/bin/chromium--no-sandbox")
-                .add_arg("/usr/local/share/applications/chromium-browser-no-sandbox.desktop")
-                .add_raw("2>/dev/null || true").build_string());
+            .add_arg("/usr/local/bin/chromium--no-sandbox")
+            .add_arg("/usr/local/share/applications/chromium-browser-no-sandbox.desktop")
+            .add_raw("2>/dev/null || true").build_string());
         Executor::passthrough(
             CommandBuilder("rm").add_flag("-vf")
-                .add_arg("${HOME}/Desktop/chromium-browser-no-sandbox.desktop")
-                .add_raw("2>/dev/null || true").build_string());
+            .add_arg("${HOME}/Desktop/chromium-browser-no-sandbox.desktop")
+            .add_raw("2>/dev/null || true").build_string());
     }
 
     void BrowserManager::remove_edge() {
@@ -320,36 +304,36 @@ namespace tmoe::domain {
             case DistroFamily::Debian:
                 Executor::passthrough(
                     CommandBuilder("sudo").add_arg("rm").add_flag("-vf")
-                        .add_arg("/etc/apt/sources.list.d/microsoft-edge.list")
-                        .add_arg("/etc/apt/sources.list.d/microsoft-edge-dev.list")
-                        .add_arg("/etc/apt/trusted.gpg.d/microsoft.gpg")
-                        .add_raw("2>/dev/null || true").build_string());
+                    .add_arg("/etc/apt/sources.list.d/microsoft-edge.list")
+                    .add_arg("/etc/apt/sources.list.d/microsoft-edge-dev.list")
+                    .add_arg("/etc/apt/trusted.gpg.d/microsoft.gpg")
+                    .add_raw("2>/dev/null || true").build_string());
                 PackageManager::update(DistroFamily::Debian);
                 break;
             case DistroFamily::RedHat:
                 Executor::passthrough(
                     CommandBuilder("sudo").add_arg("rm").add_flag("-vf")
-                        .add_arg("/etc/yum.repos.d/microsoft-edge-dev.repo")
-                        .add_raw("2>/dev/null || true").build_string());
+                    .add_arg("/etc/yum.repos.d/microsoft-edge-dev.repo")
+                    .add_raw("2>/dev/null || true").build_string());
                 break;
             case DistroFamily::Suse:
                 Executor::passthrough(
                     CommandBuilder("sudo").add_arg("zypper").add_flag("removerepo")
-                        .add_arg("microsoft-edge-dev")
-                        .add_raw("2>/dev/null || true").build_string());
+                    .add_arg("microsoft-edge-dev")
+                    .add_raw("2>/dev/null || true").build_string());
                 break;
             default: break;
         }
         // 清理 no-sandbox 快捷方式 + 桌面副本
         Executor::passthrough(
             CommandBuilder("sudo").add_arg("rm").add_flag("-vf")
-                .add_arg("/usr/local/bin/microsoft-edge-dev--no-sandbox")
-                .add_arg("/usr/local/share/applications/microsoft-edge-dev-no-sandbox.desktop")
-                .add_raw("2>/dev/null || true").build_string());
+            .add_arg("/usr/local/bin/microsoft-edge-dev--no-sandbox")
+            .add_arg("/usr/local/share/applications/microsoft-edge-dev-no-sandbox.desktop")
+            .add_raw("2>/dev/null || true").build_string());
         Executor::passthrough(
             CommandBuilder("rm").add_flag("-vf")
-                .add_arg("${HOME}/Desktop/microsoft-edge*.desktop")
-                .add_raw("2>/dev/null || true").build_string());
+            .add_arg("${HOME}/Desktop/microsoft-edge*.desktop")
+            .add_raw("2>/dev/null || true").build_string());
     }
 
     void BrowserManager::remove_falkon() {
@@ -360,9 +344,9 @@ namespace tmoe::domain {
         PackageManager::remove("falkon", family);
         Executor::passthrough(
             CommandBuilder("sudo").add_arg("rm").add_flag("-vf")
-                .add_arg("/usr/local/bin/falkon--no-sandbox")
-                .add_arg("/usr/local/share/applications/falkon-no-sandbox.desktop")
-                .add_raw("2>/dev/null || true").build_string());
+            .add_arg("/usr/local/bin/falkon--no-sandbox")
+            .add_arg("/usr/local/share/applications/falkon-no-sandbox.desktop")
+            .add_raw("2>/dev/null || true").build_string());
     }
 
     void BrowserManager::remove_firefox() {
@@ -373,29 +357,29 @@ namespace tmoe::domain {
         if (family == DistroFamily::Debian) {
             Executor::passthrough(
                 CommandBuilder("sudo").add_arg("apt").add_flag("purge").add_flag("-y")
-                    .add_arg("firefox").add_arg("^firefox-locale")
-                    .add_raw("2>/dev/null || true").build_string());
+                .add_arg("firefox").add_arg("^firefox-locale")
+                .add_raw("2>/dev/null || true").build_string());
             bool has_esr = Executor::shell("dpkg -l firefox-esr 2>/dev/null | grep -q '^ii'").ok();
             if (!has_esr) {
                 // 两个版本都卸了 → 清理 PPA 源和 apt pinning
                 Executor::passthrough("sudo add-apt-repository -ry ppa:mozillateam/ppa 2>/dev/null || true");
                 Executor::passthrough(
                     CommandBuilder("sudo").add_arg("rm").add_flag("-vf")
-                        .add_arg("/etc/apt/preferences.d/mozilla-firefox")
-                        .add_raw("2>/dev/null || true").build_string());
+                    .add_arg("/etc/apt/preferences.d/mozilla-firefox")
+                    .add_raw("2>/dev/null || true").build_string());
             }
         } else {
             PackageManager::remove("firefox", family);
         }
         Executor::passthrough(
             CommandBuilder("sudo").add_arg("rm").add_flag("-vf")
-                .add_arg("/usr/local/bin/firefox--no-sandbox")
-                .add_arg("/usr/local/share/applications/firefox-no-sandbox.desktop")
-                .add_raw("2>/dev/null || true").build_string());
+            .add_arg("/usr/local/bin/firefox--no-sandbox")
+            .add_arg("/usr/local/share/applications/firefox-no-sandbox.desktop")
+            .add_raw("2>/dev/null || true").build_string());
         Executor::passthrough(
             CommandBuilder("rm").add_flag("-vf")
-                .add_arg("${HOME}/Desktop/firefox-no-sandbox.desktop")
-                .add_raw("2>/dev/null || true").build_string());
+            .add_arg("${HOME}/Desktop/firefox-no-sandbox.desktop")
+            .add_raw("2>/dev/null || true").build_string());
     }
 
     void BrowserManager::remove_firefox_esr() {
@@ -406,28 +390,28 @@ namespace tmoe::domain {
         if (family == DistroFamily::Debian) {
             Executor::passthrough(
                 CommandBuilder("sudo").add_arg("apt").add_flag("purge").add_flag("-y")
-                    .add_arg("firefox-esr").add_arg("^firefox-esr-locale")
-                    .add_raw("2>/dev/null || true").build_string());
+                .add_arg("firefox-esr").add_arg("^firefox-esr-locale")
+                .add_raw("2>/dev/null || true").build_string());
             bool has_regular = Executor::shell("dpkg -l firefox 2>/dev/null | grep -q '^ii'").ok();
             if (!has_regular) {
                 Executor::passthrough("sudo add-apt-repository -ry ppa:mozillateam/ppa 2>/dev/null || true");
                 Executor::passthrough(
                     CommandBuilder("sudo").add_arg("rm").add_flag("-vf")
-                        .add_arg("/etc/apt/preferences.d/mozilla-firefox")
-                        .add_raw("2>/dev/null || true").build_string());
+                    .add_arg("/etc/apt/preferences.d/mozilla-firefox")
+                    .add_raw("2>/dev/null || true").build_string());
             }
         } else {
             PackageManager::remove("firefox-esr", family);
         }
         Executor::passthrough(
             CommandBuilder("sudo").add_arg("rm").add_flag("-vf")
-                .add_arg("/usr/local/bin/firefox-esr--no-sandbox")
-                .add_arg("/usr/local/share/applications/firefox-esr-no-sandbox.desktop")
-                .add_raw("2>/dev/null || true").build_string());
+            .add_arg("/usr/local/bin/firefox-esr--no-sandbox")
+            .add_arg("/usr/local/share/applications/firefox-esr-no-sandbox.desktop")
+            .add_raw("2>/dev/null || true").build_string());
         Executor::passthrough(
             CommandBuilder("rm").add_flag("-vf")
-                .add_arg("${HOME}/Desktop/firefox-esr-no-sandbox.desktop")
-                .add_raw("2>/dev/null || true").build_string());
+            .add_arg("${HOME}/Desktop/firefox-esr-no-sandbox.desktop")
+            .add_raw("2>/dev/null || true").build_string());
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -441,20 +425,20 @@ namespace tmoe::domain {
 
         std::string wrapper_content;
         wrapper_content = "#!/bin/bash\n"
-                "# Auto-generated by tmoe-linux — run " + name + " without sandbox\n\n"
-                "BIN=\"\"\n"
-                "for CANDIDATE in " + bin_name + " " + bin_search + "; do\n"
-                "    if command -v \"$CANDIDATE\" >/dev/null 2>&1; then\n"
-                "        BIN=\"$CANDIDATE\"\n"
-                "        break\n"
-                "    fi\n"
-                "done\n\n"
-                "if [ -z \"$BIN\" ]; then\n"
-                "    echo \"" + name + " not found\" >&2\n"
-                "    exit 1\n"
-                "fi\n\n"
-                "[ \"$(id -u)\" -eq 0 ] && exec \"$BIN\" --no-sandbox \"$@\"\n"
-                "exec \"$BIN\" \"$@\"\n";
+                          "# Auto-generated by tmoe-linux — run " + name + " without sandbox\n\n"
+                          "BIN=\"\"\n"
+                          "for CANDIDATE in " + bin_name + " " + bin_search + "; do\n"
+                          "    if command -v \"$CANDIDATE\" >/dev/null 2>&1; then\n"
+                          "        BIN=\"$CANDIDATE\"\n"
+                          "        break\n"
+                          "    fi\n"
+                          "done\n\n"
+                          "if [ -z \"$BIN\" ]; then\n"
+                          "    echo \"" + name + " not found\" >&2\n"
+                          "    exit 1\n"
+                          "fi\n\n"
+                          "[ \"$(id -u)\" -eq 0 ] && exec \"$BIN\" --no-sandbox \"$@\"\n"
+                          "exec \"$BIN\" \"$@\"\n";
         SystemHelper::write_file(wrapper_path, wrapper_content);
 
         CommandBuilder("sudo").add_arg("chmod").add_arg("755").add_arg(wrapper_path).execute();
@@ -470,36 +454,36 @@ namespace tmoe::domain {
         std::string desktop_dir = "/usr/local/share/applications";
         Executor::shell(
             CommandBuilder("sudo").add_arg("mkdir").add_flag("-p").add_arg(desktop_dir)
-                .add_raw("2>/dev/null").build_string());
+            .add_raw("2>/dev/null").build_string());
         std::string desktop_path = desktop_dir + "/" + bin_name + "-no-sandbox.desktop";
         std::string desktop_content =
-            "[Desktop Entry]\n"
-            "Name=" + name + " (No Sandbox)\n"
-            "Exec=" + wrapper_path + "\n"
-            "Icon=" + icon + "\n"
-            "Type=Application\n"
-            "Categories=Network;WebBrowser;\n"
-            "Terminal=false\n";
+                "[Desktop Entry]\n"
+                "Name=" + name + " (No Sandbox)\n"
+                "Exec=" + wrapper_path + "\n"
+                "Icon=" + icon + "\n"
+                "Type=Application\n"
+                "Categories=Network;WebBrowser;\n"
+                "Terminal=false\n";
         SystemHelper::write_file(desktop_path, desktop_content);
 
         Executor::shell(
             CommandBuilder("sudo").add_arg("chmod").add_arg("644").add_arg(desktop_path)
-                .add_raw("2>/dev/null").build_string());
+            .add_raw("2>/dev/null").build_string());
 
         std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
         Executor::shell(
             CommandBuilder("mkdir").add_flag("-p").add_arg(home + "/Desktop")
-                .add_raw("2>/dev/null").build_string());
+            .add_raw("2>/dev/null").build_string());
         Executor::shell(
             CommandBuilder("cp").add_flag("-f").add_arg(desktop_path).add_arg(home + "/Desktop/")
-                .add_raw("2>/dev/null || true").build_string());
+            .add_raw("2>/dev/null || true").build_string());
 
         std::string sudo_user = std::getenv("SUDO_USER") ? std::getenv("SUDO_USER") : "";
         if (!sudo_user.empty() && sudo_user != "root") {
             Executor::shell(
                 CommandBuilder("sudo").add_arg("cp").add_flag("-f").add_arg(desktop_path)
-                    .add_arg("/home/" + sudo_user + "/Desktop/")
-                    .add_raw("2>/dev/null || true").build_string());
+                .add_arg("/home/" + sudo_user + "/Desktop/")
+                .add_raw("2>/dev/null || true").build_string());
         }
     }
 
@@ -528,13 +512,13 @@ namespace tmoe::domain {
         std::string pref_file = "/etc/apt/preferences.d/mozilla-firefox";
         if (!fs::exists(pref_file)) {
             SystemHelper::write_file(pref_file,
-                "Package: *\n"
-                "Pin: release o=LP-PPA-mozillateam\n"
-                "Pin-Priority: 1001\n"
-                "\n"
-                "Package: firefox\n"
-                "Pin: version 1:1snap1-0ubuntu2\n"
-                "Pin-Priority: -1\n");
+                                     "Package: *\n"
+                                     "Pin: release o=LP-PPA-mozillateam\n"
+                                     "Pin-Priority: 1001\n"
+                                     "\n"
+                                     "Package: firefox\n"
+                                     "Pin: version 1:1snap1-0ubuntu2\n"
+                                     "Pin-Priority: -1\n");
             Logger::info(_("browser.firefox_apt_pinning_set"));
             needs_update = true;
         }
@@ -582,7 +566,7 @@ namespace tmoe::domain {
 
         Logger::step(_("browser.edge_repo") + ": sources.list");
         SystemHelper::write_file("/etc/apt/sources.list.d/microsoft-edge.list",
-            "deb [arch=amd64] https://packages.microsoft.com/repos/edge stable main\n");
+                                 "deb [arch=amd64] https://packages.microsoft.com/repos/edge stable main\n");
 
         Logger::step(_("browser.edge_repo") + ": apt update");
         PackageManager::update(DistroFamily::Debian);

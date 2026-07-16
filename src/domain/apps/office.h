@@ -9,7 +9,6 @@ namespace tmoe::domain {
 class OfficeManager {
 public:
     explicit OfficeManager(const TmoeConfig& cfg);
-    void run_office_menu();
     void install_libreoffice(bool with_zh);
     void install_wps();
     void install_yozo();

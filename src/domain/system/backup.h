@@ -28,10 +28,6 @@ public:
     /** 获取配置引用，供插件层使用。 */
     const TmoeConfig& config() const { return cfg_; }
 
-    // ── TUI 入口 ──
-    /** 备份/恢复主菜单 (whiptail TUI)。 */
-    void run_backup_menu();
-
     // ── 容器备份 ──
     /** 执行容器备份（完整流程：清理垃圾→打包→压缩）。*/
     bool backup_container(std::string_view container_name,

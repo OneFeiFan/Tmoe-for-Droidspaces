@@ -63,68 +63,6 @@ namespace tmoe::domain {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  TUI 主菜单
-    // ═══════════════════════════════════════════════════════════════
-
-    void DockerManager::run_docker_menu() {
-        while (true) {
-            std::string available = is_docker_available()
-                                        ? _("docker.status_installed")
-                                        : _("docker.status_not_installed");
-
-            std::string menu = cfg_.tui_bin +
-                               " --title \"" + _("docker.title") + " — " + available + "\""
-                               " --menu \"" + _("docker.menu_prompt") + "\" 0 0 0 "
-                               "\"1\" \"" + _("docker.menu_pull_distro") + "\" "
-                               "\"2\" \"" + _("docker.menu_portainer") + "\" "
-                               "\"3\" \"" + _("docker.menu_export") + "\" "
-                               "\"4\" \"" + _("docker.menu_import") + "\" "
-                               "\"5\" \"" + _("docker.menu_mirror") + "\" "
-                               "\"6\" \"" + _("docker.menu_install_ce") + "\" "
-                               "\"7\" \"" + _("docker.menu_add_user") + "\" "
-                               "\"0\" \"" + _("menu.tui.back_upper") + "\"";
-
-            std::string choice = Executor::tui_select(menu);
-            if (choice == "0" || choice.empty()) break;
-
-            if (choice == "1") {
-                proot_warning_check();
-                if (!check_docker_installation()) {
-                    Logger::press_enter();
-                    continue;
-                }
-                choose_gnu_linux_docker_images();
-            } else if (choice == "2") {
-                if (!check_docker_installation()) {
-                    Logger::press_enter();
-                    continue;
-                }
-                install_docker_portainer();
-            } else if (choice == "3") {
-                if (!check_docker_installation()) {
-                    Logger::press_enter();
-                    continue;
-                }
-                export_docker_image_menu();
-            } else if (choice == "4") {
-                if (!check_docker_installation()) {
-                    Logger::press_enter();
-                    continue;
-                }
-                import_docker_image_menu();
-            } else if (choice == "5") {
-                docker_mirror_source();
-            } else if (choice == "6") {
-                proot_warning_check();
-                install_docker_ce_or_io();
-            } else if (choice == "7") {
-                add_user_to_docker_group();
-            }
-            Logger::press_enter();
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
     //  Docker 安装
     // ═══════════════════════════════════════════════════════════════
 
@@ -211,11 +149,11 @@ namespace tmoe::domain {
 
         CommandBuilder cb("docker");
         cb.add_flag("run").add_flag("-d").add_opt("--name", "portainer")
-          .add_opt("--restart", "always")
-          .add_opt("-p", std::to_string(port) + ":9000")
-          .add_bind_to("-v ", "/var/run/docker.sock", "/var/run/docker.sock")
-          .add_bind_to("-v ", "portainer_data", "/data")
-          .add_arg("portainer/portainer-ce:latest");
+                .add_opt("--restart", "always")
+                .add_opt("-p", std::to_string(port) + ":9000")
+                .add_bind_to("-v ", "/var/run/docker.sock", "/var/run/docker.sock")
+                .add_bind_to("-v ", "portainer_data", "/data")
+                .add_arg("portainer/portainer-ce:latest");
         auto res = Executor::passthrough(cb.build_string());
         if (res.ok()) {
             Logger::ok(_("docker.portainer_started"));
@@ -479,10 +417,10 @@ namespace tmoe::domain {
                     delete_container_and_image(docker_name, tag1, "", container_name);
                     Executor::passthrough(
                         CommandBuilder("docker").add_flag("rmi").add_arg(docker_name2 + ":" + tag1)
-                            .add_raw("2>/dev/null").build_string());
+                        .add_raw("2>/dev/null").build_string());
                     Executor::passthrough(
                         CommandBuilder("docker").add_flag("rmi").add_arg(docker_name2)
-                            .add_raw("2>/dev/null").build_string());
+                        .add_raw("2>/dev/null").build_string());
                 }
             }
 
@@ -613,16 +551,16 @@ namespace tmoe::domain {
                 if (fs::exists(config_file)) {
                     Executor::passthrough(
                         CommandBuilder("docker").add_flag("exec").add_flag("-it")
-                            .add_arg(container_name).add_arg("/bin/sh")
-                            .add_arg(config_file).build_string());
+                        .add_arg(container_name).add_arg("/bin/sh")
+                        .add_arg(config_file).build_string());
                 } else {
                     Executor::passthrough(
                         CommandBuilder("docker").add_flag("exec").add_flag("-it")
-                            .add_arg(container_name).add_arg("/bin/bash")
-                            .add_raw("2>/dev/null").build_string()
+                        .add_arg(container_name).add_arg("/bin/bash")
+                        .add_raw("2>/dev/null").build_string()
                         + " || " +
                         CommandBuilder("docker").add_flag("attach")
-                            .add_arg(container_name).build_string());
+                        .add_arg(container_name).build_string());
                 }
             }
         }
@@ -686,7 +624,7 @@ namespace tmoe::domain {
         ensure_docker_running();
         Executor::passthrough(
             CommandBuilder("docker").add_flag("stop").add_arg(std::string(name))
-                .add_raw("2>/dev/null").build_string());
+            .add_raw("2>/dev/null").build_string());
         return Executor::passthrough(
             CommandBuilder("docker").add_flag("rm").add_arg(std::string(name)).build_string()).ok();
     }
@@ -701,25 +639,25 @@ namespace tmoe::domain {
         if (!container_name.empty()) {
             Executor::passthrough(
                 CommandBuilder("docker").add_flag("stop").add_arg(container_name)
-                    .add_raw("2>/dev/null").build_string());
+                .add_raw("2>/dev/null").build_string());
             Executor::passthrough(
                 CommandBuilder("docker").add_flag("rm").add_arg(container_name)
-                    .add_raw("2>/dev/null").build_string());
+                .add_raw("2>/dev/null").build_string());
         }
 
         // 删除镜像
         Logger::info(_f("docker.delete_image_rmi", docker_name, docker_tag));
         Executor::passthrough(
             CommandBuilder("docker").add_flag("rmi").add_arg(docker_name + ":" + docker_tag)
-                .add_raw("2>/dev/null").build_string());
+            .add_raw("2>/dev/null").build_string());
         if (!docker_tag2.empty() && docker_tag2 != docker_tag) {
             Executor::passthrough(
                 CommandBuilder("docker").add_flag("rmi").add_arg(docker_name + ":" + docker_tag2)
-                    .add_raw("2>/dev/null").build_string());
+                .add_raw("2>/dev/null").build_string());
         }
         Executor::passthrough(
             CommandBuilder("docker").add_flag("rmi").add_arg(docker_name)
-                .add_raw("2>/dev/null").build_string());
+            .add_raw("2>/dev/null").build_string());
 
         return true;
     }
@@ -733,9 +671,9 @@ namespace tmoe::domain {
         // 检查容器是否存在
         auto check = Executor::shell(
             CommandBuilder("docker").add_flag("ps").add_flag("-a")
-                .add_opt("--format", "{{.Names}}")
-                .add_raw("2>/dev/null | grep -q \"^" + container_name + "$\"")
-                .build_string());
+            .add_opt("--format", "{{.Names}}")
+            .add_raw("2>/dev/null | grep -q \"^" + container_name + "$\"")
+            .build_string());
         if (!check.ok()) {
             Logger::warn(_f("docker.attach_not_found", container_name));
             Logger::info(_f("docker.attach_pull_prompt", docker_name));
@@ -753,8 +691,8 @@ namespace tmoe::domain {
         // 先尝试 bash，失败则 attach
         auto r = Executor::passthrough(
             CommandBuilder("docker").add_flag("exec").add_flag("-it")
-                .add_arg(container_name).add_arg("/bin/bash")
-                .add_raw("2>/dev/null").build_string());
+            .add_arg(container_name).add_arg("/bin/bash")
+            .add_raw("2>/dev/null").build_string());
         if (!r.ok()) {
             Executor::passthrough(
                 CommandBuilder("docker").add_flag("attach").add_arg(container_name).build_string());
@@ -793,7 +731,7 @@ namespace tmoe::domain {
 
         auto result = Executor::passthrough(
             CommandBuilder("docker").add_flag("export").add_arg(std::string(name))
-                .add_raw("> " + std::string(output_path)).build_string());
+            .add_raw("> " + std::string(output_path)).build_string());
         if (result.ok()) {
             auto size_mb = fs::file_size(output_path) / (1024 * 1024);
             Logger::ok(_f("docker.export_ok", std::string(output_path), std::to_string(size_mb)));
@@ -878,10 +816,10 @@ namespace tmoe::domain {
             user.erase(std::remove(user.begin(), user.end(), '\r'), user.end());
             Executor::shell(
                 CommandBuilder("chown").add_arg(user + ":" + user).add_arg(bak_file)
-                    .add_raw("2>/dev/null").build_string());
+                .add_raw("2>/dev/null").build_string());
             Executor::shell(
                 CommandBuilder("chmod").add_arg("a+rw").add_arg(bak_file)
-                    .add_raw("2>/dev/null").build_string());
+                .add_raw("2>/dev/null").build_string());
         }
     }
 
@@ -914,7 +852,7 @@ namespace tmoe::domain {
         std::string full_name = std::string(image_name) + ":" + std::string(tag);
         auto result = Executor::passthrough(
             CommandBuilder("docker").add_flag("import").add_arg("-").add_arg(full_name)
-                .add_raw("< " + tar_path_str).build_string());
+            .add_raw("< " + tar_path_str).build_string());
         if (result.ok()) {
             Logger::ok(_f("docker.import_ok", full_name));
         }
@@ -1048,7 +986,7 @@ namespace tmoe::domain {
                     if (!e.ok()) editor = "vi";
                     Executor::passthrough(
                         CommandBuilder(editor).add_arg("/etc/apt/sources.list.d/docker-ce.list")
-                            .add_raw("2>/dev/null").build_string());
+                        .add_raw("2>/dev/null").build_string());
                 } else {
                     Logger::info(_("docker.unsupported_distro"));
                 }
@@ -1106,7 +1044,7 @@ namespace tmoe::domain {
         Executor::shell("sudo groupadd docker 2>/dev/null");
         bool ok = Executor::shell(
             CommandBuilder("sudo").add_arg("gpasswd").add_flag("-a").add_arg(cur_user).add_arg("docker")
-                .build_string()).ok();
+            .build_string()).ok();
         if (ok) {
             Logger::ok(_("docker.user_added_to_group") + ": " + cur_user);
             Logger::info(_("docker.relogin_hint"));
@@ -1185,7 +1123,7 @@ namespace tmoe::domain {
             if (!user.empty()) {
                 Executor::shell(
                     CommandBuilder("chown").add_flag("-R").add_arg(user + ":" + user)
-                        .add_arg(mount_dir.string()).add_raw("2>/dev/null").build_string());
+                    .add_arg(mount_dir.string()).add_raw("2>/dev/null").build_string());
             }
         }
 
@@ -1336,10 +1274,11 @@ namespace tmoe::domain {
         auto src_choice = Executor::passthrough(src_menu);
 
         std::string deb_line = (src_choice.exit_code == 0)
-            ? "deb [signed-by=/usr/share/keyrings/docker-ce-archive-keyring.gpg] "
-              "https://mirrors.bfsu.edu.cn/docker-ce/linux/" + docker_release + " " + code + " stable\n"
-            : "deb [signed-by=/usr/share/keyrings/docker-ce-archive-keyring.gpg] "
-              "https://download.docker.com/linux/" + docker_release + " " + code + " stable\n";
+                                   ? "deb [signed-by=/usr/share/keyrings/docker-ce-archive-keyring.gpg] "
+                                     "https://mirrors.bfsu.edu.cn/docker-ce/linux/" + docker_release + " " + code +
+                                     " stable\n"
+                                   : "deb [signed-by=/usr/share/keyrings/docker-ce-archive-keyring.gpg] "
+                                     "https://download.docker.com/linux/" + docker_release + " " + code + " stable\n";
         SystemHelper::append_file("/etc/apt/sources.list.d/docker-ce.list", deb_line);
 
         PackageManager::update(DistroFamily::Debian);

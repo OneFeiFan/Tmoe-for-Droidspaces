@@ -615,34 +615,4 @@ std::string ConfigManager::current_hostname() const {
     return "localhost";
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// 主配置菜单
-// ═══════════════════════════════════════════════════════════════════
-
-int ConfigManager::run_config_menu() {
-    while (true) {
-        std::string menu_cmd = cfg_.tui_bin + " --title \"" + _("config.title") + "\""
-                               " --menu \"" + _("config.menu_prompt") + "\" 0 0 0 "
-                               "\"1\" \"" + _("config.dns") + "\" "
-                               "\"2\" \"" + _("config.timezone") + "\" "
-                               "\"3\" \"" + _("config.locale") + "\" "
-                               "\"4\" \"" + _("config.fortune") + "\" "
-                               "\"5\" \"" + _("config.shared_dirs") + "\" "
-                               "\"6\" \"" + _("config.password") + "\" "
-                               "\"7\" \"" + _("config.hostname") + "\" "
-                               "\"0\" \"" + _("menu.tui.back_upper") + "\"";
-
-        auto choice = Executor::tui_select(menu_cmd);
-        if (choice == "0" || choice.empty()) return 0;
-
-        if (choice == "1")       { configure_dns();          Logger::press_enter(); }
-        else if (choice == "2")  { configure_timezone();     Logger::press_enter(); }
-        else if (choice == "3")  { configure_locale();       Logger::press_enter(); }
-        else if (choice == "4")  { configure_fortune();      Logger::press_enter(); }
-        else if (choice == "5")  { configure_shared_dirs();                     }
-        else if (choice == "6")  { change_root_password();   Logger::press_enter(); }
-        else if (choice == "7")  { configure_hostname();     Logger::press_enter(); }
-    }
-}
-
-} // namespace tmoe::domain
+    } // namespace tmoe::domain

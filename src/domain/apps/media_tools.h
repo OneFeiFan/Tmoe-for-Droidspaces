@@ -12,15 +12,12 @@ class MediaTools {
 public:
     explicit MediaTools(const TmoeConfig &cfg);
 
-    /** 主入口：图片压缩子菜单 (start/install deps/remove) */
-    void run_image_compression_menu();
-
-private:
     // ── 子菜单选项 ──
     void start_compression();
     void install_dependencies();
     void remove_dependencies();
 
+private:
     // ── 压缩流程 ──
     void tui_compress();
     void gui_compress();

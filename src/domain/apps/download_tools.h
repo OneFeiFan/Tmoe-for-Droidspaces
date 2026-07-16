@@ -9,12 +9,6 @@ namespace tmoe::domain {
 class DownloadTools {
 public:
     explicit DownloadTools(const TmoeConfig& cfg);
-    void run_download_menu();
-
-    // 子菜单入口（供 UI 插件直接调用）
-    void run_aria2_menu();
-    void run_video_dl_menu();
-    void run_crawler_menu();
 
     // ── 插件子菜单所需的细粒度操作 ──────────────────────
     void configure_aria2();

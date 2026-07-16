@@ -154,83 +154,117 @@ namespace tmoe::domain {
                 {
                     "xfce", "🐭 Xfce", "🐭", "xfce4-session", "startxfce4", "lightdm", false, false, true,
                     "xfce4 xfce4-goodies", "兼容性高,简单优雅",
-                    {{"redhat","@xfce xfce*-plugin xfce4-panel-profiles"},{"gentoo","xfce4-meta x11-terms/xfce4-terminal"},{"suse","patterns-xfce-xfce xfce4-terminal"},{"alpine","faenza-icon-theme xfce4-whiskermenu-plugin xfce4 xfce4-terminal"},{"arch","xfce4 xfce4-terminal xfce4-goodies"}}
+                    {
+                        {"redhat", "@xfce xfce*-plugin xfce4-panel-profiles"},
+                        {"gentoo", "xfce4-meta x11-terms/xfce4-terminal"},
+                        {"suse", "patterns-xfce-xfce xfce4-terminal"},
+                        {"alpine", "faenza-icon-theme xfce4-whiskermenu-plugin xfce4 xfce4-terminal"},
+                        {"arch", "xfce4 xfce4-terminal xfce4-goodies"}
+                    }
                 },
                 {
                     "xfce-lite", "Xfce Lite", "", "xfce4-session", "startxfce4", "lightdm", false, false, false,
                     "xfce4 xfce4-terminal xfce4-panel thunar", "精简安装,未美化",
-                    {{"redhat","@xfce"},{"gentoo","xfce4-meta x11-terms/xfce4-terminal"},{"suse","patterns-xfce-xfce"},{"arch","xfce4 xfce4-terminal xfce4-panel thunar"}}
+                    {
+                        {"redhat", "@xfce"}, {"gentoo", "xfce4-meta x11-terms/xfce4-terminal"},
+                        {"suse", "patterns-xfce-xfce"}, {"arch", "xfce4 xfce4-terminal xfce4-panel thunar"}
+                    }
                 },
                 {
-                    "lxqt", "🐦 LXQt", "🐦", "lxqt-session", "startlxqt", "sddm", false, false, false, "lxqt lxqt-qtplugin",
+                    "lxqt", "🐦 LXQt", "🐦", "lxqt-session", "startlxqt", "sddm", false, false, false,
+                    "lxqt lxqt-qtplugin",
                     "LXDE团队基于Qt开发",
-                    {{"redhat","@lxqt"},{"gentoo","lxqt-base/lxqt-meta"},
-                     {"suse","patterns-lxqt-lxqt"},{"arch","lxqt xorg"},
-                     {"alpine","openbox pcmfm rxvt-unicode tint2"}}
+                    {
+                        {"redhat", "@lxqt"}, {"gentoo", "lxqt-base/lxqt-meta"},
+                        {"suse", "patterns-lxqt-lxqt"}, {"arch", "lxqt xorg"},
+                        {"alpine", "openbox pcmfm rxvt-unicode tint2"}
+                    }
                 },
                 {
-                    "lxde", "🕊 LXDE", "🕊", "lxsession", "startlxde", "lightdm", false, false, false, "lxde lxde-common",
+                    "lxde", "🕊 LXDE", "🕊", "lxsession", "startlxde", "lightdm", false, false, false,
+                    "lxde lxde-common",
                     "轻量化桌面,资源占用低",
-                    {{"gentoo","media-fonts/wqy-bitmapfont lxde-base/lxde-meta"},{"alpine","lxsession"},
-                     {"redhat","@lxde-desktop"},{"suse","patterns-lxde-lxde"},{"arch","lxde"},{"void","lxde"}}
+                    {
+                        {"gentoo", "media-fonts/wqy-bitmapfont lxde-base/lxde-meta"}, {"alpine", "lxsession"},
+                        {"redhat", "@lxde-desktop"}, {"suse", "patterns-lxde-lxde"}, {"arch", "lxde"}, {"void", "lxde"}
+                    }
                 },
                 {
                     "mate", "🌿 MATE", "🌿", "mate-session", "mate-panel", "lightdm", false, false, false,
                     "mate-desktop-environment", "GNOME2的延续,舒适体验",
-                    {{"arch","mate mate-extra"},{"redhat","@mate-desktop"},
-                     {"gentoo","mate-base/mate-desktop mate-base/mate"},
-                     {"suse","patterns-mate-mate"},{"alpine","mate-desktop-environment"}}
+                    {
+                        {"arch", "mate mate-extra"}, {"redhat", "@mate-desktop"},
+                        {"gentoo", "mate-base/mate-desktop mate-base/mate"},
+                        {"suse", "patterns-mate-mate"}, {"alpine", "mate-desktop-environment"}
+                    }
                 },
                 {
                     "kde", "🦖 KDE Plasma", "🦖", "startplasma-x11", "startkde", "sddm", false, false, true,
                     "kde-plasma-desktop", "风格华丽,功能丰富",
-                    {{"arch","plasma-desktop dolphin konsole discover"},{"redhat","@KDE"},
-                     {"gentoo","plasma-desktop plasma-nm plasma-pa sddm konsole"},
-                     {"suse","-t pattern kde kde_plasma"},{"alpine","plasma-desktop breeze breeze-icons konsole discover"}}
+                    {
+                        {"arch", "plasma-desktop dolphin konsole discover"}, {"redhat", "@KDE"},
+                        {"gentoo", "plasma-desktop plasma-nm plasma-pa sddm konsole"},
+                        {"suse", "-t pattern kde kde_plasma"},
+                        {"alpine", "plasma-desktop breeze breeze-icons konsole discover"}
+                    }
                 },
                 {
                     "cinnamon", "🌲 Cinnamon", "🌲", "cinnamon-session", "cinnamon", "lightdm", true, false, true,
                     "cinnamon-desktop-environment", "基于GNOME,对用户友好",
-                    {{"arch","cinnamon-translations cinnamon"},{"redhat","@Cinnamon Desktop"},
-                     {"gentoo","gnome-extra/cinnamon gnome-extra/cinnamon-desktop gnome-extra/cinnamon-translations"},
-                     {"suse","cinnamon cinnamon-control-center"},{"alpine","adapta-cinnamon"}}
+                    {
+                        {"arch", "cinnamon-translations cinnamon"}, {"redhat", "@Cinnamon Desktop"},
+                        {
+                            "gentoo",
+                            "gnome-extra/cinnamon gnome-extra/cinnamon-desktop gnome-extra/cinnamon-translations"
+                        },
+                        {"suse", "cinnamon cinnamon-control-center"}, {"alpine", "adapta-cinnamon"}
+                    }
                 },
                 {
                     "gnome", "👣 GNOME", "👣", "gnome-session", "gnome-shell-x11", "gdm", true, false, true,
                     "gnome-session gnome-shell", "GNU网络对象模型环境",
-                    {{"arch","gnome-tweaks gnome"},{"redhat","@GNOME"},
-                     {"gentoo","gnome-shell gdm gnome-terminal"},
-                     {"suse","patterns-gnome-gnome_x11"},{"solus","gnome-session gnome-shell"},{"alpine","gnome-session gnome-shell"}}
+                    {
+                        {"arch", "gnome-tweaks gnome"}, {"redhat", "@GNOME"},
+                        {"gentoo", "gnome-shell gdm gnome-terminal"},
+                        {"suse", "patterns-gnome-gnome_x11"}, {"solus", "gnome-session gnome-shell"},
+                        {"alpine", "gnome-session gnome-shell"}
+                    }
                 },
                 {
                     "budgie", "🦜 Budgie", "🦜", "budgie-desktop", "budgie-panel", "lightdm", true, false, true,
                     "budgie-desktop", "虎皮鹦鹉,基于GNOME",
-                    {{"arch","budgie-desktop"},{"void","budgie-desktop"},{"solus","budgie-desktop"}}
+                    {{"arch", "budgie-desktop"}, {"void", "budgie-desktop"}, {"solus", "budgie-desktop"}}
                 },
                 {
-                    "dde", "🐋 Deepin DDE", "🐋", "startdde", "dde-launcher", "lightdm", true, false, true, "dde dde-desktop",
+                    "dde", "🐋 Deepin DDE", "🐋", "startdde", "dde-launcher", "lightdm", true, false, true,
+                    "dde dde-desktop",
                     "国产精美桌面",
-                    {{"arch","deepin xorg deepin-extra lightdm lightdm-deepin-greeter"}}
+                    {{"arch", "deepin xorg deepin-extra lightdm lightdm-deepin-greeter"}}
                 },
                 {
                     "deepin", "🐳 Deepin", "🐳", "deepin-session", "deepin-launcher", "lightdm", true, false, true,
                     "deepin-desktop-environment deepin-terminal", "Deepin完整桌面",
-                    {{"arch","deepin xorg deepin-extra lightdm lightdm-deepin-greeter"},{"redhat","deepin-desktop"}}
+                    {{"arch", "deepin xorg deepin-extra lightdm lightdm-deepin-greeter"}, {"redhat", "deepin-desktop"}}
                 },
                 {
                     "ukui", "🐱 UKUI", "🐱", "ukui-session", "ukui-panel", "lightdm", true, false, true,
                     "ukui-desktop-environment", "优麒麟桌面,简洁流畅",
-                    {{"arch","ukui"}}
+                    {{"arch", "ukui"}}
                 },
                 {
-                    "cutefish", "🐟 Cutefish", "🐟", "cutefish-session", "cutefish-launcher", "lightdm", true, false, false,
+                    "cutefish", "🐟 Cutefish", "🐟", "cutefish-session", "cutefish-launcher", "lightdm", true, false,
+                    false,
                     "cutefish", "简洁美观的现代化桌面",
-                    {{"arch","cutefish cutefish-core"}}
+                    {{"arch", "cutefish cutefish-core"}}
                 },
                 // ── 窗口管理器 ──
-                {"icewm", "❄ IceWM", "", "icewm-session", "icewm", "", false, true, false, "icewm icewm-common", "意在提升感观和体验"},
                 {
-                    "openbox", "📦 Openbox", "", "openbox-session", "openbox", "", false, true, false, "openbox obconf obmenu",
+                    "icewm", "❄ IceWM", "", "icewm-session", "icewm", "", false, true, false, "icewm icewm-common",
+                    "意在提升感观和体验"
+                },
+                {
+                    "openbox", "📦 Openbox", "", "openbox-session", "openbox", "", false, true, false,
+                    "openbox obconf obmenu",
                     "快速,轻巧,可扩展", {{"debian", "openbox openbox-menu"}}
                 },
                 {
@@ -254,20 +288,28 @@ namespace tmoe::domain {
                     {{"debian", "i3 i3-wm i3blocks"}, {"alpine", "i3wm"}}
                 },
                 {
-                    "xmonad", "λ XMonad", "", "xmonad", "xmonad", "", false, true, false, "xmonad xmobar", "基于Haskell的平铺式WM",
+                    "xmonad", "λ XMonad", "", "xmonad", "xmonad", "", false, true, false, "xmonad xmobar",
+                    "基于Haskell的平铺式WM",
                     {{"debian", "xmobar dmenu xmonad"}}
                 },
                 {"9wm", "9️⃣ 9wm", "", "9wm", "9wm", "", false, true, false, "9wm", "inspired by Plan 9's rio"},
-                {"metacity", "🪟 Metacity", "", "metacity", "metacity", "", false, true, false, "metacity", "轻量的GTK+ WM"},
+                {
+                    "metacity", "🪟 Metacity", "", "metacity", "metacity", "", false, true, false, "metacity",
+                    "轻量的GTK+ WM"
+                },
                 {"twm", "📋 TWM", "", "twm", "twm", "", false, true, false, "twm", "Tab Window Manager"},
                 {"aewm", "🧱 aewm", "", "aewm", "aewm", "", false, true, false, "aewm", "极简主义WM for X11"},
-                {"aewm++", "🧱 aewm++", "", "aewm++", "aewm++", "", false, true, false, "aewm++", "最小WM written in C++"},
+                {
+                    "aewm++", "🧱 aewm++", "", "aewm++", "aewm++", "", false, true, false, "aewm++",
+                    "最小WM written in C++"
+                },
                 {
                     "afterstep", "🪜 AfterStep", "", "afterstep", "afterstep", "", false, true, false, "afterstep",
                     "NEXTSTEP风格的WM"
                 },
                 {
-                    "blackbox", "⬛ Blackbox", "", "blackbox", "blackbox", "", false, true, false, "blackbox", "WM for X",
+                    "blackbox", "⬛ Blackbox", "", "blackbox", "blackbox", "", false, true, false, "blackbox",
+                    "WM for X",
                     {{"debian", "bbmail bbpager bbtime blackbox"}}
                 },
                 {"dwm", "🪶 dwm", "", "dwm", "dwm", "", false, true, false, "dwm st", "dynamic window manager"},
@@ -276,7 +318,10 @@ namespace tmoe::domain {
                     "bspwm", "🌲 bspwm", "", "bspwm", "bspwm", "", false, true, false, "bspwm sxhkd",
                     "Binary space partitioning WM"
                 },
-                {"clfswm", "💻 CLFSWM", "", "clfswm", "clfswm", "", false, true, false, "clfswm", "Common Lisp FullScreen WM"},
+                {
+                    "clfswm", "💻 CLFSWM", "", "clfswm", "clfswm", "", false, true, false, "clfswm",
+                    "Common Lisp FullScreen WM"
+                },
                 {"ctwm", "📑 CTWM", "", "ctwm", "ctwm", "", false, true, false, "ctwm", "Claude's Tab WM"},
                 {"evilwm", "👿 evilwm", "", "evilwm", "evilwm", "", false, true, false, "evilwm", "极简主义WM for X11"},
                 {"flwm", "💨 FLWM", "", "flwm", "flwm", "", false, true, false, "flwm", "Fast Light WM"},
@@ -286,7 +331,8 @@ namespace tmoe::domain {
                 },
                 {"jwm", "🫙 JWM", "", "jwm", "jwm", "", false, true, false, "jwm", "very small & pure轻量纯净"},
                 {
-                    "kwin", "🪟 KWin", "", "kwin_x11", "kwin_x11", "", false, true, false, "kwin-x11", "KDE默认WM,X11 version",
+                    "kwin", "🪟 KWin", "", "kwin_x11", "kwin_x11", "", false, true, false, "kwin-x11",
+                    "KDE默认WM,X11 version",
                     {{"alpine", "kwin"}}
                 },
                 {"lwm", "🪶 LWM", "", "lwm", "lwm", "", false, true, false, "lwm", "轻量化WM"},
@@ -302,21 +348,36 @@ namespace tmoe::domain {
                     {{"debian", "murrine-themes muffin"}}
                 },
                 {"mwm", "🧱 MWM", "", "mwm", "mwm", "", false, true, false, "mwm", "Motif Window Manager"},
-                {"oroborus", "🪟 Oroborus", "", "oroborus", "oroborus", "", false, true, false, "oroborus", "轻量WM for X11"},
+                {
+                    "oroborus", "🪟 Oroborus", "", "oroborus", "oroborus", "", false, true, false, "oroborus",
+                    "轻量WM for X11"
+                },
                 {
                     "pekwm", "🧱 PekWM", "", "pekwm", "pekwm", "", false, true, false, "pekwm", "轻量WM",
                     {{"debian", "pekwm-themes pekwm"}}
                 },
-                {"ratpoison", "🐀 Ratpoison", "", "ratpoison", "ratpoison", "", false, true, false, "ratpoison", "无鼠平铺WM"},
-                {"sapphire", "💎 Sapphire", "", "sapphire", "sapphire", "", false, true, false, "sapphire", "最小的X11 WM之一"},
+                {
+                    "ratpoison", "🐀 Ratpoison", "", "ratpoison", "ratpoison", "", false, true, false, "ratpoison",
+                    "无鼠平铺WM"
+                },
+                {
+                    "sapphire", "💎 Sapphire", "", "sapphire", "sapphire", "", false, true, false, "sapphire",
+                    "最小的X11 WM之一"
+                },
                 {
                     "sawfish", "🐟 Sawfish", "", "sawfish", "sawfish", "", false, true, false, "sawfish", "可扩展WM",
                     {{"debian", "sawfish-themes sawfish"}}
                 },
                 {"spectrwm", "📐 SpectrWM", "", "spectrwm", "spectrwm", "", false, true, false, "spectrwm", "平铺式WM"},
-                {"stumpwm", "🪵 StumpWM", "", "stumpwm", "stumpwm", "", false, true, false, "stumpwm", "Common Lisp平铺WM"},
+                {
+                    "stumpwm", "🪵 StumpWM", "", "stumpwm", "stumpwm", "", false, true, false, "stumpwm",
+                    "Common Lisp平铺WM"
+                },
                 {"subtle", "🧩 Subtle", "", "subtle", "subtle", "", false, true, false, "subtle", "平铺式WM"},
-                {"sugar", "🍬 Sugar", "", "sugar-session", "sugar-session", "", false, true, false, "sucrose", "Sugar学习平台"},
+                {
+                    "sugar", "🍬 Sugar", "", "sugar-session", "sugar-session", "", false, true, false, "sucrose",
+                    "Sugar学习平台"
+                },
                 {"tinywm", "🔬 TinyWM", "", "tinywm", "tinywm", "", false, true, false, "tinywm", "极简教学WM"},
                 {"ukwm", "🪟 UKWM", "", "ukwm", "ukwm", "", false, true, false, "ukwm", "UKUI默认WM"},
                 {"vdesk", "🖥 VDesk", "", "vdesk", "vdesk", "", false, true, false, "vdesk", "虚拟桌面WM"},
@@ -327,7 +388,8 @@ namespace tmoe::domain {
                 {"wmii", "🪟 wmii", "", "wmii", "wmii", "", false, true, false, "wmii", "轻量平铺WM"},
                 {"xfwm4", "🪟 Xfwm4", "", "xfwm4", "xfwm4", "", false, true, false, "xfwm4", "Xfce默认WM,可独立运行"},
                 {
-                    "exwm", "🧙 Emacs EXWM", "", "emacs-gtk", "emacs-gtk", "", false, true, false, "elpa-exwm emacs-gtk",
+                    "exwm", "🧙 Emacs EXWM", "", "emacs-gtk", "emacs-gtk", "", false, true, false,
+                    "elpa-exwm emacs-gtk",
                     "Emacs X Window Manager"
                 },
             };

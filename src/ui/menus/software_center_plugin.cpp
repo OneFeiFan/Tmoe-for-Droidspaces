@@ -8,9 +8,40 @@
 #include "core/executor.h"
 #include "core/command_builder.hpp"
 #include "domain/apps/software_center.h"
+#include "domain/apps/media_tools.h"
 #include "domain/system/package_manager.h"
 
 namespace tmoe::ui::menus {
+
+// ═══════════════════════════════════════════════════════════════
+// build_image_compression_menu — 3 items, mirrors old MediaTools::run_image_compression_menu()
+// ═══════════════════════════════════════════════════════════════
+static std::shared_ptr<IUIMenu> build_image_compression_menu(domain::MediaTools* mt) {
+    auto menu = make_plugin_menu(
+        _("media.compress.title"), _("media.compress.menu_prompt"), "plugin_image_compress");
+
+    menu->add_child(std::make_shared<LambdaAction>(
+        _("media.compress.start"), "1",
+        [mt](MenuContext& ctx) -> bool {
+            mt->start_compression();
+            return true;
+        }));
+    menu->add_child(std::make_shared<LambdaAction>(
+        _("media.compress.install_dep"), "2",
+        [mt](MenuContext&) -> bool {
+            mt->install_dependencies();
+            Logger::press_enter(); return true;
+        }));
+    menu->add_child(std::make_shared<LambdaAction>(
+        _("media.compress.remove"), "3",
+        [mt](MenuContext&) -> bool {
+            mt->remove_dependencies();
+            Logger::press_enter(); return true;
+        }));
+
+    add_sandwich_nav(menu);
+    return menu;
+}
 
 // ═══════════════════════════════════════════════════════════════
 // build_media_menu — 12 items, mirrors old run_media_menu()
@@ -18,11 +49,12 @@ namespace tmoe::ui::menus {
 static std::shared_ptr<IUIMenu> build_media_menu(domain::SoftwareCenter* mgr) {
     auto menu = make_plugin_menu(_("swcenter.media_menu"), _("swcenter.media.menu_prompt"), "plugin_media");
 
+    auto img_menu = build_image_compression_menu(mgr->media_tools());
     menu->add_child(std::make_shared<LambdaAction>(
         _("swcenter.batch_compress"), "1",
-        [mgr](MenuContext&) -> bool {
-            mgr->run_image_compression_menu();
-            Logger::press_enter(); return true;
+        [img_menu](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(img_menu);
+            return true;
         }));
 
     menu->add_child(std::make_shared<LambdaAction>(

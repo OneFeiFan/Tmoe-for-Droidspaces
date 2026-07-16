@@ -10,33 +10,6 @@ namespace tmoe::domain {
     OfficeManager::OfficeManager(const TmoeConfig &cfg) : cfg_(cfg) {
     }
 
-    void OfficeManager::run_office_menu() {
-        std::string menu = cfg_.tui_bin + " --title \"" + _("office.menu_title")
-                           + "\" --menu \"" + _("office.menu_prompt") + "\" 0 0 0 "
-                           "\"1\" \"" + _("office.libreoffice") + "\" "
-                           "\"2\" \"" + _("office.libreoffice_zh") + "\" "
-                           "\"3\" \"" + _("office.wps") + "\" "
-                           "\"4\" \"" + _("office.yozo") + "\" "
-                           "\"5\" \"" + _("office.freeoffice") + "\" "
-                           "\"6\" \"" + _("office.meld") + "\" "
-                           "\"7\" \"" + _("office.kdiff3") + "\" "
-                           "\"8\" \"" + _("office.manpages_zh") + "\" "
-                           "\"0\" \"" + _("menu.tui.back") + "\"";
-
-        auto ch = Executor::tui_select(menu);
-        if (ch == "0" || ch.empty()) return;
-
-        if (ch == "1") install_libreoffice(false);
-        else if (ch == "2") install_libreoffice(true);
-        else if (ch == "3") install_wps();
-        else if (ch == "4") install_yozo();
-        else if (ch == "5") install_freeoffice();
-        else if (ch == "6") install_meld();
-        else if (ch == "7") install_kdiff3();
-        else if (ch == "8") install_manpages_zh();
-        Logger::press_enter();
-    }
-
     void OfficeManager::install_libreoffice(bool with_zh) {
         auto family = infer_family_from_config(cfg_.linux_distro);
         std::vector<std::string> pkgs = {"libreoffice", "libreoffice-gtk3"};

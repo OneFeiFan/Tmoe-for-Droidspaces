@@ -364,25 +364,6 @@ namespace tmoe::domain {
         return true;
     }
 
-    int TermuxManager::run_termux_gui_menu() {
-        while (true) {
-            std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.gui_mgmt_title") + "\" "
-                              "--menu \"" + _("termux.gui_mgmt_prompt") + "\" 0 50 0 "
-                              "\"1\" \"" + _("termux.gui_xfce4") + "\" "
-                              "\"2\" \"" + _("termux.gui_lxqt") + "\" "
-                              "\"3\" \"" + _("termux.gui_resolution") + "\" "
-                              "\"4\" \"" + _("termux.gui_remove") + "\" "
-                              "\"0\" \"" + _("menu.tui.back") + "\"";
-
-            auto choice = Executor::tui_select(cmd);
-            if (choice == "1") install_termux_xfce();
-            else if (choice == "2") install_termux_lxqt();
-            else if (choice == "3") configure_termux_vnc();
-            else if (choice == "4") remove_termux_gui();
-            else if (choice == "0" || choice.empty()) return 0;
-        }
-    }
-
     // ═══════════════════════════════════════════════════════════════
     // 备份与还原
     // ═══════════════════════════════════════════════════════════════
@@ -1531,53 +1512,6 @@ namespace tmoe::domain {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // 主菜单调度
-    // ═══════════════════════════════════════════════════════════════
-
-    int TermuxManager::run_termux_menu() {
-        while (true) {
-            std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.title") + "\" "
-                              "--menu \"" + _("termux.menu_prompt") + "\" 0 50 0 "
-                              "\"1\" \"" + _("termux.gui") + "\" "
-                              "\"2\" \"" + _("termux.backup") + "\" "
-                              "\"3\" \"" + _("termux.restore") + "\" "
-                              "\"4\" \"" + _("termux.beautify") + "\" "
-                              "\"5\" \"" + _("termux.mirror") + "\" "
-                              "\"6\" \"" + _("termux.disk_usage") + "\" "
-                              "\"7\" \"" + _("termux.env_init") + "\" "
-                              "\"8\" \"" + _("termux.signal9") + "\" "
-                              "\"9\" \"" + _("termux.storage") + "\" "
-                              "\"A\" \"" + _("termux.pulseaudio") + "\" "
-                              "\"B\" \"" + _("termux.self_update") + "\" "
-                              "\"0\" \"" + _("menu.tui.back") + "\"";
-
-            auto choice = Executor::tui_select(cmd);
-
-            if (choice == "1") run_termux_gui_menu();
-            else if (choice == "2") backup_termux();
-            else if (choice == "3") restore_termux();
-            else if (choice == "4") beautify_terminal();
-            else if (choice == "5") switch_pkg_mirror();
-            else if (choice == "6") check_disk_usage();
-            else if (choice == "7") check_and_init_environment();
-            else if (choice == "8") fix_android_12_signal_9();
-            else if (choice == "9") setup_storage();
-            else if (choice == "A" || choice == "a") {
-                std::string pa_cmd = cfg_.tui_bin + " --title \"" + _("termux.pulseaudio_title") + "\" "
-                                     "--menu \"" + _("termux.pulseaudio_prompt") + "\" 0 50 0 "
-                                     "\"1\" \"" + _("termux.pa_tcp_local") + "\" "
-                                     "\"2\" \"" + _("termux.pa_lan_toggle") + "\" "
-                                     "\"3\" \"" + _("termux.pa_idle_timeout") + "\" "
-                                     "\"0\" \"" + _("menu.tui.back") + "\"";
-                auto pa_choice = Executor::tui_select(pa_cmd);
-                if (pa_choice == "1") configure_pulseaudio_tcp();
-                else if (pa_choice == "2") toggle_lan_audio();
-                else if (pa_choice == "3") configure_pulseaudio_idle_timeout();
-            } else if (choice == "B" || choice == "b") self_update();
-            else if (choice == "0" || choice.empty()) return 0;
-        }
-    }
 
     // ═══════════════════════════════════════════════════════════════
     // PulseAudio 配置

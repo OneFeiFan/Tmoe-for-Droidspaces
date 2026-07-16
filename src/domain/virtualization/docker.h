@@ -31,10 +31,6 @@ namespace tmoe::domain {
     public:
         explicit DockerManager(const TmoeConfig &cfg);
 
-        // ── TUI 入口 ──
-        /** Docker 管理主菜单 (whiptail TUI) — 10 项完整菜单。 */
-        void run_docker_menu();
-
         // ── Docker 安装 ──
         /** 安装 Docker CE (社区版)。 */
         bool install_docker_ce();

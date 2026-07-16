@@ -9,11 +9,7 @@ namespace tmoe::domain {
 class InputMethodManager {
 public:
     explicit InputMethodManager(const TmoeConfig& cfg);
-    void run_input_method_menu();
 
-    void run_fcitx4_menu();
-    void run_fcitx5_menu();
-    void run_ibus_menu();
     void install_sogou();
     void show_input_faq();
 

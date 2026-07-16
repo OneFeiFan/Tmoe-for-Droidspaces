@@ -74,8 +74,6 @@ namespace tmoe::domain {
         // TUI 交互式菜单
         // ═══════════════════════════════════════════════
 
-        void run_gui_menu();
-
         void run_vnc_config_menu();
 
         void run_desktop_install_menu();

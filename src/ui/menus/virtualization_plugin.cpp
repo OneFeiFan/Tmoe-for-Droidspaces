@@ -7,77 +7,75 @@
 #include "domain/virtualization/virtualization.h"
 
 namespace tmoe::ui::menus {
+    std::shared_ptr<IUIMenu> create_virtualization_menu(domain::VirtualizationManager *mgr) {
+        auto menu = make_plugin_menu(
+            _("virt.title"), _("virt.menu_prompt"), "plugin_virtualization");
 
-std::shared_ptr<IUIMenu> create_virtualization_menu(domain::VirtualizationManager* mgr) {
-    auto menu = make_plugin_menu(
-        _("virt.title"), _("virt.menu_prompt"), "plugin_virtualization");
+        // Docker — 触发 Manager 中注入的回调（→ DockerManager::run_docker_menu）
+        menu->add_child(LambdaAction::make(
+            _("virt.docker"), "virt_docker",
+            [mgr]() { mgr->invoke_docker(); }));
 
-    // Docker — 触发 Manager 中注入的回调（→ DockerManager::run_docker_menu）
-    menu->add_child(LambdaAction::make(
-        _("virt.docker"), "virt_docker",
-        [mgr]() { mgr->invoke_docker(); }));
+        // ── Wine 子菜单 ──
+        auto wine_menu = make_plugin_menu(
+            _("virt.wine_title"), _("virt.wine_prompt"), "plugin_virt_wine");
 
-    // ── Wine 子菜单 ──
-    auto wine_menu = make_plugin_menu(
-        _("virt.wine_title"), _("virt.wine_prompt"), "plugin_virt_wine");
+        wine_menu->add_child(std::make_shared<LambdaAction>(
+            _("virt.wine_devel"), "wine_devel",
+            [mgr](MenuContext &) -> bool {
+                bool ok = mgr->install_wine("devel");
+                Logger::press_enter();
+                return ok;
+            }));
+        wine_menu->add_child(std::make_shared<LambdaAction>(
+            _("virt.wine_staging"), "wine_staging",
+            [mgr](MenuContext &) -> bool {
+                bool ok = mgr->install_wine("staging");
+                Logger::press_enter();
+                return ok;
+            }));
+        wine_menu->add_child(std::make_shared<LambdaAction>(
+            _("virt.wine_stable"), "wine_stable",
+            [mgr](MenuContext &) -> bool {
+                bool ok = mgr->install_wine("stable");
+                Logger::press_enter();
+                return ok;
+            }));
+        wine_menu->add_child(std::make_shared<LambdaAction>(
+            _("virt.wine_winetricks"), "wine_winetricks",
+            [mgr](MenuContext &) -> bool {
+                bool ok = mgr->install_winetricks();
+                Logger::press_enter();
+                return ok;
+            }));
+        wine_menu->add_child(std::make_shared<LambdaAction>(
+            _("virt.wine_dxvk"), "wine_dxvk",
+            [mgr](MenuContext &) -> bool {
+                bool ok = mgr->install_dxvk();
+                Logger::press_enter();
+                return ok;
+            }));
+        wine_menu->add_child(std::make_shared<LambdaAction>(
+            _("virt.wine_playonlinux"), "wine_playonlinux",
+            [mgr](MenuContext &) -> bool {
+                bool ok = mgr->install_playonlinux();
+                Logger::press_enter();
+                return ok;
+            }));
 
-    wine_menu->add_child(std::make_shared<LambdaAction>(
-        _("virt.wine_devel"), "wine_devel",
-        [mgr](MenuContext&) -> bool {
-            bool ok = mgr->install_wine("devel");
-            Logger::press_enter();
-            return ok;
-        }));
-    wine_menu->add_child(std::make_shared<LambdaAction>(
-        _("virt.wine_staging"), "wine_staging",
-        [mgr](MenuContext&) -> bool {
-            bool ok = mgr->install_wine("staging");
-            Logger::press_enter();
-            return ok;
-        }));
-    wine_menu->add_child(std::make_shared<LambdaAction>(
-        _("virt.wine_stable"), "wine_stable",
-        [mgr](MenuContext&) -> bool {
-            bool ok = mgr->install_wine("stable");
-            Logger::press_enter();
-            return ok;
-        }));
-    wine_menu->add_child(std::make_shared<LambdaAction>(
-        _("virt.wine_winetricks"), "wine_winetricks",
-        [mgr](MenuContext&) -> bool {
-            bool ok = mgr->install_winetricks();
-            Logger::press_enter();
-            return ok;
-        }));
-    wine_menu->add_child(std::make_shared<LambdaAction>(
-        _("virt.wine_dxvk"), "wine_dxvk",
-        [mgr](MenuContext&) -> bool {
-            bool ok = mgr->install_dxvk();
-            Logger::press_enter();
-            return ok;
-        }));
-    wine_menu->add_child(std::make_shared<LambdaAction>(
-        _("virt.wine_playonlinux"), "wine_playonlinux",
-        [mgr](MenuContext&) -> bool {
-            bool ok = mgr->install_playonlinux();
-            Logger::press_enter();
-            return ok;
-        }));
+        // Wine 是嵌套子菜单 → add_navigation_items
+        add_navigation_items(wine_menu);
 
-    // Wine 是嵌套子菜单 → add_navigation_items
-    add_navigation_items(wine_menu);
+        // Wine 入口 — LambdaAction 启动嵌套 MenuEngine
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("virt.wine"), "virt_wine",
+            [wine_menu](MenuContext &ctx) -> bool {
+                MenuEngine(ctx).run(wine_menu);
+                return true;
+            }));
 
-    // Wine 入口 — LambdaAction 启动嵌套 MenuEngine
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("virt.wine"), "virt_wine",
-        [wine_menu](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(wine_menu);
-            return true;
-        }));
-
-    // 顶层菜单 → add_sandwich_nav
-    add_sandwich_nav(menu);
-    return menu;
-}
-
+        // 顶层菜单 → add_sandwich_nav
+        add_sandwich_nav(menu);
+        return menu;
+    }
 } // namespace tmoe::ui::menus

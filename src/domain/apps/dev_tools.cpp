@@ -25,136 +25,6 @@ namespace tmoe::domain {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // 主入口: development_programming_tools() — 11项IDE菜单
-    // ═══════════════════════════════════════════════════════════════════
-    void DeveloperTools::run_dev_tools_menu() {
-        while (true) {
-            reset_state();
-
-            std::string tip = _("devtools.tightvnc_tip");
-            std::string menu = cfg_.tui_bin + " --title \"" + _("devtools.menu_title") + "\""
-                               " --menu \"" + tip + "\" 0 50 0 "
-                               "\"1\"  \"🇻 🇸 Visual Studio Code (现代化代码编辑器)\" "
-                               "\"2\"  \"🇦 🇸 Android Studio (Google推出的安卓IDE)\" "
-                               "\"3\"  \"🇮 🇯 IntelliJ IDEA (Java集成开发环境)\" "
-                               "\"4\"  \"🇵 🇨 PyCharm (Python集成开发环境)\" "
-                               "\"5\"  \"🇼 🇸 WebStorm (JavaScript IDE,Web前端开发工具)\" "
-                               "\"6\"  \"🇨 🇱 CLion (C/C++ IDE)\" "
-                               "\"7\"  \"🇬 🇴 GoLand (Golang IDE)\" "
-                               "\"8\"  \"GNU Emacs (可扩展,可定制,支持自文档化)\" "
-                               "\"9\"  \"Code::Blocks (C,C++和Fortran的IDE)\" "
-                               "\"10\" \"GitHub Desktop (x64,GitHub官方桌面客户端)\" "
-                               "\"11\" \"Sublime Text (x64,漂亮的UI,非凡的功能)\" "
-                               "\"0\"  \"" + _("menu.tui.back_upper") + "\"";
-
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) break;
-
-            switch (std::stoi(ch)) {
-                case 1: // VS Code → source vscode script → which_vscode_edition
-                    run_vscode_menu();
-                    break;
-
-                case 2: // Android Studio → dev_menu_02
-                    prep_android_studio();
-                    run_ide_submenu_02();
-                    break;
-
-                case 3: // IntelliJ IDEA → 选择旗舰/社区版
-                    choose_idea_edition();
-                    run_ide_submenu_01();
-                    break;
-
-                case 4: // PyCharm Community
-                    community_edition_ = true;
-                    grep_name_ = "pycharm-community-edition";
-                    lnk_file_ = "pycharm-community-edition.desktop";
-                    bin_file_ = "/opt/pycharm-community-edition/bin/pycharm.sh";
-                    icon_name_ = "pycharm-community-edition.png";
-                    app_opt_dir_ = "/opt/pycharm-community-edition";
-                    run_ide_submenu_01();
-                    break;
-
-                case 5: // WebStorm
-                    grep_name_ = "webstorm";
-                    lnk_file_ = "webstorm.desktop";
-                    bin_file_ = "/opt/webstorm/bin/webstorm.sh";
-                    icon_name_ = "webstorm.png";
-                    app_opt_dir_ = "/opt/webstorm";
-                    run_ide_submenu_01();
-                    break;
-
-                case 6: // CLion
-                    grep_name_ = "clion";
-                    lnk_file_ = "clion.desktop";
-                    bin_file_ = "/opt/clion/bin/clion.sh";
-                    icon_name_ = "clion.png";
-                    app_opt_dir_ = "/opt/clion";
-                    run_ide_submenu_01();
-                    break;
-
-                case 7: // GoLand
-                    grep_name_ = "goland";
-                    lnk_file_ = "goland.desktop";
-                    bin_file_ = "/opt/goland/bin/goland.sh";
-                    icon_name_ = "goland.png";
-                    app_opt_dir_ = "/opt/goland";
-                    run_ide_submenu_01();
-                    break;
-
-                case 8: // GNU Emacs
-                    install_emacs();
-                    break;
-
-                case 9: // Code::Blocks
-                    install_code_blocks();
-                    break;
-
-                case 10: // GitHub Desktop
-                    grep_name_ = "github-desktop-bin";
-                    lnk_file_ = "github-desktop.desktop";
-                    bin_file_ = "/usr/bin/github-desktop";
-                    icon_name_ = "github-desktop.png";
-                    app_opt_dir_ = "/opt/github-desktop";
-                    run_ide_submenu_01();
-                    break;
-
-                case 11: // Sublime Text
-                    install_sublime_text();
-                    break;
-            }
-
-            Logger::press_enter();
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════
-    // VS Code 子菜单: which_vscode_edition() — 4项
-    // ═══════════════════════════════════════════════════════════════════
-    void DeveloperTools::run_vscode_menu() {
-        while (true) {
-            std::string tip = _("devtools.vscode_tip");
-            std::string menu = cfg_.tui_bin + " --title \"Visual Studio Code\""
-                               " --menu \"" + tip + "\" 0 50 0 "
-                               "\"1\" \"Microsoft Official (x64,arm64,armhf官方版)\" "
-                               "\"2\" \"VS Code Server (Web版,含配置选项)\" "
-                               "\"3\" \"VS Codium (不跟踪你的使用数据)\" "
-                               "\"4\" \"修复 tightvnc 无法打开 vscode\" "
-                               "\"0\" \"" + _("menu.tui.back_upper") + "\"";
-
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
-
-            if (ch == "1") install_vscode_official();
-            else if (ch == "2") run_vscode_server_menu();
-            else if (ch == "3") install_vscodium();
-            else if (ch == "4") fix_tightvnc_vscode();
-
-            Logger::press_enter();
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════
     // VS Code Official: install_vscode_official()
     // ═══════════════════════════════════════════════════════════════════
     void DeveloperTools::install_vscode_official() {
@@ -420,7 +290,9 @@ namespace tmoe::domain {
 
         Logger::info("╔═══╦══════════╦═══════════════════╦════════════════════");
         Logger::info("║   ║          ║                   ║");
-        Logger::info("║   ║ software ║    ✨" + _("devtools.table.latest_version") + "     ║   " + _("devtools.table.local_version") + " 🎪");
+        Logger::info(
+            "║   ║ software ║    ✨" + _("devtools.table.latest_version") + "     ║   " + _(
+                "devtools.table.local_version") + " 🎪");
         Logger::info("║---║----------║-------------------║--------------------");
         Logger::info("║ 1 ║ vscode   ║ " + latest_ver + " ║ " + local_ver);
         Logger::info("║   ║ server   ║                   ║");
@@ -862,65 +734,6 @@ namespace tmoe::domain {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // dev_menu_01 — JetBrains IDE 二级菜单 (install/delete/remove)
-    // ═══════════════════════════════════════════════════════════════════
-    void DeveloperTools::run_ide_submenu_01() {
-        if (grep_name_.empty()) return;
-        dev_menu_type_ = 1;
-
-        while (true) {
-            check_download_path();
-
-            std::string title = grep_name_;
-            std::string menu = cfg_.tui_bin + " --title \"" + title + "\""
-                               " --menu \"您想要对 " + grep_name_ + " 小可爱做什么？\" 0 50 0 "
-                               "\"1\" \"install/upgrade (安装/升级)\" "
-                               "\"2\" \"del pkg (删除安装包)\" "
-                               "\"3\" \"remove (卸载 " + grep_name_ + ")\" "
-                               "\"0\" \"" + _("menu.tui.back") + "\"";
-
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
-
-            if (ch == "1") install_ide_01();
-            else if (ch == "2") delete_ide_pkg();
-            else if (ch == "3") remove_ide_01();
-
-            Logger::press_enter();
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════
-    // dev_menu_02 — Android Studio 二级菜单
-    // ═══════════════════════════════════════════════════════════════════
-    void DeveloperTools::run_ide_submenu_02() {
-        if (grep_name_.empty()) return;
-        dev_menu_type_ = 2;
-
-        while (true) {
-            check_download_path();
-            // show_ide_version_table("", check_local_opt_version());
-
-            std::string title = grep_name_;
-            std::string menu = cfg_.tui_bin + " --title \"" + title + "\""
-                               " --menu \"您想要对 " + grep_name_ + " 小可爱做什么？\" 0 50 0 "
-                               "\"1\" \"install/upgrade (安装/升级)\" "
-                               "\"2\" \"del pkg (删除安装包)\" "
-                               "\"3\" \"remove (卸载 " + grep_name_ + ")\" "
-                               "\"0\" \"" + _("menu.tui.back") + "\"";
-
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
-
-            if (ch == "1") install_ide_02();
-            else if (ch == "2") delete_ide_pkg_02();
-            else if (ch == "3") remove_ide_02();
-
-            Logger::press_enter();
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════
     // install_ide_01 — JetBrains IDE 下载安装 (archlinuxcn tar.zst)
     // ═══════════════════════════════════════════════════════════════════
     void DeveloperTools::install_ide_01() {
@@ -933,16 +746,21 @@ namespace tmoe::domain {
 
             std::string dl_url, dl_version;
             if (!fetch_jetbrains_link(dl_url, dl_version)) {
-                if (grep_name_.find("intellij-idea") != std::string::npos) tip_manual_install(
-                    "https://www.jetbrains.com/idea/download/#section=linux");
-                else if (grep_name_.find("pycharm") != std::string::npos) tip_manual_install(
-                    "https://www.jetbrains.com/pycharm/download/#section=linux");
-                else if (grep_name_.find("webstorm") != std::string::npos) tip_manual_install(
-                    "https://www.jetbrains.com/webstorm/download/#section=linux");
-                else if (grep_name_.find("clion") != std::string::npos) tip_manual_install(
-                    "https://www.jetbrains.com/clion/download/#section=linux");
-                else if (grep_name_.find("goland") != std::string::npos) tip_manual_install(
-                    "https://www.jetbrains.com/goland/download/#section=linux");
+                if (grep_name_.find("intellij-idea") != std::string::npos)
+                    tip_manual_install(
+                        "https://www.jetbrains.com/idea/download/#section=linux");
+                else if (grep_name_.find("pycharm") != std::string::npos)
+                    tip_manual_install(
+                        "https://www.jetbrains.com/pycharm/download/#section=linux");
+                else if (grep_name_.find("webstorm") != std::string::npos)
+                    tip_manual_install(
+                        "https://www.jetbrains.com/webstorm/download/#section=linux");
+                else if (grep_name_.find("clion") != std::string::npos)
+                    tip_manual_install(
+                        "https://www.jetbrains.com/clion/download/#section=linux");
+                else if (grep_name_.find("goland") != std::string::npos)
+                    tip_manual_install(
+                        "https://www.jetbrains.com/goland/download/#section=linux");
                 return;
             }
 
@@ -952,7 +770,8 @@ namespace tmoe::domain {
                 return;
 
             // 提取直链文件名
-            std::string filename = Executor::shell(CommandBuilder("basename").add_arg(dl_url).build_string()).stdout_data;
+            std::string filename = Executor::shell(CommandBuilder("basename").add_arg(dl_url).build_string()).
+                    stdout_data;
             while (!filename.empty() && (filename.back() == '\n' || filename.back() == '\r')) filename.pop_back();
 
             if (!download_and_extract_jetbrains(dl_url, filename)) {
@@ -1280,8 +1099,9 @@ namespace tmoe::domain {
             Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-f")
                 .add_arg(lnk_dir + "/" + lnk_file_)
                 .add_raw("2>/dev/null").build_string());
-            if (!cli_link.empty()) Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-f")
-                .add_arg(cli_link).add_raw("2>/dev/null").build_string());
+            if (!cli_link.empty())
+                Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-f")
+                    .add_arg(cli_link).add_raw("2>/dev/null").build_string());
             Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(version_file)
                 .add_raw("2>/dev/null").build_string());
 
@@ -1694,7 +1514,9 @@ namespace tmoe::domain {
                 if (fs::exists(dest)) fs::remove(dest);
                 return false;
             }
-            Logger::ok(_("devtools.ok.download_complete") + filename + " (" + std::to_string(fs::file_size(dest) / 1048576) + " MB)");
+            Logger::ok(
+                _("devtools.ok.download_complete") + filename + " (" + std::to_string(fs::file_size(dest) / 1048576) +
+                " MB)");
         }
 
         // 精准获取压缩包内部的根目录名
@@ -1831,8 +1653,8 @@ namespace tmoe::domain {
             Logger::error(_("devtools.error.extract_failed_rollback"));
             if (!extracted_dir.empty()) {
                 Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
-                .add_arg("/opt/" + extracted_dir)
-                .add_raw("2>/dev/null").build_string());
+                    .add_arg("/opt/" + extracted_dir)
+                    .add_raw("2>/dev/null").build_string());
             }
             return false;
         }
@@ -1893,7 +1715,9 @@ namespace tmoe::domain {
 
         Logger::info("╔═══╦══════════╦═══════════════════╦════════════════════");
         Logger::info("║   ║          ║                   ║");
-        Logger::info("║   ║ software ║    ✨" + _("devtools.table.latest_version") + "     ║   " + _("devtools.table.local_version") + " 🎪");
+        Logger::info(
+            "║   ║ software ║    ✨" + _("devtools.table.latest_version") + "     ║   " + _(
+                "devtools.table.local_version") + " 🎪");
         Logger::info("║   ║          ║  Latest version   ║  Local version");
         Logger::info("║---║----------║-------------------║--------------------");
         Logger::info("║ 1 ║ " + grep_name_);

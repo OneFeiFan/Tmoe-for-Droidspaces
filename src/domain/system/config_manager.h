@@ -25,11 +25,6 @@ class ConfigManager {
 public:
     explicit ConfigManager(const TmoeConfig& cfg);
 
-    // ── 顶层 TUI 入口 ──
-
-    /** 配置管理主菜单 (DNS/时区/Locale/Fortune/共享目录/密码/主机名)。 */
-    int run_config_menu();
-
     // ── DNS ──
 
     /** DNS 选择器 TUI，返回选中的 DNS 提供商 ID。 */

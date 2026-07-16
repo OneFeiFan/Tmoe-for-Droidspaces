@@ -459,32 +459,6 @@ namespace tmoe::domain {
     // TUI 交互式菜单
     // ═══════════════════════════════════════════════════════════════
 
-    void GUIManager::run_gui_menu() {
-        while (true) {
-            std::string menu_cmd = CommandBuilder(cfg_.tui_bin)
-                    .add_arg("--title").add_arg(std::string(_("gui.main_title")))
-                    .add_arg("--menu").add_arg(std::string(_("gui.main_menu_prompt")))
-                    .add_arg("0").add_arg("0").add_arg("0")
-                    .add_arg("1").add_arg(std::string(_("gui.install_de")))
-                    .add_arg("2").add_arg(std::string(_("gui.remote_title")))
-                    .add_arg("3").add_arg(std::string(_("gui.beautify")))
-                    .add_arg("0").add_arg(std::string(_("menu.tui.back_upper")))
-                    .build_string();
-
-            std::string choice = Executor::tui_select(menu_cmd);
-            if (choice == "0" || choice.empty()) break;
-
-            if (choice == "1") {
-                run_desktop_install_menu();
-            } else if (choice == "2") {
-                run_remote_desktop_menu();
-            } else if (choice == "3") {
-                beautification_manager_.run_beautification_menu();
-            }
-            Logger::press_enter();
-        }
-    }
-
     void GUIManager::run_vnc_config_menu() {
         while (true) {
             // 菜单顺序对齐 Bash modify_other_vnc_conf

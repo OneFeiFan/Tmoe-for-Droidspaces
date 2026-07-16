@@ -7,62 +7,14 @@
 
 namespace tmoe::domain {
 
-/** 科学与教育管理器 — 完全复刻 Bash: old/tools/app/education (391行)
+/** 科学与教育管理器
  *
- *  Bash 菜单层级:
- *  L1 tmoe_education_app_menu (6项)
- *    ├─ 1.高考 → L2 tmoe_college_entrance_examination (2项)
- *    │   ├─ 真题 → L3 college_entrance_examination_paper (4项)
- *    │   └─ 学习笔记 → L3 college_entrance_examination_notes (2项)
- *    ├─ 2.考研 → L2 tmoe_postgraduate_entrance_examination (3项)
- *    ├─ 3.数学 → L2 tmoe_mathematics_menu (5项)
- *    ├─ 4.英语 → L2 tmoe_english_menu (3项)
- *    │   ├─ goldendict → L3 tmoe_golden_dict_menu (2项)
- *    │   ├─ 四六级 → L3 cet4_and_6_exam_paper (1项)
- *    │   └─ 名著 → 直接下载
- *    ├─ 5.物理 → L2 tmoe_physics_menu (3项)
- *    └─ 6.化学 → L2 tmoe_chemistry_menu (7项)
+ *  提供学习资料下载（高考/考研/四六级真题、学习笔记、英文名著）
+ *  和 whiptail 对话框工具。菜单层级已迁移至 education_plugin。
  */
 class EducationManager {
 public:
     explicit EducationManager(const TmoeConfig& cfg);
-
-    /** 科学与教育主菜单入口 (L1) */
-    void run_education_menu();
-
-    // ═══ L1 → L2 子菜单 (public for UI plugin dispatch) ═══
-
-    /** L2: 高考 (真题 / 学习笔记) */
-    void run_gaokao_menu();
-
-    /** L2: 考研 (政治/英语/数学真题) */
-    void run_kaoyan_menu();
-
-    /** L2: 数学软件 */
-    void run_math_menu();
-
-    /** L2: 英语 (词典/四六级/名著) */
-    void run_english_menu();
-
-    /** L2: 物理软件 */
-    void run_physics_menu();
-
-    /** L2: 化学软件 */
-    void run_chemistry_menu();
-
-    // ═══ L3 子菜单 (public for UI plugin dispatch) ═══
-
-    /** L3: 高考真题 — 4个年份版本 */
-    void run_gaokao_papers_menu();
-
-    /** L3: 高考学习笔记 — 生物/英语 */
-    void run_gaokao_notes_menu();
-
-    /** L3: GoldenDict (安装/词库) */
-    void run_goldendict_menu();
-
-    /** L3: 四六级真题 */
-    void run_cet_menu();
 
     // ═══ 下载模型 (复刻 Bash check_tmoe_study_materials, public for UI plugin dispatch) ═══
 
