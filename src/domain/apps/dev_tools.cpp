@@ -6,6 +6,9 @@
 #include "core/config.h"
 #include "core/system_helper.h"
 #include "domain/system/package_manager.h"
+#include "ui/plugin_helpers.h"
+#include "ui/builtin_actions.h"
+#include "ui/menu_engine.h"
 
 namespace tmoe::domain {
     DeveloperTools::DeveloperTools(const TmoeConfig &cfg) : cfg_(cfg) {
@@ -245,30 +248,52 @@ namespace tmoe::domain {
     }
 
     void DeveloperTools::configure_vscode_server() {
-        while (true) {
-            std::string menu = cfg_.tui_bin + " --title \"CONFIGURE VSCODE_SERVER\""
-                               " --menu \"您想要修改哪项配置？\" 0 50 0 "
-                               "\"1\" \"upgrade code-server 更新/升级\" "
-                               "\"2\" \"password 设定密码\" "
-                               "\"3\" \"edit config manually 手动编辑配置\" "
-                               "\"4\" \"stop 停止\" "
-                               "\"5\" \"remove 卸载/移除\" "
-                               "\"0\" \"" + _("menu.tui.back") + "\"";
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(
+            "CONFIGURE VSCODE_SERVER", "您想要修改哪项配置？", "dev_vscode_server_config");
 
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
-
-            if (ch == "1") vscode_server_upgrade();
-            else if (ch == "2") vscode_server_password();
-            else if (ch == "3") Executor::passthrough("nano ~/.config/code-server/config.yaml");
-            else if (ch == "4") {
+        menu->add_child(std::make_shared<LambdaAction>(
+            "upgrade 更新/升级", "1",
+            [this](MenuContext&) -> bool {
+                vscode_server_upgrade();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            "password 设定密码", "2",
+            [this](MenuContext&) -> bool {
+                vscode_server_password();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            "edit config manually 手动编辑配置", "3",
+            [this](MenuContext&) -> bool {
+                Executor::passthrough("nano ~/.config/code-server/config.yaml");
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            "stop 停止", "4",
+            [this](MenuContext&) -> bool {
                 Logger::info(_("devtools.status.stopping_service"));
                 Executor::shell("pkill node 2>/dev/null || true");
-            } else if (ch == "5") vscode_server_remove();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            "remove 卸载/移除", "5",
+            [this](MenuContext&) -> bool {
+                vscode_server_remove();
+                Logger::press_enter();
+                return true;
+            }));
 
-            Logger::press_enter();
-        }
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
+
 
     void DeveloperTools::vscode_server_upgrade() {
         Logger::step(_("devtools.step.checking_version"));

@@ -185,6 +185,15 @@ namespace tmoe::domain {
         /** Proot 环境警告。 */
         void proot_warning_check() const;
 
+        /** 处理 Docker 发行版选择（从 choose_gnu_linux_docker_images 提取）。 */
+        void process_docker_distro_choice(int idx);
+
+        /** 导出一个选定容器的完整流程（路径选择 + 导出 + 权限修复）。 */
+        void export_container_flow(const std::string& container_name);
+
+        /** 应用 Docker 镜像源 URL 到 daemon.json。 */
+        bool apply_docker_mirror(const std::string& mirror_url);
+
         // ── 状态 ──
         std::string current_docker_name_;
         std::string current_container_name_;

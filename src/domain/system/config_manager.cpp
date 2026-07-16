@@ -49,27 +49,6 @@ const std::vector<ConfigManager::DnsEntry>& ConfigManager::dns_registry() {
     return registry;
 }
 
-bool ConfigManager::configure_dns() {
-    const auto& dns_list = dns_registry();
-
-    std::string menu_cmd = cfg_.tui_bin + " --title \"" + _("dns.title") + "\""
-                           " --menu \"" + _("dns.menu_prompt") + "\" 0 0 0 ";
-    for (size_t i = 0; i < dns_list.size(); ++i) {
-        menu_cmd += "\"" + std::to_string(i + 1) + "\" \""
-                 + _(dns_list[i].name_key) + " (" + dns_list[i].primary + ")\" ";
-    }
-    menu_cmd += "\"0\" \"" + _("menu.tui.back") + "\"";
-
-    auto choice = Executor::tui_select(menu_cmd);
-    if (choice == "0" || choice.empty()) return false;
-
-    int idx = std::stoi(choice) - 1;
-    if (idx >= 0 && idx < static_cast<int>(dns_list.size())) {
-        return apply_dns(dns_list[idx].id);
-    }
-    return false;
-}
-
 bool ConfigManager::apply_dns(const std::string& provider_id) {
     const auto& dns_list = dns_registry();
     const DnsEntry* entry = nullptr;
@@ -153,45 +132,6 @@ const std::vector<std::pair<std::string, std::vector<ConfigManager::TzEntry>>>& 
         }},
     };
     return registry;
-}
-
-bool ConfigManager::configure_timezone() {
-    std::string current = detect_current_timezone();
-    Logger::info(_("tz.current") + ": " + current);
-
-    const auto& regions = tz_registry();
-
-    // 第一层: 选择区域
-    std::string region_menu = cfg_.tui_bin + " --title \"" + _("tz.title") + "\""
-                              " --menu \"" + _("tz.select_region") + "\" 0 0 0 ";
-    for (size_t i = 0; i < regions.size(); ++i) {
-        region_menu += "\"" + std::to_string(i + 1) + "\" \"" + _(regions[i].first) + "\" ";
-    }
-    region_menu += "\"0\" \"" + _("menu.tui.back") + "\"";
-
-    auto region_choice = Executor::tui_select(region_menu);
-    if (region_choice == "0" || region_choice.empty()) return false;
-
-    int ri = std::stoi(region_choice) - 1;
-    if (ri < 0 || ri >= static_cast<int>(regions.size())) return false;
-
-    // 第二层: 选择具体城市
-    std::string city_menu = cfg_.tui_bin + " --title \"" + _(regions[ri].first) + "\""
-                            " --menu \"" + _("tz.select_city") + "\" 0 0 0 ";
-    for (size_t j = 0; j < regions[ri].second.size(); ++j) {
-        city_menu += "\"" + std::to_string(j + 1) + "\" \""
-                  + _(regions[ri].second[j].name_key) + " (" + regions[ri].second[j].zone + ")\" ";
-    }
-    city_menu += "\"0\" \"" + _("menu.tui.back") + "\"";
-
-    auto city_choice = Executor::tui_select(city_menu);
-    if (city_choice == "0" || city_choice.empty()) return false;
-
-    int ci = std::stoi(city_choice) - 1;
-    if (ci >= 0 && ci < static_cast<int>(regions[ri].second.size())) {
-        return apply_timezone(regions[ri].second[ci].zone);
-    }
-    return false;
 }
 
 bool ConfigManager::apply_timezone(const std::string& tz) {
@@ -295,63 +235,6 @@ const std::vector<std::pair<std::string, std::vector<std::string>>>& ConfigManag
     return registry;
 }
 
-bool ConfigManager::configure_locale() {
-    Environment env(cfg_);
-    const auto& regions = locale_registry();
-
-    // 检测当前 locale
-    std::string current_locale = "en_US.UTF-8";
-    const char* env_lang = std::getenv("LANG");
-    if (env_lang) current_locale = env_lang;
-    Logger::info(_("locale.current") + ": " + current_locale);
-
-    // 第一层: 选择区域
-    std::string region_menu = cfg_.tui_bin + " --title \"" + _("locale.title") + "\""
-                              " --menu \"" + _("locale.select_region") + "\" 0 0 0 ";
-    for (size_t i = 0; i < regions.size(); ++i) {
-        region_menu += "\"" + std::to_string(i + 1) + "\" \"" + _(regions[i].first) + "\" ";
-    }
-    region_menu += "\"0\" \"" + _("menu.tui.back") + "\"";
-
-    auto region_choice = Executor::tui_select(region_menu);
-    if (region_choice == "0" || region_choice.empty()) return false;
-
-    int ri = std::stoi(region_choice) - 1;
-    if (ri < 0 || ri >= static_cast<int>(regions.size())) return false;
-
-    // 第二层: 选择具体 locale
-    std::string locale_menu = cfg_.tui_bin + " --title \"" + _(regions[ri].first) + "\""
-                              " --menu \"" + _("locale.select_prompt") + "\" 0 0 0 ";
-    for (size_t j = 0; j < regions[ri].second.size(); ++j) {
-        locale_menu += "\"" + std::to_string(j + 1) + "\" \""
-                    + regions[ri].second[j] + "\" ";
-    }
-    locale_menu += "\"0\" \"" + _("menu.tui.back") + "\"";
-
-    auto locale_choice = Executor::tui_select(locale_menu);
-    if (locale_choice == "0" || locale_choice.empty()) return false;
-
-    int li = std::stoi(locale_choice) - 1;
-    if (li >= 0 && li < static_cast<int>(regions[ri].second.size())) {
-        std::string loc = regions[ri].second[li];
-        Logger::step(_f("locale.applying", loc));
-
-        // 写入 tmoe 配置
-        write_config_file(config_dir() + "/locale.txt", loc);
-
-        // 调用 Environment 进行系统级设置
-        bool ok = env.set_locale(loc);
-        if (ok) ok = env.apply_system_locale(loc);
-        if (ok) {
-            Logger::ok(_f("locale.applied", loc));
-        } else {
-            Logger::error(_("locale.failed"));
-        }
-        return ok;
-    }
-    return false;
-}
-
 std::vector<std::pair<std::string, std::string>> ConfigManager::list_supported_locales() const {
     std::vector<std::pair<std::string, std::string>> result;
 
@@ -380,33 +263,6 @@ std::vector<std::pair<std::string, std::string>> ConfigManager::list_supported_l
     }
 
     return result;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Fortune / Hitokoto
-// ═══════════════════════════════════════════════════════════════════
-
-bool ConfigManager::configure_fortune() {
-    std::string menu_cmd = cfg_.tui_bin + " --title \"" + _("fortune.title") + "\""
-                           " --menu \"" + _("fortune.menu_prompt") + "\" 0 0 0 "
-                           "\"1\" \"" + _("fortune.install") + "\" "
-                           "\"2\" \"" + _("fortune.hitokoto_enable") + "\" "
-                           "\"3\" \"" + _("fortune.hitokoto_disable") + "\" "
-                           "\"0\" \"" + _("menu.tui.back") + "\"";
-
-    auto choice = Executor::tui_select(menu_cmd);
-    if (choice == "0" || choice.empty()) return false;
-
-    if (choice == "1") {
-        return install_fortune();
-    } else if (choice == "2") {
-        return toggle_hitokoto();
-    } else if (choice == "3") {
-        write_config_file(config_dir() + "/hitokoto.conf", "TMOE_CONTAINER_HITOKOTO=false");
-        Logger::ok(_("fortune.hitokoto_disabled"));
-        return true;
-    }
-    return false;
 }
 
 bool ConfigManager::install_fortune() {

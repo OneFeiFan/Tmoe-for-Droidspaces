@@ -1,4 +1,6 @@
 #include "gui.hpp"
+#include "ui/plugin_helpers.h"
+#include "ui/menu_engine.h"
 
 namespace fs = std::filesystem;
 
@@ -322,27 +324,35 @@ namespace tmoe::domain {
     bool GUIManager::configure_xsdl() {
         Logger::step(_("gui.xsdl.configure_step"));
 
-        std::string display_cmd = CommandBuilder(cfg_.tui_bin)
-                .add_arg("--title").add_arg(std::string(_("gui.xsdl_config_title")))
-                .add_arg("--menu").add_arg(std::string(_("gui.xsdl_config_prompt")))
-                .add_arg("0").add_arg("0").add_arg("0")
-                .add_arg("1").add_arg(std::string(_("gui.xsdl_display_local")))
-                .add_arg("2").add_arg(std::string(_("gui.xsdl_display_custom")))
-                .build_string();
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(
+            std::string(_("gui.xsdl_config_title")),
+            std::string(_("gui.xsdl_config_prompt")),
+            "xsdl_display");
 
-        std::string choice = Executor::tui_select(display_cmd);
-        std::string display = "127.0.0.1:0";
+        menu->add_child(std::make_shared<LambdaAction>(
+            std::string(_("gui.xsdl_display_local")), "1",
+            [this](MenuContext&) -> bool {
+                Logger::ok(std::string(_("gui.xsdl.display_set")) + "127.0.0.1:0");
+                return true;
+            }));
 
-        if (choice == "2") {
-            std::string input_cmd = CommandBuilder(cfg_.tui_bin)
-                    .add_arg("--title").add_arg(std::string(_("gui.xsdl_custom_title")))
-                    .add_arg("--inputbox").add_arg(std::string(_("gui.xsdl_custom_input")))
-                    .add_arg("10").add_arg("40").add_arg("127.0.0.1:0")
-                    .build_string();
-            display = Executor::tui_select(input_cmd);
-        }
+        menu->add_child(std::make_shared<LambdaAction>(
+            std::string(_("gui.xsdl_display_custom")), "2",
+            [this](MenuContext&) -> bool {
+                std::string input_cmd = CommandBuilder(cfg_.tui_bin)
+                        .add_arg("--title").add_arg(std::string(_("gui.xsdl_custom_title")))
+                        .add_arg("--inputbox").add_arg(std::string(_("gui.xsdl_custom_input")))
+                        .add_arg("10").add_arg("40").add_arg("127.0.0.1:0")
+                        .build_string();
+                std::string display = Executor::tui_select(input_cmd);
+                Logger::ok(std::string(_("gui.xsdl.display_set")) + display);
+                return true;
+            }));
 
-        Logger::ok(std::string(_("gui.xsdl.display_set")) + display);
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
         return true;
     }
 
@@ -460,58 +470,63 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
 
     void GUIManager::run_vnc_config_menu() {
-        while (true) {
-            // 菜单顺序对齐 Bash modify_other_vnc_conf
-            std::string menu_cmd = CommandBuilder(cfg_.tui_bin)
-                    .add_arg("--title").add_arg(_("gui.vnc_config_title"))
-                    .add_arg("--menu")
-                    .add_arg(_("gui.vnc_config_prompt"))
-                    .add_arg("0").add_arg("0").add_arg("0")
-                    .add_arg("edit_startvnc").add_arg(_("gui.vnc.edit_startvnc"))
-                    .add_arg("1").add_arg(std::string(_("gui.vnc_password")))
-                    .add_arg("2").add_arg(std::string(_("gui.vnc_switch_server")))
-                    .add_arg("3").add_arg(std::string(_("gui.vnc_pulseaudio")))
-                    .add_arg("4").add_arg(_("gui.vnc.edit_xsession"))
-                    .add_arg("5").add_arg(_("gui.vnc.edit_tigervnc_config"))
-                    .add_arg("6").add_arg(std::string(_("gui.vnc_zlib")) + " " +
-                                          std::to_string(vnc_manager_.config().zlib_level) + ")")
-                    .add_arg("7").add_arg(std::string(_("gui.vnc_depth")) + " " +
-                                          std::to_string(vnc_manager_.config().pixel_depth) + ")")
-                    .add_arg("8").add_arg(_("gui.vnc.window_scaling"))
-                    .add_arg("9").add_arg(std::string(_("gui.vnc_port")) + " " +
-                                          std::to_string(vnc_manager_.config().rfb_port) + ")")
-                    .add_arg("10").add_arg(_("gui.vnc.wsl_pulseaudio"))
-                    .add_arg("11").add_arg(std::string(_("gui.vnc_resolution")) + " " +
-                                           std::to_string(vnc_manager_.config().resolution_w) + "x" +
-                                           std::to_string(vnc_manager_.config().resolution_h) + ")")
-                    .add_arg("0").add_arg(std::string(_("menu.tui.back")))
-                    .build_string();
+        using namespace tmoe::ui;
 
-            std::string choice = Executor::tui_select(menu_cmd);
-            if (choice == "0" || choice.empty()) break;
-
-            if (choice == "edit_startvnc") {
-                Executor::passthrough(
-                    "${EDITOR:-nano} /usr/local/bin/startvnc 2>/dev/null || nano /usr/local/bin/startvnc");
-            } else if (choice == "1") {
-                vnc_manager_.configure_vnc_password();
-            } else if (choice == "2") {
-                vnc_manager_.choose_vnc_server();
+        // ── Resolution submenu ──
+        auto res_menu = make_plugin_menu(
+            std::string(_("gui.resolution_title")),
+            std::string(_("gui.resolution_prompt")),
+            "vnc_resolution");
+        res_menu->add_child(std::make_shared<LambdaAction>(
+            std::string(_("gui.resolution_1440x720")), "1",
+            [this](MenuContext&) -> bool {
+                vnc_manager_.config().resolution_w = 1440;
+                vnc_manager_.config().resolution_h = 720;
                 vnc_manager_.configure_vnc_defaults();
-            } else if (choice == "3") {
-                std::string res_cmd = CommandBuilder(cfg_.tui_bin)
+                return true;
+            }));
+        res_menu->add_child(std::make_shared<LambdaAction>(
+            std::string(_("gui.resolution_1280x720")), "2",
+            [this](MenuContext&) -> bool {
+                vnc_manager_.config().resolution_w = 1280;
+                vnc_manager_.config().resolution_h = 720;
+                vnc_manager_.configure_vnc_defaults();
+                return true;
+            }));
+        res_menu->add_child(std::make_shared<LambdaAction>(
+            std::string(_("gui.resolution_1920x1080")), "3",
+            [this](MenuContext&) -> bool {
+                vnc_manager_.config().resolution_w = 1920;
+                vnc_manager_.config().resolution_h = 1080;
+                vnc_manager_.configure_vnc_defaults();
+                return true;
+            }));
+        res_menu->add_child(std::make_shared<LambdaAction>(
+            std::string(_("gui.resolution_2560x1440")), "4",
+            [this](MenuContext&) -> bool {
+                vnc_manager_.config().resolution_w = 2560;
+                vnc_manager_.config().resolution_h = 1440;
+                vnc_manager_.configure_vnc_defaults();
+                return true;
+            }));
+        res_menu->add_child(std::make_shared<LambdaAction>(
+            std::string(_("gui.resolution_1024x768")), "5",
+            [this](MenuContext&) -> bool {
+                vnc_manager_.config().resolution_w = 1024;
+                vnc_manager_.config().resolution_h = 768;
+                vnc_manager_.configure_vnc_defaults();
+                return true;
+            }));
+        res_menu->add_child(std::make_shared<LambdaAction>(
+            std::string(_("gui.resolution_custom")), "6",
+            [this](MenuContext&) -> bool {
+                std::string res = Executor::tui_select(
+                    CommandBuilder(cfg_.tui_bin)
                         .add_arg("--title").add_arg(std::string(_("gui.resolution_title")))
-                        .add_arg("--menu").add_arg(std::string(_("gui.resolution_prompt")))
-                        .add_arg("0").add_arg("0").add_arg("0")
-                        .add_arg("1440x720").add_arg(std::string(_("gui.resolution_1440x720")))
-                        .add_arg("1280x720").add_arg(std::string(_("gui.resolution_1280x720")))
-                        .add_arg("1920x1080").add_arg(std::string(_("gui.resolution_1920x1080")))
-                        .add_arg("2560x1440").add_arg(std::string(_("gui.resolution_2560x1440")))
-                        .add_arg("1024x768").add_arg(std::string(_("gui.resolution_1024x768")))
-                        .add_arg("custom").add_arg(std::string(_("gui.resolution_custom")))
-                        .build_string();
-                std::string res = Executor::tui_select(res_cmd);
-                if (!res.empty() && res != "custom") {
+                        .add_arg("--inputbox").add_arg(std::string(_("gui.resolution_prompt")))
+                        .add_arg("10").add_arg("50")
+                        .build_string());
+                if (!res.empty()) {
                     auto xpos = res.find('x');
                     if (xpos != std::string::npos) {
                         vnc_manager_.config().resolution_w = std::stoi(res.substr(0, xpos));
@@ -519,64 +534,88 @@ namespace tmoe::domain {
                         vnc_manager_.configure_vnc_defaults();
                     }
                 }
-            } else if (choice == "9") {
-                std::string port_cmd = CommandBuilder(cfg_.tui_bin)
-                        .add_arg("--title").add_arg(std::string(_("gui.port_title")))
-                        .add_arg("--inputbox").add_arg(std::string(_("gui.port_prompt")))
-                        .add_arg("10").add_arg("50")
-                        .add_arg(std::to_string(vnc_manager_.config().rfb_port))
-                        .build_string();
-                std::string port = Executor::tui_select(port_cmd);
-                if (!port.empty()) {
-                    try {
-                        int p = std::stoi(port);
-                        vnc_manager_.config().display = p - 5900;
-                        vnc_manager_.config().rfb_port = p;
-                    } catch (...) {}
+                return true;
+            }));
+        add_navigation_items(res_menu);
+
+        // ── Depth submenu ──
+        auto depth_menu = make_plugin_menu(
+            std::string(_("gui.depth_title")),
+            std::string(_("gui.depth_prompt")),
+            "vnc_depth");
+        depth_menu->add_child(std::make_shared<LambdaAction>(
+            std::string(_("gui.depth_24")), "1",
+            [this](MenuContext&) -> bool {
+                vnc_manager_.config().pixel_depth = 24;
+                vnc_manager_.configure_vnc_defaults();
+                return true;
+            }));
+        depth_menu->add_child(std::make_shared<LambdaAction>(
+            std::string(_("gui.depth_16")), "2",
+            [this](MenuContext&) -> bool {
+                vnc_manager_.config().pixel_depth = 16;
+                vnc_manager_.configure_vnc_defaults();
+                return true;
+            }));
+        add_navigation_items(depth_menu);
+
+        // ── Zlib submenu ──
+        auto zlib_menu = make_plugin_menu(
+            std::string(_("gui.zlib_title")),
+            std::string(_("gui.zlib_prompt")),
+            "vnc_zlib");
+        for (int i = 0; i <= 9; ++i) {
+            std::string tag = std::to_string(i + 1);
+            std::string label;
+            if (i == 0) label = "0 (" + std::string(_("gui.zlib_default")) + ")";
+            else if (i == 9) label = "9 (" + std::string(_("gui.zlib_highest")) + ")";
+            else label = std::to_string(i);
+            zlib_menu->add_child(std::make_shared<LambdaAction>(
+                label, tag,
+                [this, i](MenuContext&) -> bool {
+                    vnc_manager_.config().zlib_level = i;
                     vnc_manager_.configure_vnc_defaults();
-                }
-            } else if (choice == "5") {
-                std::string depth_cmd = CommandBuilder(cfg_.tui_bin)
-                        .add_arg("--title").add_arg(std::string(_("gui.depth_title")))
-                        .add_arg("--menu").add_arg(std::string(_("gui.depth_prompt")))
-                        .add_arg("0").add_arg("0").add_arg("0")
-                        .add_arg("24").add_arg(std::string(_("gui.depth_24")))
-                        .add_arg("16").add_arg(std::string(_("gui.depth_16")))
-                        .build_string();
-                std::string depth = Executor::tui_select(depth_cmd);
-                if (!depth.empty()) {
-                    vnc_manager_.config().pixel_depth = std::stoi(depth);
-                    vnc_manager_.configure_vnc_defaults();
-                }
-            } else if (choice == "6") {
-                std::string zlib_cmd = CommandBuilder(cfg_.tui_bin)
-                        .add_arg("--title").add_arg(std::string(_("gui.zlib_title")))
-                        .add_arg("--menu").add_arg(std::string(_("gui.zlib_prompt")))
-                        .add_arg("0").add_arg("0").add_arg("0")
-                        .add_arg("0").add_arg("0 (" + std::string(_("gui.zlib_default")) + ")")
-                        .add_arg("1").add_arg("1")
-                        .add_arg("2").add_arg("2")
-                        .add_arg("3").add_arg("3")
-                        .add_arg("4").add_arg("4")
-                        .add_arg("5").add_arg("5")
-                        .add_arg("6").add_arg("6")
-                        .add_arg("7").add_arg("7")
-                        .add_arg("8").add_arg("8")
-                        .add_arg("9").add_arg("9 (" + std::string(_("gui.zlib_highest")) + ")")
-                        .build_string();
-                std::string zlib = Executor::tui_select(zlib_cmd);
-                if (!zlib.empty()) {
-                    vnc_manager_.config().zlib_level = std::stoi(zlib);
-                    vnc_manager_.configure_vnc_defaults();
-                }
-            } else if (choice == "3") {
-                std::string pa_cmd = CommandBuilder(cfg_.tui_bin)
+                    return true;
+                }));
+        }
+        add_navigation_items(zlib_menu);
+
+        // ── Main VNC config menu ──
+        auto menu = make_plugin_menu(
+            std::string(_("gui.vnc_config_title")),
+            std::string(_("gui.vnc_config_prompt")),
+            "vnc_config");
+
+        menu->add_child(LambdaAction::make(
+            _("gui.vnc.edit_startvnc"), "1",
+            [] {
+                Executor::passthrough(
+                    "${EDITOR:-nano} /usr/local/bin/startvnc 2>/dev/null || nano /usr/local/bin/startvnc");
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            std::string(_("gui.vnc_password")), "2",
+            [this] {
+                vnc_manager_.configure_vnc_password();
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            std::string(_("gui.vnc_switch_server")), "3",
+            [this] {
+                vnc_manager_.choose_vnc_server();
+                vnc_manager_.configure_vnc_defaults();
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            std::string(_("gui.vnc_pulseaudio")), "4",
+            [this] {
+                std::string pa_addr = Executor::tui_select(
+                    CommandBuilder(cfg_.tui_bin)
                         .add_arg("--title").add_arg(_("gui.vnc.pulse_server_title"))
                         .add_arg("--inputbox")
                         .add_arg(_("gui.vnc.pulse_server_prompt"))
                         .add_arg("20").add_arg("50")
-                        .build_string();
-                std::string pa_addr = Executor::tui_select(pa_cmd);
+                        .build_string());
                 if (!pa_addr.empty()) {
                     std::string pa_script = "/usr/local/bin/startvnc";
                     auto pa_content = SystemHelper::read_file(fs::path(pa_script));
@@ -595,22 +634,48 @@ namespace tmoe::domain {
                     }
                     Logger::ok(std::string(_("gui.vnc.pulse_server_updated")) + pa_addr);
                 }
-            } else if (choice == "4") {
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            _("gui.vnc.edit_xsession"), "5",
+            [] {
                 std::string editor = std::getenv("EDITOR") ? std::getenv("EDITOR") : "nano";
                 Executor::passthrough(editor + " /etc/X11/xinit/Xsession");
-            } else if (choice == "5") {
-                // Bash: 编辑系统级 TigerVNC 配置 /etc/tigervnc/vncserver-config-tmoe
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            _("gui.vnc.edit_tigervnc_config"), "6",
+            [this] {
                 std::string editor = std::getenv("EDITOR") ? std::getenv("EDITOR") : "nano";
                 Executor::passthrough(editor + " /etc/tigervnc/vncserver-config-tmoe 2>/dev/null || "
                     + editor + " " + vnc_manager_.config().vnc_home_dir.string() + "/config");
-            } else if (choice == "8") {
-                std::string scale_cmd = CommandBuilder(cfg_.tui_bin)
+                Logger::press_enter();
+            }));
+        // Zlib submenu entry
+        menu->add_child(std::make_shared<LambdaAction>(
+            std::string(_("gui.vnc_zlib")), "7",
+            [zlib_menu](MenuContext& ctx) -> bool {
+                MenuEngine(ctx).run(zlib_menu);
+                return true;
+            }));
+        // Depth submenu entry
+        menu->add_child(std::make_shared<LambdaAction>(
+            std::string(_("gui.vnc_depth")), "8",
+            [depth_menu](MenuContext& ctx) -> bool {
+                MenuEngine(ctx).run(depth_menu);
+                return true;
+            }));
+        // Window scaling (inputbox)
+        menu->add_child(LambdaAction::make(
+            _("gui.vnc.window_scaling"), "9",
+            [this] {
+                std::string scale = Executor::tui_select(
+                    CommandBuilder(cfg_.tui_bin)
                         .add_arg("--title").add_arg(_("gui.vnc.scaling_title"))
                         .add_arg("--inputbox")
                         .add_arg(_("gui.vnc.scaling_prompt"))
                         .add_arg("12").add_arg("50").add_arg("1")
-                        .build_string();
-                std::string scale = Executor::tui_select(scale_cmd);
+                        .build_string());
                 if (!scale.empty()) {
                     int s = 1;
                     try { s = std::stoi(scale); } catch (...) {}
@@ -621,7 +686,6 @@ namespace tmoe::domain {
                                     .add_arg("-np").add_arg("/Gdk/WindowScalingFactor")
                                     .add_arg("-s").add_arg(std::to_string(s))
                                     .build_string() + " 2>/dev/null || true");
-                    // Bash: 缩放 > 1 时设置 HiDPI 主题
                     if (s > 1) {
                         auto os_rel_content = SystemHelper::read_file("/etc/os-release");
                         if (os_rel_content.find("Focal Fossa") != std::string::npos ||
@@ -632,7 +696,6 @@ namespace tmoe::domain {
                                 .add_arg("-s").add_arg("Kali-Light-xHiDPI")
                                 .build_string() + " 2>/dev/null || true");
                         } else {
-                            // Bash 非 Focal 回退: Default-xhdpi
                             Executor::shell(CommandBuilder("dbus-launch")
                                 .add_arg("xfconf-query").add_arg("-c").add_arg("xfwm4")
                                 .add_arg("-t").add_arg("string").add_arg("-np").add_arg("/general/theme")
@@ -642,269 +705,306 @@ namespace tmoe::domain {
                     }
                     Logger::ok(std::string(_("gui.vnc.scaling_set")) + scale);
                 }
-            } else if (choice == "11") {
+                Logger::press_enter();
+            }));
+        // Port (inputbox)
+        menu->add_child(LambdaAction::make(
+            std::string(_("gui.vnc_port")), "10",
+            [this] {
+                std::string port = Executor::tui_select(
+                    CommandBuilder(cfg_.tui_bin)
+                        .add_arg("--title").add_arg(std::string(_("gui.port_title")))
+                        .add_arg("--inputbox").add_arg(std::string(_("gui.port_prompt")))
+                        .add_arg("10").add_arg("50")
+                        .add_arg(std::to_string(vnc_manager_.config().rfb_port))
+                        .build_string());
+                if (!port.empty()) {
+                    try {
+                        int p = std::stoi(port);
+                        vnc_manager_.config().display = p - 5900;
+                        vnc_manager_.config().rfb_port = p;
+                    } catch (...) {}
+                    vnc_manager_.configure_vnc_defaults();
+                }
+                Logger::press_enter();
+            }));
+        // WSL pulseaudio (editor)
+        menu->add_child(LambdaAction::make(
+            _("gui.vnc.wsl_pulseaudio"), "11",
+            [] {
                 std::string editor = std::getenv("EDITOR") ? std::getenv("EDITOR") : "nano";
                 Executor::passthrough(editor + " /usr/local/etc/tmoe-linux/wsl_pulse_audio");
-            }
-            Logger::press_enter();
-        }
+                Logger::press_enter();
+            }));
+        // Resolution submenu entry
+        menu->add_child(std::make_shared<LambdaAction>(
+            std::string(_("gui.vnc_resolution")), "12",
+            [res_menu](MenuContext& ctx) -> bool {
+                MenuEngine(ctx).run(res_menu);
+                return true;
+            }));
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
     void GUIManager::run_desktop_install_menu() {
-        while (true) {
-            std::string menu_cmd = CommandBuilder(cfg_.tui_bin)
-                    .add_arg("--title").add_arg(_("gui.de_install_title"))
-                    .add_arg("--menu").add_arg("")
-                    .add_arg("0").add_arg("0").add_arg("0")
-                    .add_arg("1").add_arg(_("gui.de_rootless"))
-                    .add_arg("2").add_arg(_("gui.de_rootful"))
-                    .add_arg("3").add_arg(_("gui.de_install_wm"))
-                    .add_arg("4").add_arg(_("gui.de_install_dm"))
-                    .add_arg("0").add_arg(_("menu.tui.back"))
-                    .build_string();
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(
+            std::string(_("gui.de_install_title")), "", "de_install");
 
-            std::string choice = Executor::tui_select(menu_cmd);
-            if (choice == "0" || choice.empty()) break;
+        menu->add_child(LambdaAction::make(
+            _("gui.de_rootless"), "1",
+            [this] { run_rootless_de_menu(); Logger::press_enter(); }));
+        menu->add_child(LambdaAction::make(
+            _("gui.de_rootful"), "2",
+            [this] { run_rootful_de_menu(); Logger::press_enter(); }));
+        menu->add_child(LambdaAction::make(
+            _("gui.de_install_wm"), "3",
+            [this] { run_wm_menu(); Logger::press_enter(); }));
+        menu->add_child(LambdaAction::make(
+            _("gui.de_install_dm"), "4",
+            [this] { run_dm_menu(); Logger::press_enter(); }));
 
-            if (choice == "1") {
-                run_rootless_de_menu();
-            } else if (choice == "2") {
-                run_rootful_de_menu();
-            } else if (choice == "3") {
-                run_wm_menu();
-            } else if (choice == "4") {
-                run_dm_menu();
-            }
-            Logger::press_enter();
-        }
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
     void GUIManager::run_rootless_de_menu() {
-        while (true) {
-            CommandBuilder menu_cmd(cfg_.tui_bin);
-            menu_cmd.add_arg("--title").add_arg(_("gui.de_rootless"))
-                    .add_arg("--menu").add_arg("")
-                    .add_arg("0").add_arg("0").add_arg("0");
-            int idx = 1;
-            for (const auto &d: desktop_manager_.desktop_registry()) {
-                if (!d.requires_root && !d.is_window_manager) {
-                    menu_cmd.add_arg(std::to_string(idx++)).add_arg(d.name + " (" + d.compat_notes + ")");
-                }
-            }
-            menu_cmd.add_arg("0").add_arg(_("menu.tui.back"));
-            auto ch = Executor::tui_select(menu_cmd.build_string());
-            if (ch == "0" || ch.empty()) break;
-            int sel = std::stoi(ch);
-            int i = 0;
-            for (const auto &d: desktop_manager_.desktop_registry()) {
-                if (!d.requires_root && !d.is_window_manager) {
-                    ++i;
-                    if (i == sel) {
-                        desktop_manager_.install_desktop(d.id);
-                        first_configure_vnc(d.id);
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(
+            std::string(_("gui.de_rootless")), "", "de_rootless");
+
+        int tag = 1;
+        for (const auto &d: desktop_manager_.desktop_registry()) {
+            if (!d.requires_root && !d.is_window_manager) {
+                std::string desc = d.name + " (" + d.compat_notes + ")";
+                std::string desktop_id = d.id;
+                menu->add_child(std::make_shared<LambdaAction>(
+                    desc, std::to_string(tag++),
+                    [this, desktop_id](MenuContext&) -> bool {
+                        desktop_manager_.install_desktop(desktop_id);
+                        first_configure_vnc(desktop_id);
                         desktop_manager_.after_desktop_install_hint();
-                        break;
-                    }
-                }
+                        return true;
+                    }));
             }
-            Logger::press_enter();
         }
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
     void GUIManager::run_rootful_de_menu() {
-        while (true) {
-            CommandBuilder menu_cmd(cfg_.tui_bin);
-            menu_cmd.add_arg("--title").add_arg(_("gui.de_rootful"))
-                    .add_arg("--menu").add_arg("")
-                    .add_arg("0").add_arg("0").add_arg("0");
-            int idx = 1;
-            for (const auto &d: desktop_manager_.desktop_registry()) {
-                if (d.requires_root && !d.is_window_manager) {
-                    menu_cmd.add_arg(std::to_string(idx++)).add_arg(d.name + " (" + d.compat_notes + ")");
-                }
-            }
-            menu_cmd.add_arg("0").add_arg(_("menu.tui.back"));
-            auto ch = Executor::tui_select(menu_cmd.build_string());
-            if (ch == "0" || ch.empty()) break;
-            int sel = std::stoi(ch);
-            int i = 0;
-            for (const auto &d: desktop_manager_.desktop_registry()) {
-                if (d.requires_root && !d.is_window_manager) {
-                    ++i;
-                    if (i == sel) {
-                        desktop_manager_.install_desktop(d.id);
-                        first_configure_vnc(d.id);
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(
+            std::string(_("gui.de_rootful")), "", "de_rootful");
+
+        int tag = 1;
+        for (const auto &d: desktop_manager_.desktop_registry()) {
+            if (d.requires_root && !d.is_window_manager) {
+                std::string desc = d.name + " (" + d.compat_notes + ")";
+                std::string desktop_id = d.id;
+                menu->add_child(std::make_shared<LambdaAction>(
+                    desc, std::to_string(tag++),
+                    [this, desktop_id](MenuContext&) -> bool {
+                        desktop_manager_.install_desktop(desktop_id);
+                        first_configure_vnc(desktop_id);
                         desktop_manager_.after_desktop_install_hint();
-                        break;
-                    }
-                }
+                        return true;
+                    }));
             }
-            Logger::press_enter();
         }
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
     void GUIManager::run_wm_menu() {
-        while (true) {
-            CommandBuilder wm_menu(cfg_.tui_bin);
-            wm_menu.add_arg("--title").add_arg(std::string(_("gui.wm_title")))
-                    .add_arg("--menu").add_arg(std::string(_("gui.wm_prompt")))
-                    .add_arg("0").add_arg("0").add_arg("0");
-            int idx = 1;
-            for (const auto &d: desktop_manager_.desktop_registry()) {
-                if (d.is_window_manager) {
-                    wm_menu.add_arg(std::to_string(idx++)).add_arg(
-                        d.name + (d.compat_notes.empty() ? "" : " (" + d.compat_notes + ")"));
-                }
-            }
-            wm_menu.add_arg("0").add_arg(std::string(_("menu.tui.back")));
-            auto ch = Executor::tui_select(wm_menu.build_string());
-            if (ch == "0" || ch.empty()) break;
-            int sel = std::stoi(ch);
-            int i = 0;
-            for (const auto &d: desktop_manager_.desktop_registry()) {
-                if (d.is_window_manager) {
-                    ++i;
-                    if (i == sel) {
-                        desktop_manager_.install_window_manager(d.id);
-                        // xstartup 已在 install_desktop 管线中配置
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(
+            std::string(_("gui.wm_title")), std::string(_("gui.wm_prompt")), "wm_menu");
+
+        int tag = 1;
+        for (const auto &d: desktop_manager_.desktop_registry()) {
+            if (d.is_window_manager) {
+                std::string desc = d.name + (d.compat_notes.empty() ? "" : " (" + d.compat_notes + ")");
+                std::string desktop_id = d.id;
+                menu->add_child(std::make_shared<LambdaAction>(
+                    desc, std::to_string(tag++),
+                    [this, desktop_id](MenuContext&) -> bool {
+                        desktop_manager_.install_window_manager(desktop_id);
                         desktop_manager_.after_desktop_install_hint();
-                        break;
-                    }
-                }
+                        return true;
+                    }));
             }
-            Logger::press_enter();
         }
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
     void GUIManager::run_dm_menu() {
-        std::string dm_menu = CommandBuilder(cfg_.tui_bin)
-                .add_arg("--title").add_arg(std::string(_("gui.dm_title")))
-                .add_arg("--menu").add_arg(std::string(_("gui.dm_prompt")))
-                .add_arg("0").add_arg("0").add_arg("0")
-                .add_arg("1").add_arg(_("gui.dm.lightdm"))
-                .add_arg("2").add_arg(_("gui.dm.sddm"))
-                .add_arg("3").add_arg(_("gui.dm.gdm"))
-                .add_arg("4").add_arg(_("gui.dm.slim"))
-                .add_arg("5").add_arg(_("gui.dm.lxdm"))
-                .add_arg("0").add_arg(std::string(_("menu.tui.back")))
-                .build_string();
-        auto ch = Executor::tui_select(dm_menu);
-        auto fam = get_family(cfg_);
-        if (ch == "1") {
-            // Bash: Alpine 需要 setup-xorg-base + xf86-input-* + polkit + consolekit2
-            if (fam == DistroFamily::Alpine) {
-                Executor::passthrough("sudo setup-xorg-base 2>/dev/null || true");
-                PackageManager::install({"lightdm", "lightdm-gtk-greeter",
-                    "xf86-input-mouse", "xf86-input-keyboard", "polkit", "consolekit2"}, fam);
-            } else {
-                PackageManager::install({"lightdm", "lightdm-gtk-greeter",
-                    "lightdm-gtk-greeter-settings", "ukui-greeter"}, fam);
-            }
-            desktop_manager_.tmoe_display_manager_systemctl("lightdm", "lightdm");
-        } else if (ch == "2") {
-            PackageManager::install({"sddm", "sddm-theme-breeze"}, fam);
-            desktop_manager_.tmoe_display_manager_systemctl("sddm", "sddm");
-        } else if (ch == "3") {
-            // Bash: DEPENDENCY_01=gdm + DEPENDENCY_02=gdm3
-            PackageManager::install({"gdm", "gdm3"}, fam);
-            desktop_manager_.tmoe_display_manager_systemctl("gdm3", "gdm");
-        } else if (ch == "4") {
-            PackageManager::install("slim", fam);
-            desktop_manager_.tmoe_display_manager_systemctl("slim", "slim");
-        } else if (ch == "5") {
-            PackageManager::install("lxdm", fam);
-            desktop_manager_.tmoe_display_manager_systemctl("lxdm", "lxdm");
-        }
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(
+            std::string(_("gui.dm_title")), std::string(_("gui.dm_prompt")), "dm_menu");
+
+        menu->add_child(LambdaAction::make(
+            _("gui.dm.lightdm"), "1",
+            [this] {
+                auto fam = get_family(cfg_);
+                if (fam == DistroFamily::Alpine) {
+                    Executor::passthrough("sudo setup-xorg-base 2>/dev/null || true");
+                    PackageManager::install({"lightdm", "lightdm-gtk-greeter",
+                        "xf86-input-mouse", "xf86-input-keyboard", "polkit", "consolekit2"}, fam);
+                } else {
+                    PackageManager::install({"lightdm", "lightdm-gtk-greeter",
+                        "lightdm-gtk-greeter-settings", "ukui-greeter"}, fam);
+                }
+                desktop_manager_.tmoe_display_manager_systemctl("lightdm", "lightdm");
+            }));
+        menu->add_child(LambdaAction::make(
+            _("gui.dm.sddm"), "2",
+            [this] {
+                auto fam = get_family(cfg_);
+                PackageManager::install({"sddm", "sddm-theme-breeze"}, fam);
+                desktop_manager_.tmoe_display_manager_systemctl("sddm", "sddm");
+            }));
+        menu->add_child(LambdaAction::make(
+            _("gui.dm.gdm"), "3",
+            [this] {
+                auto fam = get_family(cfg_);
+                PackageManager::install({"gdm", "gdm3"}, fam);
+                desktop_manager_.tmoe_display_manager_systemctl("gdm3", "gdm");
+            }));
+        menu->add_child(LambdaAction::make(
+            _("gui.dm.slim"), "4",
+            [this] {
+                auto fam = get_family(cfg_);
+                PackageManager::install("slim", fam);
+                desktop_manager_.tmoe_display_manager_systemctl("slim", "slim");
+            }));
+        menu->add_child(LambdaAction::make(
+            _("gui.dm.lxdm"), "5",
+            [this] {
+                auto fam = get_family(cfg_);
+                PackageManager::install("lxdm", fam);
+                desktop_manager_.tmoe_display_manager_systemctl("lxdm", "lxdm");
+            }));
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
     void GUIManager::run_xsdl_config_menu() {
-        while (true) {
-            std::string menu = CommandBuilder(cfg_.tui_bin)
-                    .add_arg("--title").add_arg(_("gui.xsdl.config_menu_title"))
-                    .add_arg("--menu")
-                    .add_arg(_("gui.xsdl.config_menu_prompt"))
-                    .add_arg("0").add_arg("50").add_arg("0")
-                    .add_arg("1").add_arg(_("gui.xsdl.pulse_port"))
-                    .add_arg("2").add_arg(_("gui.xsdl.display_number"))
-                    .add_arg("3").add_arg(_("gui.xsdl.ip_address"))
-                    .add_arg("4").add_arg(_("gui.xsdl.edit_manual"))
-                    .add_arg("5").add_arg(_("gui.xsdl.display_switch"))
-                    .add_arg("6").add_arg(_("gui.xsdl.vcxsrv_port"))
-                    .add_arg("0").add_arg(std::string(_("menu.tui.back")))
-                    .build_string();
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) break;
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(
+            std::string(_("gui.xsdl.config_menu_title")),
+            std::string(_("gui.xsdl.config_menu_prompt")),
+            "xsdl_config");
 
-            std::string script = "/usr/local/bin/startxsdl";
-            if (ch == "1") {
-                std::string cmd = CommandBuilder(cfg_.tui_bin)
+        const std::string script = "/usr/local/bin/startxsdl";
+
+        menu->add_child(LambdaAction::make(
+            _("gui.xsdl.pulse_port"), "1",
+            [this, script] {
+                std::string val = Executor::tui_select(
+                    CommandBuilder(cfg_.tui_bin)
                         .add_arg("--title").add_arg(_("gui.xsdl.pulse_port_title"))
                         .add_arg("--inputbox").add_arg(_("gui.xsdl.pulse_port_prompt"))
                         .add_arg("10").add_arg("50")
-                        .build_string();
-                std::string val = Executor::tui_select(cmd);
+                        .build_string());
                 if (!val.empty())
                     Executor::shell(CommandBuilder("sed")
                                     .add_arg("-i")
                                     .add_arg("s@PULSE_SERVER=.*@PULSE_SERVER=\"tcp:localhost:" + val + "\"@")
                                     .add_arg(script)
                                     .build_string() + " 2>/dev/null || true");
-            } else if (ch == "2") {
-                std::string cmd = CommandBuilder(cfg_.tui_bin)
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            _("gui.xsdl.display_number"), "2",
+            [this, script] {
+                std::string val = Executor::tui_select(
+                    CommandBuilder(cfg_.tui_bin)
                         .add_arg("--title").add_arg(_("gui.xsdl.display_num_title"))
                         .add_arg("--inputbox").add_arg(_("gui.xsdl.display_num_prompt"))
                         .add_arg("10").add_arg("50").add_arg("0")
-                        .build_string();
-                std::string val = Executor::tui_select(cmd);
+                        .build_string());
                 if (!val.empty())
                     Executor::shell(CommandBuilder("sed")
                                     .add_arg("-i")
                                     .add_arg("s@\\${1:-[^}]*@${1:-127.0.0.1:" + val + "@")
                                     .add_arg(script)
                                     .build_string() + " 2>/dev/null || true");
-            } else if (ch == "3") {
-                std::string cmd = CommandBuilder(cfg_.tui_bin)
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            _("gui.xsdl.ip_address"), "3",
+            [this, script] {
+                std::string val = Executor::tui_select(
+                    CommandBuilder(cfg_.tui_bin)
                         .add_arg("--title").add_arg(_("gui.xsdl.ip_title"))
                         .add_arg("--inputbox").add_arg(_("gui.xsdl.ip_prompt"))
                         .add_arg("10").add_arg("50").add_arg("127.0.0.1")
-                        .build_string();
-                std::string val = Executor::tui_select(cmd);
+                        .build_string());
                 if (!val.empty())
                     Executor::shell(CommandBuilder("sed")
                                     .add_arg("-i")
                                     .add_arg("s@\\${1:-[^:]*@${1:-" + val + "@")
                                     .add_arg(script)
                                     .build_string() + " 2>/dev/null || true");
-            } else if (ch == "4") {
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            _("gui.xsdl.edit_manual"), "4",
+            [script] {
                 Executor::passthrough("${EDITOR:-nano} " + script + " 2>/dev/null || nano " + script);
-            } else if (ch == "5") {
-                std::string cmd = CommandBuilder(cfg_.tui_bin)
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            _("gui.xsdl.display_switch"), "5",
+            [this, script] {
+                auto r = Executor::passthrough(
+                    CommandBuilder(cfg_.tui_bin)
                         .add_arg("--yesno").add_arg(_("gui.xsdl.display_switch_prompt"))
                         .add_arg("0").add_arg("0")
-                        .build_string();
-                auto r = Executor::passthrough(cmd);
+                        .build_string());
                 if (r.exit_code == 0)
                     Executor::shell(
                         "if grep -q '^export.*DISPLAY' " + script + "; then " +
                         CommandBuilder("sed").add_arg("-i").add_arg("/export DISPLAY=/d").add_arg(script)
                         .build_string() +
                         "; else echo 'export DISPLAY=:0' >> " + script + "; fi 2>/dev/null || true");
-            } else if (ch == "6") {
-                std::string cmd = CommandBuilder(cfg_.tui_bin)
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            _("gui.xsdl.vcxsrv_port"), "6",
+            [this, script] {
+                std::string val = Executor::tui_select(
+                    CommandBuilder(cfg_.tui_bin)
                         .add_arg("--title").add_arg(_("gui.xsdl.vcxsrv_port_title"))
                         .add_arg("--inputbox").add_arg(_("gui.xsdl.vcxsrv_port_prompt"))
                         .add_arg("10").add_arg("50").add_arg(":0")
-                        .build_string();
-                std::string val = Executor::tui_select(cmd);
+                        .build_string());
                 if (!val.empty())
                     Executor::shell(CommandBuilder("sed")
                                     .add_arg("-i")
                                     .add_arg("s@\\${1:-[^}]*@${1:-127.0.0.1:" + val + "@")
                                     .add_arg(script)
                                     .build_string() + " 2>/dev/null || true");
-            }
-            Logger::press_enter();
-        }
+                Logger::press_enter();
+            }));
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
 
@@ -1408,23 +1508,15 @@ namespace tmoe::domain {
 
 
     void GUIManager::run_remote_desktop_menu() {
-        while (true) {
-            std::string menu_cmd = CommandBuilder(cfg_.tui_bin)
-                    .add_arg("--title").add_arg(std::string(_("gui.remote_title")))
-                    .add_arg("--menu").add_arg(std::string(_("gui.remote_prompt")))
-                    .add_arg("0").add_arg("0").add_arg("0")
-                    .add_arg("1").add_arg(std::string(_("gui.remote_tightvnc")))
-                    .add_arg("2").add_arg(std::string(_("gui.remote_x11vnc")))
-                    .add_arg("3").add_arg(std::string(_("gui.remote_xsdl")))
-                    .add_arg("4").add_arg(std::string(_("gui.remote_novnc")))
-                    .add_arg("5").add_arg(std::string(_("gui.remote_xrdp")))
-                    .add_arg("0").add_arg(std::string(_("menu.tui.back")))
-                    .build_string();
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(
+            std::string(_("gui.remote_title")),
+            std::string(_("gui.remote_prompt")),
+            "remote_desktop");
 
-            std::string choice = Executor::tui_select(menu_cmd);
-            if (choice == "0" || choice.empty()) break;
-
-            if (choice == "1") {
+        menu->add_child(LambdaAction::make(
+            std::string(_("gui.remote_tightvnc")), "1",
+            [this] {
                 if (!fs::exists("/usr/local/bin/startvnc")) {
                     Logger::warn(_("gui.remote.no_startvnc_warn"));
                     auto r = Executor::passthrough(CommandBuilder(cfg_.tui_bin)
@@ -1432,7 +1524,7 @@ namespace tmoe::domain {
                         .add_arg(_("gui.remote.no_startvnc_continue"))
                         .add_arg("0").add_arg("0")
                         .build_string());
-                    if (r.exit_code != 0) continue;
+                    if (r.exit_code != 0) return;
                 }
                 auto r = Executor::passthrough(CommandBuilder(cfg_.tui_bin)
                     .add_arg("--title").add_arg(_("gui.remote.vnc_config_title"))
@@ -1444,13 +1536,13 @@ namespace tmoe::domain {
                     .build_string());
                 if (r.exit_code == 0) {
                     std::string cmd = CommandBuilder(cfg_.tui_bin)
-                            .add_arg("--title").add_arg(_("gui.remote.resolution_input_title"))
-                            .add_arg("--inputbox")
-                            .add_arg(_("gui.remote.resolution_input_prompt"))
-                            .add_arg("15").add_arg("50")
-                            .add_arg(std::to_string(vnc_manager_.config().resolution_w) + "x" +
-                                     std::to_string(vnc_manager_.config().resolution_h))
-                            .build_string();
+                        .add_arg("--title").add_arg(_("gui.remote.resolution_input_title"))
+                        .add_arg("--inputbox")
+                        .add_arg(_("gui.remote.resolution_input_prompt"))
+                        .add_arg("15").add_arg("50")
+                        .add_arg(std::to_string(vnc_manager_.config().resolution_w) + "x" +
+                                 std::to_string(vnc_manager_.config().resolution_h))
+                        .build_string();
                     std::string val = Executor::tui_select(cmd);
                     auto xpos = val.find('x');
                     if (!val.empty() && xpos != std::string::npos) {
@@ -1462,16 +1554,35 @@ namespace tmoe::domain {
                 } else {
                     run_vnc_config_menu();
                 }
-            } else if (choice == "2") {
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            std::string(_("gui.remote_x11vnc")), "2",
+            [this] {
                 remote_desktop_manager_.run_x11vnc_config_menu();
-            } else if (choice == "3") {
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            std::string(_("gui.remote_xsdl")), "3",
+            [this] {
                 run_xsdl_config_menu();
-            } else if (choice == "4") {
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            std::string(_("gui.remote_novnc")), "4",
+            [this] {
                 remote_desktop_manager_.run_novnc_config_menu();
-            } else if (choice == "5") {
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            std::string(_("gui.remote_xrdp")), "5",
+            [this] {
                 remote_desktop_manager_.run_xrdp_menu();
-            }
-            Logger::press_enter();
-        }
+                Logger::press_enter();
+            }));
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 } // namespace tmoe::domain

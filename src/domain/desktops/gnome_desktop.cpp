@@ -5,6 +5,9 @@
 #include "core/i18n.h"
 #include "core/system_helper.h"
 #include "domain/system/package_manager.h"
+#include "ui/plugin_helpers.h"
+#include "ui/builtin_actions.h"
+#include "ui/menu_engine.h"
 
 namespace tmoe::domain {
     SessionCmds GnomeDesktop::get_session_commands() const {
@@ -18,11 +21,29 @@ namespace tmoe::domain {
         PreInstallChoices c;
         if (a) return c;
         if (f == DistroFamily::Debian) {
-            session_ = Executor::tui_select(cfg_.tui_bin +
-                                            " --title \"gnome-session\" --menu \"Select GNOME session\" 0 0 0 "
-                                            "\"1\" \"gnome-shell-x11\" \"2\" \"gnome-flashback\" "
-                                            "\"3\" \"gnome-session\" \"4\" \"gnome-session-ubuntu\" "
-                                            "\"5\" \"gnome-session-classic\" \"0\" \"Back\"");
+            using namespace tmoe::ui;
+            auto menu = make_plugin_menu("gnome-session", "Select GNOME session", "gnome_session");
+            menu->add_child(std::make_shared<LambdaAction>("gnome-shell-x11", "1", [this](MenuContext&) -> bool {
+                session_ = "1"; return false;
+            }));
+            menu->add_child(std::make_shared<LambdaAction>("gnome-flashback", "2", [this](MenuContext&) -> bool {
+                session_ = "2"; return false;
+            }));
+            menu->add_child(std::make_shared<LambdaAction>("gnome-session", "3", [this](MenuContext&) -> bool {
+                session_ = "3"; return false;
+            }));
+            menu->add_child(std::make_shared<LambdaAction>("gnome-session-ubuntu", "4", [this](MenuContext&) -> bool {
+                session_ = "4"; return false;
+            }));
+            menu->add_child(std::make_shared<LambdaAction>("gnome-session-classic", "5", [this](MenuContext&) -> bool {
+                session_ = "5"; return false;
+            }));
+            menu->add_child(std::make_shared<LambdaAction>("Back", "0", [this](MenuContext&) -> bool {
+                session_ = "0"; return false;
+            }));
+            MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+            MenuEngine(ctx).run(menu);
+
             if (session_ == "2") {
                 c.pkg_list = "gnome-panel gnome-menus gnome-shell gnome-session-flashback gnome-session";
                 return c;

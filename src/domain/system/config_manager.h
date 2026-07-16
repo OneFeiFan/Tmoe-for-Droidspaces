@@ -27,16 +27,10 @@ public:
 
     // ── DNS ──
 
-    /** DNS 选择器 TUI，返回选中的 DNS 提供商 ID。 */
-    bool configure_dns();
-
     /** 将指定 DNS 写入 /etc/resolv.conf。 */
     bool apply_dns(const std::string& provider_id);
 
     // ── 时区 ──
-
-    /** 时区选择器 TUI (分组浏览)。 */
-    bool configure_timezone();
 
     /** 写入时区 (timedatectl 优先, 回退 ln -sf)。 */
     bool apply_timezone(const std::string& tz);
@@ -46,16 +40,10 @@ public:
 
     // ── Locale ──
 
-    /** 完整 Locale 选择器 (300+ 选项, 按区域分组)。 */
-    bool configure_locale();
-
     /** 列出所有可用 locale (从 /usr/share/i18n/SUPPORTED 或内置表)。 */
     std::vector<std::pair<std::string, std::string>> list_supported_locales() const;
 
     // ── Fortune / Hitokoto ──
-
-    /** Fortune (每日格言) 安装与配置。 */
-    bool configure_fortune();
 
     /** 安装 fortune 包 (跨发行版)。 */
     bool install_fortune();

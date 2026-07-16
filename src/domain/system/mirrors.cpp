@@ -2,6 +2,9 @@
 #include "domain/system/package_manager.h"
 #include "core/command_builder.hpp"
 #include "core/i18n.h"
+#include "ui/plugin_helpers.h"
+#include "ui/builtin_actions.h"
+#include "ui/menu_engine.h"
 #include <algorithm>
 #include <cctype>
 #include <string>
@@ -652,41 +655,43 @@ namespace tmoe::domain {
     bool MirrorManager::manage_extra_sources() {
         const auto &distro = cfg_.linux_distro;
 
-        std::string menu = cfg_.tui_bin + " --title \"" + _("mirror.extra_title") + "\" "
-                           "--menu \"" + _("mirror.extra_prompt") + "\" 0 0 0 ";
+        std::string item_label;
+        bool ok = false;
 
         if (distro == "debian") {
-            menu += "\"1\" \"" + _("mirror.extra_debian_kali") + "\" ";
+            item_label = _("mirror.extra_debian_kali");
         } else if (distro == "arch") {
-            menu += "\"1\" \"" + _("mirror.extra_archlinuxcn") + "\" ";
+            item_label = _("mirror.extra_archlinuxcn");
         } else if (distro == "redhat") {
-            // 检测是 Fedora 还是 RHEL/CentOS
             int fv = detect_fedora_version();
             if (fv > 0) {
-                menu += "\"1\" \"" + _("mirror.extra_rpmfusion") + "\" ";
+                item_label = _("mirror.extra_rpmfusion");
             } else {
-                menu += "\"1\" \"" + _("mirror.extra_epel") + "\" ";
+                item_label = _("mirror.extra_epel");
             }
         } else {
             Logger::error(_f("mirror.extra_unsupported", distro));
             return false;
         }
 
-        menu += "\"0\" \"" + _("menu.tui.back") + "\"";
-
-        auto choice = Executor::tui_select(menu);
-        if (choice == "0" || choice.empty()) return true;
-
-        bool ok = false;
-        if (distro == "debian") {
-            ok = add_kali_extra_source();
-        } else if (distro == "arch") {
-            ok = add_archlinuxcn_source();
-        } else if (distro == "redhat") {
-            int fv = detect_fedora_version();
-            if (fv > 0) ok = add_rpmfusion_source();
-            else ok = add_epel_source();
-        }
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(_("mirror.extra_title"), _("mirror.extra_prompt"), "mirror_extra");
+        menu->add_child(std::make_shared<LambdaAction>(item_label, "1", [&](MenuContext&) -> bool {
+            if (distro == "debian") {
+                ok = add_kali_extra_source();
+            } else if (distro == "arch") {
+                ok = add_archlinuxcn_source();
+            } else if (distro == "redhat") {
+                int fv = detect_fedora_version();
+                if (fv > 0) ok = add_rpmfusion_source();
+                else ok = add_epel_source();
+            }
+            Logger::press_enter();
+            return false;
+        }));
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
 
         if (ok) run_update();
         return ok;

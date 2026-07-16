@@ -2,6 +2,9 @@
 #include "domain/system/package_manager.h"
 #include "core/command_builder.hpp"
 #include "core/i18n.h"
+#include "ui/plugin_helpers.h"
+#include "ui/builtin_actions.h"
+#include "ui/menu_engine.h"
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -946,33 +949,55 @@ bool BackupManager::run_tar_backup_with_progress(std::string_view source_dir,
 }
 
 ArchiveFormat BackupManager::tui_select_format() {
-    std::string menu = cfg_.tui_bin +
-        " --title " + _("backup.format_title") + " --menu " + _("backup.format_prompt") + " 0 0 0 "
-        "\"1\" " + _("backup.format_zstd") + " "
-        "\"2\" " + _("backup.format_xz") + " "
-        "\"3\" " + _("backup.format_gzip");
-
-    std::string choice = Executor::tui_select(menu);
-    if (choice == "2") return ArchiveFormat::TarXz;
-    if (choice == "3") return ArchiveFormat::TarGz;
-    return ArchiveFormat::TarZst;  // 默认 zstd
+    ArchiveFormat result = ArchiveFormat::TarZst;
+    using namespace tmoe::ui;
+    auto menu = make_plugin_menu(_("backup.format_title"), _("backup.format_prompt"), "backup_format");
+    menu->add_child(std::make_shared<LambdaAction>(_("backup.format_zstd"), "1", [&](MenuContext&) -> bool {
+        result = ArchiveFormat::TarZst;
+        return false;
+    }));
+    menu->add_child(std::make_shared<LambdaAction>(_("backup.format_xz"), "2", [&](MenuContext&) -> bool {
+        result = ArchiveFormat::TarXz;
+        return false;
+    }));
+    menu->add_child(std::make_shared<LambdaAction>(_("backup.format_gzip"), "3", [&](MenuContext&) -> bool {
+        result = ArchiveFormat::TarGz;
+        return false;
+    }));
+    add_sandwich_nav(menu);
+    MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+    MenuEngine(ctx).run(menu);
+    return result;
 }
 
 BackupManager::RestoreMode BackupManager::tui_select_restore_mode() {
-    std::string menu = cfg_.tui_bin +
-        " --title " + _("backup.restore_mode_title") + " --menu " + _("backup.restore_mode_prompt") + " 0 0 0 "
-        "\"1\" " + _("backup.restore_normal") + " "
-        "\"2\" " + _("backup.restore_sd") + " "
-        "\"3\" " + _("backup.restore_manual") + " "
-        "\"4\" " + _("backup.restore_download") + " "
-        "\"5\" " + _("backup.restore_compat");
-
-    std::string choice = Executor::tui_select(menu);
-    if (choice == "2") return RestoreMode::FromSD;
-    if (choice == "3") return RestoreMode::ManualPath;
-    if (choice == "4") return RestoreMode::FromDownload;
-    if (choice == "5") return RestoreMode::Compat;
-    return RestoreMode::Normal;
+    RestoreMode result = RestoreMode::Normal;
+    using namespace tmoe::ui;
+    auto menu = make_plugin_menu(_("backup.restore_mode_title"), _("backup.restore_mode_prompt"), "backup_restore_mode");
+    menu->add_child(std::make_shared<LambdaAction>(_("backup.restore_normal"), "1", [&](MenuContext&) -> bool {
+        result = RestoreMode::Normal;
+        return false;
+    }));
+    menu->add_child(std::make_shared<LambdaAction>(_("backup.restore_sd"), "2", [&](MenuContext&) -> bool {
+        result = RestoreMode::FromSD;
+        return false;
+    }));
+    menu->add_child(std::make_shared<LambdaAction>(_("backup.restore_manual"), "3", [&](MenuContext&) -> bool {
+        result = RestoreMode::ManualPath;
+        return false;
+    }));
+    menu->add_child(std::make_shared<LambdaAction>(_("backup.restore_download"), "4", [&](MenuContext&) -> bool {
+        result = RestoreMode::FromDownload;
+        return false;
+    }));
+    menu->add_child(std::make_shared<LambdaAction>(_("backup.restore_compat"), "5", [&](MenuContext&) -> bool {
+        result = RestoreMode::Compat;
+        return false;
+    }));
+    add_sandwich_nav(menu);
+    MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+    MenuEngine(ctx).run(menu);
+    return result;
 }
 
 std::string BackupManager::tui_select_file(const std::string& base_dir) {

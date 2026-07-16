@@ -1,6 +1,9 @@
 #include "vnc_manager.h"
 
 #include "domain/system/package_manager.h"
+#include "ui/plugin_helpers.h"
+#include "ui/builtin_actions.h"
+#include "ui/menu_engine.h"
 
 namespace tmoe::domain {
     // ================================================================
@@ -445,29 +448,13 @@ namespace tmoe::domain {
     }
 
     bool VncManager::choose_vnc_server() {
-        // 显示当前使用的 VNC Server
         std::string current_server = vnc_config_.server.empty() ? "tiger" : vnc_config_.server;
         std::string menu_prompt = std::string(_("gui.vnc_server_prompt"))
             + "\n" + _f("gui.current_value", current_server);
-        std::string menu_cmd = cfg_.tui_bin +
-                               " --title \"" + std::string(_("gui.vnc_server_title")) + "\""
-                               " --menu \"" + menu_prompt + "\" 0 0 0 "
-                               "\"tiger\" \"" + std::string(_("gui.vnc_server_tiger")) + "\" "
-                               "\"tight\" \"" + std::string(_("gui.vnc_server_tight")) + "\" ";
 
-        std::string choice = Executor::tui_select(menu_cmd);
-        if (choice.empty()) choice = "tiger";
-
-        if (choice == "tight") {
-            vnc_config_.server = "tight";
-            vnc_config_.server_bin = "tightvnc";
-            vnc_config_.dep_server = "tightvncserver";
-            vnc_config_.dep_viewer = "tigervnc-viewer";
-            Logger::info(_("gui.vnc.selected_tight"));
-            // Bash: 切换后安装对应的 VNC Server 包
-            if (!Executor::has("Xtightvnc"))
-                install_vnc_server();
-        } else {
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(_("gui.vnc_server_title"), menu_prompt, "vnc_server");
+        menu->add_child(std::make_shared<LambdaAction>(_("gui.vnc_server_tiger"), "1", [this](MenuContext&) -> bool {
             vnc_config_.server = "tiger";
             vnc_config_.server_bin = "tigervnc";
             vnc_config_.dep_server = "tigervnc-standalone-server";
@@ -475,7 +462,21 @@ namespace tmoe::domain {
             Logger::info(_("gui.vnc.selected_tiger"));
             if (!Executor::has("Xtigervnc") && !Executor::has("Xvnc"))
                 install_vnc_server();
-        }
+            return false;
+        }));
+        menu->add_child(std::make_shared<LambdaAction>(_("gui.vnc_server_tight"), "2", [this](MenuContext&) -> bool {
+            vnc_config_.server = "tight";
+            vnc_config_.server_bin = "tightvnc";
+            vnc_config_.dep_server = "tightvncserver";
+            vnc_config_.dep_viewer = "tigervnc-viewer";
+            Logger::info(_("gui.vnc.selected_tight"));
+            if (!Executor::has("Xtightvnc"))
+                install_vnc_server();
+            return false;
+        }));
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
         return true;
     }
 

@@ -2,6 +2,8 @@
 #include "domain/desktops/desktop_factory.h"
 #include "domain/desktops/desktop_utils.h"
 #include "core/system_helper.h"
+#include "ui/plugin_helpers.h"
+#include "ui/menu_engine.h"
 #include <sstream>
 
 namespace tmoe::domain {
@@ -133,38 +135,33 @@ namespace tmoe::domain {
     }
 
     void DesktopManager::select_kali_tools() {
-        // 对应旧 Bash do_you_want_to_install_kali_tools
-        // Kali Linux 工具包选择子菜单
-        std::string menu_cmd = cfg_.tui_bin +
-                               " --title \"KALI LINUX TOOLS\""
-                               " --menu \"请选择要安装的 Kali Linux 工具包\\n"
-                               "Select Kali Linux tools metapackage\" 0 0 0 "
-                               "\"arm\" \"kali-linux-arm (ARM设备工具)\" "
-                               "\"None\" \"不安装工具包 (Skip)\" "
-                               "\"core\" \"kali-linux-core (核心工具)\" "
-                               "\"default\" \"kali-linux-default (默认工具集)\" "
-                               "\"everything\" \"kali-linux-everything (全部工具)\" "
-                               "\"headless\" \"kali-linux-headless (无头模式)\" "
-                               "\"large\" \"kali-linux-large (大型工具集)\" "
-                               "\"nethunter\" \"kali-linux-nethunter (NetHunter)\" "
-                               "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(
+            "KALI LINUX TOOLS",
+            "Select Kali Linux tools metapackage",
+            "kali_tools");
 
-        std::string choice = Executor::tui_select(menu_cmd);
-        if (choice == "0" || choice.empty() || choice == "None") return;
+        auto make_kali_action = [this](const std::string& label, const std::string& tag,
+                                        const std::string& pkg_name) {
+            return std::make_shared<LambdaAction>(
+                label, tag,
+                [this, pkg_name](MenuContext&) -> bool {
+                    if (!pkg_name.empty()) install_packages({pkg_name});
+                    return true;
+                });
+        };
 
-        // 映射选项到包名
-        std::string pkg_name;
-        if (choice == "arm") pkg_name = "kali-linux-arm";
-        else if (choice == "core") pkg_name = "kali-linux-core";
-        else if (choice == "default") pkg_name = "kali-linux-default";
-        else if (choice == "everything") pkg_name = "kali-linux-everything";
-        else if (choice == "headless") pkg_name = "kali-linux-headless";
-        else if (choice == "large") pkg_name = "kali-linux-large";
-        else if (choice == "nethunter") pkg_name = "kali-linux-nethunter";
+        menu->add_child(make_kali_action("kali-linux-arm", "1", "kali-linux-arm"));
+        menu->add_child(make_kali_action("kali-linux-core", "2", "kali-linux-core"));
+        menu->add_child(make_kali_action("kali-linux-default", "3", "kali-linux-default"));
+        menu->add_child(make_kali_action("kali-linux-everything", "4", "kali-linux-everything"));
+        menu->add_child(make_kali_action("kali-linux-headless", "5", "kali-linux-headless"));
+        menu->add_child(make_kali_action("kali-linux-large", "6", "kali-linux-large"));
+        menu->add_child(make_kali_action("kali-linux-nethunter", "7", "kali-linux-nethunter"));
 
-        if (!pkg_name.empty()) {
-            install_packages({pkg_name});
-        }
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
 
@@ -521,54 +518,66 @@ namespace tmoe::domain {
     }
 
     void DesktopManager::tmoe_display_manager_systemctl(const std::string &dm_pkg, const std::string &dm_service) {
-        while (true) {
-            std::string menu = cfg_.tui_bin +
-                               " --title \"" + _("gui.dm.menu_title") + "\" --menu \"" + _("gui.dm.menu_prompt") +
-                               "\" 0 55 0 "
-                               "\"1\" \"" + _("gui.dm.opt_install") + "\" "
-                               "\"2\" \"" + _("gui.dm.opt_remove") + "\" "
-                               "\"3\" \"" + _("gui.dm.opt_start") + "\" "
-                               "\"4\" \"" + _("gui.dm.opt_stop") + "\" "
-                               "\"5\" \"" + _("gui.dm.opt_enable") + "\" "
-                               "\"6\" \"" + _("gui.dm.opt_disable") + "\" "
-                               "\"0\" \"" + _("gui.dm.opt_back") + "\"";
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
-            if (ch == "1") {
-                // install: 确认后安装（包可能已装，此处提供补装路径）
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(
+            std::string(_("gui.dm.menu_title")),
+            std::string(_("gui.dm.menu_prompt")),
+            "dm_systemctl");
+
+        menu->add_child(LambdaAction::make(
+            _("gui.dm.opt_install"), "1",
+            [this, dm_pkg] {
                 if (Logger::confirm(_f("gui.dm.confirm_install", dm_pkg)))
                     Executor::passthrough(cfg_.install_command + " " + dm_pkg + " 2>/dev/null || true");
-            } else if (ch == "2") {
-                // remove: 确认后卸载（Bash: beta_features_quick_install 支持卸载）
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            _("gui.dm.opt_remove"), "2",
+            [this, dm_pkg] {
                 if (Logger::confirm(_f("gui.dm.confirm_remove", dm_pkg)))
                     Executor::passthrough(cfg_.remove_command + " " + dm_pkg + " 2>/dev/null || true");
-            } else if (ch == "3") {
-                // start: 确认后启动
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            _("gui.dm.opt_start"), "3",
+            [this, dm_service] {
                 if (Logger::confirm(_("gui.dm.confirm_start")))
                     Executor::passthrough(
                         "sudo systemctl start " + dm_service + " 2>/dev/null || sudo service " + dm_service +
                         " start 2>/dev/null || true");
-            } else if (ch == "4") {
-                // stop: 确认后停止
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            _("gui.dm.opt_stop"), "4",
+            [this, dm_service] {
                 if (Logger::confirm(_("gui.dm.confirm_stop")))
                     Executor::passthrough(
                         "sudo systemctl stop " + dm_service + " 2>/dev/null || sudo service " + dm_service +
                         " stop 2>/dev/null || true");
-            } else if (ch == "5") {
-                // enable: 确认后启用自启
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            _("gui.dm.opt_enable"), "5",
+            [this, dm_service] {
                 if (Logger::confirm(_("gui.dm.confirm_enable")))
                     Executor::passthrough(
                         "sudo systemctl enable " + dm_service + " 2>/dev/null || rc-update add " + dm_service +
                         " 2>/dev/null || true");
-            } else if (ch == "6") {
-                // disable: 确认后禁用自启
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            _("gui.dm.opt_disable"), "6",
+            [this, dm_service] {
                 if (Logger::confirm(_("gui.dm.confirm_disable")))
                     Executor::passthrough(
                         "sudo systemctl disable " + dm_service + " 2>/dev/null || rc-update del " + dm_service +
                         " 2>/dev/null || true");
-            }
-            Logger::press_enter();
-        }
+                Logger::press_enter();
+            }));
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
     std::string DesktopManager::generate_update_icon_caches_script() {

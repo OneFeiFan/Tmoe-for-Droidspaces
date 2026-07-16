@@ -7,6 +7,9 @@
 #include "core/command_builder.hpp"
 #include "core/system_helper.h"
 #include "domain/system/package_manager.h"
+#include "ui/plugin_helpers.h"
+#include "ui/builtin_actions.h"
+#include "ui/menu_engine.h"
 
 namespace tmoe::domain {
     SoftwareCenter::SoftwareCenter(const TmoeConfig &cfg) : cfg_(cfg),
@@ -24,20 +27,22 @@ namespace tmoe::domain {
     // 通用: 安装或卸载子菜单
     // ═══════════════════════════════════
     void SoftwareCenter::electron_install_or_remove(const std::string &app_name) {
-        std::string menu = cfg_.tui_bin + " --title \"" + app_name + " manager\""
-                           " --menu \"" + _f("swcenter.electron.what_to_do", app_name) + "\" 0 0 0 "
-                           "\"1\" \"" + _("swcenter.electron.install_upgrade") + "\" "
-                           "\"2\" \"" + _("swcenter.electron.remove") + "\" "
-                           "\"0\" \"" + _("menu.tui.back") + "\"";
-        auto ch = Executor::tui_select(menu);
-        if (ch == "0" || ch.empty()) return;
-
-        if (ch == "1") {
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(app_name + " manager", _f("swcenter.electron.what_to_do", app_name), "electron_" + app_name);
+        menu->add_child(std::make_shared<LambdaAction>(_("swcenter.electron.install_upgrade"), "1", [this, app_name](MenuContext&) -> bool {
             ensure_electron_runtime();
             download_tmoe_electron_app(app_name);
-        } else if (ch == "2") {
+            Logger::press_enter();
+            return false;
+        }));
+        menu->add_child(std::make_shared<LambdaAction>(_("swcenter.electron.remove"), "2", [this, app_name](MenuContext&) -> bool {
             remove_electron_app(app_name);
-        }
+            Logger::press_enter();
+            return false;
+        }));
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
     // ═══════════════════════════════════

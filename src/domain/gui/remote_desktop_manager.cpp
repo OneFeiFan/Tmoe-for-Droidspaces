@@ -6,6 +6,8 @@
 #include "core/command_builder.hpp"
 #include "domain/system/package_manager.h"
 #include "../gui_config/templates.h"
+#include "ui/plugin_helpers.h"
+#include "ui/menu_engine.h"
 #include <algorithm>
 #include <ctime>
 #include <cstdlib>
@@ -102,28 +104,49 @@ namespace tmoe::domain {
     bool RemoteDesktopManager::configure_novnc() {
         Logger::step(_("gui.novnc.config"));
 
-        // 选择端口
-        std::string port_cmd = cfg_.tui_bin +
-                               " --title \"" + std::string(_("gui.novnc_port_title")) +
-                               "\" --menu \"" + std::string(_("gui.novnc_port_prompt")) + "\" 0 0 0 "
-                               "\"36080\" \"" + std::string(_("gui.novnc_port_36080")) + "\" "
-                               "\"36081\" \"" + std::string(_("gui.novnc_port_36081")) + "\" "
-                               "\"6080\" \"" + std::string(_("gui.novnc_port_6080")) + "\" "
-                               "\"custom\" \"" + std::string(_("gui.novnc_port_custom")) + "\"";
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(
+            std::string(_("gui.novnc_port_title")),
+            std::string(_("gui.novnc_port_prompt")),
+            "novnc_port");
 
-        std::string choice = Executor::tui_select(port_cmd);
-        if (choice == "custom") {
-            std::string input_cmd = cfg_.tui_bin +
-                                    " --title \"" + std::string(_("gui.novnc_custom_port_title")) +
-                                    "\" --inputbox \"" + std::string(_("gui.novnc_custom_port_input")) +
-                                    "\" 10 40 \"36080\"";
-            std::string port_str = Executor::tui_select(input_cmd);
-            try { novnc_port_ = std::stoi(port_str); } catch (...) { novnc_port_ = 36080; }
-        } else if (!choice.empty()) {
-            try { novnc_port_ = std::stoi(choice); } catch (...) { novnc_port_ = 36080; }
-        }
+        menu->add_child(std::make_shared<LambdaAction>(
+            std::string(_("gui.novnc_port_36080")), "1",
+            [this](MenuContext&) -> bool {
+                novnc_port_ = 36080;
+                Logger::info(_f("gui.novnc.port_set", std::to_string(novnc_port_)));
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            std::string(_("gui.novnc_port_36081")), "2",
+            [this](MenuContext&) -> bool {
+                novnc_port_ = 36081;
+                Logger::info(_f("gui.novnc.port_set", std::to_string(novnc_port_)));
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            std::string(_("gui.novnc_port_6080")), "3",
+            [this](MenuContext&) -> bool {
+                novnc_port_ = 6080;
+                Logger::info(_f("gui.novnc.port_set", std::to_string(novnc_port_)));
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            std::string(_("gui.novnc_port_custom")), "4",
+            [this](MenuContext&) -> bool {
+                std::string input_cmd = cfg_.tui_bin +
+                    " --title \"" + std::string(_("gui.novnc_custom_port_title")) +
+                    "\" --inputbox \"" + std::string(_("gui.novnc_custom_port_input")) +
+                    "\" 10 40 \"36080\"";
+                std::string port_str = Executor::tui_select(input_cmd);
+                try { novnc_port_ = std::stoi(port_str); } catch (...) { novnc_port_ = 36080; }
+                Logger::info(_f("gui.novnc.port_set", std::to_string(novnc_port_)));
+                return true;
+            }));
 
-        Logger::info(_f("gui.novnc.port_set", std::to_string(novnc_port_)));
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
         return true;
     }
 
@@ -470,76 +493,85 @@ namespace tmoe::domain {
 
 
     void RemoteDesktopManager::run_x11vnc_config_menu() {
-        // 对应旧 Bash configure_x11vnc (8项)
-        while (true) {
-            std::string menu = cfg_.tui_bin +
-                               " --title \"CONFIGURE x11vnc\""
-                               " --menu \"Type startx11vnc to start vncserver\" 0 0 0 "
-                               "\"1\" \"pulse_server 音频服务\" "
-                               "\"2\" \"resolution 分辨率\" "
-                               "\"3\" \"port 端口\" "
-                               "\"4\" \"修改 startx11vnc 启动脚本\" "
-                               "\"5\" \"remove 卸载/移除\" "
-                               "\"6\" \"readme 进程管理说明\" "
-                               "\"7\" \"password 密码\" "
-                               "\"8\" \"read doc 阅读文档\" "
-                               "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) break;
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(
+            "CONFIGURE x11vnc",
+            "Type startx11vnc to start vncserver",
+            "x11vnc_config");
 
-            if (ch == "1") vnc_manager_.modify_x11vnc_pulse_server();
-            else if (ch == "2") vnc_manager_.modify_x11vnc_resolution();
-            else if (ch == "3") vnc_manager_.modify_x11vnc_port();
-            else if (ch == "4")
+        menu->add_child(LambdaAction::make(
+            "pulse_server", "1",
+            [this] { vnc_manager_.modify_x11vnc_pulse_server(); Logger::press_enter(); }));
+        menu->add_child(LambdaAction::make(
+            "resolution", "2",
+            [this] { vnc_manager_.modify_x11vnc_resolution(); Logger::press_enter(); }));
+        menu->add_child(LambdaAction::make(
+            "port", "3",
+            [this] { vnc_manager_.modify_x11vnc_port(); Logger::press_enter(); }));
+        menu->add_child(LambdaAction::make(
+            "edit startx11vnc", "4",
+            [] {
                 Executor::passthrough(
                     "${EDITOR:-nano} /usr/local/bin/startx11vnc 2>/dev/null || nano /usr/local/bin/startx11vnc");
-            else if (ch == "5") {
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            "remove", "5",
+            [this] {
                 auto r = Executor::passthrough(cfg_.tui_bin + " --yesno \"确认卸载 x11vnc？\" 0 0");
-                if (r.exit_code == 0) {
-                    remove_x11vnc_ext();
-                }
-            } else if (ch == "6") {
+                if (r.exit_code == 0) remove_x11vnc_ext();
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            "readme", "6",
+            [] {
                 Logger::info(_("gui.x11vnc.process_management"));
                 Logger::info(_("gui.x11vnc.process_start"));
                 Logger::info(_("gui.x11vnc.process_stop"));
                 Logger::info(_("gui.x11vnc.process_view"));
-            } else if (ch == "7") Executor::passthrough("x11vncpasswd 2>/dev/null || x11vnc -storepasswd");
-            else if (ch == "8") {
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            "password", "7",
+            [] {
+                Executor::passthrough("x11vncpasswd 2>/dev/null || x11vnc -storepasswd");
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            "read doc", "8",
+            [] {
                 Logger::info(_("gui.x11vnc.documentation"));
                 Logger::info(_("gui.x11vnc.doc_start"));
                 Logger::info(_("gui.x11vnc.doc_stop"));
                 Logger::info(_("gui.x11vnc.doc_connect"));
                 Logger::info(_("gui.x11vnc.doc_xvfb"));
                 Logger::info(_("gui.x11vnc.doc_man"));
-            }
-            Logger::press_enter();
-        }
+                Logger::press_enter();
+            }));
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
 
     void RemoteDesktopManager::run_novnc_config_menu() {
-        // 对应旧 Bash modify_novnc_conf → configure_novnc (3项)
-        while (true) {
-            std::string menu = cfg_.tui_bin +
-                               " --title \"CONFIGURE NOVNC\""
-                               " --menu \"Type novnc to start novnc.输novnc启动novnc\" 0 0 0 "
-                               "\"1\" \"port 端口\" "
-                               "\"2\" \"修改 startnovnc 启动脚本\" "
-                               "\"3\" \"remove 卸载/移除\" "
-                               "\"0\" \"" + std::string(_("menu.tui.back")) + "\"";
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) break;
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(
+            "CONFIGURE NOVNC",
+            "Type novnc to start novnc",
+            "novnc_config");
 
-            if (ch == "1") {
+        menu->add_child(LambdaAction::make(
+            "port", "1",
+            [this] {
                 std::string port_cmd = cfg_.tui_bin +
-                                       " --title \"请输入端口\""
-                                       " --inputbox \"Please type the novnc port, the default is 36080\" 10 50 \"36080\"";
+                    " --title \"请输入端口\""
+                    " --inputbox \"Please type the novnc port, the default is 36080\" 10 50 \"36080\"";
                 std::string port = Executor::tui_select(port_cmd);
                 if (!port.empty()) {
-                    // 原生 C++ 替代 sed: 更新 NOVNC_PORT 配置值
                     auto content = SystemHelper::read_file("/usr/local/bin/novnc");
                     if (!content.empty()) {
-                        // wrapper 使用 PORT= 而非 NOVNC_PORT=
                         auto start = content.find("PORT=\"$");
                         if (start == std::string::npos) start = content.find("PORT=");
                         if (start != std::string::npos) {
@@ -550,16 +582,25 @@ namespace tmoe::domain {
                         SystemHelper::write_file("/usr/local/bin/novnc", content);
                     }
                 }
-            } else if (ch == "2") {
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            "edit startnovnc", "2",
+            [] {
                 Executor::passthrough("${EDITOR:-nano} /usr/local/bin/novnc 2>/dev/null || nano /usr/local/bin/novnc");
-            } else if (ch == "3") {
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            "remove", "3",
+            [this] {
                 auto r = Executor::passthrough(cfg_.tui_bin + " --yesno \"确认卸载 noVNC？\" 0 0");
-                if (r.exit_code == 0) {
-                    remove_novnc();
-                }
-            }
-            Logger::press_enter();
-        }
+                if (r.exit_code == 0) remove_novnc();
+                Logger::press_enter();
+            }));
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
 
@@ -597,53 +638,61 @@ namespace tmoe::domain {
             return;
         }
 
-        // Configure: 进入 11 项子菜单
-        while (true) {
-            std::string menu = cfg_.tui_bin +
-                               " --title \"CONFIGURE XRDP\""
-                               " --menu \"Type sudo service xrdp start to start it\" 0 0 0 "
-                               "\"1\"  \"One-key conf 初始化一键配置\" "
-                               "\"2\"  \"指定xrdp桌面环境\" "
-                               "\"3\"  \"xrdp port 修改xrdp端口\" "
-                               "\"4\"  \"xrdp.ini 修改配置文件\" "
-                               "\"5\"  \"startwm.sh 修改启动脚本\" "
-                               "\"6\"  \"stop 停止\" "
-                               "\"7\"  \"status 进程状态\" "
-                               "\"8\"  \"pulse_server 音频服务\" "
-                               "\"9\"  \"reset 重置\" "
-                               "\"10\" \"remove 卸载/移除\" "
-                               "\"11\" \"进程管理说明\" "
-                               "\"0\"  \"" + std::string(_("menu.tui.back")) + "\"";
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) break;
+        // Configure: 进入 12 项子菜单
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(
+            "CONFIGURE XRDP",
+            "Type sudo service xrdp start to start it",
+            "xrdp_config");
 
-            if (ch == "1") {
+        menu->add_child(LambdaAction::make(
+            "One-key conf", "1",
+            [this] {
                 Logger::step(_("gui.xrdp.onekey_config"));
                 Executor::passthrough(
                     sudo_cmd() + "service xrdp stop 2>/dev/null || " + sudo_cmd() + "systemctl stop xrdp 2>/dev/null || true");
                 install_xrdp();
                 configure_xrdp_desktop();
-            } else if (ch == "2") configure_xrdp_desktop();
-            else if (ch == "3") {
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            "select DE for xrdp", "2",
+            [this] { configure_xrdp_desktop(); Logger::press_enter(); }));
+        menu->add_child(LambdaAction::make(
+            "xrdp port", "3",
+            [this] {
                 std::string cmd = cfg_.tui_bin +
-                                  " --title \"xrdp port\""
-                                  " --inputbox \"请输入 xrdp 端口 (默认 3389)\" 10 40 \"3389\"";
+                    " --title \"xrdp port\""
+                    " --inputbox \"请输入 xrdp 端口 (默认 3389)\" 10 40 \"3389\"";
                 std::string val = Executor::tui_select(cmd);
                 Logger::debug(val);
                 if (!val.empty()) {
-                    try { set_xrdp_port(std::stoi(val)); } catch (...) {
-                    }
+                    try { set_xrdp_port(std::stoi(val)); } catch (...) {}
                 }
-            } else if (ch == "4") {
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            "xrdp.ini", "4",
+            [] {
                 CommandBuilder("sudo").add_arg("mkdir").add_flag("-p").add_arg("/etc/xrdp").add_raw(
                     "2>/dev/null || true").execute();
                 Executor::passthrough("${EDITOR:-nano} /etc/xrdp/xrdp.ini 2>/dev/null || nano /etc/xrdp/xrdp.ini");
-            } else if (ch == "5") {
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            "startwm.sh", "5",
+            [] {
                 CommandBuilder("sudo").add_arg("mkdir").add_flag("-p").add_arg("/etc/xrdp").add_raw(
                     "2>/dev/null || true").execute();
                 Executor::passthrough("${EDITOR:-nano} /etc/xrdp/startwm.sh 2>/dev/null || nano /etc/xrdp/startwm.sh");
-            } else if (ch == "6") stop_xrdp();
-            else if (ch == "7") {
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            "stop", "6",
+            [this] { stop_xrdp(); Logger::press_enter(); }));
+        menu->add_child(LambdaAction::make(
+            "status", "7",
+            [] {
                 auto r = Executor::shell("ps aux | grep xrdp | grep -v grep 2>/dev/null");
                 if (!r.stdout_data.empty()) {
                     Logger::info(_("gui.xrdp.process_running"));
@@ -651,13 +700,16 @@ namespace tmoe::domain {
                 } else {
                     Logger::info(_("gui.xrdp.process_not_running"));
                 }
-            } else if (ch == "8") {
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            "pulse_server", "8",
+            [this] {
                 std::string cmd = cfg_.tui_bin +
-                                  " --title \"PULSE SERVER\""
-                                  " --inputbox \"请输入 PulseAudio 服务器地址\" 10 50 \"127.0.0.1\"";
+                    " --title \"PULSE SERVER\""
+                    " --inputbox \"请输入 PulseAudio 服务器地址\" 10 50 \"127.0.0.1\"";
                 std::string val = Executor::tui_select(cmd);
                 if (!val.empty()) {
-                    // 原生 C++ 替代 sed: 更新 startwm.sh 中的 PULSE_SERVER 行
                     auto content = SystemHelper::read_file("/etc/xrdp/startwm.sh");
                     if (!content.empty()) {
                         auto start = content.find("PULSE_SERVER=");
@@ -669,7 +721,11 @@ namespace tmoe::domain {
                         SystemHelper::write_file("/etc/xrdp/startwm.sh", content);
                     }
                 }
-            } else if (ch == "9") {
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            "reset", "9",
+            [this] {
                 auto r = Executor::passthrough(cfg_.tui_bin + " --yesno \"确认重置 xrdp 配置？\" 0 0");
                 if (r.exit_code == 0) {
                     Logger::step(_("gui.xrdp.reset"));
@@ -679,91 +735,71 @@ namespace tmoe::domain {
                     install_xrdp();
                     configure_xrdp_desktop();
                 }
-            } else if (ch == "10") {
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            "remove", "10",
+            [this] {
                 auto r = Executor::passthrough(cfg_.tui_bin + " --yesno \"确认卸载 xrdp？\" 0 0");
                 if (r.exit_code == 0) remove_xrdp();
-            } else if (ch == "11") {
+                Logger::press_enter();
+            }));
+        menu->add_child(LambdaAction::make(
+            "readme", "11",
+            [] {
                 Logger::info(_("gui.xrdp.process_management"));
                 Logger::info(_("gui.xrdp.management_start"));
                 Logger::info(_("gui.xrdp.management_stop"));
                 Logger::info(_("gui.xrdp.management_restart"));
                 Logger::info(_("gui.xrdp.management_status"));
-            }
-            Logger::press_enter();
-        }
+                Logger::press_enter();
+            }));
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
 
     void RemoteDesktopManager::configure_remote_desktop_environment(std::string_view context) {
-        // 对应旧 Bash configure_remote_desktop_environment (gui:4918-4996)
-        // context: "x11vnc" or "xrdp"
-        std::string menu_cmd = cfg_.tui_bin +
-                               " --title \"REMOTE_DESKTOP\""
-                               " --menu \"您想要配置哪个桌面？按方向键选择，回车键确认！\\n Which desktop environment do you want to configure? \" 0 0 0 "
-                               "\"1\" \"auto 自动选择\" "
-                               "\"2\" \"xfce：兼容性高\" "
-                               "\"3\" \"lxde：轻量化桌面\" "
-                               "\"4\" \"mate：基于GNOME 2\" "
-                               "\"5\" \"lxqt\" "
-                               "\"6\" \"kde plasma 5\" "
-                               "\"7\" \"gnome 3\" "
-                               "\"8\" \"cinnamon\" "
-                               "\"9\" \"dde (deepin desktop)\" "
-                               "\"0\" \"我一个都不选 =￣ω￣=\"";
+        using namespace tmoe::ui;
+        auto menu = make_plugin_menu(
+            "REMOTE_DESKTOP",
+            "Select desktop environment to configure",
+            "remote_de_select");
 
-        std::string choice = Executor::tui_select(menu_cmd);
-        if (choice == "0" || choice.empty()) return;
+        std::string ctx(context); // 捕获一份可用的 string
 
-        std::string session_01, session_02;
-        if (choice == "1") {
-            session_01 = "/etc/X11/xinit/Xsession";
-            session_02 = "/etc/X11/xinit/Xsession";
-        } else if (choice == "2") {
-            session_01 = "xfce4-session";
-            session_02 = "startxfce4";
-        } else if (choice == "3") {
-            session_01 = "lxsession";
-            session_02 = "startlxde";
-        } else if (choice == "4") {
-            session_01 = "mate-session";
-            session_02 = "mate-panel";
-        } else if (choice == "5") {
-            session_01 = "startlxqt";
-            session_02 = "lxqt-session";
-        } else if (choice == "6") {
-            session_01 = "startplasma-x11";
-            session_02 = "startkde";
-        } else if (choice == "7") {
-            session_01 = "gnome-session";
-            session_02 = "gnome-panel";
-        } else if (choice == "8") {
-            session_01 = "cinnamon-session";
-            session_02 = "cinnamon-launcher";
-        } else if (choice == "9") {
-            session_01 = "startdde";
-            session_02 = "dde-launcher";
-        } else return;
+        auto make_de_action = [this, &ctx](const std::string& label, const std::string& tag,
+                                           const std::string& s1, const std::string& s2) {
+            return std::make_shared<LambdaAction>(
+                label, tag,
+                [this, s1, s2, ctx](MenuContext&) -> bool {
+                    std::string remote_session = Executor::has(s1) ? s1 : s2;
+                    Logger::info(_f("gui.remote.session_info", remote_session));
+                    if (ctx == "xrdp") {
+                        configure_xrdp_remote_desktop_session(remote_session);
+                        xrdp_restart();
+                    } else {
+                        configure_x11vnc_remote_desktop_session();
+                    }
+                    return true;
+                });
+        };
 
-        // 检测哪个会话命令可用
-        std::string remote_session;
-        if (Executor::has(session_01)) {
-            remote_session = session_01;
-        } else {
-            remote_session = session_02;
-        }
+        menu->add_child(make_de_action("auto", "1", "/etc/X11/xinit/Xsession", "/etc/X11/xinit/Xsession"));
+        menu->add_child(make_de_action("xfce", "2", "xfce4-session", "startxfce4"));
+        menu->add_child(make_de_action("lxde", "3", "lxsession", "startlxde"));
+        menu->add_child(make_de_action("mate", "4", "mate-session", "mate-panel"));
+        menu->add_child(make_de_action("lxqt", "5", "startlxqt", "lxqt-session"));
+        menu->add_child(make_de_action("kde plasma 5", "6", "startplasma-x11", "startkde"));
+        menu->add_child(make_de_action("gnome 3", "7", "gnome-session", "gnome-panel"));
+        menu->add_child(make_de_action("cinnamon", "8", "cinnamon-session", "cinnamon-launcher"));
+        menu->add_child(make_de_action("dde", "9", "startdde", "dde-launcher"));
 
-        Logger::info(_f("gui.remote.session_info", remote_session));
-
-        // 根据上下文调用相应的完整配置函数
-        std::string ctx(context);
-        if (ctx == "xrdp") {
-            configure_xrdp_remote_desktop_session(remote_session);
-            // 旧 Bash configure_xrdp_remote_desktop_session 末尾会重启, 这里补上
-            xrdp_restart();
-        } else {
-            // x11vnc
-            configure_x11vnc_remote_desktop_session();
-        }
+        add_sandwich_nav(menu);
+        MenuContext mctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(mctx).run(menu);
     }
 
 

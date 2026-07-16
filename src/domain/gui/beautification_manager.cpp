@@ -7,6 +7,9 @@
 #include "core/i18n.h"
 #include "core/system_helper.h"
 #include "core/command_builder.hpp"
+#include "ui/plugin_helpers.h"
+#include "ui/builtin_actions.h"
+#include "ui/menu_engine.h"
 #include <filesystem>
 #include <regex>
 #include <cstring>
@@ -35,38 +38,57 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
 
     void BeautificationManager::run_beautification_menu() {
-        while (true) {
-            std::string menu_cmd = CommandBuilder(cfg_.tui_bin)
-                    .add_arg("--title").add_arg(_("gui.beautify_title"))
-                    .add_arg("--menu").add_arg(_("gui.beautify_prompt"))
-                    .add_arg("0").add_arg("0").add_arg("0")
-                    .add_arg("1").add_arg(_("gui.beautify.themes"))
-                    .add_arg("2").add_arg(_("gui.beautify.icon_theme"))
-                    .add_arg("3").add_arg(_("gui.beautify.wallpaper"))
-                    .add_arg("4").add_arg(_("gui.beautify.mouse_cursor"))
-                    .add_arg("5").add_arg(_("gui.beautify.dock"))
-                    .add_arg("6").add_arg(_("gui.beautify.compiz"))
-                    .add_arg("0").add_arg(_("menu.tui.back_upper"))
-                    .build_string();
+        using namespace tmoe::ui;
 
-            std::string choice = Executor::tui_select(menu_cmd);
-            if (choice == "0" || choice.empty()) break;
+        auto menu = make_plugin_menu(
+            _("gui.beautify_title"), _("gui.beautify_prompt"), "beautification");
 
-            if (choice == "1") {
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.beautify.themes"), "1",
+            [this](MenuContext&) -> bool {
                 configure_theme_menu();
-            } else if (choice == "2") {
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.beautify.icon_theme"), "2",
+            [this](MenuContext&) -> bool {
                 download_icon_themes_menu();
-            } else if (choice == "3") {
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.beautify.wallpaper"), "3",
+            [this](MenuContext&) -> bool {
                 download_wallpapers_menu();
-            } else if (choice == "4") {
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.beautify.mouse_cursor"), "4",
+            [this](MenuContext&) -> bool {
                 configure_mouse_cursor();
-            } else if (choice == "5") {
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.beautify.dock"), "5",
+            [this](MenuContext&) -> bool {
                 install_dock();
-            } else if (choice == "6") {
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.beautify.compiz"), "6",
+            [this](MenuContext&) -> bool {
                 install_compiz();
-            }
-            Logger::press_enter();
-        }
+                Logger::press_enter();
+                return true;
+            }));
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -392,32 +414,63 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
     // ═══════════════════════════════════════════════════════════════
 
     void BeautificationManager::configure_theme_menu() {
-        while (true) {
-            std::string menu = CommandBuilder(cfg_.tui_bin)
-                    .add_arg("--title").add_arg(_("gui.theme.menu_title"))
-                    .add_arg("--menu").add_arg(_("gui.theme.menu_prompt"))
-                    .add_arg("0").add_arg("50").add_arg("0")
-                    .add_arg("1").add_arg(_("gui.theme.xfce_parser_item"))
-                    .add_arg("2").add_arg(_("gui.theme.local_installer_item"))
-                    .add_arg("3").add_arg(_("gui.theme.win10_kali_item"))
-                    .add_arg("4").add_arg(_("gui.theme.macos_mojave_item"))
-                    .add_arg("5").add_arg(_("gui.theme.macos_bigsur_item"))
-                    .add_arg("6").add_arg(_("gui.theme.breeze_item"))
-                    .add_arg("7").add_arg(_("gui.theme.kali_flat_remix_item"))
-                    .add_arg("8").add_arg(_("gui.theme.ukui_item"))
-                    .add_arg("9").add_arg(_("gui.theme.arc_item"))
-                    .add_arg("0").add_arg(_("gui.theme.return_prev"))
-                    .build_string();
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
-            if (ch == "1") xfce_theme_parsing();
-            else if (ch == "2") local_theme_installer();
-            else if (ch == "3") desktop_manager_.install_kali_undercover();
-            else if (ch == "4") desktop_manager_.download_macos_mojave_theme();
-            else if (ch == "5") desktop_manager_.download_macos_bigsur_theme();
-            else if (ch == "6") desktop_manager_.install_breeze_theme_ext();
-            else if (ch == "7") desktop_manager_.download_kali_theme();
-            else if (ch == "8") {
+        using namespace tmoe::ui;
+
+        auto menu = make_plugin_menu(
+            _("gui.theme.menu_title"), _("gui.theme.menu_prompt"), "theme_menu");
+
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.theme.xfce_parser_item"), "1",
+            [this](MenuContext&) -> bool {
+                xfce_theme_parsing();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.theme.local_installer_item"), "2",
+            [this](MenuContext&) -> bool {
+                local_theme_installer();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.theme.win10_kali_item"), "3",
+            [this](MenuContext&) -> bool {
+                desktop_manager_.install_kali_undercover();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.theme.macos_mojave_item"), "4",
+            [this](MenuContext&) -> bool {
+                desktop_manager_.download_macos_mojave_theme();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.theme.macos_bigsur_item"), "5",
+            [this](MenuContext&) -> bool {
+                desktop_manager_.download_macos_bigsur_theme();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.theme.breeze_item"), "6",
+            [this](MenuContext&) -> bool {
+                desktop_manager_.install_breeze_theme_ext();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.theme.kali_flat_remix_item"), "7",
+            [this](MenuContext&) -> bool {
+                desktop_manager_.download_kali_theme();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.theme.ukui_item"), "8",
+            [this](MenuContext&) -> bool {
                 PackageManager::install({"ukui-themes", "ukui-greeter"}, get_family(cfg_));
                 if (!fs::exists("/usr/share/icons/ukui-icon-theme-default") &&
                     !fs::exists("/usr/share/icons/ukui-icon-theme")) {
@@ -430,9 +483,20 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
                         "/usr/share/icons/ukui-icon-theme-default 2>/dev/null &");
                 }
                 desktop_manager_.set_default_xfce_icon_theme("ukui-icon-theme");
-            } else if (ch == "9") desktop_manager_.install_arc_gtk_theme_ext();
-            Logger::press_enter();
-        }
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.theme.arc_item"), "9",
+            [this](MenuContext&) -> bool {
+                desktop_manager_.install_arc_gtk_theme_ext();
+                Logger::press_enter();
+                return true;
+            }));
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -512,34 +576,73 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
     // ═══════════════════════════════════════════════════════════════
 
     void BeautificationManager::download_icon_themes_menu() {
-        while (true) {
-            desktop_manager_.check_update_icon_caches_sh();
-            std::string menu = CommandBuilder(cfg_.tui_bin)
-                    .add_arg("--title").add_arg(_("gui.icon.menu_title"))
-                    .add_arg("--menu").add_arg(_("gui.icon.menu_prompt"))
-                    .add_arg("0").add_arg("50").add_arg("0")
-                    .add_arg("1").add_arg(_("gui.icon.win11_item"))
-                    .add_arg("2").add_arg(_("gui.icon.candy_item"))
-                    .add_arg("3").add_arg(_("gui.icon.pixel_item"))
-                    .add_arg("4").add_arg(_("gui.icon.paper_item"))
-                    .add_arg("5").add_arg(_("gui.icon.papirus_item"))
-                    .add_arg("6").add_arg(_("gui.icon.numix_item"))
-                    .add_arg("7").add_arg(_("gui.icon.moka_item"))
-                    .add_arg("8").add_arg(_("gui.icon.uos_item"))
-                    .add_arg("0").add_arg(_("gui.icon.return_prev"))
-                    .build_string();
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
-            if (ch == "1") download_win10x_theme();
-            else if (ch == "2") download_candy_icon_theme();
-            else if (ch == "3") download_raspbian_pixel_assets();
-            else if (ch == "4") download_paper_icon_theme();
-            else if (ch == "5") desktop_manager_.download_papirus_icon_theme();
-            else if (ch == "6") desktop_manager_.install_numix_theme_ext();
-            else if (ch == "7") desktop_manager_.install_moka_theme_ext();
-            else if (ch == "8") download_uos_icon_theme();
-            Logger::press_enter();
-        }
+        using namespace tmoe::ui;
+
+        desktop_manager_.check_update_icon_caches_sh();
+
+        auto menu = make_plugin_menu(
+            _("gui.icon.menu_title"), _("gui.icon.menu_prompt"), "icon_themes");
+
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.icon.win11_item"), "1",
+            [this](MenuContext&) -> bool {
+                download_win10x_theme();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.icon.candy_item"), "2",
+            [this](MenuContext&) -> bool {
+                download_candy_icon_theme();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.icon.pixel_item"), "3",
+            [this](MenuContext&) -> bool {
+                download_raspbian_pixel_assets();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.icon.paper_item"), "4",
+            [this](MenuContext&) -> bool {
+                download_paper_icon_theme();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.icon.papirus_item"), "5",
+            [this](MenuContext&) -> bool {
+                desktop_manager_.download_papirus_icon_theme();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.icon.numix_item"), "6",
+            [this](MenuContext&) -> bool {
+                desktop_manager_.install_numix_theme_ext();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.icon.moka_item"), "7",
+            [this](MenuContext&) -> bool {
+                desktop_manager_.install_moka_theme_ext();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.icon.uos_item"), "8",
+            [this](MenuContext&) -> bool {
+                download_uos_icon_theme();
+                Logger::press_enter();
+                return true;
+            }));
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
     void BeautificationManager::download_win10x_theme() {
@@ -624,114 +727,201 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
     // ═══════════════════════════════════════════════════════════════
 
     void BeautificationManager::download_wallpapers_menu() {
-        while (true) {
-            std::string menu = CommandBuilder(cfg_.tui_bin)
-                    .add_arg("--title").add_arg(_("gui.wallpaper.menu_title"))
-                    .add_arg("--menu").add_arg(_("gui.wallpaper.menu_prompt"))
-                    .add_arg("0").add_arg("50").add_arg("0")
-                    .add_arg("1").add_arg(_("gui.wallpaper.ubuntu_item"))
-                    .add_arg("2").add_arg(_("gui.wallpaper.mint_item"))
-                    .add_arg("3").add_arg(_("gui.wallpaper.deepin_item"))
-                    .add_arg("4").add_arg(_("gui.wallpaper.elementary_item"))
-                    .add_arg("5").add_arg(_("gui.wallpaper.raspbian_item"))
-                    .add_arg("6").add_arg(_("gui.wallpaper.manjaro_item"))
-                    .add_arg("7").add_arg(_("gui.wallpaper.gnome_item"))
-                    .add_arg("8").add_arg(_("gui.wallpaper.xfce_artwork_item"))
-                    .add_arg("9").add_arg(_("gui.wallpaper.arch_item"))
-                    .add_arg("0").add_arg(_("gui.wallpaper.return_prev"))
-                    .build_string();
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
-            if (ch == "1") ubuntu_wallpapers_and_photos_menu();
-            else if (ch == "2") linux_mint_backgrounds_menu();
-            else if (ch == "3") download_deepin_wallpaper();
-            else if (ch == "4") download_elementary_wallpaper();
-            else if (ch == "5") download_raspbian_pixel_assets();
-            else if (ch == "6") download_manjaro_wallpaper();
-            else if (ch == "7") download_debian_gnome_wallpaper();
-            else if (ch == "8") download_arch_xfce_artwork();
-            else if (ch == "9") download_arch_wallpaper();
-            Logger::press_enter();
-        }
+        using namespace tmoe::ui;
+
+        auto menu = make_plugin_menu(
+            _("gui.wallpaper.menu_title"), _("gui.wallpaper.menu_prompt"), "wallpapers");
+
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.wallpaper.ubuntu_item"), "1",
+            [this](MenuContext&) -> bool {
+                ubuntu_wallpapers_and_photos_menu();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.wallpaper.mint_item"), "2",
+            [this](MenuContext&) -> bool {
+                linux_mint_backgrounds_menu();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.wallpaper.deepin_item"), "3",
+            [this](MenuContext&) -> bool {
+                download_deepin_wallpaper();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.wallpaper.elementary_item"), "4",
+            [this](MenuContext&) -> bool {
+                download_elementary_wallpaper();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.wallpaper.raspbian_item"), "5",
+            [this](MenuContext&) -> bool {
+                download_raspbian_pixel_assets();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.wallpaper.manjaro_item"), "6",
+            [this](MenuContext&) -> bool {
+                download_manjaro_wallpaper();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.wallpaper.gnome_item"), "7",
+            [this](MenuContext&) -> bool {
+                download_debian_gnome_wallpaper();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.wallpaper.xfce_artwork_item"), "8",
+            [this](MenuContext&) -> bool {
+                download_arch_xfce_artwork();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.wallpaper.arch_item"), "9",
+            [this](MenuContext&) -> bool {
+                download_arch_wallpaper();
+                Logger::press_enter();
+                return true;
+            }));
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
     void BeautificationManager::ubuntu_wallpapers_and_photos_menu() {
-        while (true) {
-            std::string menu = CommandBuilder(cfg_.tui_bin)
-                    .add_arg("--title").add_arg(_("gui.wallpaper.ubuntu_pack_title"))
-                    .add_arg("--menu").add_arg(_("gui.wallpaper.ubuntu_pack_prompt"))
-                    .add_arg("0").add_arg("50").add_arg("0")
-                    .add_arg("1").add_arg(_("gui.wallpaper.ubuntu_gnome_item"))
-                    .add_arg("2").add_arg(_("gui.wallpaper.xubuntu_community_item"))
-                    .add_arg("3").add_arg(_("gui.wallpaper.ubuntu_mate_item"))
-                    .add_arg("4").add_arg(_("gui.wallpaper.ubuntu_kylin_item"))
-                    .add_arg("0").add_arg(_("menu.tui.back"))
-                    .build_string();
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
-            if (ch == "1") ubuntu_gnome_wallpapers_menu();
-            else if (ch == "2") xubuntu_wallpapers_menu();
-            else if (ch == "3") desktop_manager_.download_ubuntu_mate_wallpaper();
-            else if (ch == "4") download_ubuntu_kylin_wallpaper();
-        }
+        using namespace tmoe::ui;
+
+        auto menu = make_plugin_menu(
+            _("gui.wallpaper.ubuntu_pack_title"), _("gui.wallpaper.ubuntu_pack_prompt"), "ubuntu_wallpapers");
+
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.wallpaper.ubuntu_gnome_item"), "1",
+            [this](MenuContext&) -> bool {
+                ubuntu_gnome_wallpapers_menu();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.wallpaper.xubuntu_community_item"), "2",
+            [this](MenuContext&) -> bool {
+                xubuntu_wallpapers_menu();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.wallpaper.ubuntu_mate_item"), "3",
+            [this](MenuContext&) -> bool {
+                desktop_manager_.download_ubuntu_mate_wallpaper();
+                Logger::press_enter();
+                return true;
+            }));
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.wallpaper.ubuntu_kylin_item"), "4",
+            [this](MenuContext&) -> bool {
+                download_ubuntu_kylin_wallpaper();
+                Logger::press_enter();
+                return true;
+            }));
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
     void BeautificationManager::ubuntu_gnome_wallpapers_menu() {
+        using namespace tmoe::ui;
+
         const char *codes[] = {
             "artful", "bionic", "cosmic", "disco", "eoan", "focal", "karmic", "lucid", "maverick",
             "natty", "oneiric", "precise", "quantal", "raring", "saucy", "trusty", "utopic", "vivid",
             "wily", "xenial", "yakkety", "zesty", nullptr
         };
-        CommandBuilder menu(cfg_.tui_bin);
-        menu.add_arg("--title").add_arg(_("gui.wallpaper.ubuntu_title"))
-                .add_arg("--menu").add_arg(_("gui.wallpaper.ubuntu_prompt"))
-                .add_arg("0").add_arg("50").add_arg("0");
-        for (int i = 0; codes[i]; ++i)
-            menu.add_arg(std::to_string(i + 1)).add_arg(codes[i]);
-        menu.add_arg("0").add_arg(_("menu.tui.back"));
-        auto ch = Executor::tui_select(menu.build_string());
-        if (ch == "0" || ch.empty()) return;
-        int idx = std::stoi(ch) - 1;
-        if (idx >= 0 && idx < 22) download_ubuntu_wallpaper(codes[idx]);
+
+        auto menu = make_plugin_menu(
+            _("gui.wallpaper.ubuntu_title"), _("gui.wallpaper.ubuntu_prompt"), "ubuntu_gnome_wp");
+
+        for (int i = 0; codes[i]; ++i) {
+            std::string code = codes[i];
+            std::string tag = std::to_string(i + 1);
+            menu->add_child(std::make_shared<LambdaAction>(
+                code, tag,
+                [this, code](MenuContext&) -> bool {
+                    download_ubuntu_wallpaper(code);
+                    Logger::press_enter();
+                    return true;
+                }));
+        }
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
     void BeautificationManager::xubuntu_wallpapers_menu() {
+        using namespace tmoe::ui;
+
         const char *items[] = {"trusty", "xenial","jammy", "bionic", "focal", nullptr};
-        CommandBuilder menu(cfg_.tui_bin);
-        menu.add_arg("--title").add_arg(_("gui.wallpaper.xubuntu_title"))
-                .add_arg("--menu").add_arg(_("gui.wallpaper.xubuntu_prompt"))
-                .add_arg("0").add_arg("50").add_arg("0");
-        for (int i = 0; items[i]; ++i)
-            menu.add_arg(std::to_string(i + 1)).add_arg(items[i]);
-        menu.add_arg("0").add_arg(_("menu.tui.back"));
-        auto ch = Executor::tui_select(menu.build_string());
-        if (ch == "0" || ch.empty()) return;
-        int idx = std::stoi(ch) - 1;
-        if (idx >= 0 && idx < 5) desktop_manager_.download_xubuntu_wallpaper(items[idx]);
+
+        auto menu = make_plugin_menu(
+            _("gui.wallpaper.xubuntu_title"), _("gui.wallpaper.xubuntu_prompt"), "xubuntu_wp");
+
+        for (int i = 0; items[i]; ++i) {
+            std::string item = items[i];
+            std::string tag = std::to_string(i + 1);
+            menu->add_child(std::make_shared<LambdaAction>(
+                item, tag,
+                [this, item](MenuContext&) -> bool {
+                    desktop_manager_.download_xubuntu_wallpaper(item);
+                    Logger::press_enter();
+                    return true;
+                }));
+        }
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
     void BeautificationManager::linux_mint_backgrounds_menu() {
+        using namespace tmoe::ui;
+
         const char *codes[] = {
             "ulyssa", "ulyana", "tricia", "tina", "tessa", "tara", "sylvia", "sonya", "serena",
             "sarah", "rosa", "retro", "rebecca", "rafaela", "qiana", "petra", "olivia", "nadia",
             "maya", "lisa-extra", "katya-extra", "xfce", nullptr
         };
-        while (true) {
-            CommandBuilder menu(cfg_.tui_bin);
-            menu.add_arg("--title").add_arg(_("gui.wallpaper.mint_title"))
-                    .add_arg("--menu").add_arg(_("gui.wallpaper.mint_prompt"))
-                    .add_arg("0").add_arg("50").add_arg("0");
-            for (int i = 0; codes[i]; ++i)
-                menu.add_arg(std::to_string(i + 1)).add_arg(codes[i]);
-            menu.add_arg("0").add_arg(_("menu.tui.back"));
-            auto ch = Executor::tui_select(menu.build_string());
-            if (ch == "0" || ch.empty()) return;
-            int idx = std::stoi(ch) - 1;
-            if (idx >= 0 && idx < 22) {
-                desktop_manager_.download_mint_backgrounds(codes[idx]);
-                Logger::press_enter();
-            }
+
+        auto menu = make_plugin_menu(
+            _("gui.wallpaper.mint_title"), _("gui.wallpaper.mint_prompt"), "linux_mint_wp");
+
+        for (int i = 0; codes[i]; ++i) {
+            std::string code = codes[i];
+            std::string tag = std::to_string(i + 1);
+            menu->add_child(std::make_shared<LambdaAction>(
+                code, tag,
+                [this, code](MenuContext&) -> bool {
+                    desktop_manager_.download_mint_backgrounds(code);
+                    Logger::press_enter();
+                    return true;
+                }));
         }
+
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -831,49 +1021,80 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
     // ═══════════════════════════════════════════════════════════════
 
     void BeautificationManager::configure_mouse_cursor() {
-        while (true) {
-            std::string menu = CommandBuilder(cfg_.tui_bin)
-                    .add_arg("--title").add_arg(_("gui.cursor.menu_title"))
-                    .add_arg("--menu").add_arg(_("gui.cursor.menu_prompt"))
-                    .add_arg("0").add_arg("50").add_arg("0")
-                    .add_arg("1").add_arg(_("gui.cursor.all_modern_item"))
-                    .add_arg("2").add_arg(_("gui.cursor.breeze_item"))
-                    .add_arg("3").add_arg(_("gui.cursor.chameleon_item"))
-                    .add_arg("4").add_arg(_("gui.cursor.moblin_item"))
-                    .add_arg("5").add_arg(_("gui.cursor.install_via_pkg_item"))
-                    .add_arg("0").add_arg(_("menu.tui.back"))
-                    .build_string();
+        using namespace tmoe::ui;
 
-            auto ch = Executor::tui_select(menu);
-            if (ch == "0" || ch.empty()) return;
+        auto menu = make_plugin_menu(
+            _("gui.cursor.menu_title"), _("gui.cursor.menu_prompt"), "mouse_cursor");
 
-            if (ch == "1") {
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.cursor.all_modern_item"), "1",
+            [this](MenuContext&) -> bool {
                 download_chameleon_cursor_theme();
-            } else if (ch == "2" || ch == "3" || ch == "4") {
-                const char *name = nullptr;
-                const char *repo = nullptr;
-                if (ch == "2") {
-                    name = "breeze-cursor-theme";
-                    repo = "https://mirrors.bfsu.edu.cn/debian/pool/main/b/breeze/";
-                } else if (ch == "3") {
-                    name = "chameleon-cursor-theme";
-                    repo = "https://mirrors.bfsu.edu.cn/debian/pool/main/c/chameleon-cursor-theme/";
-                } else if (ch == "4") {
-                    name = "moblin-cursor-theme";
-                    repo = "https://mirrors.bfsu.edu.cn/debian/pool/main/m/moblin-cursor-theme/";
-                }
+                Logger::info(_("gui.cursor.apply_hint"));
+                Logger::press_enter();
+                return true;
+            }));
 
-                Logger::step(std::string(_("gui.cursor.install_step")) + name);
-                std::string pattern = std::string(name) + ".*all\\.deb";
-                if (!SystemHelper::fetch_latest_and_extract(repo, pattern, std::string(name) + "_dl")) {
-                    // bfsu 回退到 debian 官方源
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.cursor.breeze_item"), "2",
+            [this](MenuContext&) -> bool {
+                Logger::step(std::string(_("gui.cursor.install_step")) + "breeze-cursor-theme");
+                std::string name = "breeze-cursor-theme";
+                std::string repo = "https://mirrors.bfsu.edu.cn/debian/pool/main/b/breeze/";
+                std::string pattern = name + ".*all\\.deb";
+                if (!SystemHelper::fetch_latest_and_extract(repo, pattern, name + "_dl")) {
                     std::string fallback = repo;
                     size_t p = fallback.find("mirrors.bfsu.edu.cn");
                     if (p != std::string::npos) fallback.replace(p, 21, "ftp.debian.org");
-                    SystemHelper::fetch_latest_and_extract(fallback, pattern, std::string(name) + "_dl_fb");
+                    SystemHelper::fetch_latest_and_extract(fallback, pattern, name + "_dl_fb");
                 }
                 Logger::ok(_("gui.cursor.install_done"));
-            } else if (ch == "5") {
+                Logger::info(_("gui.cursor.apply_hint"));
+                Logger::press_enter();
+                return true;
+            }));
+
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.cursor.chameleon_item"), "3",
+            [this](MenuContext&) -> bool {
+                Logger::step(std::string(_("gui.cursor.install_step")) + "chameleon-cursor-theme");
+                std::string name = "chameleon-cursor-theme";
+                std::string repo = "https://mirrors.bfsu.edu.cn/debian/pool/main/c/chameleon-cursor-theme/";
+                std::string pattern = name + ".*all\\.deb";
+                if (!SystemHelper::fetch_latest_and_extract(repo, pattern, name + "_dl")) {
+                    std::string fallback = repo;
+                    size_t p = fallback.find("mirrors.bfsu.edu.cn");
+                    if (p != std::string::npos) fallback.replace(p, 21, "ftp.debian.org");
+                    SystemHelper::fetch_latest_and_extract(fallback, pattern, name + "_dl_fb");
+                }
+                Logger::ok(_("gui.cursor.install_done"));
+                Logger::info(_("gui.cursor.apply_hint"));
+                Logger::press_enter();
+                return true;
+            }));
+
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.cursor.moblin_item"), "4",
+            [this](MenuContext&) -> bool {
+                Logger::step(std::string(_("gui.cursor.install_step")) + "moblin-cursor-theme");
+                std::string name = "moblin-cursor-theme";
+                std::string repo = "https://mirrors.bfsu.edu.cn/debian/pool/main/m/moblin-cursor-theme/";
+                std::string pattern = name + ".*all\\.deb";
+                if (!SystemHelper::fetch_latest_and_extract(repo, pattern, name + "_dl")) {
+                    std::string fallback = repo;
+                    size_t p = fallback.find("mirrors.bfsu.edu.cn");
+                    if (p != std::string::npos) fallback.replace(p, 21, "ftp.debian.org");
+                    SystemHelper::fetch_latest_and_extract(fallback, pattern, name + "_dl_fb");
+                }
+                Logger::ok(_("gui.cursor.install_done"));
+                Logger::info(_("gui.cursor.apply_hint"));
+                Logger::press_enter();
+                return true;
+            }));
+
+        menu->add_child(std::make_shared<LambdaAction>(
+            _("gui.cursor.install_via_pkg_item"), "5",
+            [this](MenuContext&) -> bool {
                 std::string pkg_cmd = CommandBuilder(cfg_.tui_bin)
                         .add_arg("--title").add_arg(_("gui.cursor.pkg_install_title"))
                         .add_arg("--inputbox").add_arg(_("gui.cursor.pkg_install_prompt"))
@@ -881,11 +1102,14 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
                         .build_string();
                 std::string pkg_name = Executor::tui_select(pkg_cmd);
                 if (!pkg_name.empty()) install_cursor_theme(pkg_name);
-            }
+                Logger::info(_("gui.cursor.apply_hint"));
+                Logger::press_enter();
+                return true;
+            }));
 
-            Logger::info(_("gui.cursor.apply_hint"));
-            Logger::press_enter();
-        }
+        add_sandwich_nav(menu);
+        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuEngine(ctx).run(menu);
     }
 
     void BeautificationManager::download_chameleon_cursor_theme() {
