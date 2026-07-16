@@ -6,6 +6,7 @@
 #include "domain/system/package_manager.h"
 #include "core/command_builder.hpp"
 #include <sstream>
+#include "ui/menus/termux_plugin.h"
 
 namespace tmoe::ui::menus {
 
@@ -13,38 +14,38 @@ namespace tmoe::ui::menus {
 // GUI 子菜单构建器 — 替换 run_termux_gui_menu()
 // ═══════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_termux_gui_menu(domain::TermuxManager* mgr) {
+std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_termux_gui_menu() {
     auto menu = make_plugin_menu(
         _("termux.gui_mgmt_title"), _("termux.gui_mgmt_prompt"), "plugin_termux_gui");
 
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.gui_xfce4"), "1",
-        [mgr](MenuContext&) -> bool {
-            mgr->install_termux_xfce();
+        [this](MenuContext&) -> bool {
+            mgr_->install_termux_xfce();
             Logger::press_enter();
             return true;
         }));
 
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.gui_lxqt"), "2",
-        [mgr](MenuContext&) -> bool {
-            mgr->install_termux_lxqt();
+        [this](MenuContext&) -> bool {
+            mgr_->install_termux_lxqt();
             Logger::press_enter();
             return true;
         }));
 
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.gui_resolution"), "3",
-        [mgr](MenuContext&) -> bool {
-            mgr->configure_termux_vnc();
+        [this](MenuContext&) -> bool {
+            mgr_->configure_termux_vnc();
             Logger::press_enter();
             return true;
         }));
 
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.gui_remove"), "4",
-        [mgr](MenuContext&) -> bool {
-            mgr->remove_termux_gui();
+        [this](MenuContext&) -> bool {
+            mgr_->remove_termux_gui();
             Logger::press_enter();
             return true;
         }));
@@ -57,14 +58,14 @@ static std::shared_ptr<IUIMenu> build_termux_gui_menu(domain::TermuxManager* mgr
 // 终端美化子菜单构建器 — 替换 beautify_terminal()
 // ═══════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_termux_beautify_menu(domain::TermuxManager* mgr) {
+std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_termux_beautify_menu() {
     auto menu = make_plugin_menu(
         _("termux.beautify_title"), _("termux.beautify_prompt"), "plugin_termux_beautify");
 
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.beautify_tmoe_zsh"), "1",
-        [mgr](MenuContext&) -> bool {
-            mgr->configure_tmoe_zsh();
+        [this](MenuContext&) -> bool {
+            mgr_->configure_tmoe_zsh();
             Logger::press_enter();
             return true;
         }));
@@ -147,8 +148,7 @@ static void toggle_repo(const std::string& repo_name) {
 // Builder: 仓库管理 (原 manage_termux_repos — 5 项)
 // ═══════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_repos_menu(domain::TermuxManager* mgr) {
-    (void)mgr;
+std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_repos_menu() {
     auto menu = make_plugin_menu(
         _("termux.repo_title"), _("termux.repo_prompt"), "plugin_termux_repos");
 
@@ -180,8 +180,7 @@ static std::shared_ptr<IUIMenu> build_repos_menu(domain::TermuxManager* mgr) {
 // Builder: Alpine 镜像切换 (原 switch_alpine_mirror — 2 项)
 // ═══════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_alpine_mirror_menu(domain::TermuxManager* mgr) {
-    (void)mgr;
+std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_alpine_mirror_menu() {
     auto menu = make_plugin_menu(
         _("termux.alpine_mirror_title"), _("termux.alpine_mirror_prompt"), "plugin_termux_alpine");
 
@@ -230,15 +229,15 @@ static std::shared_ptr<IUIMenu> build_alpine_mirror_menu(domain::TermuxManager* 
 // Builder: 镜像源切换 (原 switch_pkg_mirror — 13 项)
 // ═══════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_mirror_menu(domain::TermuxManager* mgr) {
+std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_mirror_menu() {
     auto menu = make_plugin_menu(
         _("termux.mirror_title"), _("termux.mirror_prompt"), "plugin_termux_mirror");
 
     // 1. BFSU (北外)
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.mirror_bfsu"), "1",
-        [mgr](MenuContext&) -> bool {
-            mgr->modify_termux_sources_list("https://mirrors.bfsu.edu.cn/termux/apt");
+        [this](MenuContext&) -> bool {
+            mgr_->modify_termux_sources_list("https://mirrors.bfsu.edu.cn/termux/apt");
             Logger::ok(_("termux.mirror_switch_ok"));
             Logger::press_enter();
             return true;
@@ -247,8 +246,8 @@ static std::shared_ptr<IUIMenu> build_mirror_menu(domain::TermuxManager* mgr) {
     // 2. Tencent (腾讯云)
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.mirror_tencent"), "2",
-        [mgr](MenuContext&) -> bool {
-            mgr->modify_termux_sources_list("https://mirrors.cloud.tencent.com/termux/apt");
+        [this](MenuContext&) -> bool {
+            mgr_->modify_termux_sources_list("https://mirrors.cloud.tencent.com/termux/apt");
             Logger::ok(_("termux.mirror_switch_ok"));
             Logger::press_enter();
             return true;
@@ -257,8 +256,8 @@ static std::shared_ptr<IUIMenu> build_mirror_menu(domain::TermuxManager* mgr) {
     // 3. Tsinghua (清华 TUNA)
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.mirror_tsinghua"), "3",
-        [mgr](MenuContext&) -> bool {
-            mgr->modify_termux_sources_list("https://mirrors.tuna.tsinghua.edu.cn/termux/apt");
+        [this](MenuContext&) -> bool {
+            mgr_->modify_termux_sources_list("https://mirrors.tuna.tsinghua.edu.cn/termux/apt");
             Logger::ok(_("termux.mirror_switch_ok"));
             Logger::press_enter();
             return true;
@@ -267,8 +266,8 @@ static std::shared_ptr<IUIMenu> build_mirror_menu(domain::TermuxManager* mgr) {
     // 4. USTC (中科大)
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.mirror_ustc"), "4",
-        [mgr](MenuContext&) -> bool {
-            mgr->modify_termux_sources_list("https://mirrors.ustc.edu.cn/termux/apt");
+        [this](MenuContext&) -> bool {
+            mgr_->modify_termux_sources_list("https://mirrors.ustc.edu.cn/termux/apt");
             Logger::ok(_("termux.mirror_switch_ok"));
             Logger::press_enter();
             return true;
@@ -277,16 +276,16 @@ static std::shared_ptr<IUIMenu> build_mirror_menu(domain::TermuxManager* mgr) {
     // 5. 仓库管理 → 嵌套子菜单
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.mirror_repos"), "5",
-        [mgr](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_repos_menu(mgr));
+        [this](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(build_repos_menu());
             return true;
         }));
 
     // 6. 镜像站速度测试
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.mirror_speed_test"), "6",
-        [mgr](MenuContext&) -> bool {
-            mgr->run_mirror_speed_test();
+        [this](MenuContext&) -> bool {
+            mgr_->run_mirror_speed_test();
             Logger::press_enter();
             return true;
         }));
@@ -294,8 +293,8 @@ static std::shared_ptr<IUIMenu> build_mirror_menu(domain::TermuxManager* mgr) {
     // 7. 手动编辑 sources.list
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.mirror_edit"), "7",
-        [mgr](MenuContext&) -> bool {
-            mgr->edit_sources_manually();
+        [this](MenuContext&) -> bool {
+            mgr_->edit_sources_manually();
             Logger::press_enter();
             return true;
         }));
@@ -303,8 +302,8 @@ static std::shared_ptr<IUIMenu> build_mirror_menu(domain::TermuxManager* mgr) {
     // 8. 清理 sources.list
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.mirror_clean"), "8",
-        [mgr](MenuContext&) -> bool {
-            mgr->clean_sources_list();
+        [this](MenuContext&) -> bool {
+            mgr_->clean_sources_list();
             Logger::press_enter();
             return true;
         }));
@@ -312,8 +311,8 @@ static std::shared_ptr<IUIMenu> build_mirror_menu(domain::TermuxManager* mgr) {
     // 9. 恢复默认官方源
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.mirror_restore"), "9",
-        [mgr](MenuContext&) -> bool {
-            mgr->restore_default_sources();
+        [this](MenuContext&) -> bool {
+            mgr_->restore_default_sources();
             Logger::press_enter();
             return true;
         }));
@@ -321,8 +320,8 @@ static std::shared_ptr<IUIMenu> build_mirror_menu(domain::TermuxManager* mgr) {
     // A. 备份 sources.list
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.mirror_backup_sources"), "A",
-        [mgr](MenuContext&) -> bool {
-            mgr->backup_sources_list();
+        [this](MenuContext&) -> bool {
+            mgr_->backup_sources_list();
             Logger::press_enter();
             return true;
         }));
@@ -330,8 +329,8 @@ static std::shared_ptr<IUIMenu> build_mirror_menu(domain::TermuxManager* mgr) {
     // B. 旧版镜像格式
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.mirror_old_format"), "B",
-        [mgr](MenuContext&) -> bool {
-            mgr->use_old_mirror_format("https://mirrors.tuna.tsinghua.edu.cn/termux");
+        [this](MenuContext&) -> bool {
+            mgr_->use_old_mirror_format("https://mirrors.tuna.tsinghua.edu.cn/termux");
             Logger::press_enter();
             return true;
         }));
@@ -339,8 +338,8 @@ static std::shared_ptr<IUIMenu> build_mirror_menu(domain::TermuxManager* mgr) {
     // C. Alpine 镜像 → 嵌套子菜单
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.mirror_alpine"), "C",
-        [mgr](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_alpine_mirror_menu(mgr));
+        [this](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(build_alpine_mirror_menu());
             return true;
         }));
 
@@ -352,15 +351,15 @@ static std::shared_ptr<IUIMenu> build_mirror_menu(domain::TermuxManager* mgr) {
 // Builder: 磁盘空间查询 (原 check_disk_usage — 4 项)
 // ═══════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_disk_menu(domain::TermuxManager* mgr) {
+std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_disk_menu() {
     auto menu = make_plugin_menu(
         _("termux.disk_title"), _("termux.disk_prompt"), "plugin_termux_disk");
 
     // 1. 目录大小排名
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.disk_dir_ranking"), "1",
-        [mgr](MenuContext&) -> bool {
-            mgr->show_termux_dir_usage();
+        [this](MenuContext&) -> bool {
+            mgr_->show_termux_dir_usage();
             Logger::press_enter();
             return true;
         }));
@@ -368,8 +367,8 @@ static std::shared_ptr<IUIMenu> build_disk_menu(domain::TermuxManager* mgr) {
     // 2. 大文件 TOP30
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.disk_large_files"), "2",
-        [mgr](MenuContext&) -> bool {
-            mgr->show_termux_large_files();
+        [this](MenuContext&) -> bool {
+            mgr_->show_termux_large_files();
             Logger::press_enter();
             return true;
         }));
@@ -377,8 +376,8 @@ static std::shared_ptr<IUIMenu> build_disk_menu(domain::TermuxManager* mgr) {
     // 3. SD 卡占用
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.disk_sdcard"), "3",
-        [mgr](MenuContext&) -> bool {
-            mgr->show_sdcard_usage();
+        [this](MenuContext&) -> bool {
+            mgr_->show_sdcard_usage();
             Logger::press_enter();
             return true;
         }));
@@ -386,8 +385,8 @@ static std::shared_ptr<IUIMenu> build_disk_menu(domain::TermuxManager* mgr) {
     // 4. 整体磁盘占用
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.disk_overall"), "4",
-        [mgr](MenuContext&) -> bool {
-            mgr->show_overall_disk_usage();
+        [this](MenuContext&) -> bool {
+            mgr_->show_overall_disk_usage();
             Logger::press_enter();
             return true;
         }));
@@ -400,16 +399,16 @@ static std::shared_ptr<IUIMenu> build_disk_menu(domain::TermuxManager* mgr) {
 // Builder: ADB 连接方式 (原 connect_adb_and_fix 内部菜单 — 4 项)
 // ═══════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_adb_connect_menu(domain::TermuxManager* mgr) {
+std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_adb_connect_menu() {
     auto menu = make_plugin_menu(
         _("termux.adb_connect_title"), _("termux.adb_connect_prompt"), "plugin_termux_adb_connect");
 
     // 1. 无线配对 (Android 11+)
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.adb_wireless_pair"), "1",
-        [mgr](MenuContext&) -> bool {
-            mgr->adb_pair_and_connect_flow();
-            int count = mgr->count_adb_devices();
+        [this](MenuContext&) -> bool {
+            mgr_->adb_pair_and_connect_flow();
+            int count = mgr_->count_adb_devices();
             if (count <= 0) {
                 Logger::warn(_("termux.adb_no_device"));
             }
@@ -461,15 +460,15 @@ static std::shared_ptr<IUIMenu> build_adb_connect_menu(domain::TermuxManager* mg
 // Builder: Signal 9 修复 (原 fix_android_12_signal_9 — 6 项)
 // ═══════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_signal9_menu(domain::TermuxManager* mgr) {
+std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_signal9_menu() {
     auto menu = make_plugin_menu(
         _("termux.signal9_fix_title"), _("termux.signal9_fix_prompt"), "plugin_termux_signal9");
 
     // 1. ADB 自动修复 (包含连接流程)
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.signal9_adb_fix"), "1",
-        [mgr](MenuContext&) -> bool {
-            mgr->connect_adb_and_fix();
+        [this](MenuContext&) -> bool {
+            mgr_->connect_adb_and_fix();
             Logger::press_enter();
             return true;
         }));
@@ -477,9 +476,9 @@ static std::shared_ptr<IUIMenu> build_signal9_menu(domain::TermuxManager* mgr) {
     // 2. 三星设备兼容模式 + ADB 修复
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.signal9_samsung"), "2",
-        [mgr](MenuContext&) -> bool {
-            mgr->set_samsung_adb_comp_mode();
-            mgr->connect_adb_and_fix();
+        [this](MenuContext&) -> bool {
+            mgr_->set_samsung_adb_comp_mode();
+            mgr_->connect_adb_and_fix();
             Logger::press_enter();
             return true;
         }));
@@ -487,9 +486,9 @@ static std::shared_ptr<IUIMenu> build_signal9_menu(domain::TermuxManager* mgr) {
     // 3. ADB 配对 + 连接 + 修复
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.signal9_adb_pair"), "3",
-        [mgr](MenuContext&) -> bool {
-            if (mgr->adb_pair_and_connect_flow()) {
-                mgr->execute_max_phantom_fix("");
+        [this](MenuContext&) -> bool {
+            if (mgr_->adb_pair_and_connect_flow()) {
+                mgr_->execute_max_phantom_fix("");
             }
             Logger::press_enter();
             return true;
@@ -498,8 +497,8 @@ static std::shared_ptr<IUIMenu> build_signal9_menu(domain::TermuxManager* mgr) {
     // 4. 配置 ADB 服务端口
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.signal9_adb_port"), "4",
-        [mgr](MenuContext&) -> bool {
-            mgr->select_adb_port();
+        [this](MenuContext&) -> bool {
+            mgr_->select_adb_port();
             Logger::press_enter();
             return true;
         }));
@@ -507,8 +506,8 @@ static std::shared_ptr<IUIMenu> build_signal9_menu(domain::TermuxManager* mgr) {
     // 5. 验证修复结果
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.signal9_verify"), "5",
-        [mgr](MenuContext&) -> bool {
-            mgr->verify_signal9_fix();
+        [this](MenuContext&) -> bool {
+            mgr_->verify_signal9_fix();
             Logger::press_enter();
             return true;
         }));
@@ -536,8 +535,7 @@ static std::shared_ptr<IUIMenu> build_signal9_menu(domain::TermuxManager* mgr) {
 // Builder: 配色方案 (原 termux_color_scheme_menu — 7 项)
 // ═══════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_color_menu(domain::TermuxManager* mgr) {
-    (void)mgr;
+std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_color_menu() {
     auto menu = make_plugin_menu(
         _("termux.color_title"), _("termux.color_prompt"), "plugin_termux_color");
 
@@ -599,8 +597,7 @@ static std::shared_ptr<IUIMenu> build_color_menu(domain::TermuxManager* mgr) {
 // Builder: 字体 (原 termux_font_menu — 6 项)
 // ═══════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_font_menu(domain::TermuxManager* mgr) {
-    (void)mgr;
+std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_font_menu() {
     auto menu = make_plugin_menu(
         _("termux.font_title"), _("termux.font_prompt"), "plugin_termux_font");
 
@@ -667,23 +664,23 @@ static std::shared_ptr<IUIMenu> build_font_menu(domain::TermuxManager* mgr) {
 // 嵌套引擎: 项 1(GUI), 4(美化), 5(镜像), 6(磁盘), 8(Signal9)
 // ═══════════════════════════════════════════════════════════════
 
-std::shared_ptr<IUIMenu> create_termux_menu(domain::TermuxManager* mgr) {
+std::shared_ptr<IUIMenu> TermuxMenuPlugin::build() {
     auto menu = make_plugin_menu(
         _("menu.tui.termux"), _("termux.menu_prompt"), "plugin_termux");
 
     // 1. GUI 子菜单 — 嵌套引擎
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.gui"), "1",
-        [mgr](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_termux_gui_menu(mgr));
+        [this](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(build_termux_gui_menu());
             return true;
         }));
 
     // 2. 备份
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.backup"), "2",
-        [mgr](MenuContext&) -> bool {
-            mgr->backup_termux();
+        [this](MenuContext&) -> bool {
+            mgr_->backup_termux();
             Logger::press_enter();
             return true;
         }));
@@ -691,7 +688,7 @@ std::shared_ptr<IUIMenu> create_termux_menu(domain::TermuxManager* mgr) {
     // 3. 还原 — 动态备份文件选择器
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.restore"), "3",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             std::string backup_dir = "/sdcard/Download/backup/termux";
             if (!fs::exists(backup_dir)) {
                 Logger::error(_f("termux.backup_dir_not_found", backup_dir));
@@ -729,8 +726,8 @@ std::shared_ptr<IUIMenu> create_termux_menu(domain::TermuxManager* mgr) {
 
                 file_menu->add_child(std::make_shared<LambdaAction>(
                     fname, std::to_string(idx),
-                    [mgr, full_path](MenuContext&) -> bool {
-                        mgr->restore_termux(full_path);
+                    [this, full_path](MenuContext&) -> bool {
+                        mgr_->restore_termux(full_path);
                         Logger::press_enter();
                         return true;
                     }));
@@ -745,32 +742,32 @@ std::shared_ptr<IUIMenu> create_termux_menu(domain::TermuxManager* mgr) {
     // 4. 终端美化 — 嵌套引擎
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.beautify"), "4",
-        [mgr](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_termux_beautify_menu(mgr));
+        [this](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(build_termux_beautify_menu());
             return true;
         }));
 
     // 5. 镜像源切换 → 嵌套引擎 (13 项子菜单)
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.mirror"), "5",
-        [mgr](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_mirror_menu(mgr));
+        [this](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(build_mirror_menu());
             return true;
         }));
 
     // 6. 磁盘空间占用 → 嵌套引擎 (4 项子菜单)
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.disk_usage"), "6",
-        [mgr](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_disk_menu(mgr));
+        [this](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(build_disk_menu());
             return true;
         }));
 
     // 7. 环境初始化
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.env_init"), "7",
-        [mgr](MenuContext&) -> bool {
-            mgr->check_and_init_environment();
+        [this](MenuContext&) -> bool {
+            mgr_->check_and_init_environment();
             Logger::press_enter();
             return true;
         }));
@@ -778,16 +775,16 @@ std::shared_ptr<IUIMenu> create_termux_menu(domain::TermuxManager* mgr) {
     // 8. Android 12+ Signal 9 修复 → 嵌套引擎 (6 项子菜单)
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.signal9"), "8",
-        [mgr](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_signal9_menu(mgr));
+        [this](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(build_signal9_menu());
             return true;
         }));
 
     // 9. 共享存储设置
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.storage"), "9",
-        [mgr](MenuContext&) -> bool {
-            mgr->setup_storage();
+        [this](MenuContext&) -> bool {
+            mgr_->setup_storage();
             Logger::press_enter();
             return true;
         }));
@@ -795,8 +792,8 @@ std::shared_ptr<IUIMenu> create_termux_menu(domain::TermuxManager* mgr) {
     // A. PulseAudio 配置
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.pulseaudio"), "10",
-        [mgr](MenuContext&) -> bool {
-            mgr->configure_pulseaudio_tcp();
+        [this](MenuContext&) -> bool {
+            mgr_->configure_pulseaudio_tcp();
             Logger::press_enter();
             return true;
         }));
@@ -804,8 +801,8 @@ std::shared_ptr<IUIMenu> create_termux_menu(domain::TermuxManager* mgr) {
     // B. 自更新
     menu->add_child(std::make_shared<LambdaAction>(
         _("termux.self_update"), "11",
-        [mgr](MenuContext&) -> bool {
-            mgr->self_update();
+        [this](MenuContext&) -> bool {
+            mgr_->self_update();
             Logger::press_enter();
             return true;
         }));
@@ -813,5 +810,7 @@ std::shared_ptr<IUIMenu> create_termux_menu(domain::TermuxManager* mgr) {
     add_sandwich_nav(menu);
     return menu;
 }
+
+TermuxMenuPlugin::TermuxMenuPlugin(domain::TermuxManager* mgr) : mgr_(mgr) {}
 
 } // namespace tmoe::ui::menus

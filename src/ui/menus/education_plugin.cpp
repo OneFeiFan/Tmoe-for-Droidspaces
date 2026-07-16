@@ -18,19 +18,20 @@
 #include "ui/menu_engine.h"
 #include "domain/features/education.h"
 #include "domain/system/package_manager.h"
+#include "ui/menus/education_plugin.h"
 
 namespace tmoe::ui::menus {
 
 // ── L3: 高考真题 (4项) ──────────────────────────────────
 
-static std::shared_ptr<IUIMenu> build_gaokao_papers_menu(domain::EducationManager* mgr) {
+std::shared_ptr<IUIMenu> EducationMenuPlugin::build_gaokao_papers_menu() {
     auto menu = make_plugin_menu(
         _("edu.gaokao_papers_title"), _("edu.gaokao_papers"), "plugin_edu_gaokao_papers");
 
     menu->add_child(std::make_shared<LambdaAction>(
         std::string("2020 (") + _("edu.size_79mb") + ")", "1",
-        [mgr](MenuContext&) -> bool {
-            mgr->download_study_materials(
+        [this](MenuContext&) -> bool {
+            mgr_->download_study_materials(
                 "https://gitee.com/ak2/gaokao_paper_2020",
                 "2020", "2020年高考真题.tar.xz");
             Logger::press_enter();
@@ -39,8 +40,8 @@ static std::shared_ptr<IUIMenu> build_gaokao_papers_menu(domain::EducationManage
 
     menu->add_child(std::make_shared<LambdaAction>(
         std::string("2008-2019 (") + _("edu.no_listening") + ", 392.2MiB)", "2",
-        [mgr](MenuContext&) -> bool {
-            mgr->download_study_materials(
+        [this](MenuContext&) -> bool {
+            mgr_->download_study_materials(
                 "https://gitee.com/ak2/gaokao_paper_2019",
                 "2019", "2008-2019高考真题.tar.xz");
             Logger::press_enter();
@@ -49,8 +50,8 @@ static std::shared_ptr<IUIMenu> build_gaokao_papers_menu(domain::EducationManage
 
     menu->add_child(std::make_shared<LambdaAction>(
         std::string("2013-2018 (") + _("edu.science_edition") + ", 146.3MiB)", "3",
-        [mgr](MenuContext&) -> bool {
-            mgr->download_study_materials(
+        [this](MenuContext&) -> bool {
+            mgr_->download_study_materials(
                 "https://gitee.com/ak2/gaokao_paper_2013_to_2018",
                 "2018", "2013-2018高考真题.tar.xz");
             Logger::press_enter();
@@ -59,8 +60,8 @@ static std::shared_ptr<IUIMenu> build_gaokao_papers_menu(domain::EducationManage
 
     menu->add_child(std::make_shared<LambdaAction>(
         std::string("2008-2018 (") + _("edu.english_listening_only") + ", 244.9MiB)", "4",
-        [mgr](MenuContext&) -> bool {
-            mgr->download_study_materials(
+        [this](MenuContext&) -> bool {
+            mgr_->download_study_materials(
                 "https://gitee.com/ak2/gaokao_english_listening",
                 "2018", "2008-2018高考英语听力.tar.xz");
             Logger::press_enter();
@@ -73,14 +74,14 @@ static std::shared_ptr<IUIMenu> build_gaokao_papers_menu(domain::EducationManage
 
 // ── L3: 高考学习笔记 (2项) ──────────────────────────────
 
-static std::shared_ptr<IUIMenu> build_gaokao_notes_menu(domain::EducationManager* mgr) {
+std::shared_ptr<IUIMenu> EducationMenuPlugin::build_gaokao_notes_menu() {
     auto menu = make_plugin_menu(
         _("edu.gaokao_notes_title"), _("edu.gaokao_notes"), "plugin_edu_gaokao_notes");
 
     menu->add_child(std::make_shared<LambdaAction>(
         std::string(_("edu.gaokao_bio_notes")) + " (131.8MiB)", "1",
-        [mgr](MenuContext&) -> bool {
-            mgr->download_study_materials(
+        [this](MenuContext&) -> bool {
+            mgr_->download_study_materials(
                 "https://gitee.com/ak2/biology_note",
                 "2019", "生物笔记.tar.xz");
             Logger::press_enter();
@@ -89,8 +90,8 @@ static std::shared_ptr<IUIMenu> build_gaokao_notes_menu(domain::EducationManager
 
     menu->add_child(std::make_shared<LambdaAction>(
         std::string(_("edu.gaokao_eng_notes")) + " (5.4MiB)", "2",
-        [mgr](MenuContext&) -> bool {
-            mgr->download_study_materials(
+        [this](MenuContext&) -> bool {
+            mgr_->download_study_materials(
                 "https://gitee.com/ak2/english_note",
                 "2020", "英语终极笔记.tar.xz");
             Logger::press_enter();
@@ -103,12 +104,12 @@ static std::shared_ptr<IUIMenu> build_gaokao_notes_menu(domain::EducationManager
 
 // ── L2: 高考 (2个子菜单容器) ────────────────────────────
 
-static std::shared_ptr<IUIMenu> build_gaokao_menu(domain::EducationManager* mgr) {
+std::shared_ptr<IUIMenu> EducationMenuPlugin::build_gaokao_menu() {
     auto menu = make_plugin_menu(
         _("edu.gaokao_title"), _("edu.gaokao_prompt"), "plugin_edu_gaokao");
 
-    menu->add_child(build_gaokao_papers_menu(mgr));
-    menu->add_child(build_gaokao_notes_menu(mgr));
+    menu->add_child(build_gaokao_papers_menu());
+    menu->add_child(build_gaokao_notes_menu());
 
     add_navigation_items(menu);
     return menu;
@@ -116,14 +117,14 @@ static std::shared_ptr<IUIMenu> build_gaokao_menu(domain::EducationManager* mgr)
 
 // ── L2: 考研 (3项) ──────────────────────────────────────
 
-static std::shared_ptr<IUIMenu> build_kaoyan_menu(domain::EducationManager* mgr) {
+std::shared_ptr<IUIMenu> EducationMenuPlugin::build_kaoyan_menu() {
     auto menu = make_plugin_menu(
         _("edu.kaoyan_title"), _("edu.kaoyan_prompt"), "plugin_edu_kaoyan");
 
     menu->add_child(std::make_shared<LambdaAction>(
         std::string("2003-2019 ") + _("edu.kaoyan_politics") + " (6.2MiB)", "1",
-        [mgr](MenuContext&) -> bool {
-            mgr->download_study_materials(
+        [this](MenuContext&) -> bool {
+            mgr_->download_study_materials(
                 "https://gitee.com/ak2/postgraduate_politics",
                 "2019", "2003-2019政治真题.tar.xz");
             Logger::press_enter();
@@ -132,8 +133,8 @@ static std::shared_ptr<IUIMenu> build_kaoyan_menu(domain::EducationManager* mgr)
 
     menu->add_child(std::make_shared<LambdaAction>(
         std::string("2001-2019 ") + _("edu.kaoyan_english") + " (7.7MiB)", "2",
-        [mgr](MenuContext&) -> bool {
-            mgr->download_study_materials(
+        [this](MenuContext&) -> bool {
+            mgr_->download_study_materials(
                 "https://gitee.com/ak2/postgraduate_english",
                 "2019", "2001-2019英语真题.tar.xz");
             Logger::press_enter();
@@ -142,8 +143,8 @@ static std::shared_ptr<IUIMenu> build_kaoyan_menu(domain::EducationManager* mgr)
 
     menu->add_child(std::make_shared<LambdaAction>(
         std::string("1987-2020 ") + _("edu.kaoyan_math") + " (" + _("edu.with_solutions") + ", 15.5MiB)", "3",
-        [mgr](MenuContext&) -> bool {
-            mgr->download_study_materials(
+        [this](MenuContext&) -> bool {
+            mgr_->download_study_materials(
                 "https://gitee.com/ak2/postgraduate_math",
                 "2020", "1987-2020数学真题.tar.xz");
             Logger::press_enter();
@@ -156,7 +157,7 @@ static std::shared_ptr<IUIMenu> build_kaoyan_menu(domain::EducationManager* mgr)
 
 // ── L2: 数学软件 (5项) ──────────────────────────────────
 
-static std::shared_ptr<IUIMenu> build_math_menu(domain::EducationManager* /*mgr*/) {
+std::shared_ptr<IUIMenu> EducationMenuPlugin::build_math_menu() {
     auto menu = make_plugin_menu(
         _("edu.math_title"), _("edu.math_prompt"), "plugin_edu_math");
 
@@ -211,7 +212,7 @@ static std::shared_ptr<IUIMenu> build_math_menu(domain::EducationManager* /*mgr*
 
 // ── L3: GoldenDict (2项) ────────────────────────────────
 
-static std::shared_ptr<IUIMenu> build_goldendict_menu(domain::EducationManager* /*mgr*/) {
+std::shared_ptr<IUIMenu> EducationMenuPlugin::build_goldendict_menu() {
     auto menu = make_plugin_menu(
         _("edu.goldendict_title"), _("edu.goldendict"), "plugin_edu_goldendict");
 
@@ -238,14 +239,14 @@ static std::shared_ptr<IUIMenu> build_goldendict_menu(domain::EducationManager* 
 
 // ── L3: 四六级真题 (1项) ────────────────────────────────
 
-static std::shared_ptr<IUIMenu> build_cet_menu(domain::EducationManager* mgr) {
+std::shared_ptr<IUIMenu> EducationMenuPlugin::build_cet_menu() {
     auto menu = make_plugin_menu(
         _("edu.cet_title"), _("edu.cet_title"), "plugin_edu_cet");
 
     menu->add_child(std::make_shared<LambdaAction>(
         std::string("2013-2019 (") + _("edu.cet_both") + ", 6.7MiB)", "1",
-        [mgr](MenuContext&) -> bool {
-            mgr->download_study_materials(
+        [this](MenuContext&) -> bool {
+            mgr_->download_study_materials(
                 "https://gitee.com/ak2/cet",
                 "2019", "cet.tar.xz");
             Logger::press_enter();
@@ -258,17 +259,17 @@ static std::shared_ptr<IUIMenu> build_cet_menu(domain::EducationManager* mgr) {
 
 // ── L2: 英语 (2个子菜单 + 1个直接下载, 3项容器) ─────────
 
-static std::shared_ptr<IUIMenu> build_english_menu(domain::EducationManager* mgr) {
+std::shared_ptr<IUIMenu> EducationMenuPlugin::build_english_menu() {
     auto menu = make_plugin_menu(
         _("edu.english_title"), _("edu.english_prompt"), "plugin_edu_english");
 
-    menu->add_child(build_goldendict_menu(mgr));
-    menu->add_child(build_cet_menu(mgr));
+    menu->add_child(build_goldendict_menu());
+    menu->add_child(build_cet_menu());
 
     menu->add_child(std::make_shared<LambdaAction>(
         std::string(_("edu.english_masterpieces")) + " (222.8MiB)", "3",
-        [mgr](MenuContext&) -> bool {
-            mgr->download_study_materials(
+        [this](MenuContext&) -> bool {
+            mgr_->download_study_materials(
                 "https://gitee.com/ak2/masterpieces",
                 "2018", "英文原著.tar.xz");
             Logger::press_enter();
@@ -281,7 +282,7 @@ static std::shared_ptr<IUIMenu> build_english_menu(domain::EducationManager* mgr
 
 // ── L2: 物理 (3项) ──────────────────────────────────────
 
-static std::shared_ptr<IUIMenu> build_physics_menu(domain::EducationManager* /*mgr*/) {
+std::shared_ptr<IUIMenu> EducationMenuPlugin::build_physics_menu() {
     auto menu = make_plugin_menu(
         _("edu.physics_title"), _("edu.physics_prompt"), "plugin_edu_physics");
 
@@ -319,7 +320,7 @@ static std::shared_ptr<IUIMenu> build_physics_menu(domain::EducationManager* /*m
 
 // ── L2: 化学 (7项) ──────────────────────────────────────
 
-static std::shared_ptr<IUIMenu> build_chemistry_menu(domain::EducationManager* /*mgr*/) {
+std::shared_ptr<IUIMenu> EducationMenuPlugin::build_chemistry_menu() {
     auto menu = make_plugin_menu(
         _("edu.chemistry_title"), _("edu.chemistry_prompt"), "plugin_edu_chemistry");
 
@@ -392,12 +393,12 @@ static std::shared_ptr<IUIMenu> build_chemistry_menu(domain::EducationManager* /
 
 // ── L1: 科学与教育主菜单 ────────────────────────────────
 
-std::shared_ptr<IUIMenu> create_education_menu(domain::EducationManager* mgr) {
+std::shared_ptr<IUIMenu> EducationMenuPlugin::build() {
     auto menu = make_plugin_menu(
         _("edu.menu_title"), _("edu.menu_prompt"), "plugin_education");
 
     // 高考 → L2 容器菜单 (真题 + 学习笔记)
-    auto gaokao_menu = build_gaokao_menu(mgr);
+    auto gaokao_menu = build_gaokao_menu();
     menu->add_child(std::make_shared<LambdaAction>(
         _("edu.gaokao"), "edu_gaokao",
         [gaokao_menu](MenuContext& ctx) -> bool {
@@ -406,7 +407,7 @@ std::shared_ptr<IUIMenu> create_education_menu(domain::EducationManager* mgr) {
         }));
 
     // 考研 → L2 叶子菜单 (政治/英语/数学真题)
-    auto kaoyan_menu = build_kaoyan_menu(mgr);
+    auto kaoyan_menu = build_kaoyan_menu();
     menu->add_child(std::make_shared<LambdaAction>(
         _("edu.kaoyan"), "edu_kaoyan",
         [kaoyan_menu](MenuContext& ctx) -> bool {
@@ -415,7 +416,7 @@ std::shared_ptr<IUIMenu> create_education_menu(domain::EducationManager* mgr) {
         }));
 
     // 数学 → L2 叶子菜单 (5款数学软件)
-    auto math_menu = build_math_menu(mgr);
+    auto math_menu = build_math_menu();
     menu->add_child(std::make_shared<LambdaAction>(
         _("edu.math"), "edu_math",
         [math_menu](MenuContext& ctx) -> bool {
@@ -424,7 +425,7 @@ std::shared_ptr<IUIMenu> create_education_menu(domain::EducationManager* mgr) {
         }));
 
     // 英语 → L2 容器菜单 (GoldenDict + 四六级 + 名著)
-    auto english_menu = build_english_menu(mgr);
+    auto english_menu = build_english_menu();
     menu->add_child(std::make_shared<LambdaAction>(
         _("edu.english"), "edu_english",
         [english_menu](MenuContext& ctx) -> bool {
@@ -433,7 +434,7 @@ std::shared_ptr<IUIMenu> create_education_menu(domain::EducationManager* mgr) {
         }));
 
     // 物理 → L2 叶子菜单 (3款物理软件)
-    auto physics_menu = build_physics_menu(mgr);
+    auto physics_menu = build_physics_menu();
     menu->add_child(std::make_shared<LambdaAction>(
         _("edu.physics"), "edu_physics",
         [physics_menu](MenuContext& ctx) -> bool {
@@ -442,7 +443,7 @@ std::shared_ptr<IUIMenu> create_education_menu(domain::EducationManager* mgr) {
         }));
 
     // 化学 → L2 叶子菜单 (7款化学软件)
-    auto chemistry_menu = build_chemistry_menu(mgr);
+    auto chemistry_menu = build_chemistry_menu();
     menu->add_child(std::make_shared<LambdaAction>(
         _("edu.chemistry"), "edu_chemistry",
         [chemistry_menu](MenuContext& ctx) -> bool {
@@ -453,5 +454,7 @@ std::shared_ptr<IUIMenu> create_education_menu(domain::EducationManager* mgr) {
     add_sandwich_nav(menu);
     return menu;
 }
+
+EducationMenuPlugin::EducationMenuPlugin(domain::EducationManager* mgr) : mgr_(mgr) {}
 
 } // namespace tmoe::ui::menus

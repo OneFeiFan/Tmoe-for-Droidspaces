@@ -13,97 +13,81 @@
 #include "core/logger.h"
 #include <algorithm>
 #include <sstream>
+#include "ui/menus/beta_features_plugin.h"
 
 namespace tmoe::ui::menus {
 
 // ─────────────────────────────────────────────────────────────────────
-//  Forward declarations
+//  Top-level factory: 12 items → build()
 // ─────────────────────────────────────────────────────────────────────
 
-static std::shared_ptr<IUIMenu> build_system_menu(domain::BetaFeaturesManager* mgr);
-static std::shared_ptr<IUIMenu> build_uefi_menu(domain::BetaFeaturesManager* mgr);
-static std::shared_ptr<IUIMenu> build_store_menu(domain::BetaFeaturesManager* mgr);
-static std::shared_ptr<IUIMenu> build_deepin_menu(domain::BetaFeaturesManager* mgr);
-static std::shared_ptr<IUIMenu> build_video_menu(domain::BetaFeaturesManager* mgr);
-static std::shared_ptr<IUIMenu> build_paint_menu(domain::BetaFeaturesManager* mgr);
-static std::shared_ptr<IUIMenu> build_r_lang_menu(domain::BetaFeaturesManager* mgr);
-static std::shared_ptr<IUIMenu> build_file_menu(domain::BetaFeaturesManager* mgr);
-static std::shared_ptr<IUIMenu> build_file_manager_menu(domain::BetaFeaturesManager* mgr);
-static std::shared_ptr<IUIMenu> build_reader_menu(domain::BetaFeaturesManager* mgr);
-static std::shared_ptr<IUIMenu> build_other_menu(domain::BetaFeaturesManager* mgr);
-static std::shared_ptr<IUIMenu> build_scrcpy_menu(domain::BetaFeaturesManager* mgr);
-
-// ─────────────────────────────────────────────────────────────────────
-//  Top-level factory: 12 items → create_beta_features_menu()
-// ─────────────────────────────────────────────────────────────────────
-
-std::shared_ptr<IUIMenu> create_beta_features_menu(domain::BetaFeaturesManager* mgr) {
+std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build() {
     auto menu = make_plugin_menu(
         _("beta.menu_title"), _("beta.menu_prompt"), "plugin_beta_features");
 
     // 1: container/vm → delegates to VirtualizationManager
     menu->add_child(LambdaAction::make(
         _("beta.opt1_virt"), "1",
-        [mgr] { mgr->virt_delegate(); }));
+        [this] { mgr_->virt_delegate(); }));
 
     // 2: science & education → delegates to EducationManager
     menu->add_child(LambdaAction::make(
         _("beta.opt2_science"), "2",
-        [mgr] { mgr->education_delegate(); }));
+        [this] { mgr_->education_delegate(); }));
 
     // 3: system management → MenuEngine nested submenu
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.opt3_system"), "3",
-        [mgr](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_system_menu(mgr));
+        [this](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(build_system_menu());
             return true;
         }));
 
     // 4: store & download → MenuEngine nested submenu
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.opt4_store"), "4",
-        [mgr](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_store_menu(mgr));
+        [this](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(build_store_menu());
             return true;
         }));
 
     // 5: video editing → MenuEngine nested submenu
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.opt5_video"), "5",
-        [mgr](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_video_menu(mgr));
+        [this](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(build_video_menu());
             return true;
         }));
 
     // 6: paint → MenuEngine nested submenu
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.opt6_paint"), "6",
-        [mgr](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_paint_menu(mgr));
+        [this](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(build_paint_menu());
             return true;
         }));
 
     // 7: file management → MenuEngine nested submenu
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.opt7_file"), "7",
-        [mgr](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_file_menu(mgr));
+        [this](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(build_file_menu());
             return true;
         }));
 
     // 8: reader → MenuEngine nested submenu
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.opt8_read"), "8",
-        [mgr](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_reader_menu(mgr));
+        [this](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(build_reader_menu());
             return true;
         }));
 
     // 9: network — calls old placeholder method
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.opt9_network"), "9",
-        [mgr](MenuContext&) -> bool {
-            mgr->run_network_menu();
+        [this](MenuContext&) -> bool {
+            mgr_->run_network_menu();
             Logger::press_enter();
             return true;
         }));
@@ -111,18 +95,18 @@ std::shared_ptr<IUIMenu> create_beta_features_menu(domain::BetaFeaturesManager* 
     // 10: input method → delegates to InputMethodManager
     menu->add_child(LambdaAction::make(
         _("beta.opt10_input"), "10",
-        [mgr] { mgr->input_method_delegate(); }));
+        [this] { mgr_->input_method_delegate(); }));
 
     // 11: terminal → delegates to TerminalAppManager
     menu->add_child(LambdaAction::make(
         _("beta.opt11_terminal"), "11",
-        [mgr] { mgr->terminal_delegate(); }));
+        [this] { mgr_->terminal_delegate(); }));
 
     // 12: other → MenuEngine nested submenu
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.opt12_other"), "12",
-        [mgr](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_other_menu(mgr));
+        [this](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(build_other_menu());
             return true;
         }));
 
@@ -134,14 +118,14 @@ std::shared_ptr<IUIMenu> create_beta_features_menu(domain::BetaFeaturesManager* 
 //  build_system_menu — 10 items (对应 Bash sys-menu 406行)
 // ═════════════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_system_menu(domain::BetaFeaturesManager* mgr) {
+std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_system_menu() {
     auto menu = make_plugin_menu(
         _("beta.sys_title"), _("beta.sys_prompt"), "plugin_beta_system");
 
     // ── 1. sudo 用户组管理 (对应 Bash tmoe_linux_sudo_user_group_management) ──
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.sys_sudo_mgr"), "1",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto users_out = Executor::shell(
                 "grep -Ev 'nologin|halt|shutdown|0:0' /etc/passwd | awk -F':' '{print $1}'");
             std::string user_list = users_out.ok() ? users_out.stdout_data : "";
@@ -199,7 +183,7 @@ static std::shared_ptr<IUIMenu> build_system_menu(domain::BetaFeaturesManager* m
     // ── 2. rc.local systemd (对应 Bash modify_rc_local_script) ──
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.sys_rc_local"), "2",
-        [mgr](MenuContext&) -> bool {
+        [this](MenuContext&) -> bool {
             if (!Executor::shell("test -f /etc/rc.local").ok()) {
                 Executor::shell(
                     "sudo cat >/etc/rc.local <<'EOF'\n#!/bin/sh -e\n# rc.local\n# Add your startup commands above exit 0\nexit 0\nEOF\n");
@@ -220,7 +204,7 @@ static std::shared_ptr<IUIMenu> build_system_menu(domain::BetaFeaturesManager* m
     // ── 3. UEFI 启动管理 → 嵌套子菜单 ──
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.sys_uefi_boot"), "3",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             if (!Executor::has("efibootmgr"))
                 domain::PackageManager::install("efibootmgr", family);
@@ -232,14 +216,14 @@ static std::shared_ptr<IUIMenu> build_system_menu(domain::BetaFeaturesManager* m
                 Logger::press_enter();
                 return true;
             }
-            MenuEngine(ctx).run(build_uefi_menu(mgr));
+            MenuEngine(ctx).run(build_uefi_menu());
             return true;
         }));
 
     // ── 4. gnome-system-monitor ──
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.sys_gnome_monitor"), "4",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("gnome-system-monitor", family);
             Logger::press_enter();
@@ -249,7 +233,7 @@ static std::shared_ptr<IUIMenu> build_system_menu(domain::BetaFeaturesManager* m
     // ── 5. grub-customizer ──
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.sys_grub_customizer"), "5",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("grub-customizer", family);
             Logger::press_enter();
@@ -259,7 +243,7 @@ static std::shared_ptr<IUIMenu> build_system_menu(domain::BetaFeaturesManager* m
     // ── 6. gnome-system-tools + gnome-logs ──
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.sys_gnome_logs"), "6",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install({"gnome-system-tools", "gnome-logs"}, family);
             Logger::press_enter();
@@ -269,7 +253,7 @@ static std::shared_ptr<IUIMenu> build_system_menu(domain::BetaFeaturesManager* m
     // ── 7. boot-repair (Debian only) ──
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.sys_boot_repair"), "7",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             if (ctx.cfg.linux_distro != "debian") {
                 Logger::error(_("beta.sys_bootrepair_debian_only"));
                 Logger::info(_("beta.sys_bootrepair_deb_msg"));
@@ -292,7 +276,7 @@ static std::shared_ptr<IUIMenu> build_system_menu(domain::BetaFeaturesManager* m
     // ── 8. neofetch ──
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.sys_neofetch"), "8",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             if (!Executor::has("neofetch")) {
                 domain::PackageManager::install("neofetch", family);
@@ -314,7 +298,7 @@ static std::shared_ptr<IUIMenu> build_system_menu(domain::BetaFeaturesManager* m
     // ── 9. yasat ──
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.sys_yasat"), "9",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             if (!Executor::has("yasat"))
                 domain::PackageManager::install("yasat", family);
@@ -333,7 +317,7 @@ static std::shared_ptr<IUIMenu> build_system_menu(domain::BetaFeaturesManager* m
     // ── 10. Tmoe-linux manager (旧版外部脚本) ──
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.sys_tmoe_manager"), "10",
-        [mgr](MenuContext&) -> bool {
+        [this](MenuContext&) -> bool {
             Logger::info(_("beta.sys_old_manager"));
             Logger::info(_("beta.sys_old_manager_desc"));
             Logger::info("  ${TMOE_GIT_DIR}/share/old-version/share/app/manager");
@@ -350,14 +334,14 @@ static std::shared_ptr<IUIMenu> build_system_menu(domain::BetaFeaturesManager* m
 //  build_uefi_menu — 5 items (UEFI 启动管理子菜单)
 // ═════════════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_uefi_menu(domain::BetaFeaturesManager* mgr) {
+std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_uefi_menu() {
     auto menu = make_plugin_menu(
         _("beta.uefi_title"), "", "plugin_beta_uefi");
 
     // 1: 修改第一启动项
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.uefi_modify_first"), "1",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto out = Executor::shell("efibootmgr 2>/dev/null");
             Logger::info(out.ok() ? out.stdout_data : _("beta.sys_efibootmgr_failed"));
             std::string input = Executor::tui_select(
@@ -371,7 +355,7 @@ static std::shared_ptr<IUIMenu> build_uefi_menu(domain::BetaFeaturesManager* mgr
     // 2: 自定义启动顺序
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.uefi_custom_order"), "2",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             std::string order = Executor::tui_select(
                 ctx.cfg.tui_bin + " --title \"" + _("beta.uefi_boot_order_title") + "\" --inputbox \"" + _("beta.uefi_boot_order_prompt") + "\" 0 0");
             if (!order.empty())
@@ -383,7 +367,7 @@ static std::shared_ptr<IUIMenu> build_uefi_menu(domain::BetaFeaturesManager* mgr
     // 3: 备份 EFI
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.uefi_backup_efi"), "3",
-        [mgr](MenuContext&) -> bool {
+        [this](MenuContext&) -> bool {
             std::string efi_disk = Executor::shell(
                 "df -h | grep '/boot/efi' | awk '{print $1}' | head -n1").stdout_data;
             efi_disk.erase(std::remove(efi_disk.begin(), efi_disk.end(), '\n'), efi_disk.end());
@@ -397,7 +381,7 @@ static std::shared_ptr<IUIMenu> build_uefi_menu(domain::BetaFeaturesManager* mgr
     // 4: 恢复 EFI
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.uefi_restore_efi"), "4",
-        [mgr](MenuContext&) -> bool {
+        [this](MenuContext&) -> bool {
             Executor::passthrough("sudo dd if=/tmp/efi_backup.img of=$(df -h | grep '/boot/efi' | awk '{print $1}' | head -n1) bs=4M 2>/dev/null");
             Logger::ok(_("beta.sys_efi_restored"));
             Logger::press_enter();
@@ -407,7 +391,7 @@ static std::shared_ptr<IUIMenu> build_uefi_menu(domain::BetaFeaturesManager* mgr
     // 5: 安装 rEFInd
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.uefi_install_refind"), "5",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install({"refind", "refind-install"}, family);
             Logger::press_enter();
@@ -422,14 +406,14 @@ static std::shared_ptr<IUIMenu> build_uefi_menu(domain::BetaFeaturesManager* mgr
 //  build_store_menu — 8 items (对应 Bash beta_features:217-250)
 // ═════════════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_store_menu(domain::BetaFeaturesManager* mgr) {
+std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_store_menu() {
     auto menu = make_plugin_menu(
         _("beta.store_title"), _("beta.store_prompt"), "plugin_beta_store");
 
     // 1: aptitude
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.store_aptitude"), "1",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("aptitude", family);
             if (Executor::has("aptitude")) {
@@ -446,15 +430,15 @@ static std::shared_ptr<IUIMenu> build_store_menu(domain::BetaFeaturesManager* mg
     // 2: deepin → 嵌套子菜单
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.store_deepin"), "2",
-        [mgr](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_deepin_menu(mgr));
+        [this](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(build_deepin_menu());
             return true;
         }));
 
     // 3: gnome-software
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.store_gnome_sw"), "3",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("gnome-software", family);
             Logger::press_enter();
@@ -464,7 +448,7 @@ static std::shared_ptr<IUIMenu> build_store_menu(domain::BetaFeaturesManager* mg
     // 4: plasma-discover / discover
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.store_plasma"), "4",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             std::string pkg = (ctx.cfg.linux_distro == "arch") ? "discover" : "plasma-discover";
             domain::PackageManager::install(pkg, family);
@@ -475,7 +459,7 @@ static std::shared_ptr<IUIMenu> build_store_menu(domain::BetaFeaturesManager* mg
     // 5: Flatpak + Flathub
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.store_flatpak"), "5",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install({"flatpak", "gnome-software-plugin-flatpak"}, family);
             Executor::passthrough(
@@ -488,7 +472,7 @@ static std::shared_ptr<IUIMenu> build_store_menu(domain::BetaFeaturesManager* mg
     // 6: Snap
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.store_snap"), "6",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             if (ctx.cfg.linux_distro == "arch") {
                 domain::PackageManager::install({"snapd", "snapd-xdg-open-git"}, family);
@@ -503,7 +487,7 @@ static std::shared_ptr<IUIMenu> build_store_menu(domain::BetaFeaturesManager* mg
     // 7: bauh (pip)
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.store_bauh"), "7",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             std::string pip_pkg;
             if (ctx.cfg.linux_distro == "alpine") pip_pkg = "py3-pip";
@@ -520,7 +504,7 @@ static std::shared_ptr<IUIMenu> build_store_menu(domain::BetaFeaturesManager* mg
     // 8: qbittorrent
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.store_qbittorrent"), "8",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("qbittorrent", family);
             Logger::press_enter();
@@ -535,7 +519,7 @@ static std::shared_ptr<IUIMenu> build_store_menu(domain::BetaFeaturesManager* mg
 //  build_deepin_menu — 16 items (对应 Bash beta_features:252-300)
 // ═════════════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_deepin_menu(domain::BetaFeaturesManager* mgr) {
+std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_deepin_menu() {
     auto menu = make_plugin_menu(
         _("beta.deepin_title"), _("beta.deepin_prompt"), "plugin_beta_deepin");
 
@@ -563,7 +547,7 @@ static std::shared_ptr<IUIMenu> build_deepin_menu(domain::BetaFeaturesManager* m
         std::string label = _(labels[i]);
         menu->add_child(std::make_shared<LambdaAction>(
             label, tag,
-            [mgr, pkg](MenuContext& ctx) -> bool {
+            [this, pkg](MenuContext& ctx) -> bool {
                 auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
                 domain::PackageManager::install(pkg, family);
                 Logger::press_enter();
@@ -579,7 +563,7 @@ static std::shared_ptr<IUIMenu> build_deepin_menu(domain::BetaFeaturesManager* m
 //  build_video_menu — 7 items (对应 Bash beta_features:603-634)
 // ═════════════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_video_menu(domain::BetaFeaturesManager* mgr) {
+std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_video_menu() {
     auto menu = make_plugin_menu(
         _("beta.video_title"), _("beta.video_prompt"), "plugin_beta_video");
 
@@ -600,7 +584,7 @@ static std::shared_ptr<IUIMenu> build_video_menu(domain::BetaFeaturesManager* mg
         std::string label = _(labels[i]);
         menu->add_child(std::make_shared<LambdaAction>(
             label, tag,
-            [mgr, pkg](MenuContext& ctx) -> bool {
+            [this, pkg](MenuContext& ctx) -> bool {
                 auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
                 domain::PackageManager::install(pkg, family);
                 Logger::press_enter();
@@ -616,14 +600,14 @@ static std::shared_ptr<IUIMenu> build_video_menu(domain::BetaFeaturesManager* mg
 //  build_paint_menu — 11 items (对应 Bash beta_features:343-395)
 // ═════════════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_paint_menu(domain::BetaFeaturesManager* mgr) {
+std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_paint_menu() {
     auto menu = make_plugin_menu(
         _("beta.paint_title"), _("beta.paint_prompt"), "plugin_beta_paint");
 
     // 1: krita
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.paint_krita"), "1",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install({"krita", "krita-l10n"}, family);
             Logger::press_enter();
@@ -633,7 +617,7 @@ static std::shared_ptr<IUIMenu> build_paint_menu(domain::BetaFeaturesManager* mg
     // 2: inkscape
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.paint_inkscape"), "2",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install({"inkscape-tutorials", "inkscape"}, family);
             Logger::press_enter();
@@ -643,7 +627,7 @@ static std::shared_ptr<IUIMenu> build_paint_menu(domain::BetaFeaturesManager* mg
     // 3: kolourpaint
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.paint_kolourpaint"), "3",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("kolourpaint", family);
             Logger::press_enter();
@@ -653,15 +637,15 @@ static std::shared_ptr<IUIMenu> build_paint_menu(domain::BetaFeaturesManager* mg
     // 4: R语言 → 嵌套子菜单
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.paint_r_lang"), "4",
-        [mgr](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_r_lang_menu(mgr));
+        [this](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(build_r_lang_menu());
             return true;
         }));
 
     // 5: latexdraw
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.paint_latexdraw"), "5",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("latexdraw", family);
             Logger::press_enter();
@@ -671,7 +655,7 @@ static std::shared_ptr<IUIMenu> build_paint_menu(domain::BetaFeaturesManager* mg
     // 6: librecad
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.paint_librecad"), "6",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("librecad", family);
             Logger::press_enter();
@@ -681,7 +665,7 @@ static std::shared_ptr<IUIMenu> build_paint_menu(domain::BetaFeaturesManager* mg
     // 7: freecad
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.paint_freecad"), "7",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("freecad", family);
             Logger::press_enter();
@@ -691,7 +675,7 @@ static std::shared_ptr<IUIMenu> build_paint_menu(domain::BetaFeaturesManager* mg
     // 8: opencad
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.paint_opencad"), "8",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("opencad", family);
             Logger::press_enter();
@@ -701,7 +685,7 @@ static std::shared_ptr<IUIMenu> build_paint_menu(domain::BetaFeaturesManager* mg
     // 9: kicad
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.paint_kicad"), "9",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install({"kicad-templates", "kicad"}, family);
             Logger::press_enter();
@@ -711,7 +695,7 @@ static std::shared_ptr<IUIMenu> build_paint_menu(domain::BetaFeaturesManager* mg
     // 10: openscad
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.paint_openscad"), "10",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("openscad", family);
             Logger::press_enter();
@@ -721,7 +705,7 @@ static std::shared_ptr<IUIMenu> build_paint_menu(domain::BetaFeaturesManager* mg
     // 11: gnuplot
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.paint_gnuplot"), "11",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install({"gnuplot", "gnuplot-x11"}, family);
             Logger::press_enter();
@@ -736,14 +720,14 @@ static std::shared_ptr<IUIMenu> build_paint_menu(domain::BetaFeaturesManager* mg
 //  build_r_lang_menu — 3 items (对应 Bash beta_features:397-420)
 // ═════════════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_r_lang_menu(domain::BetaFeaturesManager* mgr) {
+std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_r_lang_menu() {
     auto menu = make_plugin_menu(
         _("beta.r_title"), _("beta.r_prompt"), "plugin_beta_r_lang");
 
     // 1: r-base
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.r_base"), "1",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("r-base", family);
             Logger::press_enter();
@@ -753,7 +737,7 @@ static std::shared_ptr<IUIMenu> build_r_lang_menu(domain::BetaFeaturesManager* m
     // 2: RStudio (对应 Bash install_r_studio: amd64 only, distro-specific)
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.rstudio"), "2",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             if (ctx.cfg.arch != "amd64") {
                 Logger::error(_("beta.rstudio_amd64_only"));
                 Logger::press_enter();
@@ -801,7 +785,7 @@ static std::shared_ptr<IUIMenu> build_r_lang_menu(domain::BetaFeaturesManager* m
     // 3: r-recommended
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.r_recommended"), "3",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("r-recommended", family);
             Logger::press_enter();
@@ -816,22 +800,22 @@ static std::shared_ptr<IUIMenu> build_r_lang_menu(domain::BetaFeaturesManager* m
 //  build_file_menu — 9 items (对应 Bash beta_features:461-496)
 // ═════════════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_file_menu(domain::BetaFeaturesManager* mgr) {
+std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_file_menu() {
     auto menu = make_plugin_menu(
         _("beta.file_title"), _("beta.file_prompt"), "plugin_beta_file");
 
     // 1: 文件管理器选择器 → 嵌套子菜单
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.file_fm"), "1",
-        [mgr](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_file_manager_menu(mgr));
+        [this](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(build_file_manager_menu());
             return true;
         }));
 
     // 2: catfish
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.file_catfish"), "2",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("catfish", family);
             Logger::press_enter();
@@ -841,7 +825,7 @@ static std::shared_ptr<IUIMenu> build_file_menu(domain::BetaFeaturesManager* mgr
     // 3: gparted
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.file_gparted"), "3",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("gparted", family);
             Logger::press_enter();
@@ -851,7 +835,7 @@ static std::shared_ptr<IUIMenu> build_file_menu(domain::BetaFeaturesManager* mgr
     // 4: baobab
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.file_baobab"), "4",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("baobab", family);
             Logger::press_enter();
@@ -861,7 +845,7 @@ static std::shared_ptr<IUIMenu> build_file_menu(domain::BetaFeaturesManager* mgr
     // 5: cfdisk (util-linux)
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.file_cfdisk"), "5",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("util-linux", family);
             Logger::press_enter();
@@ -871,7 +855,7 @@ static std::shared_ptr<IUIMenu> build_file_menu(domain::BetaFeaturesManager* mgr
     // 6: partitionmanager
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.file_partitionmgr"), "6",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("partitionmanager", family);
             Logger::press_enter();
@@ -881,7 +865,7 @@ static std::shared_ptr<IUIMenu> build_file_menu(domain::BetaFeaturesManager* mgr
     // 7: mc
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.file_mc"), "7",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("mc", family);
             Logger::press_enter();
@@ -891,7 +875,7 @@ static std::shared_ptr<IUIMenu> build_file_menu(domain::BetaFeaturesManager* mgr
     // 8: ranger
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.file_ranger"), "8",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("ranger", family);
             Logger::press_enter();
@@ -901,7 +885,7 @@ static std::shared_ptr<IUIMenu> build_file_menu(domain::BetaFeaturesManager* mgr
     // 9: gnome-disk-utility
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.file_gnome_disks"), "9",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("gnome-disk-utility", family);
             Logger::press_enter();
@@ -916,14 +900,14 @@ static std::shared_ptr<IUIMenu> build_file_menu(domain::BetaFeaturesManager* mgr
 //  build_file_manager_menu — 4 items (文件管理器选择器)
 // ═════════════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_file_manager_menu(domain::BetaFeaturesManager* mgr) {
+std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_file_manager_menu() {
     auto menu = make_plugin_menu(
         _("beta.file_fm_title"), _("beta.file_fm_prompt"), "plugin_beta_fm_chooser");
 
     // 1: Thunar
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.file_fm_thunar"), "1",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("thunar", family);
             Logger::press_enter();
@@ -933,7 +917,7 @@ static std::shared_ptr<IUIMenu> build_file_manager_menu(domain::BetaFeaturesMana
     // 2: Nautilus
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.file_fm_nautilus"), "2",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("nautilus", family);
             Logger::press_enter();
@@ -943,7 +927,7 @@ static std::shared_ptr<IUIMenu> build_file_manager_menu(domain::BetaFeaturesMana
     // 3: Dolphin
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.file_fm_dolphin"), "3",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("dolphin", family);
             Logger::press_enter();
@@ -953,7 +937,7 @@ static std::shared_ptr<IUIMenu> build_file_manager_menu(domain::BetaFeaturesMana
     // 4: Thunar + Nautilus
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.file_fm_thunar_nautilus"), "4",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install({"thunar", "nautilus"}, family);
             Logger::press_enter();
@@ -968,14 +952,14 @@ static std::shared_ptr<IUIMenu> build_file_manager_menu(domain::BetaFeaturesMana
 //  build_reader_menu — 8 items (对应 Bash beta_features:570-601)
 // ═════════════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_reader_menu(domain::BetaFeaturesManager* mgr) {
+std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_reader_menu() {
     auto menu = make_plugin_menu(
         _("beta.reader_title"), _("beta.reader_prompt"), "plugin_beta_reader");
 
     // 1: calibre
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.reader_calibre"), "1",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("calibre", family);
             Logger::press_enter();
@@ -985,7 +969,7 @@ static std::shared_ptr<IUIMenu> build_reader_menu(domain::BetaFeaturesManager* m
     // 2: fbreader
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.reader_fbreader"), "2",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("fbreader", family);
             Logger::press_enter();
@@ -995,7 +979,7 @@ static std::shared_ptr<IUIMenu> build_reader_menu(domain::BetaFeaturesManager* m
     // 3: typora
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.reader_typora"), "3",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("typora", family);
             Logger::press_enter();
@@ -1005,7 +989,7 @@ static std::shared_ptr<IUIMenu> build_reader_menu(domain::BetaFeaturesManager* m
     // 4: xournal
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.reader_xournal"), "4",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("xournal", family);
             Logger::press_enter();
@@ -1015,7 +999,7 @@ static std::shared_ptr<IUIMenu> build_reader_menu(domain::BetaFeaturesManager* m
     // 5: evince
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.reader_evince"), "5",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("evince", family);
             Logger::press_enter();
@@ -1025,7 +1009,7 @@ static std::shared_ptr<IUIMenu> build_reader_menu(domain::BetaFeaturesManager* m
     // 6: okular + extra backends
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.reader_okular"), "6",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install({"okular", "okular-extra-backends"}, family);
             Logger::press_enter();
@@ -1035,7 +1019,7 @@ static std::shared_ptr<IUIMenu> build_reader_menu(domain::BetaFeaturesManager* m
     // 7: kchmviewer
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.reader_kchmviewer"), "7",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("kchmviewer", family);
             Logger::press_enter();
@@ -1045,7 +1029,7 @@ static std::shared_ptr<IUIMenu> build_reader_menu(domain::BetaFeaturesManager* m
     // 8: pdfchain
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.reader_pdfchain"), "8",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("pdfchain", family);
             Logger::press_enter();
@@ -1060,14 +1044,14 @@ static std::shared_ptr<IUIMenu> build_reader_menu(domain::BetaFeaturesManager* m
 //  build_other_menu — 6 items (对应 Bash beta_features:50-78)
 // ═════════════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_other_menu(domain::BetaFeaturesManager* mgr) {
+std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_other_menu() {
     auto menu = make_plugin_menu(
         _("beta.other_title"), _("beta.other_prompt"), "plugin_beta_other");
 
     // 1: OBS Studio
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.other_obs"), "1",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             std::string obs_pkg = (ctx.cfg.linux_distro == "gentoo")
                                       ? "media-video/obs-studio"
@@ -1080,7 +1064,7 @@ static std::shared_ptr<IUIMenu> build_other_menu(domain::BetaFeaturesManager* mg
     // 2: seahorse
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.other_seahorse"), "2",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("seahorse", family);
             Logger::press_enter();
@@ -1090,7 +1074,7 @@ static std::shared_ptr<IUIMenu> build_other_menu(domain::BetaFeaturesManager* mg
     // 3: kodi
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.other_kodi"), "3",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install({"kodi", "kodi-wayland"}, family);
             Logger::press_enter();
@@ -1100,15 +1084,15 @@ static std::shared_ptr<IUIMenu> build_other_menu(domain::BetaFeaturesManager* mg
     // 4: scrcpy → 嵌套子菜单
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.other_scrcpy"), "4",
-        [mgr](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_scrcpy_menu(mgr));
+        [this](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(build_scrcpy_menu());
             return true;
         }));
 
     // 5: flameshot
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.other_flameshot"), "5",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("flameshot", family);
             Logger::press_enter();
@@ -1118,7 +1102,7 @@ static std::shared_ptr<IUIMenu> build_other_menu(domain::BetaFeaturesManager* mg
     // 6: telegram-desktop
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.other_telegram"), "6",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("telegram-desktop", family);
             Logger::press_enter();
@@ -1133,14 +1117,14 @@ static std::shared_ptr<IUIMenu> build_other_menu(domain::BetaFeaturesManager* mg
 //  build_scrcpy_menu — 5 items (对应 Bash beta_features:92-118)
 // ═════════════════════════════════════════════════════════════════════
 
-static std::shared_ptr<IUIMenu> build_scrcpy_menu(domain::BetaFeaturesManager* mgr) {
+std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_scrcpy_menu() {
     auto menu = make_plugin_menu(
         "scrcpy", _("beta.scrcpy_prompt"), "plugin_beta_scrcpy");
 
     // 1: install scrcpy
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.scrcpy_install"), "1",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto family = domain::infer_family_from_config(ctx.cfg.linux_distro);
             domain::PackageManager::install("scrcpy", family);
             Logger::press_enter();
@@ -1150,7 +1134,7 @@ static std::shared_ptr<IUIMenu> build_scrcpy_menu(domain::BetaFeaturesManager* m
     // 2: adb connect (对应 Bash scrcpy_connect_to_android_device)
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.scrcpy_connect"), "2",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             std::string target = Executor::tui_select(
                 ctx.cfg.tui_bin + " --title \"" + _("beta.scrcpy_adb_title") + "\""
                 " --inputbox \"" + _("beta.scrcpy_adb_prompt") + "\" 0 0");
@@ -1166,7 +1150,7 @@ static std::shared_ptr<IUIMenu> build_scrcpy_menu(domain::BetaFeaturesManager* m
     // 3: switch scrcpy device (对应 Bash switch_scrcpy_device)
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.scrcpy_switch"), "3",
-        [mgr](MenuContext& ctx) -> bool {
+        [this](MenuContext& ctx) -> bool {
             auto devs = Executor::shell("adb devices 2>/dev/null | sed '1d;$d' | awk '{print $1}'");
             std::string dlist = devs.ok() ? devs.stdout_data : "";
             if (dlist.empty()) {
@@ -1199,7 +1183,7 @@ static std::shared_ptr<IUIMenu> build_scrcpy_menu(domain::BetaFeaturesManager* m
     // 4: restart adb
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.scrcpy_restart_adb"), "4",
-        [mgr](MenuContext&) -> bool {
+        [this](MenuContext&) -> bool {
             Executor::passthrough("adb kill-server 2>/dev/null || true");
             Executor::passthrough("adb devices -l 2>/dev/null || true");
             Logger::press_enter();
@@ -1209,7 +1193,7 @@ static std::shared_ptr<IUIMenu> build_scrcpy_menu(domain::BetaFeaturesManager* m
     // 5: scrcpy FAQ (对应 Bash scrpy_faq)
     menu->add_child(std::make_shared<LambdaAction>(
         _("beta.scrcpy_readme"), "5",
-        [mgr](MenuContext&) -> bool {
+        [this](MenuContext&) -> bool {
             Logger::info(_("beta.scrcpy_faq_header"));
             Logger::info("  scrcpy            — start with defaults");
             Logger::info("  scrcpy -S         — turn off device screen");
@@ -1232,5 +1216,7 @@ static std::shared_ptr<IUIMenu> build_scrcpy_menu(domain::BetaFeaturesManager* m
     add_sandwich_nav(menu);
     return menu;
 }
+
+BetaFeaturesMenuPlugin::BetaFeaturesMenuPlugin(domain::BetaFeaturesManager* mgr) : mgr_(mgr) {}
 
 } // namespace tmoe::ui::menus
