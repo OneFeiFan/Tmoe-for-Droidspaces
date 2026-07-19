@@ -24,7 +24,7 @@ TmoeConfig TmoeConfig::detect() {
         else if (machine == "i686" || machine == "i386")     cfg.arch = "i386";
         else if (machine == "aarch64" || machine == "arm64") cfg.arch = "arm64";
         else if (machine == "armv7l" || machine == "armv8l" ||
-                 machine.find("armv") == 0)                  cfg.arch = "armhf";
+                 starts_with(machine, "armv"))               cfg.arch = "armhf";
         // 其他架构保持 uname -m 原始值
         else if (!machine.empty())                           cfg.arch = machine;
     }
@@ -47,8 +47,8 @@ TmoeConfig TmoeConfig::detect() {
 
     // 检测 WSL
     auto kernel_version = Executor::shell("uname -r").stdout_data;
-    if (kernel_version.find("Microsoft") != std::string::npos ||
-        kernel_version.find("microsoft") != std::string::npos) {
+    if (contains(kernel_version, "Microsoft") ||
+        contains(kernel_version, "microsoft")) {
         cfg.is_wsl = true;
     }
 
@@ -74,15 +74,15 @@ TmoeConfig TmoeConfig::detect() {
     }
 
     // 发行版家族检测（对齐原版 Bash 判断逻辑）
-    if (content.find("debian") != std::string::npos || content.find("ubuntu") != std::string::npos ||
-        content.find("deepin") != std::string::npos || content.find("kali") != std::string::npos) {
+    if (contains(content, "debian") || contains(content, "ubuntu") ||
+        contains(content, "deepin") || contains(content, "kali")) {
         cfg.linux_distro = "debian";
         cfg.distro_family = DistroFamily::Debian;
         cfg.update_command = "apt update";
         cfg.install_command = "apt install -y";
         cfg.remove_command = "apt purge -y";
-        if (content.find("ubuntu") != std::string::npos) cfg.sub_distro = "ubuntu";
-        else if (content.find("kali") != std::string::npos) cfg.sub_distro = "kali";
+        if (contains(content, "ubuntu")) cfg.sub_distro = "ubuntu";
+        else if (contains(content, "kali")) cfg.sub_distro = "kali";
     }
     else if (content.find("Arch") != std::string::npos || content.find("Manjaro") != std::string::npos) {
         cfg.linux_distro = "arch";

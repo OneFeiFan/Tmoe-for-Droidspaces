@@ -46,6 +46,9 @@ namespace tmoe::domain {
         /** 将 DistroFamily 映射为字符串键 (用于 gui_config 查询等) */
         static std::string family_key(DistroFamily family);
 
+        /** 一步解析发行版家族：先从名称推断，失败则运行时检测。 */
+        static DistroFamily resolve_family(const std::string& distro_name);
+
     private:
         static std::string build_install_cmd(const std::vector<std::string> &pkgs,
                                              const Commands &cmd);

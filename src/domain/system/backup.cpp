@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include "core/str_utils.h"
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -707,7 +708,7 @@ std::string BackupManager::detect_container_distro(std::string_view rootfs_path)
         std::ifstream ifs(os_release);
         std::string line;
         while (std::getline(ifs, line)) {
-            if (line.find("ID=") == 0) {
+            if (starts_with(line, "ID=")) {
                 std::string id = line.substr(3);
                 // 去除引号
                 id.erase(std::remove(id.begin(), id.end(), '"'), id.end());

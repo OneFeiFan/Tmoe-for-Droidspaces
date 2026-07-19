@@ -19,10 +19,7 @@ namespace fs = std::filesystem;
 namespace tmoe::domain {
     namespace {
         DistroFamily get_family(const TmoeConfig &cfg) {
-            auto f = infer_family_from_config(cfg.linux_distro);
-            if (f == DistroFamily::Unknown)
-                f = PackageManager::detect_distro_family();
-            return f;
+            return PackageManager::resolve_family(cfg.linux_distro);
         }
     } // anonymous namespace
 

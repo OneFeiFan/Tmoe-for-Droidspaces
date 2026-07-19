@@ -195,6 +195,13 @@ namespace tmoe::domain {
         return result;
     }
 
+    DistroFamily PackageManager::resolve_family(const std::string& distro_name) {
+        auto family = infer_family_from_config(distro_name);
+        if (family == DistroFamily::Unknown)
+            family = detect_distro_family();
+        return family;
+    }
+
     DistroFamily infer_family_from_config(const std::string &distro_name) {
         auto lower = distro_name;
         for (auto &c: lower) c = static_cast<char>(std::tolower(c));

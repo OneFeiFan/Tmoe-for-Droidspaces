@@ -157,8 +157,8 @@ namespace tmoe::domain {
 
         if (family == DistroFamily::Debian) {
             ensure_chromium_ppa();
-            if (cfg_.linux_distro.find("ubuntu") != std::string::npos
-                || cfg_.linux_distro.find("Ubuntu") != std::string::npos) {
+            if (contains(cfg_.linux_distro, "ubuntu")
+                || contains(cfg_.linux_distro, "Ubuntu")) {
                 ok = PackageManager::install({
                                                  "chromium-browser", "chromium-browser-l10n",
                                                  "chromium-chromedriver", "chromium-shell"

@@ -7,12 +7,8 @@ namespace fs = std::filesystem;
 
 namespace tmoe::domain {
     namespace {
-        // 提取当前发行版家族的通用辅助函数
         DistroFamily get_family(const TmoeConfig &cfg) {
-            auto family = infer_family_from_config(cfg.linux_distro);
-            if (family == DistroFamily::Unknown)
-                family = PackageManager::detect_distro_family();
-            return family;
+            return PackageManager::resolve_family(cfg.linux_distro);
         }
     }
 

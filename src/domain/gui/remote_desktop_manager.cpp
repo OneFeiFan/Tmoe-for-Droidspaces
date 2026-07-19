@@ -1199,7 +1199,7 @@ namespace tmoe::domain {
                 std::string line, result;
                 while (std::getline(iss, line)) {
                     // 匹配以 "export" 开头且包含 "PULSE_SERVER" 的行
-                    if (line.find("export") == 0 && line.find("PULSE_SERVER") != std::string::npos) {
+                    if (starts_with(line, "export") && contains(line, "PULSE_SERVER")) {
                         result += "export PULSE_SERVER=" + addr + "\n";
                         found = true;
                     } else {

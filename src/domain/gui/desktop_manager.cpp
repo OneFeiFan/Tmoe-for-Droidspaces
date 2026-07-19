@@ -5,6 +5,7 @@
 #include "ui/plugin_helpers.h"
 #include "ui/menu_engine.h"
 #include <sstream>
+#include "core/str_utils.h"
 
 namespace tmoe::domain {
     DesktopManager::DesktopManager(const TmoeConfig &cfg, VncManager &vnc_manager)
@@ -180,7 +181,7 @@ namespace tmoe::domain {
         // 1. fcitx: 中文环境, debian/arch
         // Bash: WSL 用 fcitx_pinyin，其他用 fcitx4
         if (family == DistroFamily::Debian || family == DistroFamily::Arch) {
-            bool is_zh = (lang.find("zh") == 0);
+            bool is_zh = starts_with(lang, "zh");
             if ((is_zh || cfg_.is_wsl) &&
                 !Executor::has("fcitx") && !Executor::has("fcitx5")) {
                 if (interactive) {
