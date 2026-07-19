@@ -1,5 +1,6 @@
 #include "executor.h"
 #include "i18n.h"
+#include "core/str_utils.h"
 
 #ifndef _WIN32
 #include <sys/select.h>
@@ -396,10 +397,7 @@ namespace tmoe {
 
         ::pclose(pipe.release());
 
-        // 去除尾部换行符
-        while (!result.empty() && (result.back() == '\n' || result.back() == '\r')) {
-            result.pop_back();
-        }
+        trim_newline(result);
         return result;
     }
 
@@ -448,8 +446,7 @@ namespace tmoe {
 #endif
         cancelled = (exit_code != 0);
 
-        while (!result.empty() && (result.back() == '\n' || result.back() == '\r'))
-            result.pop_back();
+        trim_newline(result);
         return result;
     }
 

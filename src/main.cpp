@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "core/executor.h"
+#include "core/str_utils.h"
 
 /** 输出命令行使用帮助。 */
 static void print_usage() {
@@ -37,9 +38,7 @@ static std::string load_saved_locale() {
     if (!f.is_open()) return "";
     std::string lang;
     std::getline(f, lang);
-    // 清理换行符
-    while (!lang.empty() && (lang.back() == '\n' || lang.back() == '\r'))
-        lang.pop_back();
+    tmoe::trim_newline(lang);
     return lang;
 }
 

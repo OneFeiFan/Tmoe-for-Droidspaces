@@ -1,4 +1,5 @@
 #include "core/config.h"
+#include "core/str_utils.h"
 
 namespace tmoe {
 
@@ -17,8 +18,7 @@ TmoeConfig TmoeConfig::detect() {
     {
         auto arch_result = Executor::shell("uname -m 2>/dev/null");
         std::string machine = arch_result.stdout_data;
-        while (!machine.empty() && (machine.back() == '\n' || machine.back() == '\r'))
-            machine.pop_back();
+        trim_newline(machine);
 
         if (machine == "x86_64" || machine == "amd64")      cfg.arch = "amd64";
         else if (machine == "i686" || machine == "i386")     cfg.arch = "i386";

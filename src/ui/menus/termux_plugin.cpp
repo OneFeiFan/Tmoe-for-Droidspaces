@@ -5,6 +5,7 @@
 #include "domain/system/termux.h"
 #include "domain/system/package_manager.h"
 #include "core/command_builder.hpp"
+#include "core/str_utils.h"
 #include <sstream>
 #include "ui/menus/termux_plugin.h"
 
@@ -721,8 +722,7 @@ std::shared_ptr<IUIMenu> TermuxMenuPlugin::build() {
                 std::string fname = (pos != std::string::npos) ? line.substr(pos + 1) : line;
 
                 std::string full_path = line;
-                while (!full_path.empty() && (full_path.back() == '\n' || full_path.back() == '\r'))
-                    full_path.pop_back();
+                trim_newline(full_path);
 
                 file_menu->add_child(std::make_shared<LambdaAction>(
                     fname, std::to_string(idx),

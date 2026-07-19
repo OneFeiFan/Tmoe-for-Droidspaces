@@ -4,6 +4,7 @@
 #include "core/logger.h"
 #include "core/i18n.h"
 #include "core/command_builder.hpp"
+#include "core/str_utils.h"
 #include "domain/system/package_manager.h"
 #include "../gui_config/templates.h"
 #include "ui/plugin_helpers.h"
@@ -1092,9 +1093,7 @@ namespace tmoe::domain {
                 }
             }
         }
-        while (!current_port.empty() && (current_port.back() == '\n' || current_port.back() == '\r'))
-            current_port.
-                    pop_back();
+        trim_newline(current_port);
         std::string cmd = cfg_.tui_bin +
                           " --title \"PORT\""
                           " --inputbox \"请输入新的端口号(纯数字)，范围在1-65525之间, 当前端口为" + current_port + "\\n"

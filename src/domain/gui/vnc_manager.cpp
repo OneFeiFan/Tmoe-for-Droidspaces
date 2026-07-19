@@ -1,5 +1,6 @@
 #include "vnc_manager.h"
 
+#include "core/str_utils.h"
 #include "domain/system/package_manager.h"
 #include "ui/plugin_helpers.h"
 #include "ui/builtin_actions.h"
@@ -274,7 +275,7 @@ namespace tmoe::domain {
         auto arch_res = Executor::shell("dpkg --print-architecture 2>/dev/null || uname -m");
         if (arch_res.ok()) {
             arch = arch_res.stdout_data;
-            while (!arch.empty() && (arch.back() == '\n' || arch.back() == '\r')) arch.pop_back();
+            trim_newline(arch);
         } else {
             arch = "amd64";
         }
@@ -284,7 +285,7 @@ namespace tmoe::domain {
                                       "' | tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2");
         if (!result.ok() || result.stdout_data.empty()) return "";
         std::string version = result.stdout_data;
-        while (!version.empty() && (version.back() == '\n' || version.back() == '\r')) version.pop_back();
+        trim_newline(version);
         return latest_deb_repo + version;
     }
 
@@ -399,7 +400,7 @@ namespace tmoe::domain {
     bool VncManager::is_arm_container() const {
         auto arch_res = Executor::shell("dpkg --print-architecture 2>/dev/null || uname -m");
         std::string arch = arch_res.ok() ? arch_res.stdout_data : "";
-        while (!arch.empty() && (arch.back() == '\n' || arch.back() == '\r')) arch.pop_back();
+        trim_newline(arch);
 
         auto family = infer_family_from_config(cfg_.linux_distro);
         if (family == DistroFamily::Unknown) family = PackageManager::detect_distro_family();
@@ -1024,10 +1025,7 @@ namespace tmoe::domain {
             std::istringstream iss(data);
             std::string line;
             while (std::getline(iss, line)) {
-                while (!line.empty() && (line.back() == '\r' || line.back() == '\n' || line.back() == ' '))
-                    line.
-                            pop_back();
-                while (!line.empty() && (line.front() == ' ')) line.erase(0, 1);
+                trim(line);
                 if (!line.empty()) ips << "vnc://" << line << ":" << vnc_config_.rfb_port << "  ";
             }
         }
@@ -1036,7 +1034,7 @@ namespace tmoe::domain {
                 "hostname -I 2>/dev/null | awk '{for(i=1;i<=NF;i++){if($i ~ /^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$/ && $i != \"127.0.0.1\"){print $i;exit}}}'");
             if (v4_host.ok() && !v4_host.stdout_data.empty()) {
                 std::string ip = v4_host.stdout_data;
-                while (!ip.empty() && (ip.back() == '\r' || ip.back() == '\n' || ip.back() == ' ')) ip.pop_back();
+                trim(ip);
                 if (!ip.empty()) ips << "vnc://" << ip << ":" << vnc_config_.rfb_port;
             }
         }
@@ -1061,7 +1059,7 @@ namespace tmoe::domain {
             auto pid_data = SystemHelper::read_file(vnc_config_.vnc_pid_file);
             if (!pid_data.empty()) {
                 std::string mypid = pid_data;
-                while (!mypid.empty() && (mypid.back() == '\n' || mypid.back() == '\r')) mypid.pop_back();
+                trim_newline(mypid);
                 if (!mypid.empty()) Executor::passthrough(CommandBuilder("kill").add_arg(mypid).add_raw("2>/dev/null || true").build_string());
             }
             fs::remove(vnc_config_.vnc_pid_file);
@@ -1070,7 +1068,7 @@ namespace tmoe::domain {
             auto pid_data = SystemHelper::read_file(vnc_config_.x_pid_file);
             if (!pid_data.empty()) {
                 std::string mypid = pid_data;
-                while (!mypid.empty() && (mypid.back() == '\n' || mypid.back() == '\r')) mypid.pop_back();
+                trim_newline(mypid);
                 if (!mypid.empty()) Executor::passthrough(CommandBuilder("kill").add_arg(mypid).add_raw("2>/dev/null || true").build_string());
             }
             fs::remove(vnc_config_.x_pid_file);
@@ -1113,13 +1111,13 @@ namespace tmoe::domain {
     void VncManager::detect_wsl_environment() {
         auto wsl_field = Executor::shell("uname -r | cut -d '-' -f 2 2>/dev/null");
         std::string field2 = wsl_field.ok() ? wsl_field.stdout_data : "";
-        while (!field2.empty() && (field2.back() == '\n' || field2.back() == '\r')) field2.pop_back();
+        trim_newline(field2);
         if (field2 == "microsoft") {
             auto route = Executor::shell(
                 "ip route list table 0 | head -n 1 | awk -F 'default via ' '{print $2}' | awk '{print $1}' 2>/dev/null");
             if (route.ok() && !route.stdout_data.empty()) {
                 std::string ip = route.stdout_data;
-                while (!ip.empty() && (ip.back() == '\n' || ip.back() == '\r')) ip.pop_back();
+                trim_newline(ip);
                 vnc_config_.windows_ip = ip;
             }
             Logger::info(_f("gui.vnc.wsl2_gateway", vnc_config_.windows_ip));
@@ -1361,7 +1359,7 @@ namespace tmoe::domain {
             "grep '^VNC_RESOLUTION=' /usr/local/bin/startvnc 2>/dev/null | awk -F '=' '{print $2}' | head -n 1");
         if (r.ok() && !r.stdout_data.empty()) {
             std::string res = r.stdout_data;
-            while (!res.empty() && (res.back() == '\n' || res.back() == '\r')) res.pop_back();
+            trim_newline(res);
             auto xpos = res.find('x');
             if (xpos != std::string::npos) {
                 try {

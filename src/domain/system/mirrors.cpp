@@ -10,6 +10,7 @@
 #include <string>
 
 #include "core/system_helper.h"
+#include "core/str_utils.h"
 
 namespace fs = std::filesystem;
 
@@ -38,7 +39,7 @@ namespace tmoe::domain {
             if (r.ok() && !r.stdout_data.empty()) {
                 // 去掉末尾换行符
                 auto s = r.stdout_data;
-                while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
+                trim_newline(s);
                 if (!s.empty()) return s;
             }
             // 回退: /etc/os-release PRETTY_NAME
@@ -46,7 +47,7 @@ namespace tmoe::domain {
                 "grep PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'");
             if (r.ok() && !r.stdout_data.empty()) {
                 auto s = r.stdout_data;
-                while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
+                trim_newline(s);
                 Logger::warn(_f("mirror.no_codename", s));
                 return s;
             }
@@ -60,7 +61,7 @@ namespace tmoe::domain {
                 "grep PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"' | awk '{print $NF}'");
             if (r.ok() && !r.stdout_data.empty()) {
                 auto s = r.stdout_data;
-                while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
+                trim_newline(s);
                 return s; // 例如 "v3.18"
             }
             return "latest-stable";
@@ -172,7 +173,7 @@ namespace tmoe::domain {
                      .add_raw("2>/dev/null | awk '{print $1; exit}'").execute();
         if (r.ok() && !r.stdout_data.empty()) {
             auto ip = r.stdout_data;
-            while (!ip.empty() && (ip.back() == '\n' || ip.back() == '\r')) ip.pop_back();
+            trim_newline(ip);
             return ip;
         }
 
@@ -182,7 +183,7 @@ namespace tmoe::domain {
                 .add_raw("2>/dev/null").execute();
         if (r.ok() && !r.stdout_data.empty()) {
             auto ip = r.stdout_data;
-            while (!ip.empty() && (ip.back() == '\n' || ip.back() == '\r')) ip.pop_back();
+            trim_newline(ip);
             return ip;
         }
 

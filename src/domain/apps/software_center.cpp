@@ -5,6 +5,7 @@
 #include "core/logger.h"
 #include "core/config.h"
 #include "core/command_builder.hpp"
+#include "core/str_utils.h"
 #include "core/system_helper.h"
 #include "domain/system/package_manager.h"
 #include "ui/plugin_helpers.h"
@@ -235,8 +236,7 @@ namespace tmoe::domain {
             "curl -sL '" + kylin_repo + "' 2>/dev/null | "
             "grep netease-cloud-music | grep -oP 'href=\"\\K[^\"]+' | head -1");
         std::string latest_ver = ver_result.stdout_data;
-        while (!latest_ver.empty() && (latest_ver.back() == '\n' || latest_ver.back() == '\r'))
-            latest_ver.pop_back();
+        trim_newline(latest_ver);
 
         if (!latest_ver.empty())
             Logger::info(_f("swcenter.netease.version_detected", latest_ver));
@@ -322,7 +322,7 @@ namespace tmoe::domain {
         // 3. 提取版本号
         std::string version = CommandBuilder("jq").add_flag("-r").add_arg(".Linux.version").add_arg(tmp_json).execute().
                 stdout_data;
-        while (!version.empty() && (version.back() == '\n' || version.back() == '\r')) version.pop_back();
+        trim_newline(version);
 
         if (version.empty()) version = _("swcenter.qq.unknown_version");
 
@@ -365,7 +365,7 @@ namespace tmoe::domain {
         }
 
         std::string dl_url = Executor::shell(jq_cmd).stdout_data;
-        while (!dl_url.empty() && (dl_url.back() == '\n' || dl_url.back() == '\r')) dl_url.pop_back();
+        trim_newline(dl_url);
 
         // 柔性降级策略：如果当前架构缺失指定的 deb/rpm，自动降级为全系统通用的 AppImage
         if (dl_url.empty() || dl_url == "null") {
@@ -377,7 +377,7 @@ namespace tmoe::domain {
             else if (arch == "arm64") jq_cmd = "jq -r '.Linux.armDownloadUrl.appimage' " + tmp_json;
 
             dl_url = Executor::shell(jq_cmd).stdout_data;
-            while (!dl_url.empty() && (dl_url.back() == '\n' || dl_url.back() == '\r')) dl_url.pop_back();
+            trim_newline(dl_url);
         }
 
         // 用完即焚，销毁临时 JSON
@@ -492,14 +492,14 @@ namespace tmoe::domain {
                                 " | grep -iE '(" + arch_grep + ")' | grep '\\." + format_key + "$' | head -n 1";
 
         std::string dl_url = Executor::shell(parse_cmd).stdout_data;
-        while (!dl_url.empty() && (dl_url.back() == '\n' || dl_url.back() == '\r')) dl_url.pop_back();
+        trim_newline(dl_url);
 
         // 柔性降级：如果未获取到指定的 rpm/deb，尝试兜底抓取 AppImage
         if (dl_url.empty()) {
             parse_cmd = "grep -oP 'href=\"\\K[^\"]+' " + tmp_html +
                         " | grep -iE '(" + arch_grep + ")' | grep '\\.AppImage$' | head -n 1";
             dl_url = Executor::shell(parse_cmd).stdout_data;
-            while (!dl_url.empty() && (dl_url.back() == '\n' || dl_url.back() == '\r')) dl_url.pop_back();
+            trim_newline(dl_url);
             if (!dl_url.empty()) format_key = "AppImage";
         }
 
@@ -525,7 +525,7 @@ namespace tmoe::domain {
 
         // 5. 提取文件名并设定独立的下载路径
         std::string filename = CommandBuilder("basename").add_arg(dl_url).execute().stdout_data;
-        while (!filename.empty() && (filename.back() == '\n' || filename.back() == '\r')) filename.pop_back();
+        trim_newline(filename);
 
         if (filename.empty() || filename.find('?') != std::string::npos) {
             filename = "wechat_official_" + arch + "." + format_key;
@@ -640,8 +640,7 @@ namespace tmoe::domain {
             "grep -oP 'https://[^\"]*\\.deb' | head -n 1"
         );
         std::string dl_url = url_result.stdout_data;
-        while (!dl_url.empty() && (dl_url.back() == '\n' || dl_url.back() == '\r'))
-            dl_url.pop_back();
+        trim_newline(dl_url);
 
         if (dl_url.empty()) {
             Logger::error(_("swcenter.mitalk.fetch_failed"));

@@ -4,6 +4,7 @@
 #include "core/executor.h"
 #include "core/logger.h"
 #include "core/config.h"
+#include "core/str_utils.h"
 #include "core/system_helper.h"
 #include "domain/system/package_manager.h"
 #include "ui/plugin_helpers.h"
@@ -352,8 +353,7 @@ namespace tmoe::domain {
                 "awk -F '\"' '{print $4}'"
             );
             std::string server_url = link_result.stdout_data;
-            while (!server_url.empty() && (server_url.back() == '\n' || server_url.back() == '\r'))
-                server_url.pop_back();
+            trim_newline(server_url);
 
             if (server_url.empty()) {
                 Logger::error(_("devtools.error.codeserver_link_failed"));
@@ -507,8 +507,7 @@ namespace tmoe::domain {
                 "echo \"https://mirrors.bfsu.edu.cn/github-release/VSCodium/vscodium/LatestRelease/${LatestVSCodiumLink}\""
             );
             std::string codium_url = link_result.stdout_data;
-            while (!codium_url.empty() && (codium_url.back() == '\n' || codium_url.back() == '\r'))
-                codium_url.pop_back();
+            trim_newline(codium_url);
 
             if (codium_url.empty()) {
                 Logger::error(_("devtools.error.codium_link_failed"));
@@ -541,8 +540,7 @@ namespace tmoe::domain {
                 "echo \"https://mirrors.bfsu.edu.cn/github-release/VSCodium/vscodium/LatestRelease/${LatestVSCodiumLink}\""
             );
             std::string codium_url = link_result.stdout_data;
-            while (!codium_url.empty() && (codium_url.back() == '\n' || codium_url.back() == '\r'))
-                codium_url.pop_back();
+            trim_newline(codium_url);
 
             if (codium_url.empty()) {
                 Logger::error(_("devtools.error.codium_link_failed"));
@@ -648,9 +646,7 @@ namespace tmoe::domain {
             }
         }
 
-        // Remove trailing newlines
-        while (!gnu_libxcb.empty() && (gnu_libxcb.back() == '\n' || gnu_libxcb.back() == '\r'))
-            gnu_libxcb.pop_back();
+        trim_newline(gnu_libxcb);
 
         std::string tmoe_linux_dir = "/usr/local/etc/tmoe-linux";
 
@@ -797,7 +793,7 @@ namespace tmoe::domain {
             // 提取直链文件名
             std::string filename = Executor::shell(CommandBuilder("basename").add_arg(dl_url).build_string()).
                     stdout_data;
-            while (!filename.empty() && (filename.back() == '\n' || filename.back() == '\r')) filename.pop_back();
+            trim_newline(filename);
 
             if (!download_and_extract_jetbrains(dl_url, filename)) {
                 Logger::error(_("devtools.error.jetbrains_extract_failed"));
@@ -848,7 +844,7 @@ namespace tmoe::domain {
         // 从文件中提取版本号
         std::string latest_ver = Executor::shell("jq -r '.tag_name' " + tmp_json + " | sed 's/^release-//'").
                 stdout_data;
-        while (!latest_ver.empty() && (latest_ver.back() == '\n' || latest_ver.back() == '\r')) latest_ver.pop_back();
+        trim_newline(latest_ver);
 
         show_ide_version_table(latest_ver, check_local_opt_version());
 
@@ -868,7 +864,7 @@ namespace tmoe::domain {
         std::string jq_cmd = "jq -r '.assets[] | select(.name | endswith(\"" + ext + "\")) | .browser_download_url' " +
                              tmp_json + " | head -n 1";
         std::string dl_url = Executor::shell(jq_cmd).stdout_data;
-        while (!dl_url.empty() && (dl_url.back() == '\n' || dl_url.back() == '\r')) dl_url.pop_back();
+        trim_newline(dl_url);
 
         // 如果该版本没提供对应的原生包，降级到通用 AppImage
         if (dl_url.empty() || dl_url == "null") {
@@ -877,7 +873,7 @@ namespace tmoe::domain {
             jq_cmd = "jq -r '.assets[] | select(.name | endswith(\".AppImage\")) | .browser_download_url' " + tmp_json +
                      " | head -n 1";
             dl_url = Executor::shell(jq_cmd).stdout_data;
-            while (!dl_url.empty() && (dl_url.back() == '\n' || dl_url.back() == '\r')) dl_url.pop_back();
+            trim_newline(dl_url);
         }
 
         // 用完即焚，清理临时文件
@@ -890,7 +886,7 @@ namespace tmoe::domain {
         }
 
         std::string filename = Executor::shell(CommandBuilder("basename").add_arg(dl_url).build_string()).stdout_data;
-        while (!filename.empty() && (filename.back() == '\n' || filename.back() == '\r')) filename.pop_back();
+        trim_newline(filename);
 
         check_download_path();
         std::string dest = download_path_.string() + "/" + filename;
@@ -954,9 +950,7 @@ namespace tmoe::domain {
             "grep -oE 'https://[^\"]*android-studio[^\"]*linux\\.tar\\.gz' | head -n 1"
         );
         std::string latest_link = link_result.stdout_data;
-        // 去除尾部换行符
-        while (!latest_link.empty() && (latest_link.back() == '\n' || latest_link.back() == '\r'))
-            latest_link.pop_back();
+        trim_newline(latest_link);
 
         // 抓取失败时直接阻断，防止后续 aria2c 报错
         if (latest_link.empty()) {
@@ -968,15 +962,13 @@ namespace tmoe::domain {
         std::string download_file_name = Executor::shell(
             CommandBuilder("basename").add_arg(latest_link).build_string()
         ).stdout_data;
-        while (!download_file_name.empty() && (download_file_name.back() == '\n' || download_file_name.back() == '\r'))
-            download_file_name.pop_back();
+        trim_newline(download_file_name);
 
         // 兼容 android-studio-ide- 和 android-studio- 两种命名规范
         std::string latest_ver = Executor::shell(
             "echo '" + download_file_name + "' | sed -E 's/android-studio(-ide)?-(.*)-linux\\.tar\\.gz/\\2/'"
         ).stdout_data;
-        while (!latest_ver.empty() && (latest_ver.back() == '\n' || latest_ver.back() == '\r'))
-            latest_ver.pop_back();
+        trim_newline(latest_ver);
 
         show_ide_version_table(latest_ver, check_local_opt_version());
 
@@ -1049,8 +1041,7 @@ namespace tmoe::domain {
             "ls -t " + grep_name_ + "*.tar.gz 2>/dev/null | head -n 1"
         );
         std::string local_pkg = ls_result.stdout_data;
-        while (!local_pkg.empty() && (local_pkg.back() == '\n' || local_pkg.back() == '\r'))
-            local_pkg.pop_back();
+        trim_newline(local_pkg);
 
         if (local_pkg.empty()) {
             Logger::warn(_("devtools.warn.pkg_not_exist"));
@@ -1312,8 +1303,7 @@ namespace tmoe::domain {
                 "grep -oP '(?<=<meta itemprop=\"softwareVersion\" content=\")[^\"]+' | head -n 1"
             );
             std::string ver = result.stdout_data;
-            while (!ver.empty() && (ver.back() == '\n' || ver.back() == '\r'))
-                ver.pop_back();
+            trim_newline(ver);
 
             if (!ver.empty()) {
                 Logger::info(_("devtools.status.latest_version") + ver + " (Arch community)");
@@ -1329,8 +1319,7 @@ namespace tmoe::domain {
                 "sort -V | tail -n 1"
             );
             ver = fallback.stdout_data;
-            while (!ver.empty() && (ver.back() == '\n' || ver.back() == '\r'))
-                ver.pop_back();
+            trim_newline(ver);
             if (!ver.empty()) Logger::info(_("devtools.status.latest_version") + ver + " (Arch community mirror)");
             return ver;
         } else {
@@ -1344,8 +1333,7 @@ namespace tmoe::domain {
                 "sed 's@.*" + grep_name_ + "-@@' | sed 's@-x86_64.pkg.tar.zst.*@@' | sed 's@\\.pkg\\.tar\\.zst.*@@'"
             );
             std::string ver = result.stdout_data;
-            while (!ver.empty() && (ver.back() == '\n' || ver.back() == '\r'))
-                ver.pop_back();
+            trim_newline(ver);
             if (!ver.empty()) Logger::info(_("devtools.status.latest_version") + ver + " (archlinuxcn)");
 
             if (ver.empty()) {
@@ -1356,8 +1344,7 @@ namespace tmoe::domain {
                     "grep -oP '" + grep_name_ + "-\\K[0-9.]+' | head -n 1"
                 );
                 ver = result2.stdout_data;
-                while (!ver.empty() && (ver.back() == '\n' || ver.back() == '\r'))
-                    ver.pop_back();
+                trim_newline(ver);
             }
             return ver;
         }
@@ -1401,8 +1388,7 @@ namespace tmoe::domain {
         auto result = Executor::shell(curl_cmd);
 
         std::string data = result.stdout_data;
-        while (!data.empty() && (data.back() == '\n' || data.back() == '\r'))
-            data.pop_back();
+        trim_newline(data);
 
         if (data.empty()) {
             Logger::error(_("devtools.error.jetbrains_api_empty"));
@@ -1547,9 +1533,7 @@ namespace tmoe::domain {
         // 精准获取压缩包内部的根目录名
         auto name_cmd = Executor::shell("tar -tf '" + dest + "' 2>/dev/null | head -1 | cut -f1 -d'/'");
         std::string extracted_dir = name_cmd.stdout_data;
-        while (!extracted_dir.empty() && (extracted_dir.back() == '\n' || extracted_dir.back() == '\r')) {
-            extracted_dir.pop_back();
-        }
+        trim_newline(extracted_dir);
 
         if (extracted_dir.empty()) {
             Logger::error(_("devtools.error.tar_corrupted") + dest);
@@ -1644,9 +1628,7 @@ namespace tmoe::domain {
             "cd " + dl_path + " && ls -t " + grep_name_ + "*.tar.gz 2>/dev/null | head -n 1"
         );
         std::string pkg_file = ls_result.stdout_data;
-        while (!pkg_file.empty() && (pkg_file.back() == '\n' || pkg_file.back() == '\r')) {
-            pkg_file.pop_back();
-        }
+        trim_newline(pkg_file);
 
         if (pkg_file.empty()) {
             Logger::error(_("devtools.error.no_install_pkg"));
@@ -1658,9 +1640,7 @@ namespace tmoe::domain {
         // 精准获取根目录名
         auto name_cmd = Executor::shell("tar -tf '" + dest + "' 2>/dev/null | head -1 | cut -f1 -d'/'");
         std::string extracted_dir = name_cmd.stdout_data;
-        while (!extracted_dir.empty() && (extracted_dir.back() == '\n' || extracted_dir.back() == '\r')) {
-            extracted_dir.pop_back();
-        }
+        trim_newline(extracted_dir);
 
         Logger::step(_("devtools.step.extracting_as"));
 
@@ -1760,8 +1740,7 @@ namespace tmoe::domain {
                 "cat " + download_path_.string() + "/" + grep_name_ + "-version.txt 2>/dev/null || echo ''"
             );
             std::string ver = result.stdout_data;
-            while (!ver.empty() && (ver.back() == '\n' || ver.back() == '\r'))
-                ver.pop_back();
+            trim_newline(ver);
             if (!ver.empty()) return ver;
             return "installed";
         }

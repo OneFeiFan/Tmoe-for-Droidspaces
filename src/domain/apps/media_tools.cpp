@@ -5,6 +5,7 @@
 #include "core/command_builder.hpp"
 #include "core/system_helper.h"
 #include "domain/system/package_manager.h"
+#include "core/str_utils.h"
 
 namespace tmoe::domain {
     MediaTools::MediaTools(const TmoeConfig &cfg) : cfg_(cfg) {
@@ -83,8 +84,7 @@ namespace tmoe::domain {
                                  + " 3>&1 1>&2 2>&3";
         auto dir_result = Executor::shell(dir_choice);
         std::string target_dir = dir_result.stdout_data;
-        while (!target_dir.empty() && (target_dir.back() == '\n' || target_dir.back() == '\r'))
-            target_dir.pop_back();
+        trim_newline(target_dir);
 
         if (target_dir.empty() || !fs::exists(target_dir)) {
             Logger::error(_("media.compress.dir_not_found"));
@@ -103,8 +103,7 @@ namespace tmoe::domain {
         auto dir_result = Executor::shell(
             "zenity --file-selection --directory --title=\"" + _("media.compress.choose_dir") + "\" 2>/dev/null");
         std::string target_dir = dir_result.stdout_data;
-        while (!target_dir.empty() && (target_dir.back() == '\n' || target_dir.back() == '\r'))
-            target_dir.pop_back();
+        trim_newline(target_dir);
 
         if (target_dir.empty() || !fs::exists(target_dir)) {
             Logger::error(_("media.compress.dir_not_found"));
@@ -117,8 +116,7 @@ namespace tmoe::domain {
             + "\" --text=\"" + _("media.compress.quality_prompt")
             + "\" --min-value=1 --max-value=99 --value=80 --step=1 2>/dev/null");
         std::string q_str = q_result.stdout_data;
-        while (!q_str.empty() && (q_str.back() == '\n' || q_str.back() == '\r'))
-            q_str.pop_back();
+        trim_newline(q_str);
         int quality = q_str.empty() ? 80 : std::stoi(q_str);
 
         compress_images(target_dir, quality);
@@ -165,8 +163,7 @@ namespace tmoe::domain {
                           + " 3>&1 1>&2 2>&3";
         auto result = Executor::shell(cmd);
         std::string q_str = result.stdout_data;
-        while (!q_str.empty() && (q_str.back() == '\n' || q_str.back() == '\r'))
-            q_str.pop_back();
+        trim_newline(q_str);
         return q_str.empty() ? 80 : std::stoi(q_str);
     }
 

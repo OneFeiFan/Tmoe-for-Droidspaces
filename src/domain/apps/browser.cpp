@@ -8,6 +8,7 @@
 #include <fstream>
 
 #include "core/system_helper.h"
+#include "core/str_utils.h"
 
 namespace tmoe::domain {
     BrowserManager::BrowserManager(const TmoeConfig &cfg) : cfg_(cfg) {
@@ -553,7 +554,7 @@ namespace tmoe::domain {
         // Microsoft Edge 仅提供 amd64 包
         auto arch_result = Executor::shell("dpkg --print-architecture 2>/dev/null");
         std::string arch = arch_result.stdout_data;
-        while (!arch.empty() && (arch.back() == '\n' || arch.back() == '\r')) arch.pop_back();
+        trim_newline(arch);
         if (arch != "amd64") {
             Logger::warn("Microsoft Edge only supports amd64, skipped (current: " + arch + ")");
             return;

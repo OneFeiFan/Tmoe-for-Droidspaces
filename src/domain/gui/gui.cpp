@@ -1,4 +1,5 @@
 #include "gui.hpp"
+#include "core/str_utils.h"
 #include "ui/plugin_helpers.h"
 #include "ui/menu_engine.h"
 
@@ -229,9 +230,8 @@ namespace tmoe::domain {
             auto user_group = Executor::shell("id -gn 2>/dev/null");
             std::string uname = user_name.ok() ? user_name.stdout_data : "";
             std::string ugroup = user_group.ok() ? user_group.stdout_data : "";
-            // trim newlines
-            while (!uname.empty() && (uname.back() == '\n' || uname.back() == '\r')) uname.pop_back();
-            while (!ugroup.empty() && (ugroup.back() == '\n' || ugroup.back() == '\r')) ugroup.pop_back();
+            trim_newline(uname);
+            trim_newline(ugroup);
 
             if (!uname.empty() && uname != "root") {
                 Logger::info(_("gui.vnc.fixing_nonroot_perms"));
@@ -256,12 +256,12 @@ namespace tmoe::domain {
 
             auto wsl_ver = Executor::shell("uname -r | cut -d '-' -f 2 2>/dev/null");
             std::string ver = wsl_ver.ok() ? wsl_ver.stdout_data : "";
-            while (!ver.empty() && (ver.back() == '\n' || ver.back() == '\r')) ver.pop_back();
+            trim_newline(ver);
             if (ver == "microsoft") {
                 auto wsl_r = Executor::shell("ip route list table 0 2>/dev/null | head -1 | "
                     "awk -F 'default via ' '{print $2}' | awk '{print $1}'");
                 std::string wsl_ip = wsl_r.ok() ? wsl_r.stdout_data : "";
-                while (!wsl_ip.empty() && (wsl_ip.back() == '\n' || wsl_ip.back() == '\r')) wsl_ip.pop_back();
+                trim_newline(wsl_ip);
                 if (!wsl_ip.empty()) {
                     Executor::shell(CommandBuilder("export")
                                     .add_arg("PULSE_SERVER=" + wsl_ip)

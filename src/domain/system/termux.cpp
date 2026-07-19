@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
+#include "core/str_utils.h"
 #include <ctime>
 #include <fstream>
 #include <regex>
@@ -504,8 +505,7 @@ namespace tmoe::domain {
 
         auto result = Executor::shell("ls -1t " + backup_dir + "/*termux*bak.tar* 2>/dev/null | head -1");
         std::string path = result.stdout_data;
-        // trim trailing newline
-        while (!path.empty() && (path.back() == '\n' || path.back() == '\r')) path.pop_back();
+        trim_newline(path);
         return path;
     }
 
@@ -539,7 +539,7 @@ namespace tmoe::domain {
             // 提取文件名
             size_t pos = line.find_last_of('/');
             std::string fname = (pos != std::string::npos) ? line.substr(pos + 1) : line;
-            while (!line.empty() && (line.back() == '\n' || line.back() == '\r')) line.pop_back();
+            trim_newline(line);
             menu->add_child(std::make_shared<LambdaAction>(
                 fname, std::to_string(idx),
                 [&selected_path, path = line](MenuContext&) -> bool {
@@ -1028,7 +1028,7 @@ namespace tmoe::domain {
                 "curl -sL " + m.url + " | grep -oP 'clang_[^\"]*\\.deb' | head -1");
 
             std::string deb_name = deb_name_result.stdout_data;
-            while (!deb_name.empty() && (deb_name.back() == '\n' || deb_name.back() == '\r')) deb_name.pop_back();
+            trim_newline(deb_name);
 
             if (deb_name.empty()) {
                 Logger::info(_f("termux.speedtest_fetch_failed", std::string(m.name)));
@@ -1046,7 +1046,7 @@ namespace tmoe::domain {
                 "\"" + full_url + "\" 2>&1 | grep -oP 'DL:\\K[0-9.]+[KM]?iB/s' | tail -1");
 
             std::string speed_str = speed.stdout_data;
-            while (!speed_str.empty() && (speed_str.back() == '\n' || speed_str.back() == '\r')) speed_str.pop_back();
+            trim_newline(speed_str);
 
             if (speed_str.empty()) speed_str = "N/A";
             Logger::info(std::string(m.name) + "  " + speed_str);
@@ -1851,7 +1851,7 @@ namespace tmoe::domain {
 
         std::string version = result.stdout_data;
         while (!version.empty() && !std::isdigit(version[0])) version.erase(0, 1);
-        while (!version.empty() && (version.back() == '\n' || version.back() == '\r')) version.pop_back();
+        trim_newline(version);
 
         if (version.empty()) return true;
 
@@ -2166,7 +2166,7 @@ namespace tmoe::domain {
         auto result = Executor::shell(
             adb_target + " dumpsys activity settings 2>/dev/null | grep max_phantom_processes");
         std::string output = result.stdout_data;
-        while (!output.empty() && (output.back() == '\n' || output.back() == '\r')) output.pop_back();
+        trim_newline(output);
 
         if (!output.empty()) {
             Logger::ok(_f("termux.signal9_verify_ok", output));
@@ -2180,7 +2180,7 @@ namespace tmoe::domain {
     int TermuxManager::count_adb_devices() {
         auto result = Executor::shell("adb devices 2>/dev/null | grep -v 'List of devices' | grep 'device$' | wc -l");
         std::string out = result.stdout_data;
-        while (!out.empty() && (out.back() == '\n' || out.back() == '\r')) out.pop_back();
+        trim_newline(out);
 
         try {
             return std::stoi(out);
