@@ -11,6 +11,7 @@
 #include "ui/plugin_helpers.h"
 #include "ui/builtin_actions.h"
 #include "ui/menu_engine.h"
+#include "ui/dialog_helpers.h"
 
 namespace tmoe::domain {
     SoftwareCenter::SoftwareCenter(const TmoeConfig &cfg) : cfg_(cfg),
@@ -698,9 +699,7 @@ namespace tmoe::domain {
             family = PackageManager::detect_distro_family();
 
         Logger::step(_("swcenter.cleanup.remove_gui_step"));
-        auto confirm = Executor::passthrough(cfg_.tui_bin +
-                                             " --yesno \"" + _("swcenter.cleanup.remove_gui_confirm") + "\" 0 0");
-        if (confirm.exit_code != 0) return;
+        if (ui::dialog::yesno(cfg_, "", _("swcenter.cleanup.remove_gui_confirm")) != 0) return;
 
         switch (family) {
             case DistroFamily::Debian: {
@@ -830,28 +829,21 @@ namespace tmoe::domain {
     void SoftwareCenter::remove_browser() {
         // 对应旧 Bash: 火狐娘 vs chromium娘 二选一
         auto family = infer_family_from_config(cfg_.linux_distro);
-        std::string confirm = cfg_.tui_bin +
-                              " --title \"" + _("swcenter.cleanup.browser_title") +
-                              "\" --yes-button \"Firefox\" --no-button \"chromium\""
-                              " --yesno '" + _("swcenter.cleanup.browser_dialog_text") + "' 10 60";
-        auto choice = Executor::passthrough(confirm);
+        int choice = ui::dialog::yesno(cfg_,
+            _("swcenter.cleanup.browser_title"),
+            _("swcenter.cleanup.browser_dialog_text"),
+            "Firefox", "chromium", 10, 60);
         // exit_code: 0=Firefox(yes), 1=chromium(no), 255=ESC
 
-        if (choice.exit_code == 0) {
-            auto f_confirm = Executor::passthrough(cfg_.tui_bin +
-                                                   " --yesno \"" + _("swcenter.cleanup.browser_firefox_confirm") +
-                                                   "\" 0 0");
-            if (f_confirm.exit_code != 0) return;
+        if (choice == 0) {
+            if (ui::dialog::yesno(cfg_, "", _("swcenter.cleanup.browser_firefox_confirm")) != 0) return;
             for (const auto *pkg: {
                      "firefox-esr", "firefox-esr-l10n-zh-cn",
                      "firefox", "firefox-l10n-zh-cn", "firefox-locale-zh-hans"
                  })
                 PackageManager::remove(std::string(pkg), family);
-        } else if (choice.exit_code == 1) {
-            auto c_confirm = Executor::passthrough(cfg_.tui_bin +
-                                                   " --yesno \"" + _("swcenter.cleanup.browser_chromium_confirm") +
-                                                   "\" 0 0");
-            if (c_confirm.exit_code != 0) return;
+        } else if (choice == 1) {
+            if (ui::dialog::yesno(cfg_, "", _("swcenter.cleanup.browser_chromium_confirm")) != 0) return;
             Executor::passthrough(
                 "apt-mark unhold chromium-browser chromium-browser-l10n chromium-codecs-ffmpeg-extra 2>/dev/null || true");
             for (const auto *pkg: {
@@ -867,9 +859,7 @@ namespace tmoe::domain {
         Logger::step(_("swcenter.cleanup.remove_tmoe_step"));
         Logger::warn(_("swcenter.cleanup.remove_tmoe_warn"));
 
-        auto tm_confirm = Executor::passthrough(cfg_.tui_bin +
-                                                " --yesno \"" + _("swcenter.cleanup.remove_tmoe_confirm") + "\" 0 0");
-        if (tm_confirm.exit_code != 0) return;
+        if (ui::dialog::yesno(cfg_, "", _("swcenter.cleanup.remove_tmoe_confirm")) != 0) return;
 
         CommandBuilder("sudo").add_arg("rm")
                 .add_flag("-rfv")

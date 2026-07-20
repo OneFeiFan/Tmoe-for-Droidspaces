@@ -4,6 +4,7 @@
 #include <cstdlib>
 
 #include "domain/gui/desktop_manager.h"
+#include "ui/dialog_helpers.h"
 
 namespace tmoe::domain {
 
@@ -39,9 +40,10 @@ PreInstallChoices UkuiDesktop::pre_install_choices(DistroFamily f, bool a) {
     if (f == DistroFamily::Arch) return c; // registry has arch pkg
     // bash: auto 模式直接用 ubuntukylin-desktop
     if (a) { c.pkg_list = "ubuntukylin-desktop"; return c; }
-    auto r = Executor::passthrough(cfg_.tui_bin + " --title \"ukui/kylin\" --yes-button \"ukui\" --no-button \"kylin\" --yesno 'ukui/kylin?' 0 0");
-    if (r.exit_code == 0) c.pkg_list = "ukui-session-manager ukui-menu ukui-control-center ukui-screensaver ukui-themes peony";
-    else c.pkg_list = "ubuntukylin-desktop";
+    if (ui::dialog::yesno(cfg_, "ukui/kylin", "ukui/kylin?", "ukui", "kylin") == 0)
+        c.pkg_list = "ukui-session-manager ukui-menu ukui-control-center ukui-screensaver ukui-themes peony";
+    else
+        c.pkg_list = "ubuntukylin-desktop";
     return c;
 }
 

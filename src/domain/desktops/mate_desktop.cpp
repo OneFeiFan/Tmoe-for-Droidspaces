@@ -6,6 +6,7 @@
 #include "core/str_utils.h"
 #include "core/system_helper.h"
 #include "domain/system/package_manager.h"
+#include "ui/dialog_helpers.h"
 
 namespace tmoe::domain {
 
@@ -44,19 +45,13 @@ PreInstallChoices MateDesktop::pre_install_choices(
 
     bool is_ubuntu = (cfg_.sub_distro == "ubuntu");
     if (is_ubuntu) {
-        auto r = Executor::passthrough(cfg_.tui_bin +
-            " --title \"Mate or Ubuntu-MATE\""
-            " --yes-button \"mate\" --no-button \"ubuntu-mate\""
-            " --yesno '前者为普通mate,后者为ubuntu-mate' 0 0");
-        if (r.exit_code == 1) { c.pkg_list = "ubuntu-mate-desktop"; return c; }
+        if (ui::dialog::yesno(cfg_, "Mate or Ubuntu-MATE", "前者为普通mate,后者为ubuntu-mate", "mate", "ubuntu-mate") == 1) {
+            c.pkg_list = "ubuntu-mate-desktop"; return c;
+        }
     }
 
     // core / lite
-    auto r = Executor::passthrough(cfg_.tui_bin +
-        " --title \"MATE-CORE or MATE-LITE\""
-        " --yes-button \"core\" --no-button \"lite\""
-        " --yesno '前者为普通mate,后者为精简版mate' 0 0");
-    if (r.exit_code != 0) {
+    if (ui::dialog::yesno(cfg_, "MATE-CORE or MATE-LITE", "前者为普通mate,后者为精简版mate", "core", "lite") != 0) {
         c.use_no_recommends = true;
         c.pkg_list = "mate-session-manager mate-settings-daemon marco mate-terminal mate-panel";
     }

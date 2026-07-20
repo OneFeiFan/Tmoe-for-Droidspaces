@@ -8,6 +8,7 @@
 #include "ui/plugin_helpers.h"
 #include "ui/builtin_actions.h"
 #include "ui/menu_engine.h"
+#include "ui/dialog_helpers.h"
 
 namespace tmoe::domain {
     SessionCmds GnomeDesktop::get_session_commands() const {
@@ -50,27 +51,19 @@ namespace tmoe::domain {
             }
             if (session_.empty() || session_ == "0") return c;
             if (cfg_.sub_distro == "ubuntu") {
-                auto r = Executor::passthrough(
-                    cfg_.tui_bin +
-                    " --title \"gnome/ubuntu\" --yes-button \"gnome\" --no-button \"ubuntu-desktop\" --yesno 'gnome/ubuntu-desktop?' 0 0");
-                if (r.exit_code == 1) {
+                if (dialog::yesno(cfg_, "gnome/ubuntu", "gnome/ubuntu-desktop?", "gnome", "ubuntu-desktop") == 1) {
                     c.pkg_list = "ubuntu-desktop";
                     return c;
                 }
             }
             if (c.pkg_list.empty()) {
-                auto r = Executor::passthrough(
-                    cfg_.tui_bin +
-                    " --title \"gnome-shell/core\" --yes-button \"gnome-shell\" --no-button \"gnome-core\" --yesno 'shell/core?' 0 0");
-                c.pkg_list = (r.exit_code == 0)
+                c.pkg_list = dialog::yesno(cfg_, "gnome-shell/core", "shell/core?", "gnome-shell", "gnome-core") == 0
                                  ? "xorg gnome-panel gnome-menus gnome-shell gnome-session"
                                  : "gnome-core";
             }
         } else if (f == DistroFamily::Arch) {
-            auto r = Executor::passthrough(
-                cfg_.tui_bin +
-                " --title \"gnome/gnome-extra\" --yes-button \"gnome\" --no-button \"gnome-extra\" --yesno 'gnome/extra?' 0 0");
-            c.pkg_list = (r.exit_code == 0) ? "gnome-tweaks gnome" : "gnome-extra gnome";
+            c.pkg_list = ui::dialog::yesno(cfg_, "gnome/gnome-extra", "gnome/extra?", "gnome", "gnome-extra") == 0
+                             ? "gnome-tweaks gnome" : "gnome-extra gnome";
         } else if (f == DistroFamily::RedHat) {
             c.pkg_list = "@GNOME";
         }

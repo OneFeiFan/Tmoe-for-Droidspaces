@@ -4,6 +4,7 @@
 #include "core/logger.h"
 #include "core/i18n.h"
 #include "domain/system/package_manager.h"
+#include "ui/dialog_helpers.h"
 
 namespace tmoe::domain {
     LxqtDesktop::LxqtDesktop(const TmoeConfig &cfg)
@@ -33,21 +34,13 @@ namespace tmoe::domain {
 
         bool is_ubuntu = (cfg_.sub_distro == "ubuntu");
         if (is_ubuntu) {
-            auto r = Executor::passthrough(cfg_.tui_bin +
-                                           " --title \"Lxqt or Lubuntu-desktop\""
-                                           " --yes-button \"lxqt\" --no-button \"lubuntu\""
-                                           " --yesno '前者为普通lxqt,后者为lubuntu' 0 0");
-            if (r.exit_code == 1) {
+            if (ui::dialog::yesno(cfg_, "Lxqt or Lubuntu-desktop", "前者为普通lxqt,后者为lubuntu", "lxqt", "lubuntu") == 1) {
                 c.pkg_list = "lubuntu-desktop";
                 return c;
             }
         }
 
-        auto r = Executor::passthrough(cfg_.tui_bin +
-                                       " --title \"LXQT-CORE or LXQT-LITE\""
-                                       " --yes-button \"core\" --no-button \"lite\""
-                                       " --yesno '前者为普通lxqt,后者为精简版lxqt' 0 0");
-        if (r.exit_code != 0) {
+        if (ui::dialog::yesno(cfg_, "LXQT-CORE or LXQT-LITE", "前者为普通lxqt,后者为精简版lxqt", "core", "lite") != 0) {
             c.use_no_recommends = true;
             c.pkg_list = "pcmanfm-qt pcmanfm-qt-l10n qterminal qterminal-l10n "
                     "openbox lxqt-theme-debian lxqt-panel lxqt-config "

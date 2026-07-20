@@ -4,6 +4,7 @@
 #include <cstdlib>
 
 #include "domain/gui/desktop_manager.h"
+#include "ui/dialog_helpers.h"
 
 namespace tmoe::domain {
 
@@ -54,8 +55,8 @@ PreInstallChoices DdeDesktop::pre_install_choices(DistroFamily f, bool a) {
     }
     if (f != DistroFamily::Debian) return c;
     if (cfg_.sub_distro == "deepin") { c.pkg_list = "dde"; return c; }
-    auto r = Executor::passthrough(cfg_.tui_bin + " --title \"DDE/DDE-extras\" --yes-button \"dde\" --no-button \"dde-extras\" --yesno 'dde/extras?' 0 0");
-    c.pkg_list = (r.exit_code == 0) ? "ubuntudde-dde deepin-terminal" : "ubuntudde-dde ubuntudde-dde-extras";
+    c.pkg_list = ui::dialog::yesno(cfg_, "DDE/DDE-extras", "dde/extras?", "dde", "dde-extras") == 0
+                     ? "ubuntudde-dde deepin-terminal" : "ubuntudde-dde ubuntudde-dde-extras";
     return c;
 }
 

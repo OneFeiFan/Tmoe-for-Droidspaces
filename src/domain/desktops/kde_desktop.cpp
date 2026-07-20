@@ -6,6 +6,7 @@
 #include "core/system_helper.h"
 #include "domain/system/package_manager.h"
 #include <filesystem>
+#include "ui/dialog_helpers.h"
 
 namespace tmoe::domain {
     KdeDesktop::KdeDesktop(const TmoeConfig &cfg)
@@ -32,35 +33,20 @@ namespace tmoe::domain {
         if (family == DistroFamily::Debian) {
             bool is_ubuntu = (cfg_.sub_distro == "ubuntu");
             if (is_ubuntu) {
-                auto r = Executor::passthrough(cfg_.tui_bin +
-                                               " --title \"KDE-plasma or Kubuntu-desktop\""
-                                               " --yes-button \"KDE\" --no-button \"kubuntu\""
-                                               " --yesno '前者为普通KDE,后者为kubuntu' 0 0");
-                if (r.exit_code == 1) {
+                if (ui::dialog::yesno(cfg_, "KDE-plasma or Kubuntu-desktop", "前者为普通KDE,后者为kubuntu", "KDE", "kubuntu") == 1) {
                     c.pkg_list = "kubuntu-desktop";
                     return c;
                 }
             }
             // choose_kde_plasma_or_standard
-            auto r = Executor::passthrough(cfg_.tui_bin +
-                                           " --title \"kde-plasma or kde-standard\""
-                                           " --yes-button \"plasma\" --no-button \"standard\""
-                                           " --yesno '前者为精简安装,后者为标准安装' 0 0");
-            if (r.exit_code == 0) {
+            if (ui::dialog::yesno(cfg_, "kde-plasma or kde-standard", "前者为精简安装,后者为标准安装", "plasma", "standard") == 0) {
                 c.pkg_list = "kde-plasma-desktop";
             } else {
-                auto r2 = Executor::passthrough(cfg_.tui_bin +
-                                                " --title \"kde-standard or kde-full\""
-                                                " --yes-button \"standard\" --no-button \"full\""
-                                                " --yesno '前者包含KDE标准套件,后者为KDE全家桶' 0 0");
-                c.pkg_list = (r2.exit_code == 0) ? "kde-standard" : "kde-full";
+                c.pkg_list = ui::dialog::yesno(cfg_, "kde-standard or kde-full", "前者包含KDE标准套件,后者为KDE全家桶", "standard", "full") == 0
+                                 ? "kde-standard" : "kde-full";
             }
         } else if (family == DistroFamily::Arch) {
-            auto r = Executor::passthrough(cfg_.tui_bin +
-                                           " --title \"kde-plasma or plasma-meta\""
-                                           " --yes-button \"plasma\" --no-button \"plasma+apps\""
-                                           " --yesno '前者为plasma基础桌面,后者包含kde全家桶' 0 0");
-            c.pkg_list = (r.exit_code == 0)
+            c.pkg_list = ui::dialog::yesno(cfg_, "kde-plasma or plasma-meta", "前者为plasma基础桌面,后者包含kde全家桶", "plasma", "plasma+apps") == 0
                              ? "plasma-desktop dolphin konsole discover"
                              : "plasma-meta kde-applications-meta plasma-wayland-session sddm sddm-kcm";
         }
@@ -119,10 +105,7 @@ namespace tmoe::domain {
     }
 
     void KdeDesktop::choose_wayland_or_x11(const PostInstallContext & /*ctx*/) {
-        auto r = Executor::passthrough(cfg_.tui_bin +
-                                       " --title \"x11 or wayland\" --yes-button \"x11\" --no-button \"wayland\""
-                                       " --yesno '默认推荐x11, wayland尚在实验阶段' 0 0");
-        if (r.exit_code == 1) {
+        if (ui::dialog::yesno(cfg_, "x11 or wayland", "默认推荐x11, wayland尚在实验阶段", "x11", "wayland") == 1) {
             plasma_wayland_env();
             Logger::info(_("gui.plasma_wayland.selected"));
         }

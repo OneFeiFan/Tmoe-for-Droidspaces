@@ -3,6 +3,7 @@
 #include "core/executor.h"
 #include "core/logger.h"
 #include "core/i18n.h"
+#include "ui/dialog_helpers.h"
 #include "core/command_builder.hpp"
 #include "core/str_utils.h"
 #include "domain/system/package_manager.h"
@@ -519,8 +520,7 @@ namespace tmoe::domain {
         menu->add_child(LambdaAction::make(
             "remove", "5",
             [this] {
-                auto r = Executor::passthrough(cfg_.tui_bin + " --yesno \"确认卸载 x11vnc？\" 0 0");
-                if (r.exit_code == 0) remove_x11vnc_ext();
+                if (dialog::yesno(cfg_, "", "确认卸载 x11vnc？") == 0) remove_x11vnc_ext();
                 Logger::press_enter();
             }));
         menu->add_child(LambdaAction::make(
@@ -594,8 +594,7 @@ namespace tmoe::domain {
         menu->add_child(LambdaAction::make(
             "remove", "3",
             [this] {
-                auto r = Executor::passthrough(cfg_.tui_bin + " --yesno \"确认卸载 noVNC？\" 0 0");
-                if (r.exit_code == 0) remove_novnc();
+                if (dialog::yesno(cfg_, "", "确认卸载 noVNC？") == 0) remove_novnc();
                 Logger::press_enter();
             }));
 
@@ -727,8 +726,7 @@ namespace tmoe::domain {
         menu->add_child(LambdaAction::make(
             "reset", "9",
             [this] {
-                auto r = Executor::passthrough(cfg_.tui_bin + " --yesno \"确认重置 xrdp 配置？\" 0 0");
-                if (r.exit_code == 0) {
+                if (dialog::yesno(cfg_, "", "确认重置 xrdp 配置？") == 0) {
                     Logger::step(_("gui.xrdp.reset"));
                     Executor::passthrough(
                         sudo_cmd() + "service xrdp stop 2>/dev/null || " + sudo_cmd() + "systemctl stop xrdp 2>/dev/null || true");
@@ -741,8 +739,7 @@ namespace tmoe::domain {
         menu->add_child(LambdaAction::make(
             "remove", "10",
             [this] {
-                auto r = Executor::passthrough(cfg_.tui_bin + " --yesno \"确认卸载 xrdp？\" 0 0");
-                if (r.exit_code == 0) remove_xrdp();
+                if (dialog::yesno(cfg_, "", "确认卸载 xrdp？") == 0) remove_xrdp();
                 Logger::press_enter();
             }));
         menu->add_child(LambdaAction::make(

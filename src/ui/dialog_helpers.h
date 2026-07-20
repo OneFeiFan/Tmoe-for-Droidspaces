@@ -64,4 +64,104 @@ inline int yesno(const TmoeConfig& cfg,
     return r.exit_code;
 }
 
+/** 显示 whiptail --inputbox 对话框（文本输入）。
+ *
+ *  @param cfg       全局配置
+ *  @param title     对话框标题（空则省略）
+ *  @param text      提示文本
+ *  @param init_text 初始文本（空则省略）
+ *  @param height    对话框高度（0 = 自动）
+ *  @param width     对话框宽度（0 = 自动）
+ *  @return 用户输入的文本，取消返回空字符串
+ */
+inline std::string inputbox(const TmoeConfig& cfg,
+                            std::string_view title,
+                            std::string_view text,
+                            std::string_view init_text = "",
+                            int height = 0, int width = 0) {
+    std::string cmd = cfg.tui_bin;
+    if (!title.empty()) {
+        cmd += " --title \"";
+        cmd += esc_dq(title);
+        cmd += "\"";
+    }
+    cmd += " --inputbox \"";
+    cmd += esc_dq(text);
+    cmd += "\" ";
+    cmd += std::to_string(height);
+    cmd += " ";
+    cmd += std::to_string(width);
+    if (!init_text.empty()) {
+        cmd += " \"";
+        cmd += esc_dq(init_text);
+        cmd += "\"";
+    }
+
+    bool cancelled = false;
+    std::string result = Executor::tui_select(cmd, cancelled);
+    return cancelled ? std::string{} : result;
+}
+
+/** 显示 whiptail --fselect 对话框（文件选择器）。
+ *
+ *  @param cfg      全局配置
+ *  @param title    对话框标题（空则省略）
+ *  @param base_dir 起始目录（默认 /）
+ *  @param height   对话框高度（0 = 自动）
+ *  @param width    对话框宽度（0 = 自动）
+ *  @return 用户选择的文件路径，取消返回空字符串
+ */
+inline std::string fselect(const TmoeConfig& cfg,
+                           std::string_view title,
+                           std::string_view base_dir = "/",
+                           int height = 0, int width = 0) {
+    std::string cmd = cfg.tui_bin;
+    if (!title.empty()) {
+        cmd += " --title \"";
+        cmd += esc_dq(title);
+        cmd += "\"";
+    }
+    cmd += " --fselect \"";
+    cmd += esc_dq(base_dir);
+    cmd += "/\" ";
+    cmd += std::to_string(height);
+    cmd += " ";
+    cmd += std::to_string(width);
+
+    bool cancelled = false;
+    std::string result = Executor::tui_select(cmd, cancelled);
+    return cancelled ? std::string{} : result;
+}
+
+/** 显示 whiptail --passwordbox 对话框（密码输入，输入内容被遮蔽）。
+ *
+ *  @param cfg    全局配置
+ *  @param title  对话框标题（空则省略）
+ *  @param text   提示文本
+ *  @param height 对话框高度（0 = 自动）
+ *  @param width  对话框宽度（0 = 自动）
+ *  @return 用户输入的密码，取消返回空字符串
+ */
+inline std::string passwordbox(const TmoeConfig& cfg,
+                               std::string_view title,
+                               std::string_view text,
+                               int height = 0, int width = 0) {
+    std::string cmd = cfg.tui_bin;
+    if (!title.empty()) {
+        cmd += " --title \"";
+        cmd += esc_dq(title);
+        cmd += "\"";
+    }
+    cmd += " --passwordbox \"";
+    cmd += esc_dq(text);
+    cmd += "\" ";
+    cmd += std::to_string(height);
+    cmd += " ";
+    cmd += std::to_string(width);
+
+    bool cancelled = false;
+    std::string result = Executor::tui_select(cmd, cancelled);
+    return cancelled ? std::string{} : result;
+}
+
 } // namespace tmoe::ui::dialog

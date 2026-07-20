@@ -3,6 +3,7 @@
 #include "core/command_builder.hpp"
 #include "core/i18n.h"
 #include "ui/plugin_helpers.h"
+#include "ui/dialog_helpers.h"
 #include "ui/builtin_actions.h"
 #include "ui/menu_engine.h"
 #include <algorithm>
@@ -499,9 +500,8 @@ bool BackupManager::restore_container(std::string_view archive_path) {
             break;
         }
         case RestoreMode::ManualPath: {
-            std::string path_cmd = cfg_.tui_bin +
-                " --title " + _("backup.select_file_manual_title") + " --inputbox " + _("backup.select_file_manual_input") + " 0 0";
-            archive = Executor::tui_select(path_cmd);
+            archive = ui::dialog::inputbox(cfg_, _("backup.select_file_manual_title"),
+                                       _("backup.select_file_manual_input"));
             break;
         }
         case RestoreMode::FromDownload: {
@@ -547,10 +547,9 @@ bool BackupManager::restore_container(std::string_view archive_path) {
     Logger::info(_("backup.backup_file_info") + archive + " (" + size_human + ")");
 
     // 确认目标路径
-    std::string target_cmd = cfg_.tui_bin +
-        " --title " + _("backup.restore_target_title") + " --inputbox " + _("backup.restore_target_input") + " 0 0 \"" +
-        cfg_.container_root.string() + "\"";
-    std::string target = Executor::tui_select(target_cmd);
+    std::string target = ui::dialog::inputbox(cfg_, _("backup.restore_target_title"),
+                                          _("backup.restore_target_input"),
+                                          cfg_.container_root.string());
 
     if (target.empty()) {
         Logger::error(_("backup.no_target_path"));
@@ -1003,11 +1002,7 @@ BackupManager::RestoreMode BackupManager::tui_select_restore_mode() {
 }
 
 std::string BackupManager::tui_select_file(const std::string& base_dir) {
-    // 使用 whiptail --fselect 选择文件
-    std::string cmd = cfg_.tui_bin +
-        " --title " + _("backup.select_file_title") + " --fselect \"" + base_dir + "/\" 0 0";
-    // tui_select 通过 3>&1 1>&2 2>&3 交换捕获 whiptail 的 stderr(fselect路径) 输出
-    return Executor::tui_select(cmd);
+    return ui::dialog::fselect(cfg_, _("backup.select_file_title"), base_dir);
 }
 
 std::vector<std::string> BackupManager::tui_multi_select_targets() {
@@ -1016,9 +1011,8 @@ std::vector<std::string> BackupManager::tui_multi_select_targets() {
 }
 
 bool BackupManager::tui_confirm_cleanup(std::string_view rootfs_path) {
-    std::string cmd = cfg_.tui_bin +
-        " --title " + _("backup.cleanup_confirm_title") + " --yesno \"" + _("backup.confirm_cleanup_text") + "\" 0 0";
-    return Executor::passthrough(cmd).ok();
+    return ui::dialog::yesno(cfg_, _("backup.cleanup_confirm_title"),
+                         _("backup.confirm_cleanup_text")) == 0;
 }
 
 bool BackupManager::is_chroot_container(std::string_view rootfs_path) const {

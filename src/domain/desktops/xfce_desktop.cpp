@@ -9,6 +9,7 @@
 #include <filesystem>
 #include "core/str_utils.h"
 #include <sstream>
+#include "ui/dialog_helpers.h"
 
 namespace tmoe::domain {
     XfceDesktop::XfceDesktop(const TmoeConfig &cfg)
@@ -42,11 +43,8 @@ namespace tmoe::domain {
         PreInstallChoices c;
         if (family == DistroFamily::Debian
             && cfg_.sub_distro == "ubuntu" && !is_auto_mode) {
-            auto r = Executor::passthrough(cfg_.tui_bin +
-                                           " --title \"Xfce or Xubuntu-desktop\""
-                                           " --yes-button \"xfce\" --no-button \"xubuntu\""
-                                           " --yesno '前者为普通xfce,后者为xubuntu' 0 0");
-            if (r.exit_code == 1) c.pkg_list = "xubuntu-desktop";
+            if (ui::dialog::yesno(cfg_, "Xfce or Xubuntu-desktop", "前者为普通xfce,后者为xubuntu", "xfce", "xubuntu") == 1)
+                c.pkg_list = "xubuntu-desktop";
         }
         return c;
     }

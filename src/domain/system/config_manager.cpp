@@ -6,6 +6,7 @@
 #include <fstream>
 #include <sstream>
 #include "core/str_utils.h"
+#include "ui/dialog_helpers.h"
 
 #include "core/system_helper.h"
 
@@ -384,18 +385,14 @@ bool ConfigManager::change_root_password() {
     Logger::step(_("passwd.title"));
 
     // 使用 whiptail passwordbox 获取新密码
-    std::string pw1_cmd = cfg_.tui_bin + " --title \"" + _("passwd.title") + "\""
-                           " --passwordbox \"" + _("passwd.enter") + "\" 0 0";
-    std::string pw1 = Executor::tui_select(pw1_cmd);
+    std::string pw1 = ui::dialog::passwordbox(cfg_, _("passwd.title"), _("passwd.enter"));
 
     if (pw1.empty()) {
         Logger::info(_("passwd.cancelled"));
         return false;
     }
 
-    std::string pw2_cmd = cfg_.tui_bin + " --title \"" + _("passwd.title") + "\""
-                           " --passwordbox \"" + _("passwd.confirm") + "\" 0 0";
-    std::string pw2 = Executor::tui_select(pw2_cmd);
+    std::string pw2 = ui::dialog::passwordbox(cfg_, _("passwd.title"), _("passwd.confirm"));
 
     if (pw1 != pw2) {
         Logger::error(_("passwd.mismatch"));
@@ -429,9 +426,8 @@ bool ConfigManager::configure_hostname() {
     std::string current = current_hostname();
     Logger::info(_("hostname.current") + ": " + current);
 
-    std::string input_cmd = cfg_.tui_bin + " --title \"" + _("hostname.title") + "\""
-                            " --inputbox \"" + _("hostname.prompt") + "\" 0 0 \"" + current + "\"";
-    std::string new_hostname = Executor::tui_select(input_cmd);
+    std::string new_hostname = ui::dialog::inputbox(cfg_, _("hostname.title"),
+                                                _("hostname.prompt"), current);
 
     if (new_hostname.empty() || new_hostname == current) {
         return false;

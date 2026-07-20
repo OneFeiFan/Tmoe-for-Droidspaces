@@ -6,6 +6,7 @@
 #include "core/i18n.h"
 #include "core/system_helper.h"
 #include "domain/system/package_manager.h"
+#include "ui/dialog_helpers.h"
 
 namespace tmoe::domain {
 
@@ -23,11 +24,20 @@ PreInstallChoices BudgieDesktop::pre_install_choices(DistroFamily f, bool a) {
     }
     if (f != DistroFamily::Debian) return c;
     // bash: choose_budgie_panel_or_desktop — 问 session 类型（不影响包列表）
-    auto sr = Executor::passthrough(cfg_.tui_bin + " --title \"budgie session\" --yes-button \"panel\" --no-button \"desktop\" --yesno 'panel/desktop?' 0 0");
-    session_ = (sr.exit_code == 0) ? "panel" : "desktop";
-    if (cfg_.sub_distro == "ubuntu") { auto r = Executor::passthrough(cfg_.tui_bin + " --title \"budgie/ubuntu-budgie\" --yes-button \"budgie\" --no-button \"ubuntu-budgie\" --yesno 'budgie/ubuntu-budgie?' 0 0"); if (r.exit_code == 1) { c.pkg_list = "ubuntu-budgie-desktop"; return c; } }
-    auto r = Executor::passthrough(cfg_.tui_bin + " --title \"budgie-core/desktop\" --yes-button \"core\" --no-button \"desktop\" --yesno 'core/desktop?' 0 0");
-    if (r.exit_code == 0) { c.use_no_recommends = true; c.pkg_list = "budgie-core"; } else c.pkg_list = "budgie-desktop";
+    int sr = ui::dialog::yesno(cfg_, "budgie session", "panel/desktop?", "panel", "desktop");
+    session_ = (sr == 0) ? "panel" : "desktop";
+    if (cfg_.sub_distro == "ubuntu") {
+        if (ui::dialog::yesno(cfg_, "budgie/ubuntu-budgie", "budgie/ubuntu-budgie?", "budgie", "ubuntu-budgie") == 1) {
+            c.pkg_list = "ubuntu-budgie-desktop";
+            return c;
+        }
+    }
+    if (ui::dialog::yesno(cfg_, "budgie-core/desktop", "core/desktop?", "core", "desktop") == 0) {
+        c.use_no_recommends = true;
+        c.pkg_list = "budgie-core";
+    } else {
+        c.pkg_list = "budgie-desktop";
+    }
     return c;
 }
 void BudgieDesktop::will_be_installed_message() const {
