@@ -16,7 +16,7 @@ std::shared_ptr<IUIMenu> BrowserMenuPlugin::build() {
 
     // ── Firefox / Chromium — 多步向导 ──
     menu->add_child(LambdaAction::make(
-        _("browser.menu_item_firefox_chromium"), "browser_firefox_chromium",
+        _("browser.menu_item_firefox_chromium"), "1",
         [this] {
             // Step 1: Chromium or Firefox?
             int c = dialog::yesno(mgr_->cfg(),
@@ -58,7 +58,7 @@ std::shared_ptr<IUIMenu> BrowserMenuPlugin::build() {
 
     // ── Microsoft Edge — 安装/卸载双按钮 ──
     menu->add_child(std::make_shared<ChoiceAction>(
-        _("browser.menu_item_edge"), "browser_edge",
+        _("browser.menu_item_edge"), "2",
         _("browser.edge_install_remove_title"), _("browser.edge_install_remove_yesno"),
         "install", [this] { mgr_->install_edge(); },
         "remove",  [this] { mgr_->remove_edge(); },
@@ -66,7 +66,7 @@ std::shared_ptr<IUIMenu> BrowserMenuPlugin::build() {
 
     // ── Falkon — 安装/卸载双按钮 ──
     menu->add_child(std::make_shared<ChoiceAction>(
-        _("browser.menu_item_falkon"), "browser_falkon",
+        _("browser.menu_item_falkon"), "3",
         _("browser.falkon_install_remove_title"), _("browser.falkon_install_remove_yesno"),
         "install", [this] { mgr_->install_falkon(); },
         "remove",  [this] { mgr_->remove_falkon(); },
@@ -74,21 +74,21 @@ std::shared_ptr<IUIMenu> BrowserMenuPlugin::build() {
 
     // ── 仅安装的应用 ──
     menu->add_child(LambdaAction::make(
-        _("browser.menu_item_vivaldi"), "browser_vivaldi",
+        _("browser.menu_item_vivaldi"), "4",
         [this] {
             mgr_->install_vivaldi();
             Logger::press_enter();
         }));
 
     menu->add_child(LambdaAction::make(
-        _("browser.menu_item_epiphany"), "browser_epiphany",
+        _("browser.menu_item_epiphany"), "5",
         [this] {
             mgr_->install_epiphany();
             Logger::press_enter();
         }));
 
     menu->add_child(LambdaAction::make(
-        _("browser.menu_item_midori"), "browser_midori",
+        _("browser.menu_item_midori"), "6",
         [this] {
             mgr_->install_midori();
             Logger::press_enter();
