@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <fstream>
 #include <sstream>
+#include "core/str_utils.h"
 
 #include "core/system_helper.h"
 
@@ -329,7 +330,7 @@ bool ConfigManager::configure_shared_dirs() {
     // 读取当前状态
     auto read_flag = [&](const std::string& name) -> bool {
         auto content = read_config_file(base + name);
-        return content.find("true") != std::string::npos;
+        return contains(content, "true");
     };
 
     bool sd_on = read_flag("mount_sd.conf");
@@ -352,10 +353,10 @@ bool ConfigManager::configure_shared_dirs() {
     std::string output = result.stdout_data;
 
     // whiptail --checklist returns quoted, space-separated tags
-    bool sd_new    = output.find("sharedir.sd")          != std::string::npos;
-    bool home_new  = output.find("sharedir.termux_home") != std::string::npos;
-    bool st_new    = output.find("sharedir.storage")     != std::string::npos;
-    bool tf_new    = output.find("sharedir.tf_card")     != std::string::npos;
+    bool sd_new   = contains(output, "sharedir.sd");
+    bool home_new = contains(output, "sharedir.termux_home");
+    bool st_new   = contains(output, "sharedir.storage");
+    bool tf_new   = contains(output, "sharedir.tf_card");
 
     if (sd_on != sd_new)       write_mount_conf("mount_sd.conf",       sd_new);
     if (home_on != home_new)   write_mount_conf("mount_termux.conf",   home_new);

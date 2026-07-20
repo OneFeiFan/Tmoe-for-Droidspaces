@@ -228,7 +228,7 @@ namespace tmoe::domain {
         std::string url = mirror.url;
 
         // 兼容性检测: ftp.*.debian.org 等镜像只托管 Debian 包，不适用于 Ubuntu
-        if (url.find(".debian.org") != std::string::npos) {
+        if (contains(url, ".debian.org")) {
             Logger::warn(_f("mirror.debian_only_ubuntu", mirror.name));
             Logger::warn(_("mirror.suggest_multi_distro_mirror"));
             if (!Logger::confirm(_("mirror.confirm_use_incompatible"))) {
@@ -260,7 +260,7 @@ namespace tmoe::domain {
         std::string url = mirror.url;
 
         // 兼容性检测: ftp.*.debian.org 等镜像只托管 Debian 包，不适用于 Kali
-        if (url.find(".debian.org") != std::string::npos) {
+        if (contains(url, ".debian.org")) {
             Logger::warn(_f("mirror.debian_only_kali", mirror.name));
             Logger::warn(_("mirror.suggest_multi_distro_mirror_kali"));
             if (!Logger::confirm(_("mirror.confirm_use_incompatible"))) {
@@ -929,7 +929,7 @@ namespace tmoe::domain {
         bool needs_distro_filter = (cfg_.sub_distro == "ubuntu" || cfg_.sub_distro == "kali");
         Logger::info(_f("mirror.auto_select_skip_debian", cfg_.sub_distro));
         for (const auto &m: all_mirrors) {
-            if (needs_distro_filter && m.url.find(".debian.org") != std::string::npos) {
+            if (needs_distro_filter && contains(m.url, ".debian.org")) {
                 continue;
             }
             compatible_mirrors.push_back(m);

@@ -767,19 +767,19 @@ namespace tmoe::domain {
 
             std::string dl_url, dl_version;
             if (!fetch_jetbrains_link(dl_url, dl_version)) {
-                if (grep_name_.find("intellij-idea") != std::string::npos)
+                if (contains(grep_name_, "intellij-idea"))
                     tip_manual_install(
                         "https://www.jetbrains.com/idea/download/#section=linux");
-                else if (grep_name_.find("pycharm") != std::string::npos)
+                else if (contains(grep_name_, "pycharm"))
                     tip_manual_install(
                         "https://www.jetbrains.com/pycharm/download/#section=linux");
-                else if (grep_name_.find("webstorm") != std::string::npos)
+                else if (contains(grep_name_, "webstorm"))
                     tip_manual_install(
                         "https://www.jetbrains.com/webstorm/download/#section=linux");
-                else if (grep_name_.find("clion") != std::string::npos)
+                else if (contains(grep_name_, "clion"))
                     tip_manual_install(
                         "https://www.jetbrains.com/clion/download/#section=linux");
-                else if (grep_name_.find("goland") != std::string::npos)
+                else if (contains(grep_name_, "goland"))
                     tip_manual_install(
                         "https://www.jetbrains.com/goland/download/#section=linux");
                 return;
@@ -1004,8 +1004,8 @@ namespace tmoe::domain {
 
         // 动态推断当前 IDE 的包名关键词
         std::string pattern = "*";
-        if (grep_name_.find("idea") != std::string::npos) pattern = "*idea*";
-        else if (grep_name_.find("pycharm") != std::string::npos) pattern = "*pycharm*";
+        if (contains(grep_name_, "idea")) pattern = "*idea*";
+        else if (contains(grep_name_, "pycharm")) pattern = "*pycharm*";
         else if (grep_name_ == "webstorm") pattern = "*WebStorm*";
         else if (grep_name_ == "clion") pattern = "*CLion*";
         else if (grep_name_ == "goland") pattern = "*GoLand*";
@@ -1070,8 +1070,8 @@ namespace tmoe::domain {
 
         std::string cli_link;
         if (is_jetbrains) {
-            if (grep_name_.find("intellij-idea") != std::string::npos) cli_link = "/usr/local/bin/idea";
-            else if (grep_name_.find("pycharm") != std::string::npos) cli_link = "/usr/local/bin/pycharm";
+            if (contains(grep_name_, "intellij-idea")) cli_link = "/usr/local/bin/idea";
+            else if (contains(grep_name_, "pycharm")) cli_link = "/usr/local/bin/pycharm";
             else if (grep_name_ == "webstorm") cli_link = "/usr/local/bin/webstorm";
             else if (grep_name_ == "clion") cli_link = "/usr/local/bin/clion";
             else if (grep_name_ == "goland") cli_link = "/usr/local/bin/goland";
@@ -1121,13 +1121,13 @@ namespace tmoe::domain {
             Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(version_file)
                 .add_raw("2>/dev/null").build_string());
 
-            if (grep_name_.find("intellij-idea-community") != std::string::npos) {
+            if (contains(grep_name_, "intellij-idea-community")) {
                 Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
                     .add_arg("/usr/share/licenses/idea")
                     .add_arg("/usr/share/icons/hicolor/scalable/apps/idea.svg")
                     .add_raw("2>/dev/null").build_string());
             }
-            if (grep_name_.find("pycharm-community") != std::string::npos) {
+            if (contains(grep_name_, "pycharm-community")) {
                 Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
                     .add_arg("/usr/share/licenses/pycharm")
                     .add_arg("/usr/share/icons/hicolor/scalable/apps/pycharm.svg")
@@ -1417,14 +1417,14 @@ namespace tmoe::domain {
         std::string display_name;
         std::string wm_class;
 
-        if (grep_name_.find("intellij-idea") != std::string::npos) {
+        if (contains(grep_name_, "intellij-idea")) {
             launcher = "bin/idea";
             icon = "bin/idea.png";
             display_name = (community_edition_)
                                ? "IntelliJ IDEA Community Edition"
                                : "IntelliJ IDEA Ultimate Edition";
             wm_class = "jetbrains-idea";
-        } else if (grep_name_.find("pycharm") != std::string::npos) {
+        } else if (contains(grep_name_, "pycharm")) {
             launcher = "bin/pycharm";
             icon = "bin/pycharm.png";
             display_name = "PyCharm Community Edition";
@@ -1480,9 +1480,9 @@ namespace tmoe::domain {
 
         // 同时创建 /usr/local/bin 下的命令行启动链接
         std::string cli_name;
-        if (grep_name_.find("intellij-idea") != std::string::npos)
+        if (contains(grep_name_, "intellij-idea"))
             cli_name = "idea";
-        else if (grep_name_.find("pycharm") != std::string::npos)
+        else if (contains(grep_name_, "pycharm"))
             cli_name = "pycharm";
         else if (grep_name_ == "webstorm")
             cli_name = "webstorm";

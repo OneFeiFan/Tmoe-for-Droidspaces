@@ -81,6 +81,11 @@ inline bool contains(std::string_view s, std::string_view sub) {
     return s.find(sub) != std::string_view::npos;
 }
 
+/** char 重载：检查字符串是否包含单个字符。 */
+inline bool contains(std::string_view s, char c) {
+    return s.find(c) != std::string_view::npos;
+}
+
 /** 搜索并替换所有出现的子串（不可变版本 — 返回新字符串）。 */
 inline std::string replace_all(std::string s, std::string_view from, std::string_view to) {
     if (from.empty()) return s;

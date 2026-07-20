@@ -331,7 +331,7 @@ namespace tmoe::domain {
         bool is_ubuntu = (cfg_.sub_distro == "ubuntu");
         if (is_ubuntu) {
             auto os_check = Executor::shell("grep -Eq 'Focal Fossa|focal|Eoan Ermine' /etc/os-release && echo 'yes'");
-            bool is_focal_like = os_check.ok() && os_check.stdout_data.find("yes") != std::string::npos;
+            bool is_focal_like = os_check.ok() && contains(os_check.stdout_data, "yes");
             if (is_focal_like && vnc_config_.server_bin == "tigervnc") {
                 auto ver_check = Executor::shell("apt list --installed 2>&1 | grep 'tigervnc-standalone-server' | "
                     "awk '{print $2}' | grep '1.9.'");

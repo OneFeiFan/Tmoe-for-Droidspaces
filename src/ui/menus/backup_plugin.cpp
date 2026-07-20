@@ -3,6 +3,7 @@
 #include "ui/plugin_helpers.h"
 #include "ui/builtin_actions.h"
 #include "domain/system/backup.h"
+#include "core/str_utils.h"
 
 namespace tmoe::ui::menus {
 
@@ -166,8 +167,8 @@ std::shared_ptr<IUIMenu> BackupMenuPlugin::build() {
                 "\"home\" " + _("backup.tb_home") + " ON "
                 "\"usr\" " + _("backup.tb_usr") + " OFF";
             std::string checklist_result = Executor::tui_select(tb_cmd);
-            bool backup_home = checklist_result.find("\"home\"") != std::string::npos;
-            bool backup_usr = checklist_result.find("\"usr\"") != std::string::npos;
+            bool backup_home = contains(checklist_result, "\"home\"");
+            bool backup_usr = contains(checklist_result, "\"usr\"");
 
             if (!backup_home && !backup_usr) {
                 Logger::warn(_("backup.no_items_selected"));

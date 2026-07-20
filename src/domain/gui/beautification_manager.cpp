@@ -10,6 +10,7 @@
 #include "ui/plugin_helpers.h"
 #include "ui/builtin_actions.h"
 #include "ui/menu_engine.h"
+#include "core/str_utils.h"
 #include <filesystem>
 #include <regex>
 #include <cstring>
@@ -1009,7 +1010,7 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
     }
 
     void BeautificationManager::check_theme_url(std::string &url) {
-        if (url.find("www") != std::string::npos && url.find("http") == std::string::npos)
+        if (contains(url, "www") && !contains(url, "http"))
             url = "https://" + url;
     }
 

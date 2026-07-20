@@ -31,16 +31,16 @@ namespace tmoe::domain {
         // 0.5. 卸载 udisks2 (对应旧 Bash remove_udisk_and_gvfs)
         if (cfg_.is_termux && family == DistroFamily::Debian) {
             auto os_rel_content = SystemHelper::read_file("/etc/os-release");
-            bool is_old_distro = os_rel_content.find("Focal Fossa") != std::string::npos ||
-                                 os_rel_content.find("focal") != std::string::npos ||
-                                 os_rel_content.find("bionic") != std::string::npos ||
-                                 os_rel_content.find("Bionic Beaver") != std::string::npos ||
-                                 os_rel_content.find("Eoan Ermine") != std::string::npos ||
-                                 os_rel_content.find("buster") != std::string::npos ||
-                                 os_rel_content.find("stretch") != std::string::npos ||
-                                 os_rel_content.find("jessie") != std::string::npos ||
-                                 os_rel_content.find("Deepin 20") != std::string::npos ||
-                                 os_rel_content.find("Uos 20") != std::string::npos;
+            bool is_old_distro = contains(os_rel_content, "Focal Fossa") ||
+                                 contains(os_rel_content, "focal") ||
+                                 contains(os_rel_content, "bionic") ||
+                                 contains(os_rel_content, "Bionic Beaver") ||
+                                 contains(os_rel_content, "Eoan Ermine") ||
+                                 contains(os_rel_content, "buster") ||
+                                 contains(os_rel_content, "stretch") ||
+                                 contains(os_rel_content, "jessie") ||
+                                 contains(os_rel_content, "Deepin 20") ||
+                                 contains(os_rel_content, "Uos 20");
             if (is_old_distro) {
                 Logger::info(_("gui.vnc.proot_remove_udisks"));
                 Executor::passthrough("sudo apt purge -y --allow-change-held-packages ^udisks2 ^gvfs 2>/dev/null || true");
@@ -615,7 +615,7 @@ namespace tmoe::domain {
                 if (!pa_addr.empty()) {
                     std::string pa_script = "/usr/local/bin/startvnc";
                     auto pa_content = SystemHelper::read_file(fs::path(pa_script));
-                    if (pa_content.find("PULSE_SERVER") != std::string::npos) {
+                    if (contains(pa_content, "PULSE_SERVER")) {
                         Executor::shell(CommandBuilder("sed")
                                         .add_arg("-i")
                                         .add_arg("s@^export PULSE_SERVER=.*@export PULSE_SERVER=" + pa_addr + "@")
@@ -684,8 +684,8 @@ namespace tmoe::domain {
                                     .build_string() + " 2>/dev/null || true");
                     if (s > 1) {
                         auto os_rel_content = SystemHelper::read_file("/etc/os-release");
-                        if (os_rel_content.find("Focal Fossa") != std::string::npos ||
-                            os_rel_content.find("focal") != std::string::npos) {
+                        if (contains(os_rel_content, "Focal Fossa") ||
+                            contains(os_rel_content, "focal")) {
                             Executor::shell(CommandBuilder("dbus-launch")
                                 .add_arg("xfconf-query").add_arg("-c").add_arg("xfwm4")
                                 .add_arg("-t").add_arg("string").add_arg("-np").add_arg("/general/theme")
@@ -1221,7 +1221,7 @@ namespace tmoe::domain {
             }
         }
 
-        if (d.find("lxde") != std::string::npos) {
+        if (contains(d, "lxde")) {
             for (const auto &f: {"/etc/xdg/autostart/lxpolkit.desktop", "/usr/bin/lxpolkit"}) {
                 if (fs::exists(f)) {
                     std::error_code ec;
@@ -1245,7 +1245,7 @@ namespace tmoe::domain {
                             .add_arg("-s").add_arg("2")
                             .build_string() + " 2>/dev/null || true");
             auto os_rel_content = SystemHelper::read_file("/etc/os-release");
-            if (os_rel_content.find("Focal Fossa") != std::string::npos) {
+            if (contains(os_rel_content, "Focal Fossa")) {
                 Executor::shell(CommandBuilder("xfconf-query")
                                 .add_arg("-c").add_arg("xfwm4")
                                 .add_arg("-p").add_arg("/general/theme")

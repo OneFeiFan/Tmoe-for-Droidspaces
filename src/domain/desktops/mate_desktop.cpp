@@ -3,6 +3,7 @@
 #include "core/executor.h"
 #include "core/logger.h"
 #include "core/i18n.h"
+#include "core/str_utils.h"
 #include "core/system_helper.h"
 #include "domain/system/package_manager.h"
 
@@ -36,7 +37,7 @@ PreInstallChoices MateDesktop::pre_install_choices(
 
     // Linux Mint 优先
     auto issue = SystemHelper::read_file("/etc/issue");
-    if (issue.find("Linux Mint") != std::string::npos) {
+    if (contains(issue, "Linux Mint")) {
         c.pkg_list = "mint-meta-mate mint-meta-core mint-artwork";
         return c;
     }

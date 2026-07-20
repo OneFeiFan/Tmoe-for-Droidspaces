@@ -2,49 +2,50 @@
 #include "core/executor.h"
 #include "core/logger.h"
 #include "core/i18n.h"
+#include "core/str_utils.h"
 
 namespace tmoe::domain {
     DistroFamily PackageManager::detect_distro_family() {
         // 通过 /etc/os-release 检测
         auto result = Executor::shell("cat /etc/os-release 2>/dev/null").stdout_data;
-        if (result.find("debian") != std::string::npos ||
-            result.find("ubuntu") != std::string::npos ||
-            result.find("deepin") != std::string::npos ||
-            result.find("Kali") != std::string::npos ||
-            result.find("uos.com") != std::string::npos) {
+        if (contains(result, "debian") ||
+            contains(result, "ubuntu") ||
+            contains(result, "deepin") ||
+            contains(result, "Kali") ||
+            contains(result, "uos.com")) {
             return DistroFamily::Debian;
         }
-        if (result.find("Arch") != std::string::npos ||
-            result.find("Manjaro") != std::string::npos) {
+        if (contains(result, "Arch") ||
+            contains(result, "Manjaro")) {
             return DistroFamily::Arch;
         }
-        if (result.find("Fedora") != std::string::npos ||
-            result.find("CentOS") != std::string::npos ||
-            result.find("Red Hat") != std::string::npos ||
-            result.find("redhat") != std::string::npos) {
+        if (contains(result, "Fedora") ||
+            contains(result, "CentOS") ||
+            contains(result, "Red Hat") ||
+            contains(result, "redhat")) {
             return DistroFamily::RedHat;
         }
-        if (result.find("Alpine") != std::string::npos) {
+        if (contains(result, "Alpine")) {
             return DistroFamily::Alpine;
         }
-        if (result.find("gentoo") != std::string::npos ||
-            result.find("funtoo") != std::string::npos) {
+        if (contains(result, "gentoo") ||
+            contains(result, "funtoo")) {
             return DistroFamily::Gentoo;
         }
-        if (result.find("Solus") != std::string::npos) {
+        if (contains(result, "Solus")) {
             return DistroFamily::Solus;
         }
-        if (result.find("void") != std::string::npos) {
+        if (contains(result, "void")) {
             return DistroFamily::Void_;
         }
-        if (result.find("openSUSE") != std::string::npos ||
-            result.find("suse") != std::string::npos) {
+        if (contains(result, "openSUSE") ||
+            contains(result, "suse")) {
             return DistroFamily::Suse;
         }
-        if (result.find("Slackware") != std::string::npos) {
+        if (contains(result, "Slackware")) {
             return DistroFamily::Slackware;
         }
-        if (result.find("openwrt") != std::string::npos) {
+        if (contains(result, "openwrt")) {
             return DistroFamily::OpenWrt;
         }
 
@@ -206,30 +207,30 @@ namespace tmoe::domain {
         auto lower = distro_name;
         for (auto &c: lower) c = static_cast<char>(std::tolower(c));
 
-        if (lower.find("debian") != std::string::npos ||
-            lower.find("ubuntu") != std::string::npos ||
-            lower.find("deepin") != std::string::npos ||
-            lower.find("kali") != std::string::npos)
+        if (contains(lower, "debian") ||
+            contains(lower, "ubuntu") ||
+            contains(lower, "deepin") ||
+            contains(lower, "kali"))
             return DistroFamily::Debian;
-        if (lower.find("arch") != std::string::npos || lower.find("manjaro") != std::string::npos)
+        if (contains(lower, "arch") || contains(lower, "manjaro"))
             return DistroFamily::Arch;
-        if (lower.find("fedora") != std::string::npos ||
-            lower.find("centos") != std::string::npos ||
-            lower.find("redhat") != std::string::npos)
+        if (contains(lower, "fedora") ||
+            contains(lower, "centos") ||
+            contains(lower, "redhat"))
             return DistroFamily::RedHat;
-        if (lower.find("alpine") != std::string::npos)
+        if (contains(lower, "alpine"))
             return DistroFamily::Alpine;
-        if (lower.find("gentoo") != std::string::npos)
+        if (contains(lower, "gentoo"))
             return DistroFamily::Gentoo;
-        if (lower.find("solus") != std::string::npos)
+        if (contains(lower, "solus"))
             return DistroFamily::Solus;
-        if (lower.find("void") != std::string::npos)
+        if (contains(lower, "void"))
             return DistroFamily::Void_;
-        if (lower.find("suse") != std::string::npos || lower.find("opensuse") != std::string::npos)
+        if (contains(lower, "suse") || contains(lower, "opensuse"))
             return DistroFamily::Suse;
-        if (lower.find("slackware") != std::string::npos)
+        if (contains(lower, "slackware"))
             return DistroFamily::Slackware;
-        if (lower.find("openwrt") != std::string::npos)
+        if (contains(lower, "openwrt"))
             return DistroFamily::OpenWrt;
 
         return DistroFamily::Unknown;

@@ -496,7 +496,7 @@ namespace tmoe::domain {
         std::error_code ec;
         if (fs::exists("/etc/apt/sources.list.d", ec)) {
             for (const auto &entry: fs::directory_iterator("/etc/apt/sources.list.d")) {
-                if (entry.path().filename().string().find("mozillateam") != std::string::npos) {
+                if (contains(entry.path().filename().string(), "mozillateam")) {
                     has_ppa = true;
                     break;
                 }
@@ -534,7 +534,7 @@ namespace tmoe::domain {
         std::error_code ec;
         if (fs::exists("/etc/apt/sources.list.d", ec)) {
             for (const auto &entry: fs::directory_iterator("/etc/apt/sources.list.d")) {
-                if (entry.path().filename().string().find("xtradeb") != std::string::npos)
+                if (contains(entry.path().filename().string(), "xtradeb"))
                     return;
             }
         }

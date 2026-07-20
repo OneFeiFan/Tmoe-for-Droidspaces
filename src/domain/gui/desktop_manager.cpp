@@ -229,7 +229,7 @@ namespace tmoe::domain {
         }
 
         // 4. Kali tools
-        bool is_kali = (cfg_.linux_distro == "kali" || cfg_.linux_distro.find("kali") != std::string::npos);
+        bool is_kali = (cfg_.linux_distro == "kali" || contains(cfg_.linux_distro, "kali"));
         if (is_kali && interactive) {
             select_kali_tools();
         }
@@ -304,7 +304,7 @@ namespace tmoe::domain {
         // 检查 /tmp/font.ttf 是否已存在且 sha256 匹配
         auto sha_check = Executor::shell("cd /tmp && [ -e font.ttf ] && sha256sum font.ttf 2>/dev/null");
         std::string expected_sha = "cb4f09f9ec1b0d21021dce6c6dbe4f7ecb4930cbea0c766da1fe478111a5844e";
-        if (sha_check.ok() && sha_check.stdout_data.find(expected_sha) != std::string::npos) {
+        if (sha_check.ok() && contains(sha_check.stdout_data, expected_sha)) {
             CommandBuilder("sudo").add_arg("cp").add_flag("-fv").add_arg("/tmp/font.ttf").add_arg(iosevka_file).execute();
             return;
         } else if (fs::exists("/tmp/font.ttf")) {

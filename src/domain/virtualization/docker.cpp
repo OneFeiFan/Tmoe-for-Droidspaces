@@ -3,6 +3,7 @@
 #include "core/i18n.h"
 #include "domain/system/package_manager.h"
 #include <algorithm>
+#include "core/str_utils.h"
 #include <cstdio>
 #include <fstream>
 #include <sstream>
@@ -1182,7 +1183,7 @@ namespace tmoe::domain {
     std::string DockerManager::custom_docker_container_tag(const std::string &docker_name,
                                                            const std::string &container_name) {
         std::string docker_url;
-        if (docker_name.find('/') != std::string::npos) {
+        if (contains(docker_name, "/")) {
             docker_url = "https://hub.docker.com/r/" + docker_name + "/tags";
         } else {
             docker_url = "https://hub.docker.com/_/" + docker_name + "?tab=tags";

@@ -3,6 +3,7 @@
 #include "core/executor.h"
 #include "core/command_builder.hpp"
 #include "core/i18n.h"
+#include "core/str_utils.h"
 
 #include <fstream>
 #include <sstream>
@@ -315,7 +316,7 @@ std::string SystemHelper::user_pictures_dir() {
         std::string line;
         while (std::getline(iss, line)) {
             // 格式: XDG_PICTURES_DIR="$HOME/Pictures"
-            if (line.find("XDG_PICTURES_DIR=") != std::string::npos) {
+            if (contains(line, "XDG_PICTURES_DIR=")) {
                 auto start = line.find('"');
                 auto end = line.rfind('"');
                 if (start != std::string::npos && end != std::string::npos && end > start) {

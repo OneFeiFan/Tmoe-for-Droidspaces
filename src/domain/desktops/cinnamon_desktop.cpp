@@ -4,6 +4,7 @@
 #include "core/logger.h"
 #include "core/i18n.h"
 #include "core/system_helper.h"
+#include "core/str_utils.h"
 #include "domain/system/package_manager.h"
 
 namespace tmoe::domain {
@@ -11,7 +12,7 @@ namespace tmoe::domain {
 PreInstallChoices CinnamonDesktop::pre_install_choices(DistroFamily f, bool a) {
     PreInstallChoices c; if (a || f != DistroFamily::Debian) return c;
     auto issue = SystemHelper::read_file("/etc/issue");
-    if (issue.find("Linux Mint") != std::string::npos) { c.pkg_list = "mint-meta-cinnamon mint-meta-core mint-artwork"; return c; }
+    if (contains(issue, "Linux Mint")) { c.pkg_list = "mint-meta-cinnamon mint-meta-core mint-artwork"; return c; }
     auto r = Executor::passthrough(cfg_.tui_bin + " --title \"Lite or standard\" --yes-button \"lite\" --no-button \"standard\" --yesno 'lite/standard?' 0 0");
     if (r.exit_code == 0) { c.use_no_recommends = true; c.pkg_list = "cinnamon-l10n cinnamon"; }
     else c.pkg_list = "cinnamon-l10n cinnamon-desktop-environment cinnamon";
@@ -42,7 +43,7 @@ void CinnamonDesktop::post_install_extras(const PostInstallContext& ctx) {
     auto family = ctx.family;
     // Linux Mint 专有壁纸
     auto issue = SystemHelper::read_file("/etc/issue");
-    if (issue.find("Linux Mint") != std::string::npos) {
+    if (contains(issue, "Linux Mint")) {
         PackageManager::install({"mint-backgrounds-*", "mint-themes"}, family);
     }
     // 通用 GTK 主题

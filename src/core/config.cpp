@@ -84,14 +84,14 @@ TmoeConfig TmoeConfig::detect() {
         if (contains(content, "ubuntu")) cfg.sub_distro = "ubuntu";
         else if (contains(content, "kali")) cfg.sub_distro = "kali";
     }
-    else if (content.find("Arch") != std::string::npos || content.find("Manjaro") != std::string::npos) {
+    else if (contains(content, "Arch") || contains(content, "Manjaro")) {
         cfg.linux_distro = "arch";
         cfg.distro_family = DistroFamily::Arch;
         cfg.update_command = "pacman -Syy";
         cfg.install_command = "pacman -Syu --noconfirm --needed";
         cfg.remove_command = "pacman -Rsc";
     }
-    else if (content.find("Alpine") != std::string::npos) {
+    else if (contains(content, "Alpine")) {
         cfg.linux_distro = "alpine";
         cfg.distro_family = DistroFamily::Alpine;
         cfg.update_command = "apk update";

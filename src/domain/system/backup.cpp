@@ -570,7 +570,7 @@ bool BackupManager::restore_container(std::string_view archive_path) {
 
     // 检测是否为 chroot 还原（根据文件名）
     bool is_chroot_restore =
-        archive.find("_chroot") != std::string::npos;
+        contains(archive, "_chroot");
 
     if (is_chroot_restore && mode != RestoreMode::Compat) {
         // 清除旧的 chroot 容器标记
@@ -1081,10 +1081,10 @@ std::vector<std::string> BackupManager::list_backups() const {
         if (!entry.is_regular_file()) continue;
         auto name = entry.path().filename().string();
         // 匹配 .zst / .xz / .gz 结尾
-        if (name.find(".tar.zst") != std::string::npos ||
-            name.find(".tar.xz") != std::string::npos ||
-            name.find(".tar.gz") != std::string::npos ||
-            name.find(".tgz") != std::string::npos) {
+        if (contains(name, ".tar.zst") ||
+            contains(name, ".tar.xz") ||
+            contains(name, ".tar.gz") ||
+            contains(name, ".tgz")) {
             result.push_back(name);
         }
     }
@@ -1109,10 +1109,10 @@ BackupManager::list_backups_detailed() const {
     for (const auto& entry : fs::directory_iterator(backup_dir)) {
         if (!entry.is_regular_file()) continue;
         auto name = entry.path().filename().string();
-        if (name.find(".tar.zst") != std::string::npos ||
-            name.find(".tar.xz") != std::string::npos ||
-            name.find(".tar.gz") != std::string::npos ||
-            name.find(".tgz") != std::string::npos) {
+        if (contains(name, ".tar.zst") ||
+            contains(name, ".tar.xz") ||
+            contains(name, ".tar.gz") ||
+            contains(name, ".tgz")) {
 
             int64_t size_mb = 0;
             try {
@@ -1153,12 +1153,12 @@ std::string BackupManager::detect_latest_backup() const {
 
 ArchiveFormat BackupManager::detect_format(std::string_view path) {
     std::string p(path);
-    if (p.find(".tar.zst") != std::string::npos) return ArchiveFormat::TarZst;
-    if (p.find(".tar.xz") != std::string::npos) return ArchiveFormat::TarXz;
-    if (p.find(".tar.gz") != std::string::npos) return ArchiveFormat::TarGz;
-    if (p.find(".tgz") != std::string::npos) return ArchiveFormat::TarGz;
+    if (contains(p, ".tar.zst")) return ArchiveFormat::TarZst;
+    if (contains(p, ".tar.xz")) return ArchiveFormat::TarXz;
+    if (contains(p, ".tar.gz")) return ArchiveFormat::TarGz;
+    if (contains(p, ".tgz")) return ArchiveFormat::TarGz;
     // .tar 无压缩、.tar.bz2、.tar.lzma → Unknown，由通用 tar 处理
-    if (p.find(".tar") != std::string::npos) return ArchiveFormat::Unknown;
+    if (contains(p, ".tar")) return ArchiveFormat::Unknown;
     return ArchiveFormat::Unknown;
 }
 

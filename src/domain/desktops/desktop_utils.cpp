@@ -6,6 +6,7 @@
 #include "core/system_helper.h"
 #include "../gui_config/templates.h"
 #include <filesystem>
+#include "core/str_utils.h"
 #include <sstream>
 #include <algorithm>
 
@@ -69,9 +70,9 @@ namespace tmoe::domain::desktop_utils {
         if (!is_proot || !is_debian) return;
         std::string d(desktop_id);
         std::transform(d.begin(), d.end(), d.begin(), ::tolower);
-        if (d.find("xfce") != std::string::npos ||
-            d.find("lxde") != std::string::npos ||
-            d.find("lxqt") != std::string::npos) {
+        if (contains(d, "xfce") ||
+            contains(d, "lxde") ||
+            contains(d, "lxqt")) {
             Executor::passthrough(
                 "sudo apt purge -y --allow-change-held-packages "
                 "^udisks2 ^gvfs ^gvfs-backends ^gvfs-daemons 2>/dev/null || true");

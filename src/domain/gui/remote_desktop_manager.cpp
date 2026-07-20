@@ -868,7 +868,7 @@ namespace tmoe::domain {
                     }
                 }
                 // 如果剩余内容包含 "exec"，删除最后两行
-                if (result.find("exec") != std::string::npos) {
+                if (contains(result, "exec")) {
                     // 去除尾部连续的两个换行分隔行
                     auto trim_last_lines = [](std::string &s, int n) {
                         while (n-- > 0) {
@@ -1238,7 +1238,7 @@ namespace tmoe::domain {
             if (!Logger::confirm_yes_default(_("gui.novnc.confirm_install"))) return;
         } else {
             // Bash if_container_is_arm: ARM 架构在自动模式下跳过 noVNC（包可能不可用）
-            bool is_arm = (cfg_.arch.find("arm") != std::string::npos);
+            bool is_arm = contains(cfg_.arch, "arm");
             if (is_arm) {
                 Logger::info(_("gui.novnc.arm_skip"));
                 return;

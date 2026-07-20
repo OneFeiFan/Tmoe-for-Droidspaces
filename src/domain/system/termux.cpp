@@ -467,8 +467,8 @@ namespace tmoe::domain {
         std::string tmoe_share = cfg_.work_dir.string();
 
         std::vector<std::string> backup_dirs;
-        if (selected.find("home") != std::string::npos) backup_dirs.push_back(home);
-        if (selected.find("usr") != std::string::npos) backup_dirs.push_back(prefix);
+        if (contains(selected, "home")) backup_dirs.push_back(home);
+        if (contains(selected, "usr")) backup_dirs.push_back(prefix);
 
         std::string tar_targets;
         for (auto &d: backup_dirs) tar_targets += " " + d;
@@ -599,7 +599,7 @@ namespace tmoe::domain {
     }
 
     bool TermuxManager::uncompress_restore_archive(const std::string &archive_path) {
-        if (archive_path.find(".zst") != std::string::npos) {
+        if (contains(archive_path, ".zst")) {
             return uncompress_zst(archive_path);
         } else {
             return uncompress_xz(archive_path);
@@ -775,7 +775,7 @@ namespace tmoe::domain {
 
         // 检查当前 shell
         auto current = Executor::shell("echo $SHELL");
-        if (current.stdout_data.find("zsh") != std::string::npos) {
+        if (contains(current.stdout_data, "zsh")) {
             Logger::info(_("termux.already_zsh"));
             return true;
         }
@@ -1306,7 +1306,7 @@ namespace tmoe::domain {
             mfr = result.stdout_data;
             std::transform(mfr.begin(), mfr.end(), mfr.begin(), ::tolower);
         }
-        return mfr.find("samsung") != std::string::npos;
+        return contains(mfr, "samsung");
     }
 
     bool TermuxManager::execute_max_phantom_fix(const std::string &adb_target) {
@@ -1473,7 +1473,7 @@ namespace tmoe::domain {
         }
 
         auto dpkg_query = Executor::shell("LANG=C dpkg-query -W libnewt 2>/dev/null");
-        if (dpkg_query.stdout_data.find("0.52.21") != std::string::npos) {
+        if (contains(dpkg_query.stdout_data, "0.52.21")) {
             Logger::warn(_("termux.tui_libnewt_buggy"));
 
             std::string lib_popt = cfg_.work_dir.string() + "/usr/lib/popt0/0.so";
@@ -2080,7 +2080,7 @@ namespace tmoe::domain {
         auto connect_result = Executor::shell("adb connect " + connect_addr + " 2>&1");
         Logger::info(connect_result.stdout_data);
 
-        if (connect_result.ok() || connect_result.stdout_data.find("connected") != std::string::npos) {
+        if (connect_result.ok() || contains(connect_result.stdout_data, "connected")) {
             Logger::ok(_("termux.adb_connect_ok"));
             return true;
         }
@@ -2362,7 +2362,7 @@ namespace tmoe::domain {
         if (!result.ok()) return;
 
         std::string ver = result.stdout_data;
-        if (ver.find("1.1") != std::string::npos) {
+        if (contains(ver, "1.1")) {
             Logger::info(_("termux.openssl_legacy_already_installed"));
             return;
         }

@@ -527,7 +527,7 @@ namespace tmoe::domain {
         std::string filename = CommandBuilder("basename").add_arg(dl_url).execute().stdout_data;
         trim_newline(filename);
 
-        if (filename.empty() || filename.find('?') != std::string::npos) {
+        if (filename.empty() || contains(filename, "?")) {
             filename = "wechat_official_" + arch + "." + format_key;
         }
 

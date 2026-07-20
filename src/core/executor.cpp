@@ -347,8 +347,8 @@ namespace tmoe {
         // dialog 和 whiptail 的 stdout/stderr 方向相反:
         //   whiptail: TUI→stdout, choice→stderr → 需要 3>&1 1>&2 2>&3 交换
         //   dialog:   TUI→stderr, choice→stdout → 加 --stdout 即可, 不需要交换
-        bool is_dialog = (args_str.find("dialog") != std::string::npos &&
-                          args_str.find("whiptail") == std::string::npos);
+        bool is_dialog = (contains(args_str, "dialog") &&
+                          !contains(args_str, "whiptail"));
 
         if (is_dialog) {
             // dialog: 确保 --stdout 让选项输出到 stdout，popen 直接捕获
@@ -404,8 +404,8 @@ namespace tmoe {
     std::string Executor::tui_select(std::string_view whiptail_args, bool& cancelled) {
         std::string args_str(whiptail_args);
         std::string cmd;
-        bool is_dialog = (args_str.find("dialog") != std::string::npos &&
-                          args_str.find("whiptail") == std::string::npos);
+        bool is_dialog = (contains(args_str, "dialog") &&
+                          !contains(args_str, "whiptail"));
 
         if (is_dialog) {
             if (args_str.find("--stdout") == std::string::npos) {

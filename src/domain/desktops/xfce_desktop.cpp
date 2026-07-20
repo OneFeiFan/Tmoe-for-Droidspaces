@@ -7,6 +7,7 @@
 #include "core/system_helper.h"
 #include "domain/system/package_manager.h"
 #include <filesystem>
+#include "core/str_utils.h"
 #include <sstream>
 
 namespace tmoe::domain {
@@ -185,7 +186,7 @@ namespace tmoe::domain {
             while (std::getline(iss, line)) {
                 size_t ns = line.find_first_not_of(" \t");
                 if (ns != std::string::npos && line[ns] == '#') continue;
-                if (line.find("QT_QPA_PLATFORMTHEME=") != std::string::npos) {
+                if (contains(line, "QT_QPA_PLATFORMTHEME=")) {
                     has_qt = true;
                     break;
                 }
@@ -248,7 +249,7 @@ namespace tmoe::domain {
         std::string termrc = home + "/.config/xfce4/terminal/terminalrc";
 
         auto content = SystemHelper::read_file(termrc);
-        bool has_palette = (content.find("ColorPalette=") != std::string::npos);
+        bool has_palette = (contains(content, "ColorPalette="));
         if (!has_palette) {
             // 移除旧配色行，写入新配色
             std::istringstream iss(content);
@@ -266,7 +267,7 @@ namespace tmoe::domain {
                                       "ColorForeground=#e6e1cf\nColorBackground=#0f1419\n");
         }
 
-        bool has_font = (SystemHelper::read_file(termrc).find("FontName") != std::string::npos);
+        bool has_font = (contains(SystemHelper::read_file(termrc), "FontName"));
         if (!has_font) {
             if (fs::exists("/usr/share/fonts/truetype/iosevka/Iosevka-Term-Mono.ttf"))
                 SystemHelper::append_file(fs::path(termrc), "FontName=Iosevka Term Bold 12\n");
