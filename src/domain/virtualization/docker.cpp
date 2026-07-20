@@ -689,11 +689,8 @@ namespace tmoe::domain {
         auto exec = Executor::shell(cb.build_string());
         if (!exec.ok()) return result;
 
-        std::istringstream iss(exec.stdout_data);
-        std::string line;
-        while (std::getline(iss, line)) {
+        for (auto& line : split(exec.stdout_data, '\n'))
             if (!line.empty()) result.push_back(line);
-        }
         return result;
     }
 
@@ -824,19 +821,13 @@ namespace tmoe::domain {
         std::vector<std::string> names, images;
         auto exec = Executor::shell("docker ps -a --format \"{{.Names}}\" 2>/dev/null");
         if (exec.ok()) {
-            std::istringstream iss(exec.stdout_data);
-            std::string line;
-            while (std::getline(iss, line)) {
+            for (auto& line : split(exec.stdout_data, '\n'))
                 if (!line.empty()) names.push_back(line);
-            }
         }
         auto exec2 = Executor::shell("docker ps -a --format \"{{.Image}}\" 2>/dev/null");
         if (exec2.ok()) {
-            std::istringstream iss(exec2.stdout_data);
-            std::string line;
-            while (std::getline(iss, line)) {
+            for (auto& line : split(exec2.stdout_data, '\n'))
                 if (!line.empty()) images.push_back(line);
-            }
         }
 
         if (names.empty()) {

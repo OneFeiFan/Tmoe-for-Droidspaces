@@ -1021,10 +1021,7 @@ namespace tmoe::domain {
         auto v4 = Executor::shell(
             "ip -4 addr show scope global | grep inet | awk '{print $2}' | cut -d/ -f1 2>/dev/null");
         if (v4.ok() && !v4.stdout_data.empty()) {
-            std::string data = v4.stdout_data;
-            std::istringstream iss(data);
-            std::string line;
-            while (std::getline(iss, line)) {
+            for (auto& line : split(v4.stdout_data, '\n')) {
                 trim(line);
                 if (!line.empty()) ips << "vnc://" << line << ":" << vnc_config_.rfb_port << "  ";
             }

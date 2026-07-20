@@ -252,9 +252,8 @@ namespace tmoe::domain {
         bool has_palette = (contains(content, "ColorPalette="));
         if (!has_palette) {
             // 移除旧配色行，写入新配色
-            std::istringstream iss(content);
-            std::string line, filtered;
-            while (std::getline(iss, line)) {
+            std::string filtered;
+            for (auto& line : split(content, '\n')) {
                 if (line.find("ColorPalette=") == std::string::npos &&
                     line.find("ColorForeground=") == std::string::npos &&
                     line.find("ColorBackground=") == std::string::npos)

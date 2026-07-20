@@ -11,6 +11,7 @@
 #include "core/command_builder.hpp"
 #include "core/executor.h"
 #include "core/logger.h"
+#include "core/str_utils.h"
 #include <algorithm>
 #include <sstream>
 #include "ui/menus/beta_features_plugin.h"
@@ -139,9 +140,7 @@ std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_system_menu() {
                 " --title \"USER LIST\" --menu \"Which user to add/remove from sudo group?\" 0 0 0 ";
             int n = 1;
             std::vector<std::string> users;
-            std::istringstream iss(user_list);
-            std::string u;
-            while (std::getline(iss, u)) {
+            for (auto& u : split(user_list, '\n')) {
                 if (u.empty()) continue;
                 u.erase(std::remove(u.begin(), u.end(), '\r'), u.end());
                 users.push_back(u);
@@ -1161,10 +1160,8 @@ std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_scrcpy_menu() {
             std::string dmenu = ctx.cfg.tui_bin +
                 " --title \"" + _("beta.scrcpy_device_title") + "\" --menu \"" + _("beta.scrcpy_device_switch_prompt") + "\" 0 0 0 ";
             std::vector<std::string> devices;
-            std::istringstream iss(dlist);
-            std::string d;
             int dn = 1;
-            while (std::getline(iss, d)) {
+            for (auto& d : split(dlist, '\n')) {
                 if (d.empty()) continue;
                 d.erase(std::remove(d.begin(), d.end(), '\r'), d.end());
                 devices.push_back(d);

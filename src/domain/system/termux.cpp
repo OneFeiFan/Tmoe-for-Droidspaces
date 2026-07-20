@@ -2138,10 +2138,8 @@ platform::local_time(&t, &tm_buf);
         } else {
             // 多设备时列出选择
             auto devices = Executor::shell("adb devices 2>/dev/null | grep -v 'List' | grep 'device$'");
-            std::istringstream iss(devices.stdout_data);
-            std::string line;
             std::vector<std::string> device_ids;
-            while (std::getline(iss, line)) {
+            for (auto& line : split(devices.stdout_data, '\n')) {
                 size_t tab = line.find('\t');
                 if (tab != std::string::npos) {
                     device_ids.push_back(line.substr(0, tab));
