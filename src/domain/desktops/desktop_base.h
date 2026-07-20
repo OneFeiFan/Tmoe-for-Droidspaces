@@ -35,15 +35,15 @@ namespace tmoe::domain {
 
     class DesktopBase {
     public:
-        explicit DesktopBase(const TmoeConfig &cfg) : cfg_(cfg) {
-        }
+        explicit DesktopBase(const TmoeConfig& cfg, const DesktopInfo& info)
+            : cfg_(cfg), info_(info) {}
 
         virtual ~DesktopBase() = default;
 
         // ── 标识 ──
-        virtual std::string get_id() const = 0;
+        virtual std::string get_id() const { return info_.id; }
 
-        virtual const DesktopInfo &get_info() const = 0;
+        virtual const DesktopInfo& get_info() const { return info_; }
 
         // ── 分类 ──
         virtual bool is_window_manager() const { return get_info().is_window_manager; }
@@ -71,13 +71,14 @@ namespace tmoe::domain {
         }
 
         /** VNC 服务端推荐 */
-        virtual bool recommends_tiger_vnc() const { return false; }
+        virtual bool recommends_tiger_vnc() const { return info_.recommends_tiger_vnc; }
 
         /** 安装前提示 */
         virtual void will_be_installed_message() const {
         }
 
     protected:
-        const TmoeConfig &cfg_;
+        const TmoeConfig& cfg_;
+        const DesktopInfo& info_;
     };
 } // namespace tmoe::domain

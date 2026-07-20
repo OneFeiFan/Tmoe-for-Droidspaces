@@ -19,37 +19,17 @@ std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_termux_gui_menu() {
     auto menu = make_plugin_menu(
         _("termux.gui_mgmt_title"), _("termux.gui_mgmt_prompt"), "plugin_termux_gui");
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.gui_xfce4"), "1",
-        [this](MenuContext&) -> bool {
-            mgr_->install_termux_xfce();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.gui_xfce4"), "1",
+        [this] { mgr_->install_termux_xfce(); });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.gui_lxqt"), "2",
-        [this](MenuContext&) -> bool {
-            mgr_->install_termux_lxqt();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.gui_lxqt"), "2",
+        [this] { mgr_->install_termux_lxqt(); });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.gui_resolution"), "3",
-        [this](MenuContext&) -> bool {
-            mgr_->configure_termux_vnc();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.gui_resolution"), "3",
+        [this] { mgr_->configure_termux_vnc(); });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.gui_remove"), "4",
-        [this](MenuContext&) -> bool {
-            mgr_->remove_termux_gui();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.gui_remove"), "4",
+        [this] { mgr_->remove_termux_gui(); });
 
     add_sandwich_nav(menu);
     return menu;
@@ -63,29 +43,20 @@ std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_termux_beautify_menu() {
     auto menu = make_plugin_menu(
         _("termux.beautify_title"), _("termux.beautify_prompt"), "plugin_termux_beautify");
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.beautify_tmoe_zsh"), "1",
-        [this](MenuContext&) -> bool {
-            mgr_->configure_tmoe_zsh();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.beautify_tmoe_zsh"), "1",
+        [this] { mgr_->configure_tmoe_zsh(); });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.beautify_ohmyzsh"), "2",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("termux.beautify_ohmyzsh"), "2",
+        [] {
             Logger::step(_("termux.installing_ohmyzsh"));
             domain::PackageManager::install({"zsh", "git", "curl"}, DistroFamily::Debian);
             Executor::shell(
                 "sh -c \"$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\" \"\" --unattended");
             Logger::ok(_("termux.ohmyzsh_installed"));
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.beautify_p10k"), "3",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("termux.beautify_p10k"), "3",
+        [] {
             Logger::step(_("termux.installing_p10k"));
             std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/data/data/com.termux/files/home";
             std::string p10k_dir = home + "/.oh-my-zsh/custom/themes/powerlevel10k";
@@ -99,20 +70,15 @@ std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_termux_beautify_menu() {
                     "sudo sed -i 's/^ZSH_THEME=.*/ZSH_THEME=\"powerlevel10k\\/powerlevel10k\"/' " + zshrc);
             }
             Logger::ok(_("termux.p10k_installed"));
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.beautify_colorls"), "4",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("termux.beautify_colorls"), "4",
+        [] {
             Logger::step(_("termux.installing_colorls"));
             domain::PackageManager::install("ruby", DistroFamily::Debian);
             Executor::shell("gem install colorls");
             Logger::ok(_("termux.colorls_installed"));
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     add_sandwich_nav(menu);
     return menu;
@@ -235,114 +201,62 @@ std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_mirror_menu() {
         _("termux.mirror_title"), _("termux.mirror_prompt"), "plugin_termux_mirror");
 
     // 1. BFSU (北外)
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.mirror_bfsu"), "1",
-        [this](MenuContext&) -> bool {
+    menu->add_action(_("termux.mirror_bfsu"), "1",
+        [this] {
             mgr_->modify_termux_sources_list("https://mirrors.bfsu.edu.cn/termux/apt");
             Logger::ok(_("termux.mirror_switch_ok"));
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     // 2. Tencent (腾讯云)
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.mirror_tencent"), "2",
-        [this](MenuContext&) -> bool {
+    menu->add_action(_("termux.mirror_tencent"), "2",
+        [this] {
             mgr_->modify_termux_sources_list("https://mirrors.cloud.tencent.com/termux/apt");
             Logger::ok(_("termux.mirror_switch_ok"));
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     // 3. Tsinghua (清华 TUNA)
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.mirror_tsinghua"), "3",
-        [this](MenuContext&) -> bool {
+    menu->add_action(_("termux.mirror_tsinghua"), "3",
+        [this] {
             mgr_->modify_termux_sources_list("https://mirrors.tuna.tsinghua.edu.cn/termux/apt");
             Logger::ok(_("termux.mirror_switch_ok"));
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     // 4. USTC (中科大)
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.mirror_ustc"), "4",
-        [this](MenuContext&) -> bool {
+    menu->add_action(_("termux.mirror_ustc"), "4",
+        [this] {
             mgr_->modify_termux_sources_list("https://mirrors.ustc.edu.cn/termux/apt");
             Logger::ok(_("termux.mirror_switch_ok"));
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     // 5. 仓库管理 → 嵌套子菜单
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.mirror_repos"), "5",
-        [this](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_repos_menu());
-            return true;
-        }));
+    menu->add_submenu(_("termux.mirror_repos"), "5", build_repos_menu());
 
     // 6. 镜像站速度测试
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.mirror_speed_test"), "6",
-        [this](MenuContext&) -> bool {
-            mgr_->run_mirror_speed_test();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.mirror_speed_test"), "6",
+        [this] { mgr_->run_mirror_speed_test(); });
 
     // 7. 手动编辑 sources.list
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.mirror_edit"), "7",
-        [this](MenuContext&) -> bool {
-            mgr_->edit_sources_manually();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.mirror_edit"), "7",
+        [this] { mgr_->edit_sources_manually(); });
 
     // 8. 清理 sources.list
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.mirror_clean"), "8",
-        [this](MenuContext&) -> bool {
-            mgr_->clean_sources_list();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.mirror_clean"), "8",
+        [this] { mgr_->clean_sources_list(); });
 
     // 9. 恢复默认官方源
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.mirror_restore"), "9",
-        [this](MenuContext&) -> bool {
-            mgr_->restore_default_sources();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.mirror_restore"), "9",
+        [this] { mgr_->restore_default_sources(); });
 
     // A. 备份 sources.list
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.mirror_backup_sources"), "A",
-        [this](MenuContext&) -> bool {
-            mgr_->backup_sources_list();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.mirror_backup_sources"), "A",
+        [this] { mgr_->backup_sources_list(); });
 
     // B. 旧版镜像格式
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.mirror_old_format"), "B",
-        [this](MenuContext&) -> bool {
-            mgr_->use_old_mirror_format("https://mirrors.tuna.tsinghua.edu.cn/termux");
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.mirror_old_format"), "B",
+        [this] { mgr_->use_old_mirror_format("https://mirrors.tuna.tsinghua.edu.cn/termux"); });
 
     // C. Alpine 镜像 → 嵌套子菜单
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.mirror_alpine"), "C",
-        [this](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_alpine_mirror_menu());
-            return true;
-        }));
+    menu->add_submenu(_("termux.mirror_alpine"), "C", build_alpine_mirror_menu());
 
     add_sandwich_nav(menu);
     return menu;
@@ -357,40 +271,20 @@ std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_disk_menu() {
         _("termux.disk_title"), _("termux.disk_prompt"), "plugin_termux_disk");
 
     // 1. 目录大小排名
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.disk_dir_ranking"), "1",
-        [this](MenuContext&) -> bool {
-            mgr_->show_termux_dir_usage();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.disk_dir_ranking"), "1",
+        [this] { mgr_->show_termux_dir_usage(); });
 
     // 2. 大文件 TOP30
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.disk_large_files"), "2",
-        [this](MenuContext&) -> bool {
-            mgr_->show_termux_large_files();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.disk_large_files"), "2",
+        [this] { mgr_->show_termux_large_files(); });
 
     // 3. SD 卡占用
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.disk_sdcard"), "3",
-        [this](MenuContext&) -> bool {
-            mgr_->show_sdcard_usage();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.disk_sdcard"), "3",
+        [this] { mgr_->show_sdcard_usage(); });
 
     // 4. 整体磁盘占用
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.disk_overall"), "4",
-        [this](MenuContext&) -> bool {
-            mgr_->show_overall_disk_usage();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.disk_overall"), "4",
+        [this] { mgr_->show_overall_disk_usage(); });
 
     add_sandwich_nav(menu);
     return menu;
@@ -405,22 +299,18 @@ std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_adb_connect_menu() {
         _("termux.adb_connect_title"), _("termux.adb_connect_prompt"), "plugin_termux_adb_connect");
 
     // 1. 无线配对 (Android 11+)
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.adb_wireless_pair"), "1",
-        [this](MenuContext&) -> bool {
+    menu->add_action(_("termux.adb_wireless_pair"), "1",
+        [this] {
             mgr_->adb_pair_and_connect_flow();
             int count = mgr_->count_adb_devices();
             if (count <= 0) {
                 Logger::warn(_("termux.adb_no_device"));
             }
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     // 2. 直接连接 (IP:端口)
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.adb_direct"), "2",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("termux.adb_direct"), "2",
+        [] {
             // 使用 whiptail 输入框获取地址 (保持与旧代码兼容)
             std::string conn_cmd = std::string("whiptail") +
                 " --title \"" + _("termux.adb_addr_title") + "\"" +
@@ -430,28 +320,18 @@ std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_adb_connect_menu() {
                 Logger::step(_f("termux.adb_connecting", adb_target));
                 Executor::shell("adb connect " + adb_target);
             }
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     // 3. USB 连接
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.adb_usb"), "3",
-        [](MenuContext&) -> bool {
-            Logger::info(_("termux.adb_usb_hint"));
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.adb_usb"), "3",
+        [] { Logger::info(_("termux.adb_usb_hint")); });
 
     // 4. 列出设备
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.adb_list_devices"), "4",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("termux.adb_list_devices"), "4",
+        [] {
             Executor::shell("adb devices -l");
             Logger::info(_("termux.adb_check_device_status"));
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     add_sandwich_nav(menu);
     return menu;
@@ -466,57 +346,35 @@ std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_signal9_menu() {
         _("termux.signal9_fix_title"), _("termux.signal9_fix_prompt"), "plugin_termux_signal9");
 
     // 1. ADB 自动修复 (包含连接流程)
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.signal9_adb_fix"), "1",
-        [this](MenuContext&) -> bool {
-            mgr_->connect_adb_and_fix();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.signal9_adb_fix"), "1",
+        [this] { mgr_->connect_adb_and_fix(); });
 
     // 2. 三星设备兼容模式 + ADB 修复
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.signal9_samsung"), "2",
-        [this](MenuContext&) -> bool {
+    menu->add_action(_("termux.signal9_samsung"), "2",
+        [this] {
             mgr_->set_samsung_adb_comp_mode();
             mgr_->connect_adb_and_fix();
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     // 3. ADB 配对 + 连接 + 修复
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.signal9_adb_pair"), "3",
-        [this](MenuContext&) -> bool {
+    menu->add_action(_("termux.signal9_adb_pair"), "3",
+        [this] {
             if (mgr_->adb_pair_and_connect_flow()) {
                 mgr_->execute_max_phantom_fix("");
             }
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     // 4. 配置 ADB 服务端口
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.signal9_adb_port"), "4",
-        [this](MenuContext&) -> bool {
-            mgr_->select_adb_port();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.signal9_adb_port"), "4",
+        [this] { mgr_->select_adb_port(); });
 
     // 5. 验证修复结果
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.signal9_verify"), "5",
-        [this](MenuContext&) -> bool {
-            mgr_->verify_signal9_fix();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.signal9_verify"), "5",
+        [this] { mgr_->verify_signal9_fix(); });
 
     // 6. 显示手动修复命令
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.signal9_manual"), "6",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("termux.signal9_manual"), "6",
+        [] {
             Logger::info(_("termux.signal9_manual_cmd_title"));
             Logger::info(
                 "adb shell \"/system/bin/device_config put activity_manager max_phantom_processes 2147483647\"");
@@ -524,9 +382,7 @@ std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_signal9_menu() {
                 "adb shell \"/system/bin/settings put global settings_enable_monitor_phantom_procs false\"");
             Logger::info(
                 "adb shell \"/system/bin/device_config set_sync_disabled_for_tests persistent\"");
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     add_sandwich_nav(menu);
     return menu;
@@ -548,47 +404,26 @@ std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_color_menu() {
         CommandBuilder("curl").add_flag("-L").add_flag("-o").add_arg(dest).add_arg(url).execute();
     };
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.color_neon"), "1",
-        [download_color](MenuContext&) -> bool {
-            download_color("neon"); Logger::press_enter(); return true;
-        }));
+    menu->add_action(_("termux.color_neon"), "1",
+        [download_color] { download_color("neon"); });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.color_monokai"), "2",
-        [download_color](MenuContext&) -> bool {
-            download_color("monokai.dark"); Logger::press_enter(); return true;
-        }));
+    menu->add_action(_("termux.color_monokai"), "2",
+        [download_color] { download_color("monokai.dark"); });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.color_material"), "3",
-        [download_color](MenuContext&) -> bool {
-            download_color("material"); Logger::press_enter(); return true;
-        }));
+    menu->add_action(_("termux.color_material"), "3",
+        [download_color] { download_color("material"); });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.color_bright"), "4",
-        [download_color](MenuContext&) -> bool {
-            download_color("bright.light"); Logger::press_enter(); return true;
-        }));
+    menu->add_action(_("termux.color_bright"), "4",
+        [download_color] { download_color("bright.light"); });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.color_materia"), "5",
-        [download_color](MenuContext&) -> bool {
-            download_color("materia"); Logger::press_enter(); return true;
-        }));
+    menu->add_action(_("termux.color_materia"), "5",
+        [download_color] { download_color("materia"); });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.color_miu"), "6",
-        [download_color](MenuContext&) -> bool {
-            download_color("miu"); Logger::press_enter(); return true;
-        }));
+    menu->add_action(_("termux.color_miu"), "6",
+        [download_color] { download_color("miu"); });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.color_wildcherry"), "7",
-        [download_color](MenuContext&) -> bool {
-            download_color("wild.cherry"); Logger::press_enter(); return true;
-        }));
+    menu->add_action(_("termux.color_wildcherry"), "7",
+        [download_color] { download_color("wild.cherry"); });
 
     add_sandwich_nav(menu);
     return menu;
@@ -614,47 +449,23 @@ std::shared_ptr<IUIMenu> TermuxMenuPlugin::build_font_menu() {
         CommandBuilder("rm").add_flag("-f").add_arg(tar_file).execute();
     };
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.font_inconsolata"), "1",
-        [download_font](MenuContext&) -> bool {
-            download_font("inconsolata-go-font/raw/master/inconsolatago.tar.xz");
-            Logger::press_enter(); return true;
-        }));
+    menu->add_action(_("termux.font_inconsolata"), "1",
+        [download_font] { download_font("inconsolata-go-font/raw/master/inconsolatago.tar.xz"); });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.font_iosevka"), "2",
-        [download_font](MenuContext&) -> bool {
-            download_font("inconsolata-go-font/raw/master/iosevka.tar.xz");
-            Logger::press_enter(); return true;
-        }));
+    menu->add_action(_("termux.font_iosevka"), "2",
+        [download_font] { download_font("inconsolata-go-font/raw/master/iosevka.tar.xz"); });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.font_iosevka_bold"), "3",
-        [download_font](MenuContext&) -> bool {
-            download_font("iosevka-italic-font/raw/master/font.tar.xz");
-            Logger::press_enter(); return true;
-        }));
+    menu->add_action(_("termux.font_iosevka_bold"), "3",
+        [download_font] { download_font("iosevka-italic-font/raw/master/font.tar.xz"); });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.font_iosevka_mono"), "4",
-        [download_font](MenuContext&) -> bool {
-            download_font("iosevka-term-mono/raw/master/font.tar.xz");
-            Logger::press_enter(); return true;
-        }));
+    menu->add_action(_("termux.font_iosevka_mono"), "4",
+        [download_font] { download_font("iosevka-term-mono/raw/master/font.tar.xz"); });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.font_fira"), "5",
-        [download_font](MenuContext&) -> bool {
-            download_font("fira-code/raw/master/font.tar.xz");
-            Logger::press_enter(); return true;
-        }));
+    menu->add_action(_("termux.font_fira"), "5",
+        [download_font] { download_font("fira-code/raw/master/font.tar.xz"); });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.font_fira_medium"), "6",
-        [download_font](MenuContext&) -> bool {
-            download_font("fira-code-medium/raw/master/font.tar.xz");
-            Logger::press_enter(); return true;
-        }));
+    menu->add_action(_("termux.font_fira_medium"), "6",
+        [download_font] { download_font("fira-code-medium/raw/master/font.tar.xz"); });
 
     add_sandwich_nav(menu);
     return menu;
@@ -670,21 +481,11 @@ std::shared_ptr<IUIMenu> TermuxMenuPlugin::build() {
         _("menu.tui.termux"), _("termux.menu_prompt"), "plugin_termux");
 
     // 1. GUI 子菜单 — 嵌套引擎
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.gui"), "1",
-        [this](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_termux_gui_menu());
-            return true;
-        }));
+    menu->add_submenu(_("termux.gui"), "1", build_termux_gui_menu());
 
     // 2. 备份
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.backup"), "2",
-        [this](MenuContext&) -> bool {
-            mgr_->backup_termux();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.backup"), "2",
+        [this] { mgr_->backup_termux(); });
 
     // 3. 还原 — 动态备份文件选择器
     menu->add_child(std::make_shared<LambdaAction>(
@@ -740,77 +541,35 @@ std::shared_ptr<IUIMenu> TermuxMenuPlugin::build() {
         }));
 
     // 4. 终端美化 — 嵌套引擎
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.beautify"), "4",
-        [this](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_termux_beautify_menu());
-            return true;
-        }));
+    menu->add_submenu(_("termux.beautify"), "4", build_termux_beautify_menu());
 
     // 5. 镜像源切换 → 嵌套引擎 (13 项子菜单)
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.mirror"), "5",
-        [this](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_mirror_menu());
-            return true;
-        }));
+    menu->add_submenu(_("termux.mirror"), "5", build_mirror_menu());
 
     // 6. 磁盘空间占用 → 嵌套引擎 (4 项子菜单)
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.disk_usage"), "6",
-        [this](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_disk_menu());
-            return true;
-        }));
+    menu->add_submenu(_("termux.disk_usage"), "6", build_disk_menu());
 
     // 7. 环境初始化
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.env_init"), "7",
-        [this](MenuContext&) -> bool {
-            mgr_->check_and_init_environment();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.env_init"), "7",
+        [this] { mgr_->check_and_init_environment(); });
 
     // 8. Android 12+ Signal 9 修复 → 嵌套引擎 (6 项子菜单)
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.signal9"), "8",
-        [this](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_signal9_menu());
-            return true;
-        }));
+    menu->add_submenu(_("termux.signal9"), "8", build_signal9_menu());
 
     // 9. 共享存储设置
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.storage"), "9",
-        [this](MenuContext&) -> bool {
-            mgr_->setup_storage();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.storage"), "9",
+        [this] { mgr_->setup_storage(); });
 
     // A. PulseAudio 配置
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.pulseaudio"), "10",
-        [this](MenuContext&) -> bool {
-            mgr_->configure_pulseaudio_tcp();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.pulseaudio"), "10",
+        [this] { mgr_->configure_pulseaudio_tcp(); });
 
     // B. 自更新
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("termux.self_update"), "11",
-        [this](MenuContext&) -> bool {
-            mgr_->self_update();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("termux.self_update"), "11",
+        [this] { mgr_->self_update(); });
 
     add_sandwich_nav(menu);
     return menu;
 }
-
-TermuxMenuPlugin::TermuxMenuPlugin(domain::TermuxManager* mgr) : mgr_(mgr) {}
 
 } // namespace tmoe::ui::menus

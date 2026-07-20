@@ -6,13 +6,12 @@ namespace tmoe::domain { class SoftwareCenter; }
 
 namespace tmoe::ui::menus {
 
-class SoftwareCenterMenuPlugin : public IPlugin {
+class SoftwareCenterMenuPlugin : public PluginFor<domain::SoftwareCenter> {
 public:
-    explicit SoftwareCenterMenuPlugin(domain::SoftwareCenter* mgr);
+    using PluginFor::PluginFor;
     std::shared_ptr<IUIMenu> build() override;
 
 private:
-    domain::SoftwareCenter* mgr_;
 
     std::shared_ptr<IUIMenu> build_image_compression_menu();
     std::shared_ptr<IUIMenu> build_media_menu();

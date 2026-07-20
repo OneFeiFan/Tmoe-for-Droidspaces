@@ -9,8 +9,6 @@
 
 namespace tmoe::ui::menus {
 
-VirtualizationMenuPlugin::VirtualizationMenuPlugin(domain::VirtualizationManager* mgr) : mgr_(mgr) {}
-
 std::shared_ptr<IUIMenu> VirtualizationMenuPlugin::build() {
     auto menu = make_plugin_menu(
         _("virt.title"), _("virt.menu_prompt"), "plugin_virtualization");
@@ -70,13 +68,8 @@ std::shared_ptr<IUIMenu> VirtualizationMenuPlugin::build() {
     // Wine 是嵌套子菜单 → add_navigation_items
     add_navigation_items(wine_menu);
 
-    // Wine 入口 — LambdaAction 启动嵌套 MenuEngine
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("virt.wine"), "virt_wine",
-        [wine_menu](MenuContext &ctx) -> bool {
-            MenuEngine(ctx).run(wine_menu);
-            return true;
-        }));
+    // Wine 入口 — add_submenu
+    menu->add_submenu(_("virt.wine"), "virt_wine", wine_menu);
 
     // 顶层菜单 → add_sandwich_nav
     add_sandwich_nav(menu);

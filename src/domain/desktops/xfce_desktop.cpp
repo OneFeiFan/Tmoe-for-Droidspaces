@@ -13,13 +13,9 @@
 
 namespace tmoe::domain {
     XfceDesktop::XfceDesktop(const TmoeConfig &cfg)
-        : DesktopBase(cfg)
-          , info_(gui_config::all_desktops()[0]) // xfce is idx 0
+        : XfceDesktop(cfg, gui_config::all_desktops()[0]) // xfce is idx 0
     {
     }
-
-    std::string XfceDesktop::get_id() const { return info_.id; }
-    const DesktopInfo &XfceDesktop::get_info() const { return info_; }
 
     void XfceDesktop::will_be_installed_message() const {
         // Bash: 终端 printf 包信息 + 依赖预览

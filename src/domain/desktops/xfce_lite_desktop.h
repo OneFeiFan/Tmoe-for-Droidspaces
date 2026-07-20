@@ -9,15 +9,9 @@ class XfceLiteDesktop : public XfceDesktop {
 public:
     explicit XfceLiteDesktop(const TmoeConfig& cfg);
 
-    std::string get_id() const override;
-    const DesktopInfo& get_info() const override;
-
     void post_install_config(const PostInstallContext& ctx) override;
     void post_install_extras(const PostInstallContext& ctx) override;
     void will_be_installed_message() const override;
-
-private:
-    const DesktopInfo& info_;
 };
 
 } // namespace tmoe::domain

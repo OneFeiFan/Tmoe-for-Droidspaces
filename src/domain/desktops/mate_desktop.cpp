@@ -11,12 +11,8 @@
 namespace tmoe::domain {
 
 MateDesktop::MateDesktop(const TmoeConfig& cfg)
-    : DesktopBase(cfg)
-    , info_(gui_config::all_desktops()[4])  // mate is idx 4
+    : DesktopBase(cfg, gui_config::all_desktops()[4])  // mate is idx 4
 {}
-
-std::string MateDesktop::get_id() const        { return info_.id; }
-const DesktopInfo& MateDesktop::get_info() const { return info_; }
 
 void MateDesktop::will_be_installed_message() const {
     Logger::info("MATE: mate-session / mate-panel");

@@ -19,61 +19,29 @@
 
 namespace {
     // 静态初始化：注册所有已知桌面类
+#define REGISTER_DESKTOP(id, Class) \
+    DesktopFactory::register_desktop(id, \
+        [](const tmoe::TmoeConfig& c) { return std::make_unique<Class>(c); })
+
     struct AutoRegister {
         AutoRegister() {
             using namespace tmoe::domain;
-            DesktopFactory::register_desktop("xfce",
-                                             [](const tmoe::TmoeConfig &c) {
-                                                 return std::make_unique<XfceDesktop>(c);
-                                             });
-            DesktopFactory::register_desktop("xfce-lite",
-                                             [](const tmoe::TmoeConfig &c) {
-                                                 return std::make_unique<XfceLiteDesktop>(c);
-                                             });
-            DesktopFactory::register_desktop("kde",
-                                             [](const tmoe::TmoeConfig &c) {
-                                                 return std::make_unique<KdeDesktop>(c);
-                                             });
-            DesktopFactory::register_desktop("mate",
-                                             [](const tmoe::TmoeConfig &c) {
-                                                 return std::make_unique<MateDesktop>(c);
-                                             });
-            DesktopFactory::register_desktop("lxde",
-                                             [](const tmoe::TmoeConfig &c) {
-                                                 return std::make_unique<LxdeDesktop>(c);
-                                             });
-            DesktopFactory::register_desktop("lxqt",
-                                             [](const tmoe::TmoeConfig &c) {
-                                                 return std::make_unique<LxqtDesktop>(c);
-                                             });
-            DesktopFactory::register_desktop("cinnamon",
-                                             [](const tmoe::TmoeConfig &c) {
-                                                 return std::make_unique<CinnamonDesktop>(c);
-                                             });
-            DesktopFactory::register_desktop("gnome",
-                                             [](const tmoe::TmoeConfig &c) {
-                                                 return std::make_unique<GnomeDesktop>(c);
-                                             });
-            DesktopFactory::register_desktop("budgie",
-                                             [](const tmoe::TmoeConfig &c) {
-                                                 return std::make_unique<BudgieDesktop>(c);
-                                             });
-            DesktopFactory::register_desktop("dde",
-                                             [](const tmoe::TmoeConfig &c) { return std::make_unique<DdeDesktop>(c); });
-            DesktopFactory::register_desktop("deepin",
-                                             [](const tmoe::TmoeConfig &c) {
-                                                 return std::make_unique<DeepinDesktop>(c);
-                                             });
-            DesktopFactory::register_desktop("ukui",
-                                             [](const tmoe::TmoeConfig &c) {
-                                                 return std::make_unique<UkuiDesktop>(c);
-                                             });
-            DesktopFactory::register_desktop("cutefish",
-                                             [](const tmoe::TmoeConfig &c) {
-                                                 return std::make_unique<CutefishDesktop>(c);
-                                             });
+            REGISTER_DESKTOP("xfce",      XfceDesktop);
+            REGISTER_DESKTOP("xfce-lite", XfceLiteDesktop);
+            REGISTER_DESKTOP("kde",       KdeDesktop);
+            REGISTER_DESKTOP("mate",      MateDesktop);
+            REGISTER_DESKTOP("lxde",      LxdeDesktop);
+            REGISTER_DESKTOP("lxqt",      LxqtDesktop);
+            REGISTER_DESKTOP("cinnamon",  CinnamonDesktop);
+            REGISTER_DESKTOP("gnome",     GnomeDesktop);
+            REGISTER_DESKTOP("budgie",    BudgieDesktop);
+            REGISTER_DESKTOP("dde",       DdeDesktop);
+            REGISTER_DESKTOP("deepin",    DeepinDesktop);
+            REGISTER_DESKTOP("ukui",      UkuiDesktop);
+            REGISTER_DESKTOP("cutefish",  CutefishDesktop);
         }
     } auto_register;
+#undef REGISTER_DESKTOP
 }
 
 namespace tmoe::domain {

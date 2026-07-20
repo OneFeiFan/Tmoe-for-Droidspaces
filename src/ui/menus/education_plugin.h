@@ -6,13 +6,12 @@ namespace tmoe::domain { class EducationManager; }
 
 namespace tmoe::ui::menus {
 
-class EducationMenuPlugin : public IPlugin {
+class EducationMenuPlugin : public PluginFor<domain::EducationManager> {
 public:
-    explicit EducationMenuPlugin(domain::EducationManager* mgr);
+    using PluginFor::PluginFor;
     std::shared_ptr<IUIMenu> build() override;
 
 private:
-    domain::EducationManager* mgr_;
 
     std::shared_ptr<IUIMenu> build_gaokao_menu();
     std::shared_ptr<IUIMenu> build_gaokao_papers_menu();

@@ -29,6 +29,15 @@ void remove_udisks_gvfs_for_proot(
 std::string resolve_distro_pkg_list(
     const DesktopInfo& info, DistroFamily family);
 
+/** 标准 post_install_config 管线：键盘配置 + libfprint 清理 + Noto 字体 + 语言包。
+ *  在 13 个桌面类的 post_install_config() 中完全重复，提取为公共函数。 */
+inline void standard_config(const PostInstallContext& ctx, const TmoeConfig& cfg) {
+    dpkg_configure_and_keyboard(ctx.is_debian);
+    purge_libfprint_and_clean(ctx.is_proot, ctx.is_debian);
+    if (ctx.is_debian) install_noto_fonts(ctx.family, true);
+    install_language_packs(cfg);
+}
+
 // ═══════════════════════════════════════════════════════════════
 // 主题/壁纸/光标 — 从 DesktopManager 提取供 DesktopBase 子类使用
 // ═══════════════════════════════════════════════════════════════

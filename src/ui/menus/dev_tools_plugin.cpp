@@ -9,8 +9,6 @@
 
 namespace tmoe::ui::menus {
 
-DevToolsMenuPlugin::DevToolsMenuPlugin(domain::DeveloperTools* mgr) : mgr_(mgr) {}
-
 // ── 顶层入口 ──────────────────────────────────────────────
 
 std::shared_ptr<IUIMenu> DevToolsMenuPlugin::build() {
@@ -18,13 +16,7 @@ std::shared_ptr<IUIMenu> DevToolsMenuPlugin::build() {
         _("devtools.menu_title"), _("devtools.tightvnc_tip"), "plugin_devtools");
 
     // 1 — Visual Studio Code → vscode 子菜单 (Official/Server/Codium/fix)
-    auto vscode_menu = build_vscode_menu();
-    menu->add_child(std::make_shared<LambdaAction>(
-        "Visual Studio Code", "dev_vscode",
-        [vscode_menu](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(vscode_menu);
-            return true;
-        }));
+    menu->add_submenu("Visual Studio Code", "dev_vscode", build_vscode_menu());
 
     // 2 — Android Studio → ide 子菜单 type 2 (install/delete pkg/remove)
     auto ide2_menu = build_ide_submenu_02();
@@ -87,14 +79,12 @@ std::shared_ptr<IUIMenu> DevToolsMenuPlugin::build() {
         }));
 
     // 8 — GNU Emacs → 包管理器快速安装
-    menu->add_child(LambdaAction::make(
-        "GNU Emacs", "dev_emacs",
-        [this] { mgr_->install_emacs(); Logger::press_enter(); }));
+    menu->add_action("GNU Emacs", "dev_emacs",
+        [this] { mgr_->install_emacs(); });
 
     // 9 — Code::Blocks → 包管理器快速安装
-    menu->add_child(LambdaAction::make(
-        "Code::Blocks", "dev_codeblocks",
-        [this] { mgr_->install_code_blocks(); Logger::press_enter(); }));
+    menu->add_action("Code::Blocks", "dev_codeblocks",
+        [this] { mgr_->install_code_blocks(); });
 
     // 10 — GitHub Desktop → ide 子菜单 type 1 (x64 only)
     auto ide1_menu_github = build_ide_submenu_01();
@@ -107,9 +97,8 @@ std::shared_ptr<IUIMenu> DevToolsMenuPlugin::build() {
         }));
 
     // 11 — Sublime Text → 添加官方源 + 安装
-    menu->add_child(LambdaAction::make(
-        "Sublime Text", "dev_sublime",
-        [this] { mgr_->install_sublime_text(); Logger::press_enter(); }));
+    menu->add_action("Sublime Text", "dev_sublime",
+        [this] { mgr_->install_sublime_text(); });
 
     add_sandwich_nav(menu);
     return menu;
@@ -121,34 +110,14 @@ std::shared_ptr<IUIMenu> DevToolsMenuPlugin::build_vscode_menu() {
     auto menu = make_plugin_menu(
         "Visual Studio Code", _("devtools.vscode_tip"), "plugin_dev_vscode");
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        "Microsoft Official", "1",
-        [this](MenuContext&) -> bool {
-            mgr_->install_vscode_official();
-            Logger::press_enter();
-            return true;
-        }));
-    menu->add_child(std::make_shared<LambdaAction>(
-        "VS Code Server", "2",
-        [this](MenuContext&) -> bool {
-            mgr_->run_vscode_server_menu();
-            Logger::press_enter();
-            return true;
-        }));
-    menu->add_child(std::make_shared<LambdaAction>(
-        "VS Codium", "3",
-        [this](MenuContext&) -> bool {
-            mgr_->install_vscodium();
-            Logger::press_enter();
-            return true;
-        }));
-    menu->add_child(std::make_shared<LambdaAction>(
-        "Fix tightvnc vscode", "4",
-        [this](MenuContext&) -> bool {
-            mgr_->fix_tightvnc_vscode();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action("Microsoft Official", "1",
+        [this] { mgr_->install_vscode_official(); });
+    menu->add_action("VS Code Server", "2",
+        [this] { mgr_->run_vscode_server_menu(); });
+    menu->add_action("VS Codium", "3",
+        [this] { mgr_->install_vscodium(); });
+    menu->add_action("Fix tightvnc vscode", "4",
+        [this] { mgr_->fix_tightvnc_vscode(); });
 
     add_navigation_items(menu);
     return menu;
@@ -160,27 +129,12 @@ std::shared_ptr<IUIMenu> DevToolsMenuPlugin::build_ide_submenu_01() {
     auto menu = make_plugin_menu(
         "IDE Manager", "Install / Delete / Remove", "plugin_dev_ide_01");
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        "Install/Upgrade", "1",
-        [this](MenuContext&) -> bool {
-            mgr_->install_ide_01();
-            Logger::press_enter();
-            return true;
-        }));
-    menu->add_child(std::make_shared<LambdaAction>(
-        "Delete Package", "2",
-        [this](MenuContext&) -> bool {
-            mgr_->delete_ide_pkg();
-            Logger::press_enter();
-            return true;
-        }));
-    menu->add_child(std::make_shared<LambdaAction>(
-        "Remove", "3",
-        [this](MenuContext&) -> bool {
-            mgr_->remove_ide_01();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action("Install/Upgrade", "1",
+        [this] { mgr_->install_ide_01(); });
+    menu->add_action("Delete Package", "2",
+        [this] { mgr_->delete_ide_pkg(); });
+    menu->add_action("Remove", "3",
+        [this] { mgr_->remove_ide_01(); });
 
     add_navigation_items(menu);
     return menu;
@@ -192,27 +146,12 @@ std::shared_ptr<IUIMenu> DevToolsMenuPlugin::build_ide_submenu_02() {
     auto menu = make_plugin_menu(
         "IDE Manager", "Install / Delete / Remove", "plugin_dev_ide_02");
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        "Install/Upgrade", "1",
-        [this](MenuContext&) -> bool {
-            mgr_->install_ide_02();
-            Logger::press_enter();
-            return true;
-        }));
-    menu->add_child(std::make_shared<LambdaAction>(
-        "Delete Package", "2",
-        [this](MenuContext&) -> bool {
-            mgr_->delete_ide_pkg_02();
-            Logger::press_enter();
-            return true;
-        }));
-    menu->add_child(std::make_shared<LambdaAction>(
-        "Remove", "3",
-        [this](MenuContext&) -> bool {
-            mgr_->remove_ide_02();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action("Install/Upgrade", "1",
+        [this] { mgr_->install_ide_02(); });
+    menu->add_action("Delete Package", "2",
+        [this] { mgr_->delete_ide_pkg_02(); });
+    menu->add_action("Remove", "3",
+        [this] { mgr_->remove_ide_02(); });
 
     add_navigation_items(menu);
     return menu;

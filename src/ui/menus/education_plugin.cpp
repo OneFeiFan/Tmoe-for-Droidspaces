@@ -28,45 +28,37 @@ std::shared_ptr<IUIMenu> EducationMenuPlugin::build_gaokao_papers_menu() {
     auto menu = make_plugin_menu(
         _("edu.gaokao_papers_title"), _("edu.gaokao_papers"), "plugin_edu_gaokao_papers");
 
-    menu->add_child(std::make_shared<LambdaAction>(
+    menu->add_action(
         std::string("2020 (") + _("edu.size_79mb") + ")", "1",
-        [this](MenuContext&) -> bool {
+        [this] {
             mgr_->download_study_materials(
                 "https://gitee.com/ak2/gaokao_paper_2020",
                 "2020", "2020年高考真题.tar.xz");
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
+    menu->add_action(
         std::string("2008-2019 (") + _("edu.no_listening") + ", 392.2MiB)", "2",
-        [this](MenuContext&) -> bool {
+        [this] {
             mgr_->download_study_materials(
                 "https://gitee.com/ak2/gaokao_paper_2019",
                 "2019", "2008-2019高考真题.tar.xz");
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
+    menu->add_action(
         std::string("2013-2018 (") + _("edu.science_edition") + ", 146.3MiB)", "3",
-        [this](MenuContext&) -> bool {
+        [this] {
             mgr_->download_study_materials(
                 "https://gitee.com/ak2/gaokao_paper_2013_to_2018",
                 "2018", "2013-2018高考真题.tar.xz");
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
+    menu->add_action(
         std::string("2008-2018 (") + _("edu.english_listening_only") + ", 244.9MiB)", "4",
-        [this](MenuContext&) -> bool {
+        [this] {
             mgr_->download_study_materials(
                 "https://gitee.com/ak2/gaokao_english_listening",
                 "2018", "2008-2018高考英语听力.tar.xz");
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     add_sandwich_nav(menu);
     return menu;
@@ -78,25 +70,21 @@ std::shared_ptr<IUIMenu> EducationMenuPlugin::build_gaokao_notes_menu() {
     auto menu = make_plugin_menu(
         _("edu.gaokao_notes_title"), _("edu.gaokao_notes"), "plugin_edu_gaokao_notes");
 
-    menu->add_child(std::make_shared<LambdaAction>(
+    menu->add_action(
         std::string(_("edu.gaokao_bio_notes")) + " (131.8MiB)", "1",
-        [this](MenuContext&) -> bool {
+        [this] {
             mgr_->download_study_materials(
                 "https://gitee.com/ak2/biology_note",
                 "2019", "生物笔记.tar.xz");
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
+    menu->add_action(
         std::string(_("edu.gaokao_eng_notes")) + " (5.4MiB)", "2",
-        [this](MenuContext&) -> bool {
+        [this] {
             mgr_->download_study_materials(
                 "https://gitee.com/ak2/english_note",
                 "2020", "英语终极笔记.tar.xz");
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     add_sandwich_nav(menu);
     return menu;
@@ -121,35 +109,29 @@ std::shared_ptr<IUIMenu> EducationMenuPlugin::build_kaoyan_menu() {
     auto menu = make_plugin_menu(
         _("edu.kaoyan_title"), _("edu.kaoyan_prompt"), "plugin_edu_kaoyan");
 
-    menu->add_child(std::make_shared<LambdaAction>(
+    menu->add_action(
         std::string("2003-2019 ") + _("edu.kaoyan_politics") + " (6.2MiB)", "1",
-        [this](MenuContext&) -> bool {
+        [this] {
             mgr_->download_study_materials(
                 "https://gitee.com/ak2/postgraduate_politics",
                 "2019", "2003-2019政治真题.tar.xz");
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
+    menu->add_action(
         std::string("2001-2019 ") + _("edu.kaoyan_english") + " (7.7MiB)", "2",
-        [this](MenuContext&) -> bool {
+        [this] {
             mgr_->download_study_materials(
                 "https://gitee.com/ak2/postgraduate_english",
                 "2019", "2001-2019英语真题.tar.xz");
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
+    menu->add_action(
         std::string("1987-2020 ") + _("edu.kaoyan_math") + " (" + _("edu.with_solutions") + ", 15.5MiB)", "3",
-        [this](MenuContext&) -> bool {
+        [this] {
             mgr_->download_study_materials(
                 "https://gitee.com/ak2/postgraduate_math",
                 "2020", "1987-2020数学真题.tar.xz");
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     add_sandwich_nav(menu);
     return menu;
@@ -161,50 +143,35 @@ std::shared_ptr<IUIMenu> EducationMenuPlugin::build_math_menu() {
     auto menu = make_plugin_menu(
         _("edu.math_title"), _("edu.math_prompt"), "plugin_edu_math");
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.geogebra"), "1",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("edu.geogebra"), "1",
+        [] {
             auto fam = domain::PackageManager::detect_distro_family();
             domain::PackageManager::install("geogebra", fam);
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.octave"), "2",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("edu.octave"), "2",
+        [] {
             auto fam = domain::PackageManager::detect_distro_family();
             domain::PackageManager::install("octave", fam);
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.scilab"), "3",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("edu.scilab"), "3",
+        [] {
             auto fam = domain::PackageManager::detect_distro_family();
             domain::PackageManager::install({"scilab-minimal-bin", "scilab"}, fam);
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.freemat"), "4",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("edu.freemat"), "4",
+        [] {
             auto fam = domain::PackageManager::detect_distro_family();
             domain::PackageManager::install({"freemat", "freemat-help"}, fam);
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.maxima"), "5",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("edu.maxima"), "5",
+        [] {
             auto fam = domain::PackageManager::detect_distro_family();
             domain::PackageManager::install({"maxima", "wxmaxima"}, fam);
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     add_sandwich_nav(menu);
     return menu;
@@ -216,22 +183,14 @@ std::shared_ptr<IUIMenu> EducationMenuPlugin::build_goldendict_menu() {
     auto menu = make_plugin_menu(
         _("edu.goldendict_title"), _("edu.goldendict"), "plugin_edu_goldendict");
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.goldendict_install"), "1",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("edu.goldendict_install"), "1",
+        [] {
             auto fam = domain::PackageManager::detect_distro_family();
             domain::PackageManager::install({"goldendict", "goldendict-wordnet"}, fam);
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.goldendict_dicts"), "2",
-        [](MenuContext&) -> bool {
-            Logger::warn(_("edu.dict_copyright_notice"));
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("edu.goldendict_dicts"), "2",
+        [] { Logger::warn(_("edu.dict_copyright_notice")); });
 
     add_sandwich_nav(menu);
     return menu;
@@ -243,15 +202,13 @@ std::shared_ptr<IUIMenu> EducationMenuPlugin::build_cet_menu() {
     auto menu = make_plugin_menu(
         _("edu.cet_title"), _("edu.cet_title"), "plugin_edu_cet");
 
-    menu->add_child(std::make_shared<LambdaAction>(
+    menu->add_action(
         std::string("2013-2019 (") + _("edu.cet_both") + ", 6.7MiB)", "1",
-        [this](MenuContext&) -> bool {
+        [this] {
             mgr_->download_study_materials(
                 "https://gitee.com/ak2/cet",
                 "2019", "cet.tar.xz");
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     add_sandwich_nav(menu);
     return menu;
@@ -266,15 +223,13 @@ std::shared_ptr<IUIMenu> EducationMenuPlugin::build_english_menu() {
     menu->add_child(build_goldendict_menu());
     menu->add_child(build_cet_menu());
 
-    menu->add_child(std::make_shared<LambdaAction>(
+    menu->add_action(
         std::string(_("edu.english_masterpieces")) + " (222.8MiB)", "3",
-        [this](MenuContext&) -> bool {
+        [this] {
             mgr_->download_study_materials(
                 "https://gitee.com/ak2/masterpieces",
                 "2018", "英文原著.tar.xz");
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     add_navigation_items(menu);
     return menu;
@@ -286,33 +241,24 @@ std::shared_ptr<IUIMenu> EducationMenuPlugin::build_physics_menu() {
     auto menu = make_plugin_menu(
         _("edu.physics_title"), _("edu.physics_prompt"), "plugin_edu_physics");
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.step"), "1",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("edu.step"), "1",
+        [] {
             auto fam = domain::PackageManager::detect_distro_family();
             Logger::info(_("edu.step_desc"));
             domain::PackageManager::install("step", fam);
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.openfoam"), "2",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("edu.openfoam"), "2",
+        [] {
             auto fam = domain::PackageManager::detect_distro_family();
             domain::PackageManager::install("openfoam", fam);
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.geant4"), "3",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("edu.geant4"), "3",
+        [] {
             auto fam = domain::PackageManager::detect_distro_family();
             domain::PackageManager::install("geant321", fam);
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     add_sandwich_nav(menu);
     return menu;
@@ -324,68 +270,47 @@ std::shared_ptr<IUIMenu> EducationMenuPlugin::build_chemistry_menu() {
     auto menu = make_plugin_menu(
         _("edu.chemistry_title"), _("edu.chemistry_prompt"), "plugin_edu_chemistry");
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.kalzium"), "1",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("edu.kalzium"), "1",
+        [] {
             auto fam = domain::PackageManager::detect_distro_family();
             domain::PackageManager::install("kalzium", fam);
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.nwchem"), "2",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("edu.nwchem"), "2",
+        [] {
             auto fam = domain::PackageManager::detect_distro_family();
             domain::PackageManager::install("nwchem", fam);
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.avogadro"), "3",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("edu.avogadro"), "3",
+        [] {
             auto fam = domain::PackageManager::detect_distro_family();
             domain::PackageManager::install("avogadro", fam);
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.pymol"), "4",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("edu.pymol"), "4",
+        [] {
             auto fam = domain::PackageManager::detect_distro_family();
             domain::PackageManager::install("pymol", fam);
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.psi4"), "5",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("edu.psi4"), "5",
+        [] {
             auto fam = domain::PackageManager::detect_distro_family();
             domain::PackageManager::install("psi4", fam);
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.gromacs"), "6",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("edu.gromacs"), "6",
+        [] {
             auto fam = domain::PackageManager::detect_distro_family();
             domain::PackageManager::install("gromacs", fam);
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.cp2k"), "7",
-        [](MenuContext&) -> bool {
+    menu->add_action(_("edu.cp2k"), "7",
+        [] {
             auto fam = domain::PackageManager::detect_distro_family();
             domain::PackageManager::install("cp2k", fam);
-            Logger::press_enter();
-            return true;
-        }));
+        });
 
     add_sandwich_nav(menu);
     return menu;
@@ -398,63 +323,25 @@ std::shared_ptr<IUIMenu> EducationMenuPlugin::build() {
         _("edu.menu_title"), _("edu.menu_prompt"), "plugin_education");
 
     // 高考 → L2 容器菜单 (真题 + 学习笔记)
-    auto gaokao_menu = build_gaokao_menu();
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.gaokao"), "edu_gaokao",
-        [gaokao_menu](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(gaokao_menu);
-            return true;
-        }));
+    menu->add_submenu(_("edu.gaokao"), "edu_gaokao", build_gaokao_menu());
 
     // 考研 → L2 叶子菜单 (政治/英语/数学真题)
-    auto kaoyan_menu = build_kaoyan_menu();
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.kaoyan"), "edu_kaoyan",
-        [kaoyan_menu](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(kaoyan_menu);
-            return true;
-        }));
+    menu->add_submenu(_("edu.kaoyan"), "edu_kaoyan", build_kaoyan_menu());
 
     // 数学 → L2 叶子菜单 (5款数学软件)
-    auto math_menu = build_math_menu();
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.math"), "edu_math",
-        [math_menu](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(math_menu);
-            return true;
-        }));
+    menu->add_submenu(_("edu.math"), "edu_math", build_math_menu());
 
     // 英语 → L2 容器菜单 (GoldenDict + 四六级 + 名著)
-    auto english_menu = build_english_menu();
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.english"), "edu_english",
-        [english_menu](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(english_menu);
-            return true;
-        }));
+    menu->add_submenu(_("edu.english"), "edu_english", build_english_menu());
 
     // 物理 → L2 叶子菜单 (3款物理软件)
-    auto physics_menu = build_physics_menu();
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.physics"), "edu_physics",
-        [physics_menu](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(physics_menu);
-            return true;
-        }));
+    menu->add_submenu(_("edu.physics"), "edu_physics", build_physics_menu());
 
     // 化学 → L2 叶子菜单 (7款化学软件)
-    auto chemistry_menu = build_chemistry_menu();
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("edu.chemistry"), "edu_chemistry",
-        [chemistry_menu](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(chemistry_menu);
-            return true;
-        }));
+    menu->add_submenu(_("edu.chemistry"), "edu_chemistry", build_chemistry_menu());
 
     add_sandwich_nav(menu);
     return menu;
 }
-
-EducationMenuPlugin::EducationMenuPlugin(domain::EducationManager* mgr) : mgr_(mgr) {}
 
 } // namespace tmoe::ui::menus

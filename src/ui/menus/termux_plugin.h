@@ -6,13 +6,12 @@ namespace tmoe::domain { class TermuxManager; }
 
 namespace tmoe::ui::menus {
 
-class TermuxMenuPlugin : public IPlugin {
+class TermuxMenuPlugin : public PluginFor<domain::TermuxManager> {
 public:
-    explicit TermuxMenuPlugin(domain::TermuxManager* mgr);
+    using PluginFor::PluginFor;
     std::shared_ptr<IUIMenu> build() override;
 
 private:
-    domain::TermuxManager* mgr_;
 
     std::shared_ptr<IUIMenu> build_termux_gui_menu();
     std::shared_ptr<IUIMenu> build_termux_beautify_menu();

@@ -21,4 +21,22 @@ public:
     virtual std::shared_ptr<IUIMenu> build() = 0;
 };
 
+/**
+ * 通用插件适配器——消除各插件类重复的构造函数/mgr_ 样板。
+ *
+ * 插件类继承此类而非直接继承 IPlugin，基类自动处理 Manager 指针存储：
+ *   class BrowserMenuPlugin : public PluginFor<domain::BrowserManager> {
+ *   public:
+ *       using PluginFor::PluginFor;  // 继承构造函数
+ *       std::shared_ptr<IUIMenu> build() override;
+ *   };
+ */
+template<typename Mgr>
+class PluginFor : public IPlugin {
+public:
+    explicit PluginFor(Mgr* mgr) : mgr_(mgr) {}
+protected:
+    Mgr* mgr_;
+};
+
 } // namespace tmoe::ui

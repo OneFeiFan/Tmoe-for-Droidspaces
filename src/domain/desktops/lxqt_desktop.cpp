@@ -8,13 +8,9 @@
 
 namespace tmoe::domain {
     LxqtDesktop::LxqtDesktop(const TmoeConfig &cfg)
-        : DesktopBase(cfg)
-          , info_(gui_config::all_desktops()[2]) // lxqt is idx 2
+        : DesktopBase(cfg, gui_config::all_desktops()[2]) // lxqt is idx 2
     {
     }
-
-    std::string LxqtDesktop::get_id() const { return info_.id; }
-    const DesktopInfo &LxqtDesktop::get_info() const { return info_; }
 
     void LxqtDesktop::will_be_installed_message() const {
         Logger::info("LXQt: lxqt-session / startlxqt");

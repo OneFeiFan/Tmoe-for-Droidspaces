@@ -22,25 +22,25 @@ namespace tmoe::app {
         virt_mgr_ = std::make_unique<domain::VirtualizationManager>(cfg_);
         virt_mgr_->set_docker_callback([this]() {
             tmoe::ui::MenuContext ctx{cfg_};
-            tmoe::ui::MenuEngine(ctx).run(ui::menus::create_docker_menu(docker_mgr_.get()));
+            tmoe::ui::MenuEngine(ctx).run(ui::menus::make_menu<ui::menus::DockerMenuPlugin>(docker_mgr_.get()));
         });
         config_mgr_ = std::make_unique<domain::ConfigManager>(cfg_);
         software_center_ = std::make_unique<domain::SoftwareCenter>(cfg_);
         software_center_->set_browser_cb([this]() {
             tmoe::ui::MenuContext ctx{cfg_};
-            tmoe::ui::MenuEngine(ctx).run(ui::menus::create_browser_menu(browser_.get()));
+            tmoe::ui::MenuEngine(ctx).run(ui::menus::make_menu<ui::menus::BrowserMenuPlugin>(browser_.get()));
         });
         software_center_->set_dev_cb([this]() {
             tmoe::ui::MenuContext ctx{cfg_};
-            tmoe::ui::MenuEngine(ctx).run(ui::menus::create_dev_tools_menu(dev_tools_.get()));
+            tmoe::ui::MenuEngine(ctx).run(ui::menus::make_menu<ui::menus::DevToolsMenuPlugin>(dev_tools_.get()));
         });
         software_center_->set_office_cb([this]() {
             tmoe::ui::MenuContext ctx{cfg_};
-            tmoe::ui::MenuEngine(ctx).run(ui::menus::create_office_menu(office_.get()));
+            tmoe::ui::MenuEngine(ctx).run(ui::menus::make_menu<ui::menus::OfficeMenuPlugin>(office_.get()));
         });
         software_center_->set_download_cb([this]() {
             tmoe::ui::MenuContext ctx{cfg_};
-            tmoe::ui::MenuEngine(ctx).run(ui::menus::create_download_menu(download_tools_.get()));
+            tmoe::ui::MenuEngine(ctx).run(ui::menus::make_menu<ui::menus::DownloadMenuPlugin>(download_tools_.get()));
         });
         software_center_->set_zsh_cb([this]() { termux_->start_tmoe_zsh(); });
         terminal_app_ = std::make_unique<domain::TerminalAppManager>(cfg_);
@@ -51,19 +51,19 @@ namespace tmoe::app {
         beta_features_ = std::make_unique<domain::BetaFeaturesManager>(cfg_);
         beta_features_->set_virt_callback([this]() {
             tmoe::ui::MenuContext ctx{cfg_};
-            tmoe::ui::MenuEngine(ctx).run(ui::menus::create_virtualization_menu(virt_mgr_.get()));
+            tmoe::ui::MenuEngine(ctx).run(ui::menus::make_menu<ui::menus::VirtualizationMenuPlugin>(virt_mgr_.get()));
         });
         beta_features_->set_education_callback([this]() {
             tmoe::ui::MenuContext ctx{cfg_};
-            tmoe::ui::MenuEngine(ctx).run(ui::menus::create_education_menu(education_.get()));
+            tmoe::ui::MenuEngine(ctx).run(ui::menus::make_menu<ui::menus::EducationMenuPlugin>(education_.get()));
         });
         beta_features_->set_input_method_callback([this]() {
             tmoe::ui::MenuContext ctx{cfg_};
-            tmoe::ui::MenuEngine(ctx).run(ui::menus::create_input_method_menu(input_method_.get()));
+            tmoe::ui::MenuEngine(ctx).run(ui::menus::make_menu<ui::menus::InputMethodMenuPlugin>(input_method_.get()));
         });
         beta_features_->set_terminal_callback([this]() {
             tmoe::ui::MenuContext ctx{cfg_};
-            tmoe::ui::MenuEngine(ctx).run(ui::menus::create_terminal_app_menu(terminal_app_.get()));
+            tmoe::ui::MenuEngine(ctx).run(ui::menus::make_menu<ui::menus::TerminalAppMenuPlugin>(terminal_app_.get()));
         });
         dev_tools_ = std::make_unique<domain::DeveloperTools>(cfg_);
         download_tools_ = std::make_unique<domain::DownloadTools>(cfg_);
@@ -163,7 +163,7 @@ namespace tmoe::app {
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.termux"), "5",
                 [this](MenuContext& ctx) -> bool {
-                    MenuEngine(ctx).run(menus::create_termux_menu(termux_.get())); return true;
+                    MenuEngine(ctx).run(menus::make_menu<ui::menus::TermuxMenuPlugin>(termux_.get())); return true;
                 }));
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.zsh"), "6",
@@ -191,27 +191,27 @@ namespace tmoe::app {
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.gui_de"), "1",
                 [this](MenuContext& ctx) -> bool {
-                    MenuEngine(ctx).run(menus::create_desktop_menu(gui_.get())); return true;
+                    MenuEngine(ctx).run(menus::make_menu<ui::menus::DesktopMenuPlugin>(gui_.get())); return true;
                 }));
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.software_center"), "2",
                 [this](MenuContext& ctx) -> bool {
-                    MenuEngine(ctx).run(menus::create_software_center_menu(software_center_.get())); return true;
+                    MenuEngine(ctx).run(menus::make_menu<ui::menus::SoftwareCenterMenuPlugin>(software_center_.get())); return true;
                 }));
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.secret_garden"), "3",
                 [this](MenuContext& ctx) -> bool {
-                    MenuEngine(ctx).run(menus::create_beta_features_menu(beta_features_.get())); return true;
+                    MenuEngine(ctx).run(menus::make_menu<ui::menus::BetaFeaturesMenuPlugin>(beta_features_.get())); return true;
                 }));
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.gui_beautify"), "4",
                 [this](MenuContext& ctx) -> bool {
-                    MenuEngine(ctx).run(menus::create_beautify_menu(gui_.get())); return true;
+                    MenuEngine(ctx).run(menus::make_menu<ui::menus::BeautifyMenuPlugin>(gui_.get())); return true;
                 }));
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.gui_remote"), "5",
                 [this](MenuContext& ctx) -> bool {
-                    MenuEngine(ctx).run(menus::create_remote_desktop_menu(gui_.get())); return true;
+                    MenuEngine(ctx).run(menus::make_menu<ui::menus::RemoteDesktopMenuPlugin>(gui_.get())); return true;
                 }));
             // 6: 镜像源 — 嵌套引擎运行新式菜单
             menu->add_child(std::make_shared<LambdaAction>(
@@ -593,7 +593,7 @@ namespace tmoe::app {
             case LaunchMode::Aria2Manager: {
                 tmoe::ui::MenuContext ctx{cfg_};
                 return tmoe::ui::MenuEngine(ctx).run(
-                        ui::menus::create_download_menu(download_tools_.get())), 0;
+                        ui::menus::make_menu<ui::menus::DownloadMenuPlugin>(download_tools_.get())), 0;
             }
 
             case LaunchMode::GuiManager:

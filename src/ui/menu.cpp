@@ -1,6 +1,9 @@
 #include "menu.h"
 #include "core/command_builder.hpp"
 #include "core/config.h"
+#include "core/logger.h"
+#include "menu_engine.h"
+#include "plugin_helpers.h"
 #include <algorithm>
 
 namespace tmoe::ui {
@@ -50,6 +53,26 @@ std::string IUIMenu::build_whiptail_cmd(const MenuContext& ctx) const {
     }
 
     return cmd.build_string();
+}
+
+void IUIMenu::add_action(std::string label, std::string tag,
+                          std::function<void()> fn) {
+    add_child(LambdaAction::make(
+        std::move(label), std::move(tag),
+        [fn = std::move(fn)] {
+            fn();
+            Logger::press_enter();
+        }));
+}
+
+void IUIMenu::add_submenu(std::string label, std::string tag,
+                           std::shared_ptr<IUIMenu> submenu) {
+    add_child(std::make_shared<LambdaAction>(
+        std::move(label), std::move(tag),
+        [submenu = std::move(submenu)](MenuContext& ctx) -> bool {
+            MenuEngine(ctx).run(submenu);
+            return true;
+        }));
 }
 
 } // namespace tmoe::ui

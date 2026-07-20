@@ -2,6 +2,7 @@
 #include "menu_item.h"
 #include <functional>
 #include <initializer_list>
+#include <memory>
 
 namespace tmoe::ui {
 
@@ -52,6 +53,17 @@ public:
 
     /** 根据 tag 查找子项，找不到返回 nullptr。 */
     std::shared_ptr<IMenuItem> find_child(const std::string& tag) const;
+
+    // ── 快捷构建方法 ──
+
+    /** 快捷创建操作项。自动包装 LambdaAction，回调执行后自动 Logger::press_enter()。
+     *  等价于 add_child(LambdaAction::make(label, tag, [fn]{ fn(); Logger::press_enter(); })) */
+    void add_action(std::string label, std::string tag,
+                    std::function<void()> fn);
+
+    /** 快捷创建嵌套子菜单入口。点击后在子菜单中启动 MenuEngine。 */
+    void add_submenu(std::string label, std::string tag,
+                     std::shared_ptr<IUIMenu> submenu);
 
 protected:
     std::vector<std::shared_ptr<IMenuItem>> children_;

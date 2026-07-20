@@ -8,24 +8,18 @@
 
 namespace tmoe::ui::menus {
 
-BrowserMenuPlugin::BrowserMenuPlugin(domain::BrowserManager* mgr) : mgr_(mgr) {}
-
 std::shared_ptr<IUIMenu> BrowserMenuPlugin::build() {
     auto menu = make_plugin_menu(
         _("browser.menu_title"), _("browser.menu_prompt"), "plugin_browser");
 
     // ── Firefox / Chromium — 多步向导 ──
-    menu->add_child(LambdaAction::make(
-        _("browser.menu_item_firefox_chromium"), "1",
+    menu->add_action(_("browser.menu_item_firefox_chromium"), "1",
         [this] {
-            // Step 1: Chromium or Firefox?
             int c = dialog::yesno(mgr_->cfg(),
                 _("browser.firefox_chromium_select_title"),
                 _("browser.firefox_chromium_select_yesno"),
                 "chromium", "Firefox", 15, 50);
-
             if (c == 0) {
-                // Chromium — install or remove?
                 int c2 = dialog::yesno(mgr_->cfg(),
                     _("browser.chromium_install_remove_title"),
                     _("browser.chromium_install_remove_yesno"),
@@ -33,13 +27,11 @@ std::shared_ptr<IUIMenu> BrowserMenuPlugin::build() {
                 if (c2 == 0) mgr_->chromium.install();
                 else if (c2 == 1) mgr_->chromium.remove();
             } else if (c == 1) {
-                // Firefox — install or remove?
                 int c2 = dialog::yesno(mgr_->cfg(),
                     _("browser.firefox_install_remove_title"),
                     _("browser.firefox_install_remove_yesno"),
                     "install", "remove", 8, 50);
                 if (c2 == 0 || c2 == 1) {
-                    // Select version: Firefox or ESR?
                     int c3 = dialog::yesno(mgr_->cfg(),
                         _("browser.firefox_chromium_select_title"),
                         _("browser.firefox_esr_select_yesno"),
@@ -53,8 +45,7 @@ std::shared_ptr<IUIMenu> BrowserMenuPlugin::build() {
                     }
                 }
             }
-            Logger::press_enter();
-        }));
+        });
 
     // ── Microsoft Edge — 安装/卸载双按钮 ──
     menu->add_child(std::make_shared<ChoiceAction>(
@@ -73,26 +64,14 @@ std::shared_ptr<IUIMenu> BrowserMenuPlugin::build() {
         8, 50));
 
     // ── 仅安装的应用 ──
-    menu->add_child(LambdaAction::make(
-        _("browser.menu_item_vivaldi"), "4",
-        [this] {
-            mgr_->vivaldi.install();
-            Logger::press_enter();
-        }));
+    menu->add_action(_("browser.menu_item_vivaldi"), "4",
+        [this] { mgr_->vivaldi.install(); });
 
-    menu->add_child(LambdaAction::make(
-        _("browser.menu_item_epiphany"), "5",
-        [this] {
-            mgr_->epiphany.install();
-            Logger::press_enter();
-        }));
+    menu->add_action(_("browser.menu_item_epiphany"), "5",
+        [this] { mgr_->epiphany.install(); });
 
-    menu->add_child(LambdaAction::make(
-        _("browser.menu_item_midori"), "6",
-        [this] {
-            mgr_->midori.install();
-            Logger::press_enter();
-        }));
+    menu->add_action(_("browser.menu_item_midori"), "6",
+        [this] { mgr_->midori.install(); });
 
     add_sandwich_nav(menu);
     return menu;

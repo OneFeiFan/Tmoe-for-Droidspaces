@@ -8,13 +8,12 @@ namespace tmoe::ui::menus {
 
 /** 桌面环境安装菜单插件。
  *  构建 4 个子菜单：免 Root 桌面 / 需 Root 桌面 / 窗口管理器 / 显示管理器。 */
-class DesktopMenuPlugin : public IPlugin {
+class DesktopMenuPlugin : public PluginFor<domain::GUIManager> {
 public:
-    explicit DesktopMenuPlugin(domain::GUIManager* gui);
+    using PluginFor::PluginFor;
     std::shared_ptr<IUIMenu> build() override;
 
 private:
-    domain::GUIManager* gui_;
 
     std::shared_ptr<IUIMenu> build_rootless_menu();
     std::shared_ptr<IUIMenu> build_rootful_menu();

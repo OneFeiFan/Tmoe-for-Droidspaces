@@ -9,12 +9,8 @@
 namespace tmoe::domain {
 
 LxdeDesktop::LxdeDesktop(const TmoeConfig& cfg)
-    : DesktopBase(cfg)
-    , info_(gui_config::all_desktops()[3])  // lxde is idx 3
+    : DesktopBase(cfg, gui_config::all_desktops()[3])  // lxde is idx 3
 {}
-
-std::string LxdeDesktop::get_id() const        { return info_.id; }
-const DesktopInfo& LxdeDesktop::get_info() const { return info_; }
 
 void LxdeDesktop::will_be_installed_message() const {
     Logger::info("LXDE: lxsession / startlxde");

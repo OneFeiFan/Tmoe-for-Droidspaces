@@ -7,10 +7,8 @@
 
 namespace tmoe::ui::menus {
 
-BeautifyMenuPlugin::BeautifyMenuPlugin(domain::GUIManager* gui) : gui_(gui) {}
-
 std::shared_ptr<IUIMenu> BeautifyMenuPlugin::build() {
-    auto& bm = gui_->beautification_manager_;
+    auto& bm = mgr_->beautification_manager_;
 
     auto menu = make_plugin_menu(
         _("gui.beautify_title"), _("gui.beautify_prompt"), "gui_beautify");

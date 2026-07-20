@@ -6,8 +6,6 @@
 
 namespace tmoe::ui::menus {
 
-TerminalAppMenuPlugin::TerminalAppMenuPlugin(domain::TerminalAppManager* mgr) : mgr_(mgr) {}
-
 std::shared_ptr<IUIMenu> TerminalAppMenuPlugin::build() {
     auto menu = make_plugin_menu(
         _("term.menu_title"), _("term.menu_prompt"), "plugin_terminal_app");

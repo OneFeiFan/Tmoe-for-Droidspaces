@@ -27,89 +27,45 @@ std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build() {
         _("beta.menu_title"), _("beta.menu_prompt"), "plugin_beta_features");
 
     // 1: container/vm → delegates to VirtualizationManager
-    menu->add_child(LambdaAction::make(
-        _("beta.opt1_virt"), "1",
-        [this] { mgr_->virt_delegate(); }));
+    menu->add_action(_("beta.opt1_virt"), "1",
+        [this] { mgr_->virt_delegate(); });
 
     // 2: science & education → delegates to EducationManager
-    menu->add_child(LambdaAction::make(
-        _("beta.opt2_science"), "2",
-        [this] { mgr_->education_delegate(); }));
+    menu->add_action(_("beta.opt2_science"), "2",
+        [this] { mgr_->education_delegate(); });
 
-    // 3: system management → MenuEngine nested submenu
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("beta.opt3_system"), "3",
-        [this](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_system_menu());
-            return true;
-        }));
+    // 3: system management → nested submenu
+    menu->add_submenu(_("beta.opt3_system"), "3", build_system_menu());
 
-    // 4: store & download → MenuEngine nested submenu
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("beta.opt4_store"), "4",
-        [this](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_store_menu());
-            return true;
-        }));
+    // 4: store & download → nested submenu
+    menu->add_submenu(_("beta.opt4_store"), "4", build_store_menu());
 
-    // 5: video editing → MenuEngine nested submenu
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("beta.opt5_video"), "5",
-        [this](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_video_menu());
-            return true;
-        }));
+    // 5: video editing → nested submenu
+    menu->add_submenu(_("beta.opt5_video"), "5", build_video_menu());
 
-    // 6: paint → MenuEngine nested submenu
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("beta.opt6_paint"), "6",
-        [this](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_paint_menu());
-            return true;
-        }));
+    // 6: paint → nested submenu
+    menu->add_submenu(_("beta.opt6_paint"), "6", build_paint_menu());
 
-    // 7: file management → MenuEngine nested submenu
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("beta.opt7_file"), "7",
-        [this](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_file_menu());
-            return true;
-        }));
+    // 7: file management → nested submenu
+    menu->add_submenu(_("beta.opt7_file"), "7", build_file_menu());
 
-    // 8: reader → MenuEngine nested submenu
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("beta.opt8_read"), "8",
-        [this](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_reader_menu());
-            return true;
-        }));
+    // 8: reader → nested submenu
+    menu->add_submenu(_("beta.opt8_read"), "8", build_reader_menu());
 
     // 9: network — calls old placeholder method
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("beta.opt9_network"), "9",
-        [this](MenuContext&) -> bool {
-            mgr_->run_network_menu();
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("beta.opt9_network"), "9",
+        [this] { mgr_->run_network_menu(); });
 
     // 10: input method → delegates to InputMethodManager
-    menu->add_child(LambdaAction::make(
-        _("beta.opt10_input"), "10",
-        [this] { mgr_->input_method_delegate(); }));
+    menu->add_action(_("beta.opt10_input"), "10",
+        [this] { mgr_->input_method_delegate(); });
 
     // 11: terminal → delegates to TerminalAppManager
-    menu->add_child(LambdaAction::make(
-        _("beta.opt11_terminal"), "11",
-        [this] { mgr_->terminal_delegate(); }));
+    menu->add_action(_("beta.opt11_terminal"), "11",
+        [this] { mgr_->terminal_delegate(); });
 
-    // 12: other → MenuEngine nested submenu
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("beta.opt12_other"), "12",
-        [this](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_other_menu());
-            return true;
-        }));
+    // 12: other → nested submenu
+    menu->add_submenu(_("beta.opt12_other"), "12", build_other_menu());
 
     add_sandwich_nav(menu);
     return menu;
@@ -180,25 +136,21 @@ std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_system_menu() {
         }));
 
     // ── 2. rc.local systemd (对应 Bash modify_rc_local_script) ──
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("beta.sys_rc_local"), "2",
-        [this](MenuContext&) -> bool {
-            if (!Executor::shell("test -f /etc/rc.local").ok()) {
-                Executor::shell(
-                    "sudo cat >/etc/rc.local <<'EOF'\n#!/bin/sh -e\n# rc.local\n# Add your startup commands above exit 0\nexit 0\nEOF\n");
-                Executor::shell("sudo chmod a+rx /etc/rc.local");
-            }
-            if (!Executor::shell("test -f /etc/systemd/system/rc-local.service").ok()) {
-                Executor::shell(
-                    "sudo tee /etc/systemd/system/rc-local.service >/dev/null <<'EOF'\n[Unit]\nDescription=/etc/rc.local\nConditionPathExists=/etc/rc.local\n[Service]\nType=forking\nExecStart=/etc/rc.local start\nTimeoutSec=0\nStandardOutput=tty\nRemainAfterExit=yes\nSysVStartPriority=99\n[Install]\nWantedBy=multi-user.target\nEOF\n");
-            }
-            Executor::passthrough("nano /etc/rc.local 2>/dev/null || vi /etc/rc.local");
-            Executor::shell("sudo systemctl daemon-reload 2>/dev/null");
-            Executor::shell("sudo systemctl enable rc-local.service 2>/dev/null");
-            Logger::ok(_("beta.sys_rc_local_ok"));
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("beta.sys_rc_local"), "2", [this] {
+        if (!Executor::shell("test -f /etc/rc.local").ok()) {
+            Executor::shell(
+                "sudo cat >/etc/rc.local <<'EOF'\n#!/bin/sh -e\n# rc.local\n# Add your startup commands above exit 0\nexit 0\nEOF\n");
+            Executor::shell("sudo chmod a+rx /etc/rc.local");
+        }
+        if (!Executor::shell("test -f /etc/systemd/system/rc-local.service").ok()) {
+            Executor::shell(
+                "sudo tee /etc/systemd/system/rc-local.service >/dev/null <<'EOF'\n[Unit]\nDescription=/etc/rc.local\nConditionPathExists=/etc/rc.local\n[Service]\nType=forking\nExecStart=/etc/rc.local start\nTimeoutSec=0\nStandardOutput=tty\nRemainAfterExit=yes\nSysVStartPriority=99\n[Install]\nWantedBy=multi-user.target\nEOF\n");
+        }
+        Executor::passthrough("nano /etc/rc.local 2>/dev/null || vi /etc/rc.local");
+        Executor::shell("sudo systemctl daemon-reload 2>/dev/null");
+        Executor::shell("sudo systemctl enable rc-local.service 2>/dev/null");
+        Logger::ok(_("beta.sys_rc_local_ok"));
+    });
 
     // ── 3. UEFI 启动管理 → 嵌套子菜单 ──
     menu->add_child(std::make_shared<LambdaAction>(
@@ -314,16 +266,12 @@ std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_system_menu() {
         }));
 
     // ── 10. Tmoe-linux manager (旧版外部脚本) ──
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("beta.sys_tmoe_manager"), "10",
-        [this](MenuContext&) -> bool {
-            Logger::info(_("beta.sys_old_manager"));
-            Logger::info(_("beta.sys_old_manager_desc"));
-            Logger::info("  ${TMOE_GIT_DIR}/share/old-version/share/app/manager");
-            Logger::info("Run: bash /path/to/tmoe-linux/share/old-version/share/app/manager");
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("beta.sys_tmoe_manager"), "10", [this] {
+        Logger::info(_("beta.sys_old_manager"));
+        Logger::info(_("beta.sys_old_manager_desc"));
+        Logger::info("  ${TMOE_GIT_DIR}/share/old-version/share/app/manager");
+        Logger::info("Run: bash /path/to/tmoe-linux/share/old-version/share/app/manager");
+    });
 
     add_sandwich_nav(menu);
     return menu;
@@ -364,28 +312,20 @@ std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_uefi_menu() {
         }));
 
     // 3: 备份 EFI
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("beta.uefi_backup_efi"), "3",
-        [this](MenuContext&) -> bool {
-            std::string efi_disk = Executor::shell(
-                "df -h | grep '/boot/efi' | awk '{print $1}' | head -n1").stdout_data;
-            efi_disk.erase(std::remove(efi_disk.begin(), efi_disk.end(), '\n'), efi_disk.end());
-            if (!efi_disk.empty())
-                CommandBuilder("sudo").add_arg("dd").add_arg("if=" + efi_disk).add_arg("of=/tmp/efi_backup.img").add_arg("bs=4M").add_raw("2>/dev/null").execute();
-            Logger::ok(_("beta.sys_efi_backed_up"));
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("beta.uefi_backup_efi"), "3", [this] {
+        std::string efi_disk = Executor::shell(
+            "df -h | grep '/boot/efi' | awk '{print $1}' | head -n1").stdout_data;
+        efi_disk.erase(std::remove(efi_disk.begin(), efi_disk.end(), '\n'), efi_disk.end());
+        if (!efi_disk.empty())
+            CommandBuilder("sudo").add_arg("dd").add_arg("if=" + efi_disk).add_arg("of=/tmp/efi_backup.img").add_arg("bs=4M").add_raw("2>/dev/null").execute();
+        Logger::ok(_("beta.sys_efi_backed_up"));
+    });
 
     // 4: 恢复 EFI
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("beta.uefi_restore_efi"), "4",
-        [this](MenuContext&) -> bool {
-            Executor::passthrough("sudo dd if=/tmp/efi_backup.img of=$(df -h | grep '/boot/efi' | awk '{print $1}' | head -n1) bs=4M 2>/dev/null");
-            Logger::ok(_("beta.sys_efi_restored"));
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("beta.uefi_restore_efi"), "4", [this] {
+        Executor::passthrough("sudo dd if=/tmp/efi_backup.img of=$(df -h | grep '/boot/efi' | awk '{print $1}' | head -n1) bs=4M 2>/dev/null");
+        Logger::ok(_("beta.sys_efi_restored"));
+    });
 
     // 5: 安装 rEFInd
     menu->add_child(std::make_shared<LambdaAction>(
@@ -427,12 +367,7 @@ std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_store_menu() {
         }));
 
     // 2: deepin → 嵌套子菜单
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("beta.store_deepin"), "2",
-        [this](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_deepin_menu());
-            return true;
-        }));
+    menu->add_submenu(_("beta.store_deepin"), "2", build_deepin_menu());
 
     // 3: gnome-software
     menu->add_child(std::make_shared<LambdaAction>(
@@ -634,12 +569,7 @@ std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_paint_menu() {
         }));
 
     // 4: R语言 → 嵌套子菜单
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("beta.paint_r_lang"), "4",
-        [this](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_r_lang_menu());
-            return true;
-        }));
+    menu->add_submenu(_("beta.paint_r_lang"), "4", build_r_lang_menu());
 
     // 5: latexdraw
     menu->add_child(std::make_shared<LambdaAction>(
@@ -804,12 +734,7 @@ std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_file_menu() {
         _("beta.file_title"), _("beta.file_prompt"), "plugin_beta_file");
 
     // 1: 文件管理器选择器 → 嵌套子菜单
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("beta.file_fm"), "1",
-        [this](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_file_manager_menu());
-            return true;
-        }));
+    menu->add_submenu(_("beta.file_fm"), "1", build_file_manager_menu());
 
     // 2: catfish
     menu->add_child(std::make_shared<LambdaAction>(
@@ -1081,12 +1006,7 @@ std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_other_menu() {
         }));
 
     // 4: scrcpy → 嵌套子菜单
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("beta.other_scrcpy"), "4",
-        [this](MenuContext& ctx) -> bool {
-            MenuEngine(ctx).run(build_scrcpy_menu());
-            return true;
-        }));
+    menu->add_submenu(_("beta.other_scrcpy"), "4", build_scrcpy_menu());
 
     // 5: flameshot
     menu->add_child(std::make_shared<LambdaAction>(
@@ -1178,42 +1098,32 @@ std::shared_ptr<IUIMenu> BetaFeaturesMenuPlugin::build_scrcpy_menu() {
         }));
 
     // 4: restart adb
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("beta.scrcpy_restart_adb"), "4",
-        [this](MenuContext&) -> bool {
-            Executor::passthrough("adb kill-server 2>/dev/null || true");
-            Executor::passthrough("adb devices -l 2>/dev/null || true");
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("beta.scrcpy_restart_adb"), "4", [this] {
+        Executor::passthrough("adb kill-server 2>/dev/null || true");
+        Executor::passthrough("adb devices -l 2>/dev/null || true");
+    });
 
     // 5: scrcpy FAQ (对应 Bash scrpy_faq)
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("beta.scrcpy_readme"), "5",
-        [this](MenuContext&) -> bool {
-            Logger::info(_("beta.scrcpy_faq_header"));
-            Logger::info("  scrcpy            — start with defaults");
-            Logger::info("  scrcpy -S         — turn off device screen");
-            Logger::info("  scrcpy -m 1024    — limit resolution to 1024");
-            Logger::info("  scrcpy -b 4M      — set video bitrate to 4M");
-            Logger::info("  scrcpy -c 1920:1080:0:0 — crop display");
-            Logger::info("  scrcpy -T         — keep window on top");
-            Logger::info("  scrcpy -t         — show touch points");
-            Logger::info("  scrcpy -f         — fullscreen");
-            Logger::info("  scrcpy --push-target /path — file transfer dir");
-            Logger::info("  scrcpy -n         — read-only (display only)");
-            Logger::info("  scrcpy -r video.mp4 — screen recording");
-            Logger::info("  scrcpy -Nr video.mkv — recording (no display)");
-            Logger::info("  scrcpy --window-title 'title' — set window title");
-            Logger::info("Docs: https://github.com/Genymobile/scrcpy");
-            Logger::press_enter();
-            return true;
-        }));
+    menu->add_action(_("beta.scrcpy_readme"), "5", [this] {
+        Logger::info(_("beta.scrcpy_faq_header"));
+        Logger::info("  scrcpy            — start with defaults");
+        Logger::info("  scrcpy -S         — turn off device screen");
+        Logger::info("  scrcpy -m 1024    — limit resolution to 1024");
+        Logger::info("  scrcpy -b 4M      — set video bitrate to 4M");
+        Logger::info("  scrcpy -c 1920:1080:0:0 — crop display");
+        Logger::info("  scrcpy -T         — keep window on top");
+        Logger::info("  scrcpy -t         — show touch points");
+        Logger::info("  scrcpy -f         — fullscreen");
+        Logger::info("  scrcpy --push-target /path — file transfer dir");
+        Logger::info("  scrcpy -n         — read-only (display only)");
+        Logger::info("  scrcpy -r video.mp4 — screen recording");
+        Logger::info("  scrcpy -Nr video.mkv — recording (no display)");
+        Logger::info("  scrcpy --window-title 'title' — set window title");
+        Logger::info("Docs: https://github.com/Genymobile/scrcpy");
+    });
 
     add_sandwich_nav(menu);
     return menu;
 }
-
-BetaFeaturesMenuPlugin::BetaFeaturesMenuPlugin(domain::BetaFeaturesManager* mgr) : mgr_(mgr) {}
 
 } // namespace tmoe::ui::menus

@@ -10,12 +10,8 @@
 namespace tmoe::domain {
 
 XfceLiteDesktop::XfceLiteDesktop(const TmoeConfig& cfg)
-    : XfceDesktop(cfg)
-    , info_(gui_config::all_desktops()[1])  // xfce-lite is idx 1
+    : XfceDesktop(cfg, gui_config::all_desktops()[1])  // xfce-lite is idx 1
 {}
-
-std::string XfceLiteDesktop::get_id() const        { return info_.id; }
-const DesktopInfo& XfceLiteDesktop::get_info() const { return info_; }
 
 void XfceLiteDesktop::will_be_installed_message() const {
     // Bash: 显示 package info + do_you_want_to_continue (Y/N 确认精简安装)

@@ -10,13 +10,9 @@
 
 namespace tmoe::domain {
     KdeDesktop::KdeDesktop(const TmoeConfig &cfg)
-        : DesktopBase(cfg)
-          , info_(gui_config::all_desktops()[5]) // kde is idx 5
+        : DesktopBase(cfg, gui_config::all_desktops()[5]) // kde is idx 5
     {
     }
-
-    std::string KdeDesktop::get_id() const { return info_.id; }
-    const DesktopInfo &KdeDesktop::get_info() const { return info_; }
 
     void KdeDesktop::will_be_installed_message() const {
         // Bash: 终端 printf 详细包列表

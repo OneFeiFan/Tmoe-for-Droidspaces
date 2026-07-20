@@ -68,23 +68,4 @@ inline std::shared_ptr<SimpleMenu> make_plugin_menu(
         std::move(title), std::move(label), std::move(tag));
 }
 
-/** 创建"安装 → 确认 → Logger 输出"模式的 LambdaAction。 */
-inline std::shared_ptr<LambdaAction> make_install_action(
-    std::string label, std::string tag,
-    std::function<bool()> install_fn)
-{
-    // 捕获 label 副本进 lambda，避免 move 后悬空
-    auto display_label = label;
-    return std::make_shared<LambdaAction>(
-        std::move(label), std::move(tag),
-        [fn = std::move(install_fn), display_label](MenuContext&) -> bool {
-            Logger::step(_("app.installing") + std::string(": ") + display_label);
-            bool ok = fn();
-            if (ok) Logger::ok(_("app.install_done"));
-            else Logger::error(_("app.install_failed"));
-            Logger::press_enter();
-            return ok;
-        });
-}
-
 } // namespace tmoe::ui

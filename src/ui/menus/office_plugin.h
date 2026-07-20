@@ -8,13 +8,10 @@ namespace tmoe::ui::menus {
 
 /** 办公软件安装菜单插件。
  *  构建菜单项：LibreOffice / LibreOffice(中文) / WPS / Yozo / FreeOffice / Meld / KDiff3 / Manpages(中文)。 */
-class OfficeMenuPlugin : public IPlugin {
+class OfficeMenuPlugin : public PluginFor<domain::OfficeManager> {
 public:
-    explicit OfficeMenuPlugin(domain::OfficeManager* mgr);
+    using PluginFor::PluginFor;
     std::shared_ptr<IUIMenu> build() override;
-
-private:
-    domain::OfficeManager* mgr_;
 };
 
 } // namespace tmoe::ui::menus

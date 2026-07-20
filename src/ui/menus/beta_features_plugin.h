@@ -6,13 +6,12 @@ namespace tmoe::domain { class BetaFeaturesManager; }
 
 namespace tmoe::ui::menus {
 
-class BetaFeaturesMenuPlugin : public IPlugin {
+class BetaFeaturesMenuPlugin : public PluginFor<domain::BetaFeaturesManager> {
 public:
-    explicit BetaFeaturesMenuPlugin(domain::BetaFeaturesManager* mgr);
+    using PluginFor::PluginFor;
     std::shared_ptr<IUIMenu> build() override;
 
 private:
-    domain::BetaFeaturesManager* mgr_;
 
     std::shared_ptr<IUIMenu> build_system_menu();
     std::shared_ptr<IUIMenu> build_uefi_menu();
