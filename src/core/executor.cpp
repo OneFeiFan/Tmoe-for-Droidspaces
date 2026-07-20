@@ -46,7 +46,7 @@ namespace tmoe {
     /** popen → 读取全部输出 → pclose → ExecResult。
      *  消除 run / shell / run_with_env 中重复的管道管理代码。 */
     static ExecResult popen_exec(const std::string& cmd) {
-        std::unique_ptr<FILE, decltype(&platform::pclose)> pipe(platform::popen(cmd.c_str(), "r"), ::pclose);
+        std::unique_ptr<FILE, decltype(&platform::pclose)> pipe(platform::popen(cmd.c_str(), "r"), platform::pclose);
         if (!pipe) {
             return ExecResult{-1, "", "popen failed"};
         }
@@ -86,7 +86,11 @@ namespace tmoe {
     }
 
     bool Executor::has(std::string_view bin) {
+#ifdef _WIN32
+        auto result = shell(std::string("where ") + std::string(bin) + " >nul 2>&1");
+#else
         auto result = shell(std::string("command -v ") + std::string(bin) + " >/dev/null 2>&1");
+#endif
         return result.exit_code == 0;
     }
 
@@ -335,106 +339,60 @@ namespace tmoe {
     }
 
     std::string Executor::tui_select(std::string_view whiptail_args) {
-        std::string args_str(whiptail_args);
-        std::string cmd;
+        bool ignored;
+        return tui_select_impl(whiptail_args, ignored);
+    }
 
-        // dialog 和 whiptail 的 stdout/stderr 方向相反:
-        //   whiptail: TUI→stdout, choice→stderr → 需要 3>&1 1>&2 2>&3 交换
-        //   dialog:   TUI→stderr, choice→stdout → 加 --stdout 即可, 不需要交换
+    std::string Executor::tui_select(std::string_view whiptail_args, bool& cancelled) {
+        return tui_select_impl(whiptail_args, cancelled);
+    }
+
+    std::string Executor::tui_select_impl(std::string_view whiptail_args, bool& cancelled) {
+        std::string args_str(whiptail_args);
         bool is_dialog = (contains(args_str, "dialog") &&
                           !contains(args_str, "whiptail"));
 
         if (is_dialog) {
             // dialog: 确保 --stdout 让选项输出到 stdout，popen 直接捕获
             if (args_str.find("--stdout") == std::string::npos) {
-                size_t first_dash = args_str.find(" --");
-                if (first_dash != std::string::npos) {
-                    args_str.insert(first_dash, " --stdout");
-                } else {
-                    args_str += " --stdout";
-                }
+                size_t dash = args_str.find(" --");
+                if (dash != std::string::npos) args_str.insert(dash, " --stdout");
+                else args_str += " --stdout";
             }
             // 消除阴影: CJK 双宽度字符下阴影(░▒▓)会错位产生"像素凸起"
             if (args_str.find("--no-shadow") == std::string::npos) {
-                size_t first_dash = args_str.find(" --");
-                if (first_dash != std::string::npos) {
-                    args_str.insert(first_dash, " --no-shadow");
-                }
+                size_t dash = args_str.find(" --");
+                if (dash != std::string::npos) args_str.insert(dash, " --no-shadow");
             }
             // 防止 CJK 空白被折叠导致宽度再计算
             if (args_str.find("--no-collapse") == std::string::npos) {
-                size_t first_dash = args_str.find(" --");
-                if (first_dash != std::string::npos) {
-                    args_str.insert(first_dash, " --no-collapse");
-                }
+                size_t dash = args_str.find(" --");
+                if (dash != std::string::npos) args_str.insert(dash, " --no-collapse");
             }
-            cmd = args_str; // TUI→stderr→终端, choice→stdout→pipe
         } else {
             // whiptail: 交换 stdout/stderr，使选项进入 pipe
-            cmd = args_str + " 3>&1 1>&2 2>&3";
+            args_str += " 3>&1 1>&2 2>&3";
         }
 
-        std::unique_ptr<FILE, decltype(&platform::pclose)> pipe(platform::popen(cmd.c_str(), "r"), ::pclose);
+        std::unique_ptr<FILE, decltype(&platform::pclose)> pipe(
+            platform::popen(args_str.c_str(), "r"), platform::pclose);
         if (!pipe) {
+            cancelled = true;
             return "";
         }
-
-        std::string result;
-        try {
-            std::array<char, 512> buf;
-            while (std::fgets(buf.data(), buf.size(), pipe.get())) {
-                result += buf.data();
-            }
-        } catch (...) {
-            return "";
-        }
-
-        platform::pclose(pipe.release());
-
-        trim_newline(result);
-        return result;
-    }
-
-    std::string Executor::tui_select(std::string_view whiptail_args, bool& cancelled) {
-        std::string args_str(whiptail_args);
-        std::string cmd;
-        bool is_dialog = (contains(args_str, "dialog") &&
-                          !contains(args_str, "whiptail"));
-
-        if (is_dialog) {
-            if (args_str.find("--stdout") == std::string::npos) {
-                size_t first_dash = args_str.find(" --");
-                if (first_dash != std::string::npos)
-                    args_str.insert(first_dash, " --stdout");
-                else
-                    args_str += " --stdout";
-            }
-            if (args_str.find("--no-shadow") == std::string::npos) {
-                size_t fd = args_str.find(" --");
-                if (fd != std::string::npos) args_str.insert(fd, " --no-shadow");
-            }
-            if (args_str.find("--no-collapse") == std::string::npos) {
-                size_t fd = args_str.find(" --");
-                if (fd != std::string::npos) args_str.insert(fd, " --no-collapse");
-            }
-            cmd = args_str;
-        } else {
-            cmd = args_str + " 3>&1 1>&2 2>&3";
-        }
-
-        std::unique_ptr<FILE, decltype(&platform::pclose)> pipe(platform::popen(cmd.c_str(), "r"), ::pclose);
-        if (!pipe) { cancelled = true; return ""; }
 
         std::string result;
         try {
             std::array<char, 512> buf;
             while (std::fgets(buf.data(), buf.size(), pipe.get()))
                 result += buf.data();
-        } catch (...) { cancelled = true; return ""; }
+        } catch (...) {
+            cancelled = true;
+            return "";
+        }
 
         int rc = platform::pclose(pipe.release());
-        int exit_code = platform::extract_exit_code(rc);
-        cancelled = (exit_code != 0);
+        cancelled = (platform::extract_exit_code(rc) != 0);
 
         trim_newline(result);
         return result;

@@ -72,6 +72,12 @@ namespace tmoe {
          *  调用 execvp —— 永不返回。
          */
         [[noreturn]] static void escalate_privileges(int argc, char *argv[]);
+
+    private:
+        /** 两个 tui_select 重载共享的实现。
+         *  构建 whiptail/dialog 命令 → popen 执行 → 返回用户选择。
+         *  cancelled 始终被设置（调用方若不需要可忽略）。 */
+        static std::string tui_select_impl(std::string_view whiptail_args, bool& cancelled);
     };
 
     /** 对字符串进行单引号 Shell 转义。
