@@ -3,33 +3,30 @@
 #pragma once
 #include "core/config.h"
 #include "domain/apps/office_apps.h"
-#include <string>
 
 namespace tmoe::domain {
 
-/** Office 办公软件管理器 — 对外部（UI 插件层）提供统一入口，内部委托给 InstallableApp 子类。 */
+/** Office 办公软件管理器 — 持有 App 对象并提供 cfg 访问。
+ *  插件层直接调用 mgr->wps.install() 等，无需薄委托方法。 */
 class OfficeManager {
 public:
     explicit OfficeManager(const TmoeConfig& cfg);
 
+    // 公开的 App 对象 — 插件层直接调用 .install()
+    LibreOfficeApp   libreoffice;
+    LibreOfficeZhApp libreoffice_zh;
+    WpsApp           wps;
+    YozoApp          yozo;
+    SimpleApp        freeoffice;
+    SimpleApp        meld;
+    SimpleApp        kdiff3;
+    ManpagesZhApp    manpages_zh;
+
+    // LibreOffice 中文版选择（with_zh 分派到不同 App）
     void install_libreoffice(bool with_zh);
-    void install_wps();
-    void install_yozo();
-    void install_freeoffice();
-    void install_meld();
-    void install_kdiff3();
-    void install_manpages_zh();
 
 private:
     const TmoeConfig& cfg_;
-    LibreOfficeApp    libreoffice_;
-    LibreOfficeZhApp  libreoffice_zh_;
-    WpsApp            wps_;
-    YozoApp           yozo_;
-    SimpleApp         freeoffice_;
-    SimpleApp         meld_;
-    SimpleApp         kdiff3_;
-    ManpagesZhApp     manpages_zh_;
 };
 
 } // namespace tmoe::domain

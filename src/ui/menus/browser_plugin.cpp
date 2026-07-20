@@ -30,8 +30,8 @@ std::shared_ptr<IUIMenu> BrowserMenuPlugin::build() {
                     _("browser.chromium_install_remove_title"),
                     _("browser.chromium_install_remove_yesno"),
                     "install", "remove", 8, 50);
-                if (c2 == 0) mgr_->install_chromium();
-                else if (c2 == 1) mgr_->remove_chromium();
+                if (c2 == 0) mgr_->chromium.install();
+                else if (c2 == 1) mgr_->chromium.remove();
             } else if (c == 1) {
                 // Firefox — install or remove?
                 int c2 = dialog::yesno(mgr_->cfg(),
@@ -45,11 +45,11 @@ std::shared_ptr<IUIMenu> BrowserMenuPlugin::build() {
                         _("browser.firefox_esr_select_yesno"),
                         "Firefox", "ESR", 12, 53);
                     if (c2 == 0) {
-                        if (c3 == 0) mgr_->install_firefox();
+                        if (c3 == 0) mgr_->firefox.install();
                         else if (c3 == 1) mgr_->install_firefox_esr();
                     } else {
-                        if (c3 == 0) mgr_->remove_firefox();
-                        else if (c3 == 1) mgr_->remove_firefox_esr();
+                        if (c3 == 0) mgr_->firefox.remove();
+                        else if (c3 == 1) mgr_->firefox_esr.remove();
                     }
                 }
             }
@@ -60,37 +60,37 @@ std::shared_ptr<IUIMenu> BrowserMenuPlugin::build() {
     menu->add_child(std::make_shared<ChoiceAction>(
         _("browser.menu_item_edge"), "2",
         _("browser.edge_install_remove_title"), _("browser.edge_install_remove_yesno"),
-        "install", [this] { mgr_->install_edge(); },
-        "remove",  [this] { mgr_->remove_edge(); },
+        "install", [this] { mgr_->edge.install(); },
+        "remove",  [this] { mgr_->edge.remove(); },
         10, 50));
 
     // ── Falkon — 安装/卸载双按钮 ──
     menu->add_child(std::make_shared<ChoiceAction>(
         _("browser.menu_item_falkon"), "3",
         _("browser.falkon_install_remove_title"), _("browser.falkon_install_remove_yesno"),
-        "install", [this] { mgr_->install_falkon(); },
-        "remove",  [this] { mgr_->remove_falkon(); },
+        "install", [this] { mgr_->falkon.install(); },
+        "remove",  [this] { mgr_->falkon.remove(); },
         8, 50));
 
     // ── 仅安装的应用 ──
     menu->add_child(LambdaAction::make(
         _("browser.menu_item_vivaldi"), "4",
         [this] {
-            mgr_->install_vivaldi();
+            mgr_->vivaldi.install();
             Logger::press_enter();
         }));
 
     menu->add_child(LambdaAction::make(
         _("browser.menu_item_epiphany"), "5",
         [this] {
-            mgr_->install_epiphany();
+            mgr_->epiphany.install();
             Logger::press_enter();
         }));
 
     menu->add_child(LambdaAction::make(
         _("browser.menu_item_midori"), "6",
         [this] {
-            mgr_->install_midori();
+            mgr_->midori.install();
             Logger::press_enter();
         }));
 

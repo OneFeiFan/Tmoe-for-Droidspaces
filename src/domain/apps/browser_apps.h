@@ -45,6 +45,8 @@ public:
     DistroPkgNames packages() const override { return {.common = "chromium"}; }
     bool needs_sandbox_wrapper() const override { return true; }
 
+    using InstallableApp::install;
+    using InstallableApp::remove;
     bool install(DistroFamily family) override;
     bool remove(DistroFamily family) override;
 
@@ -60,6 +62,8 @@ public:
     DistroPkgNames packages() const override { return {.common = "firefox"}; }
     bool needs_sandbox_wrapper() const override { return true; }
 
+    using InstallableApp::install;
+    using InstallableApp::remove;
     bool install(DistroFamily family) override;
     bool remove(DistroFamily family) override;
 };
@@ -72,6 +76,8 @@ public:
     DistroPkgNames packages() const override { return {.common = "firefox-esr"}; }
     bool needs_sandbox_wrapper() const override { return true; }
 
+    using InstallableApp::install;
+    using InstallableApp::remove;
     bool install(DistroFamily family) override;
     bool remove(DistroFamily family) override;
 };
@@ -84,6 +90,8 @@ public:
     DistroPkgNames packages() const override { return {.common = "microsoft-edge-dev"}; }
     bool needs_sandbox_wrapper() const override { return true; }
 
+    using InstallableApp::install;
+    using InstallableApp::remove;
     bool install(DistroFamily family) override;
     bool remove(DistroFamily family) override;
 

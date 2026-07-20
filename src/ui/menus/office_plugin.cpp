@@ -22,27 +22,27 @@ std::shared_ptr<IUIMenu> OfficeMenuPlugin::build() {
 
     menu->add_child(LambdaAction::make(
         _("office.wps"), "3",
-        [this] { mgr_->install_wps(); Logger::press_enter(); }));
+        [this] { mgr_->wps.install(); Logger::press_enter(); }));
 
     menu->add_child(LambdaAction::make(
         _("office.yozo"), "4",
-        [this] { mgr_->install_yozo(); Logger::press_enter(); }));
+        [this] { mgr_->yozo.install(); Logger::press_enter(); }));
 
     menu->add_child(LambdaAction::make(
         _("office.freeoffice"), "5",
-        [this] { mgr_->install_freeoffice(); Logger::press_enter(); }));
+        [this] { mgr_->freeoffice.install(); Logger::press_enter(); }));
 
     menu->add_child(LambdaAction::make(
         _("office.meld"), "6",
-        [this] { mgr_->install_meld(); Logger::press_enter(); }));
+        [this] { mgr_->meld.install(); Logger::press_enter(); }));
 
     menu->add_child(LambdaAction::make(
         _("office.kdiff3"), "7",
-        [this] { mgr_->install_kdiff3(); Logger::press_enter(); }));
+        [this] { mgr_->kdiff3.install(); Logger::press_enter(); }));
 
     menu->add_child(LambdaAction::make(
         _("office.manpages_zh"), "8",
-        [this] { mgr_->install_manpages_zh(); Logger::press_enter(); }));
+        [this] { mgr_->manpages_zh.install(); Logger::press_enter(); }));
 
     add_sandwich_nav(menu);
     return menu;

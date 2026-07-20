@@ -14,6 +14,7 @@ public:
     std::string name() const override { return "LibreOffice"; }
     DistroPkgNames packages() const override { return {.common = "libreoffice"}; }
 
+    using InstallableApp::install;
     bool install(DistroFamily family) override;
 
 private:
@@ -30,6 +31,7 @@ public:
     std::string name() const override { return "LibreOffice (zh_CN)"; }
     DistroPkgNames packages() const override { return {.common = "libreoffice"}; }
 
+    using InstallableApp::install;
     bool install(DistroFamily family) override;
 
 private:
@@ -46,6 +48,7 @@ public:
     std::string name() const override { return "WPS Office"; }
     DistroPkgNames packages() const override { return {.common = "wps-office"}; }
 
+    using InstallableApp::install;
     bool install(DistroFamily family) override;
 
 private:

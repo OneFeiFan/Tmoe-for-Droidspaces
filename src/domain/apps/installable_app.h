@@ -173,6 +173,12 @@ public:
      */
     virtual bool remove(DistroFamily family);
 
+    /** 便捷方法：自动从 cfg_ 推断发行版家族后调用 install(family)。 */
+    bool install() { return install(infer_family_from_config(cfg_.linux_distro)); }
+
+    /** 便捷方法：自动从 cfg_ 推断发行版家族后调用 remove(family)。 */
+    bool remove() { return remove(infer_family_from_config(cfg_.linux_distro)); }
+
     // ── 用户交互 ──
 
     /** 显示安装确认 TUI 对话框。默认使用 whiptail --yesno。 */
