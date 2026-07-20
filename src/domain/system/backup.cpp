@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include "core/platform.h"
 #include "core/str_utils.h"
 #include <fstream>
 #include <iomanip>
@@ -1124,11 +1125,7 @@ BackupManager::list_backups_detailed() const {
                 ftime - fs::file_time_type::clock::now() + std::chrono::system_clock::now());
             auto time_t = std::chrono::system_clock::to_time_t(sctp);
             std::tm tm_buf{};
-#ifdef _WIN32
-            localtime_s(&tm_buf, &time_t);
-#else
-            localtime_r(&time_t, &tm_buf);
-#endif
+platform::local_time(&time_t, &tm_buf);
             std::ostringstream oss;
             oss << std::put_time(&tm_buf, "%Y-%m-%d %H:%M");
 
@@ -1168,11 +1165,7 @@ std::string BackupManager::generate_filename(std::string_view container_name,
     auto now = std::chrono::system_clock::now();
     auto time_t = std::chrono::system_clock::to_time_t(now);
     std::tm tm_buf{};
-#ifdef _WIN32
-    localtime_s(&tm_buf, &time_t);
-#else
-    localtime_r(&time_t, &tm_buf);
-#endif
+platform::local_time(&time_t, &tm_buf);
 
     std::ostringstream oss;
     oss << std::put_time(&tm_buf, "%Y%m%d_%H%M%S") << "_";

@@ -2,6 +2,7 @@
 #include "domain/system/package_manager.h"
 #include "core/command_builder.hpp"
 #include "core/i18n.h"
+#include "core/platform.h"
 
 namespace tmoe::domain {
     bool Environment::initialize() {
@@ -227,15 +228,9 @@ namespace tmoe::domain {
         }
 
         // 设置环境变量
-#ifdef _WIN32
-        _putenv_s("LANG", locale_str.c_str());
-        _putenv_s("LC_ALL", locale_str.c_str());
-        _putenv_s("LANGUAGE", locale_str.c_str());
-#else
-        ::setenv("LANG", locale_str.c_str(), 1);
-        ::setenv("LC_ALL", locale_str.c_str(), 1);
-        ::setenv("LANGUAGE", locale_str.c_str(), 1);
-#endif
+        platform::set_env("LANG", locale_str.c_str());
+        platform::set_env("LC_ALL", locale_str.c_str());
+        platform::set_env("LANGUAGE", locale_str.c_str());
 
         Logger::debug("LANG=" + locale_str);
         return true;

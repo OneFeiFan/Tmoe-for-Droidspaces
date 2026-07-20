@@ -11,16 +11,9 @@
 #include <regex>
 #include <system_error>
 
-#ifdef _WIN32
-// === Windows 编译环境的 Polyfill (垫片) ===
-#include <process.h>
-inline int getpid() { return _getpid(); }
-inline int getuid() { return 0; } // 伪造 UID 以骗过编译器
-#else
-// === Linux / WSL 原生环境 ===
+#include "core/platform.h"
+#ifndef _WIN32
 #include <pwd.h>
-#include <unistd.h>
-#include <sys/types.h>
 #endif
 
 namespace tmoe {
@@ -35,7 +28,7 @@ namespace {
         std::mt19937_64 gen(rd());
         std::uniform_int_distribution<uint64_t> dis;
         std::stringstream ss;
-        ss << "." << prefix << "_" << getpid() << "_" << std::hex << dis(gen) << ".tmp";
+        ss << "." << prefix << "_" << platform::getpid() << "_" << std::hex << dis(gen) << ".tmp";
         return temp_dir / ss.str();
     }
 
@@ -68,7 +61,7 @@ namespace {
                     if (!run_sudo("cp -f " + shell_escape(path.string()) + " " + shell_escape(tmp_path.string()))) {
                         return false;
                     }
-                    run_sudo("chown " + std::to_string(getuid()) + " " + shell_escape(tmp_path.string()));
+                    run_sudo("chown " + std::to_string(platform::getuid()) + " " + shell_escape(tmp_path.string()));
                 }
             }
 
@@ -136,11 +129,7 @@ bool SystemHelper::install_packages(const std::vector<std::string> &packages,
         // 对包名强制转义，杜绝 "pkg; rm -rf /" 的注入攻击
         oss << shell_escape(pkg) << " ";
     }
-#ifndef _WIN32
-    bool need_sudo = (geteuid() != 0);
-#else
-    bool need_sudo = false;
-#endif
+    bool need_sudo = (platform::geteuid() != 0);
     std::string cmd = (need_sudo ? "sudo " : "") + install_command + " " + oss.str();
     Logger::step(_f("gui.installing_pkgs", oss.str()));
     return Executor::passthrough(cmd).ok();

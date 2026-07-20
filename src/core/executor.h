@@ -5,13 +5,7 @@
 #include <memory>
 #include <stdexcept>
 #include "logger.h"
-#ifndef _WIN32
-#include <unistd.h>
-#endif
-#ifdef _WIN32
-#define popen  _popen
-#define pclose _pclose
-#endif
+#include "core/platform.h"
 #include <string>
 #include <string_view>
 #include <vector>

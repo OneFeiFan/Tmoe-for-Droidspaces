@@ -46,7 +46,7 @@ namespace tmoe {
     /** popen → 读取全部输出 → pclose → ExecResult。
      *  消除 run / shell / run_with_env 中重复的管道管理代码。 */
     static ExecResult popen_exec(const std::string& cmd) {
-        std::unique_ptr<FILE, decltype(&::pclose)> pipe(::popen(cmd.c_str(), "r"), ::pclose);
+        std::unique_ptr<FILE, decltype(&platform::pclose)> pipe(platform::popen(cmd.c_str(), "r"), ::pclose);
         if (!pipe) {
             return ExecResult{-1, "", "popen failed"};
         }
@@ -58,15 +58,9 @@ namespace tmoe {
             return ExecResult{-1, "", "read_all threw exception"};
         }
 
-        int rc = ::pclose(pipe.release());
+        int rc = platform::pclose(pipe.release());
 
-#ifdef _WIN32
-        // _pclose 返回子进程退出状态，高字节=退出码
-        int exit_code = (rc >= 0) ? ((rc >> 8) & 0xFF) : -1;
-        return ExecResult{exit_code, std::move(output), ""};
-#else
-        return ExecResult{WIFEXITED(rc) ? WEXITSTATUS(rc) : -1, std::move(output), ""};
-#endif
+        return ExecResult{platform::extract_exit_code(rc), std::move(output), ""};
     }
 
     ExecResult Executor::run(std::string_view bin,
@@ -380,7 +374,7 @@ namespace tmoe {
             cmd = args_str + " 3>&1 1>&2 2>&3";
         }
 
-        std::unique_ptr<FILE, decltype(&::pclose)> pipe(::popen(cmd.c_str(), "r"), ::pclose);
+        std::unique_ptr<FILE, decltype(&platform::pclose)> pipe(platform::popen(cmd.c_str(), "r"), ::pclose);
         if (!pipe) {
             return "";
         }
@@ -395,7 +389,7 @@ namespace tmoe {
             return "";
         }
 
-        ::pclose(pipe.release());
+        platform::pclose(pipe.release());
 
         trim_newline(result);
         return result;
@@ -428,7 +422,7 @@ namespace tmoe {
             cmd = args_str + " 3>&1 1>&2 2>&3";
         }
 
-        std::unique_ptr<FILE, decltype(&::pclose)> pipe(::popen(cmd.c_str(), "r"), ::pclose);
+        std::unique_ptr<FILE, decltype(&platform::pclose)> pipe(platform::popen(cmd.c_str(), "r"), ::pclose);
         if (!pipe) { cancelled = true; return ""; }
 
         std::string result;
@@ -438,12 +432,8 @@ namespace tmoe {
                 result += buf.data();
         } catch (...) { cancelled = true; return ""; }
 
-        int rc = ::pclose(pipe.release());
-#ifdef _WIN32
-        int exit_code = (rc >= 0) ? ((rc >> 8) & 0xFF) : -1;
-#else
-        int exit_code = WIFEXITED(rc) ? WEXITSTATUS(rc) : -1;
-#endif
+        int rc = platform::pclose(pipe.release());
+        int exit_code = platform::extract_exit_code(rc);
         cancelled = (exit_code != 0);
 
         trim_newline(result);
@@ -460,7 +450,7 @@ namespace tmoe {
         return ExecResult{-1, "", "system() failed"};
     }
     return ExecResult{
-        WIFEXITED(raw) ? WEXITSTATUS(raw) : -1,
+        platform::extract_exit_code(raw),
         "",
         WIFSIGNALED(raw) ? ("signal " + std::to_string(WTERMSIG(raw))) : ""
     };
@@ -468,8 +458,7 @@ namespace tmoe {
     }
 
     [[noreturn]] void Executor::escalate_privileges(int argc, char *argv[]) {
-#ifndef _WIN32
-    if (geteuid() == 0) {
+    if (platform::is_root()) {
         std::exit(0); // 已是 root —— 理论上不应到达此处
     }
 
@@ -514,9 +503,5 @@ namespace tmoe {
         Logger::error(_("exec.no_su_sudo"));
         std::exit(1);
     }
-#else
-        Logger::error(_("exec.no_auto_elevate"));
-        std::exit(1);
-#endif
     }
 } // namespace tmoe

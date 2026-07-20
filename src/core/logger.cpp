@@ -8,10 +8,6 @@
 #include <termios.h>
 #endif
 #include <iomanip>
-#ifndef _WIN32
-#include <unistd.h>
-#include <termios.h>
-#endif
 
 namespace tmoe {
     bool Logger::enable_color = true;

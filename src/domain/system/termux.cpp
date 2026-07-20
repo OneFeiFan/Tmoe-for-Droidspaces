@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
+#include "core/platform.h"
 #include "core/str_utils.h"
 #include <ctime>
 #include <fstream>
@@ -402,11 +403,7 @@ namespace tmoe::domain {
         auto now = std::chrono::system_clock::now();
         auto t = std::chrono::system_clock::to_time_t(now);
         std::tm tm_buf{};
-#ifdef _WIN32
-        localtime_s(&tm_buf, &t);
-#else
-    localtime_r(&t, &tm_buf);
-#endif
+platform::local_time(&t, &tm_buf);
         char buf[32];
         std::strftime(buf, sizeof(buf), "%Y-%m-%d_%H-%M", &tm_buf);
         out_timestamp = buf;

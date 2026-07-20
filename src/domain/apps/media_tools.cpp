@@ -6,6 +6,7 @@
 #include "core/system_helper.h"
 #include "domain/system/package_manager.h"
 #include "core/str_utils.h"
+#include "core/platform.h"
 
 namespace tmoe::domain {
     MediaTools::MediaTools(const TmoeConfig &cfg) : cfg_(cfg) {
@@ -169,11 +170,9 @@ namespace tmoe::domain {
 
     void MediaTools::fix_folder_permissions(const fs::path &dir) {
         // 如果非 root 运行，chown 输出目录给当前用户
-#ifndef _WIN32
-    if (geteuid() != 0) {
+    if (platform::geteuid() != 0) {
         std::string out_pattern = dir.string() + "/tmoe_compression_quality_*";
         Executor::shell("sudo chown -R $(id -u):$(id -g) " + out_pattern + " 2>/dev/null || true");
     }
-#endif
     }
 } // namespace tmoe::domain

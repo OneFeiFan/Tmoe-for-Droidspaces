@@ -1,10 +1,8 @@
 #pragma once
 #include "core/executor.h"
+#include "core/platform.h"
 #include <cstdlib>
 #include <fstream>
-#ifndef _WIN32
-#include <unistd.h>
-#endif
 #include <string>
 #include <filesystem>
 

@@ -5,9 +5,7 @@ namespace tmoe {
 
 TmoeConfig TmoeConfig::detect() {
     TmoeConfig cfg;
-#ifndef _WIN32
-    cfg.is_root = (geteuid() == 0);
-#endif
+    cfg.is_root = platform::is_root();
 
     // 检测平台
 #ifdef TMOE_PLATFORM_LINUX
@@ -125,11 +123,7 @@ void TmoeConfig::from_env() {
 void TmoeConfig::export_env() const {
     // 将键值对导出为环境变量供子进程使用
     auto set = [](const char* k, const std::string& v) {
-#ifdef _WIN32
-        _putenv_s(k, v.c_str());
-#else
-        ::setenv(k, v.c_str(), 1);
-#endif
+        platform::set_env(k, v.c_str());
     };
     set("TMOE_WORK_DIR",  work_dir.string());
     set("TMOE_TEMP_DIR",  temp_dir.string());
