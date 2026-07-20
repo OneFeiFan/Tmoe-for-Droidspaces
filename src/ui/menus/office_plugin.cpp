@@ -13,35 +13,35 @@ std::shared_ptr<IUIMenu> OfficeMenuPlugin::build() {
         _("office.menu_title"), _("office.menu_prompt"), "plugin_office");
 
     menu->add_child(LambdaAction::make(
-        _("office.libreoffice"), "install_libreoffice",
+        _("office.libreoffice"), "1",
         [this] { mgr_->install_libreoffice(false); Logger::press_enter(); }));
 
     menu->add_child(LambdaAction::make(
-        _("office.libreoffice_zh"), "install_libreoffice_zh",
+        _("office.libreoffice_zh"), "2",
         [this] { mgr_->install_libreoffice(true); Logger::press_enter(); }));
 
     menu->add_child(LambdaAction::make(
-        _("office.wps"), "install_wps",
+        _("office.wps"), "3",
         [this] { mgr_->install_wps(); Logger::press_enter(); }));
 
     menu->add_child(LambdaAction::make(
-        _("office.yozo"), "install_yozo",
+        _("office.yozo"), "4",
         [this] { mgr_->install_yozo(); Logger::press_enter(); }));
 
     menu->add_child(LambdaAction::make(
-        _("office.freeoffice"), "install_freeoffice",
+        _("office.freeoffice"), "5",
         [this] { mgr_->install_freeoffice(); Logger::press_enter(); }));
 
     menu->add_child(LambdaAction::make(
-        _("office.meld"), "install_meld",
+        _("office.meld"), "6",
         [this] { mgr_->install_meld(); Logger::press_enter(); }));
 
     menu->add_child(LambdaAction::make(
-        _("office.kdiff3"), "install_kdiff3",
+        _("office.kdiff3"), "7",
         [this] { mgr_->install_kdiff3(); Logger::press_enter(); }));
 
     menu->add_child(LambdaAction::make(
-        _("office.manpages_zh"), "install_manpages_zh",
+        _("office.manpages_zh"), "8",
         [this] { mgr_->install_manpages_zh(); Logger::press_enter(); }));
 
     add_sandwich_nav(menu);

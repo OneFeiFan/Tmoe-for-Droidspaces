@@ -206,5 +206,32 @@ protected:
                                      std::string_view categories = "Utility;");
 };
 
+// ═══════════════════════════════════════════════════════════════
+// SimpleApp — 零样板单包名应用
+// ═══════════════════════════════════════════════════════════════
+
+/** 最简单的 InstallableApp 子类——只需应用名和包名即可实例化。
+ *  无钩子、无沙箱包装、无特殊逻辑。默认管线自动处理 install()/remove()。
+ *
+ *  使用示例：
+ *      SimpleApp emacs(cfg, "Emacs", "emacs");
+ *      emacs.install(family);   // → Logger::step("Emacs") → install("emacs") → done
+ */
+class SimpleApp : public InstallableApp {
+public:
+    SimpleApp(const TmoeConfig& cfg, std::string name, std::string pkg)
+        : InstallableApp(cfg), name_(std::move(name)), pkg_(std::move(pkg)) {}
+
+    std::string name() const override { return name_; }
+    DistroPkgNames packages() const override {
+        DistroPkgNames p;
+        p.common = pkg_;
+        return p;
+    }
+
+private:
+    std::string name_, pkg_;
+};
+
 } // namespace tmoe::domain
 #endif //INSTALLABLE_APP_H
