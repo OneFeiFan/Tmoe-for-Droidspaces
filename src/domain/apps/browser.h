@@ -9,54 +9,31 @@ namespace tmoe::domain {
     public:
         explicit BrowserManager(const TmoeConfig &cfg);
 
-        // 菜单入口 — 供 UI 插件 LambdaAction 直接调用
-        void firefox_or_chromium();
+        /** 全局配置访问器（供 UI 层使用 dialog::yesno 等工具）。 */
+        const TmoeConfig& cfg() const { return cfg_; }
 
-        void microsoft_edge_menu();
-
-        void falkon_browser_menu();
-
+        // ── 安装 ──
+        void install_firefox();
+        void install_firefox_esr();
+        void install_chromium();
+        void install_edge();
+        void install_falkon();
         void install_vivaldi();
-
         void install_epiphany();
-
         void install_midori();
 
-    private:
-        // 旧 Bash 子菜单
-        void firefox_or_firefoxesr();
-
-        void chromium_browser_menu();
-
-        // 安装
-        void install_firefox();
-
-        void install_firefox_esr();
-
-        void install_chromium();
-
-        void install_edge();
-
-        void install_falkon();
-
-        // 卸载
+        // ── 卸载 ──
         void remove_chromium();
-
         void remove_edge();
-
         void remove_falkon();
-
         void remove_firefox();
-
         void remove_firefox_esr();
 
+    private:
         // 辅助
         void create_no_sandbox_wrapper(const std::string &name, const std::string &bin_name);
-
         void ensure_firefox_ppa();
-
         void ensure_chromium_ppa();
-
         void ensure_edge_repo();
 
         const TmoeConfig &cfg_;

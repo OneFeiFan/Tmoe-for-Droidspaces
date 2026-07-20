@@ -15,75 +15,6 @@ namespace tmoe::domain {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 1. Firefox & Chromium — 对应旧 Bash firefox_or_chromium
-    // ═══════════════════════════════════════════════════════════════
-    void BrowserManager::firefox_or_chromium() {
-        std::string cmd = cfg_.tui_bin +
-                          " --title \"" + _("browser.firefox_chromium_select_title") +
-                          "\" --yes-button \"chromium\" --no-button \"Firefox\""
-                          " --yesno '" + _("browser.firefox_chromium_select_yesno") + "' 15 50";
-        auto r = Executor::passthrough(cmd);
-        if (r.exit_code == 0) chromium_browser_menu(); // yes=chromium
-        else if (r.exit_code == 1) firefox_or_firefoxesr(); // no=Firefox
-        // exit_code 255 = ESC, do nothing
-    }
-
-    void BrowserManager::firefox_or_firefoxesr() {
-        // 先问安装还是卸载
-        std::string cmd = cfg_.tui_bin +
-                          " --title \"" + _("browser.firefox_install_remove_title") +
-                          "\" --yes-button \"install 安装\" --no-button \"remove 卸载\""
-                          " --yesno \"" + _("browser.firefox_install_remove_yesno") + "\" 8 50";
-        auto r = Executor::passthrough(cmd);
-        bool do_remove = (r.exit_code == 1);
-
-        // 再选版本
-        cmd = cfg_.tui_bin +
-              " --title \"" + _("browser.firefox_chromium_select_title") +
-              "\" --yes-button \"Firefox\" --no-button \"ESR\""
-              " --yesno '" + _("browser.firefox_esr_select_yesno") + "' 12 53";
-        r = Executor::passthrough(cmd);
-
-        if (do_remove) {
-            if (r.exit_code == 0) remove_firefox();
-            else if (r.exit_code == 1) remove_firefox_esr();
-        } else {
-            if (r.exit_code == 0) install_firefox();
-            else if (r.exit_code == 1) install_firefox_esr();
-        }
-    }
-
-    void BrowserManager::chromium_browser_menu() {
-        std::string cmd = cfg_.tui_bin +
-                          " --title \"" + _("browser.chromium_install_remove_title") +
-                          "\" --yes-button \"install\" --no-button \"remove\""
-                          " --yesno \"" + _("browser.chromium_install_remove_yesno") + "\" 8 50";
-        auto r = Executor::passthrough(cmd);
-        if (r.exit_code == 0) install_chromium();
-        else if (r.exit_code == 1) remove_chromium();
-    }
-
-    void BrowserManager::microsoft_edge_menu() {
-        std::string cmd = cfg_.tui_bin +
-                          " --title \"" + _("browser.edge_install_remove_title") + "\""
-                          " --yes-button \"install安装\" --no-button \"remove移除\""
-                          " --yesno \"" + _("browser.edge_install_remove_yesno") + "\" 10 50";
-        auto r = Executor::passthrough(cmd);
-        if (r.exit_code == 0) install_edge();
-        else if (r.exit_code == 1) remove_edge();
-    }
-
-    void BrowserManager::falkon_browser_menu() {
-        std::string cmd = cfg_.tui_bin +
-                          " --title \"" + _("browser.falkon_install_remove_title") +
-                          "\" --yes-button \"install\" --no-button \"remove\""
-                          " --yesno \"" + _("browser.falkon_install_remove_yesno") + "\" 8 50";
-        auto r = Executor::passthrough(cmd);
-        if (r.exit_code == 0) install_falkon();
-        else if (r.exit_code == 1) remove_falkon();
-    }
-
-    // ═══════════════════════════════════════════════════════════════
     // Firefox (匹配旧 Bash install_firefox_browser)
     // ═══════════════════════════════════════════════════════════════
     void BrowserManager::install_firefox() {
@@ -272,9 +203,6 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════
     void BrowserManager::remove_chromium() {
         auto family = infer_family_from_config(cfg_.linux_distro);
-        auto r = Executor::passthrough(cfg_.tui_bin +
-                                       " --yesno \"" + _("browser.confirm_remove_chromium") + "\" 8 50");
-        if (r.exit_code != 0) return;
         if (family == DistroFamily::Debian)
             Executor::passthrough(
                 CommandBuilder("sudo").add_arg("apt-mark").add_flag("unhold")
@@ -296,9 +224,6 @@ namespace tmoe::domain {
     }
 
     void BrowserManager::remove_edge() {
-        auto r = Executor::passthrough(cfg_.tui_bin +
-                                       " --yesno \"" + _("browser.confirm_remove_edge") + "\" 8 50");
-        if (r.exit_code != 0) return;
         auto family = infer_family_from_config(cfg_.linux_distro);
         PackageManager::remove("microsoft-edge-dev", family);
         switch (family) {
@@ -338,9 +263,6 @@ namespace tmoe::domain {
     }
 
     void BrowserManager::remove_falkon() {
-        auto r = Executor::passthrough(cfg_.tui_bin +
-                                       " --yesno \"" + _("browser.confirm_remove_falkon") + "\" 8 50");
-        if (r.exit_code != 0) return;
         auto family = infer_family_from_config(cfg_.linux_distro);
         PackageManager::remove("falkon", family);
         Executor::passthrough(
@@ -351,9 +273,6 @@ namespace tmoe::domain {
     }
 
     void BrowserManager::remove_firefox() {
-        auto r = Executor::passthrough(cfg_.tui_bin +
-                                       " --yesno \"" + _("browser.confirm_remove_firefox") + "\" 8 50");
-        if (r.exit_code != 0) return;
         auto family = infer_family_from_config(cfg_.linux_distro);
         if (family == DistroFamily::Debian) {
             Executor::passthrough(
@@ -384,9 +303,6 @@ namespace tmoe::domain {
     }
 
     void BrowserManager::remove_firefox_esr() {
-        auto r = Executor::passthrough(cfg_.tui_bin +
-                                       " --yesno \"" + _("browser.confirm_remove_firefox_esr") + "\" 8 50");
-        if (r.exit_code != 0) return;
         auto family = infer_family_from_config(cfg_.linux_distro);
         if (family == DistroFamily::Debian) {
             Executor::passthrough(
