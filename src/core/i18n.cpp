@@ -1,4 +1,5 @@
 #include "i18n.h"
+#include "core/str_utils.h"
 #include <cstdlib>
 #include <algorithm>
 
@@ -144,11 +145,7 @@ namespace tmoe {
                              const std::vector<std::string> &args) {
         for (size_t i = 0; i < args.size(); ++i) {
             std::string placeholder = "{" + std::to_string(i) + "}";
-            size_t pos = 0;
-            while ((pos = tmpl.find(placeholder, pos)) != std::string::npos) {
-                tmpl.replace(pos, placeholder.size(), args[i]);
-                pos += args[i].size();
-            }
+            tmpl = replace_all(std::move(tmpl), placeholder, args[i]);
         }
         return tmpl;
     }

@@ -1,4 +1,5 @@
 #include "domain/runtime/rootfs_registry.h"
+#include "core/str_utils.h"
 
 namespace tmoe::domain {
     RootfsRegistry &RootfsRegistry::get_instance() {
@@ -72,12 +73,4 @@ namespace tmoe::domain {
         return info;
     }
 
-    std::string RootfsRegistry::replace_all(std::string str, const std::string &from, const std::string &to) const {
-        size_t start_pos = 0;
-        while ((start_pos = str.find(from, start_pos)) != std::string::npos) {
-            str.replace(start_pos, from.length(), to);
-            start_pos += to.length();
-        }
-        return str;
-    }
 } // namespace tmoe::domain

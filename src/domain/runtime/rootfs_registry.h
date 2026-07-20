@@ -48,8 +48,6 @@ namespace tmoe::domain {
     private:
         RootfsRegistry();
 
-        /** 将字符串中所有 {from} 替换为 {to}。 */
-        std::string replace_all(std::string str, const std::string &from, const std::string &to) const;
 
         nlohmann::json data_;
         std::string current_mirror_name_;

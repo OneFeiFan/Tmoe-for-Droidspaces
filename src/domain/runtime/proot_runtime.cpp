@@ -4,6 +4,7 @@
 #include "core/logger.h"
 #include "core/i18n.h"
 #include "core/command_builder.hpp"
+#include "core/str_utils.h"
 #include <filesystem>
 #include <algorithm>
 #include <cstdlib>
@@ -18,20 +19,12 @@ namespace tmoe::domain {
 static std::string resolve_var(const std::string &s, const std::string &home,
                                 const std::string &tmoe_linux_dir, const std::string &prefix) {
     std::string r = s;
-    // ${HOME}
-    size_t pos;
-    while ((pos = r.find("${HOME}")) != std::string::npos)
-        r.replace(pos, 7, home);
-    while ((pos = r.find("${TMOE_LINUX_DIR}")) != std::string::npos)
-        r.replace(pos, 18, tmoe_linux_dir);
-    while ((pos = r.find("${PREFIX}")) != std::string::npos)
-        r.replace(pos, 9, prefix);
-    while ((pos = r.find("${CONFIG_FOLDER}")) != std::string::npos)
-        r.replace(pos, 17, tmoe_linux_dir + "/config");
-    while ((pos = r.find("${TMPDIR}")) != std::string::npos) {
-        const char *td = std::getenv("TMPDIR");
-        r.replace(pos, 8, td ? td : "/tmp");
-    }
+    r = replace_all(r, "${HOME}", home);
+    r = replace_all(r, "${TMOE_LINUX_DIR}", tmoe_linux_dir);
+    r = replace_all(r, "${PREFIX}", prefix);
+    r = replace_all(r, "${CONFIG_FOLDER}", tmoe_linux_dir + "/config");
+    const char *td = std::getenv("TMPDIR");
+    r = replace_all(r, "${TMPDIR}", td ? td : "/tmp");
     return r;
 }
 

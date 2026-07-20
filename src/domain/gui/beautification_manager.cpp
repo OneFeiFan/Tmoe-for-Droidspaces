@@ -540,15 +540,12 @@ ${color #4080ff}Net: ${color white}${addr wlan0} ${addr eth0}
         {
             // URL 解码关键字符
             std::string decoded = html;
-            for (const auto &p : {std::make_pair("%2F", "/"), std::make_pair("%3A", ":"),
-                                   std::make_pair("%2B", "+"), std::make_pair("%3D", "="),
-                                   std::make_pair("%23", "#"), std::make_pair("%26", "&")}) {
-                size_t pos = 0;
-                while ((pos = decoded.find(p.first, pos)) != std::string::npos) {
-                    decoded.replace(pos, 3, p.second);
-                    pos += std::strlen(p.second);
-                }
-            }
+            decoded = replace_all(decoded, "%2F", "/");
+            decoded = replace_all(decoded, "%3A", ":");
+            decoded = replace_all(decoded, "%2B", "+");
+            decoded = replace_all(decoded, "%3D", "=");
+            decoded = replace_all(decoded, "%23", "#");
+            decoded = replace_all(decoded, "%26", "&");
             std::string flat = std::regex_replace(decoded, std::regex(","), "\n");
             std::regex dl_re(R"re("downloaded_count"\s*:\s*(\d+))re");
             auto begin = std::sregex_iterator(flat.begin(), flat.end(), dl_re);
