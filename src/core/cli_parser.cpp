@@ -1,4 +1,5 @@
 #include "core/cli_parser.h"
+#include "core/str_utils.h"
 
 namespace tmoe {
 
@@ -9,8 +10,8 @@ bool CliParser::is_path_argument(std::string_view arg) {
     if (p.is_absolute()) return true;
 
     // 检测相对路径前缀（跨平台，支持正反斜杠）
-    if (arg.rfind("./", 0) == 0 || arg.rfind("../", 0) == 0 ||
-        arg.rfind(".\\", 0) == 0 || arg.rfind("..\\", 0) == 0) {
+    if (starts_with(arg, "./") || starts_with(arg, "../") ||
+        starts_with(arg, ".\\") || starts_with(arg, "..\\")) {
         return true;
     }
 
@@ -42,10 +43,10 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
     //   --vncpasswd/--choose-vnc-port、
     //   -novnc/-vnc/-stop 快捷方式
 
-    if (arg1.rfind("p", 0) == 0 || arg1 == "proot") {
+    if (starts_with(arg1, "p") || arg1 == "proot") {
         ctx.mode = LaunchMode::Proot;
         ctx.needs_root = false;  // proot 非特权
-    } else if (arg1.rfind("c", 0) == 0 || arg1 == "chroot") {
+    } else if (starts_with(arg1, "c") || arg1 == "chroot") {
         ctx.mode = LaunchMode::Chroot;
     } else if (arg1 == "systemd" || arg1 == "sd" || arg1 == "systemctl" || arg1 == "ns" || arg1 == "nspawn") {
         ctx.mode = LaunchMode::Nspawn;
@@ -77,7 +78,7 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
     } else if (arg1 == "t" || arg1 == "tool") {
         ctx.mode = LaunchMode::ToolMenu;
         return ctx;
-    } else if (arg1.rfind("--auto-install-gui-", 0) == 0 ||
+    } else if (starts_with(arg1, "--auto-install-gui-") ||
                arg1 == "--install-gui" || arg1 == "install-gui" ||
                arg1 == "-b" || arg1 == "-c" || arg1 == "-x" ||
                arg1 == "--vncpasswd" || arg1 == "--choose-vnc-port" ||
@@ -90,7 +91,7 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
         // ./tmoes gui --start-novnc → gui_flag 应为 "--start-novnc"
         if (arg1 == "gui" && pos_args.size() > 1) {
             std::string_view second = pos_args[1];
-            if (!second.empty() && (second.rfind("--", 0) == 0 || second[0] == '-')) {
+            if (!second.empty() && (starts_with(second, "--") || second[0] == '-')) {
                 ctx.gui_flag = second;
             } else {
                 ctx.gui_flag = arg1;
@@ -191,7 +192,7 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
         else if (arg3 == "s390x") ctx.arch_type = "s390x";
         else if (arg3 == "m" || arg3 == "mips" || arg3 == "mipsel") ctx.arch_type = "mipsel";
         else if (arg3 == "m64" || arg3 == "mips64" || arg3 == "mips64el") ctx.arch_type = "mips64el";
-        else if (arg3.rfind("risc", 0) == 0) ctx.arch_type = "riscv64";
+        else if (starts_with(arg3, "risc")) ctx.arch_type = "riscv64";
         else if (arg3 == "v" || arg3 == "vnc" || arg3 == "startvnc") ctx.exec_program = "startvnc";
         else if (arg3 == "xs" || arg3 == "xsdl" || arg3 == "xserver" || arg3 == "startxsdl") ctx.exec_program = "startxsdl";
         else if (arg3 == "x11" || arg3 == "x11vnc" || arg3 == "startx11vnc") ctx.exec_program = "startx11vnc";
@@ -207,15 +208,15 @@ LaunchContext CliParser::parse(const std::vector<std::string_view>& pos_args) {
     if (pos_args.size() > 3) {
         std::string_view arg4 = pos_args[3];
         if (arg4 == "x" || arg4 == "amd64" || arg4 == "x64") ctx.arch_type = "amd64";
-        else if (arg4 == "a" || arg4.rfind("aarch", 0) == 0 || arg4 == "arm64") ctx.arch_type = "arm64";
+        else if (arg4 == "a" || starts_with(arg4, "aarch") || arg4 == "arm64") ctx.arch_type = "arm64";
         else if (arg4 == "h" || arg4 == "arm" || arg4 == "armhf") ctx.arch_type = "armhf";
         else if (arg4 == "armel") ctx.arch_type = "armel";
         else if (arg4 == "i" || arg4 == "i386" || arg4 == "x86" || arg4 == "x32") ctx.arch_type = "i386";
-        else if (arg4 == "p" || arg4.rfind("ppc", 0) == 0) ctx.arch_type = "ppc64el";
-        else if (arg4.rfind("s390", 0) == 0) ctx.arch_type = "s390x";
+        else if (arg4 == "p" || starts_with(arg4, "ppc")) ctx.arch_type = "ppc64el";
+        else if (starts_with(arg4, "s390")) ctx.arch_type = "s390x";
         else if (arg4 == "m" || arg4 == "mips" || arg4 == "mipsel") ctx.arch_type = "mipsel";
         else if (arg4 == "m64" || arg4 == "mips64" || arg4 == "mips64el") ctx.arch_type = "mips64el";
-        else if (arg4.rfind("risc", 0) == 0) ctx.arch_type = "riscv64";
+        else if (starts_with(arg4, "risc")) ctx.arch_type = "riscv64";
         else if (arg4 == "v" || arg4 == "vnc" || arg4 == "startvnc") ctx.exec_program = "startvnc";
         else if (arg4 == "xs" || arg4 == "xsdl" || arg4 == "xserver" || arg4 == "startxsdl") ctx.exec_program = "startxsdl";
         else if (arg4 == "x11" || arg4 == "x11vnc" || arg4 == "startx11vnc") ctx.exec_program = "startx11vnc";

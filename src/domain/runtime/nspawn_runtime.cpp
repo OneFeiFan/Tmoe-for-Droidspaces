@@ -2,6 +2,7 @@
 #include "core/command_builder.hpp"
 #include "core/executor.h"
 #include "core/logger.h"
+#include "core/str_utils.h"
 #include "domain/system/package_manager.h"
 #include <filesystem>
 #include <cstdlib>
@@ -101,10 +102,10 @@ namespace tmoe::domain {
                     std::string line;
                     while (std::getline(ef, line)) {
                         if (line.empty() || line[0] == '#') continue;
-                        if (line.rfind("export ", 0) == 0) {
+                        if (starts_with(line, "export ")) {
                             line = line.substr(7);
                         }
-                        if (line.rfind("PATH=", 0) != 0 && !line.empty()) {
+                        if (!starts_with(line, "PATH=") && !line.empty()) {
                             cb.add_opt("--setenv", line);
                         }
                     }
@@ -118,7 +119,7 @@ namespace tmoe::domain {
             std::ifstream ef(config_.container_env_file);
             std::string line;
             while (std::getline(ef, line)) {
-                if (line.rfind("CONTAINER_BIN_PATH=", 0) == 0) {
+                if (starts_with(line, "CONTAINER_BIN_PATH=")) {
                     container_bin_path = line.substr(19);
                     if (!container_bin_path.empty() && container_bin_path.back() == '\r')
                         container_bin_path.pop_back();

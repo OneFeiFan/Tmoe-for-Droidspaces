@@ -8,6 +8,7 @@
  */
 
 #include <cstdio>       // FILE*, popen, pclose (Linux), _popen/_pclose (Windows)
+#include <string_view>
 
 #ifdef _WIN32
 // ── Windows 编译环境 ──
@@ -110,21 +111,31 @@ inline void set_env(const char* name, const char* value) {
 // CPU 架构规范化
 // ═══════════════════════════════════════════════════════════
 
-/** 将 uname -m 结果规范化到项目内部使用的架构标识。
- *  项目中有 4 处不同的架构映射实现（config.cpp, cli_parser.cpp 等），
- *  统一收口到此函数。 */
-inline const char* normalize_arch(const char* machine) {
-    if (!machine) return "unknown";
-    // x86 系列
-    if (machine[0] == 'x' && machine[1] == '8' && machine[2] == '6' && machine[3] == '_')
-        return (machine[4] == '6' && machine[5] == '4') ? "amd64" : "i386";
-    // ARM 系列
-    if (machine[0] == 'a') {
-        if (machine[1] == 'a' && machine[2] == 'r' && machine[3] == 'c' && machine[4] == 'h')
-            return "arm64"; // aarch64
-        if (machine[1] == 'r' && machine[2] == 'm')
-            return (machine[4] == 'l' || machine[4] == '7') ? "armhf" : "armel";
-    }
+/** 将 uname -m 结果或架构别名规范化到项目内部使用的架构标识。
+ *  覆盖 uname -m 原生输出 + 常用别名，统一收口项目中散落的多处映射。 */
+inline const char* normalize_arch(std::string_view machine) {
+    if (machine.empty()) return "unknown";
+    // ── x86 系列 ──
+    if (machine == "x86_64" || machine == "amd64" || machine == "x64")
+        return "amd64";
+    if (machine == "i686" || machine == "i386" || machine == "x86" || machine == "x32")
+        return "i386";
+    // ── ARM 系列 ──
+    if (machine == "aarch64" || machine == "arm64" || machine == "armv8l")
+        return "arm64";
+    if (machine == "armv7l" || machine == "armhf")
+        return "armhf";
+    if (machine == "armel")
+        return "armel";
+    // armv* 前缀匹配（armv6l, armv5l 等）
+    if (machine.size() >= 4 && machine[0] == 'a' && machine[1] == 'r' &&
+        machine[2] == 'm' && machine[3] == 'v')
+        return (machine.size() > 4 && machine[4] == '5') ? "armel" : "armhf";
+    // ── 其他架构 ──
+    if (machine == "ppc64le" || machine == "ppc64el")
+        return "ppc64el";
+    if (machine == "s390x")
+        return "s390x";
     return "unknown";
 }
 

@@ -18,12 +18,8 @@ TmoeConfig TmoeConfig::detect() {
         std::string machine = arch_result.stdout_data;
         trim_newline(machine);
 
-        if (machine == "x86_64" || machine == "amd64")      cfg.arch = "amd64";
-        else if (machine == "i686" || machine == "i386")     cfg.arch = "i386";
-        else if (machine == "aarch64" || machine == "arm64") cfg.arch = "arm64";
-        else if (machine == "armv7l" || machine == "armv8l" ||
-                 starts_with(machine, "armv"))               cfg.arch = "armhf";
-        // 其他架构保持 uname -m 原始值
+        cfg.arch = platform::normalize_arch(machine);
+        if (cfg.arch == "unknown") cfg.arch = machine; // 其他架构保持 uname -m 原始值
         else if (!machine.empty())                           cfg.arch = machine;
     }
 

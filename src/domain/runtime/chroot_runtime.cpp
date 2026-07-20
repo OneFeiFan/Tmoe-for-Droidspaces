@@ -6,6 +6,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include "core/str_utils.h"
 #include <filesystem>
 
 #include "domain/runtime/container.h"
@@ -496,7 +497,7 @@ namespace tmoe::domain {
             std::ifstream ef(config_.container_env_file);
             std::string line;
             while (std::getline(ef, line)) {
-                if (line.rfind("CONTAINER_BIN_PATH=", 0) == 0) {
+                if (starts_with(line, "CONTAINER_BIN_PATH=")) {
                     container_bin_path = line.substr(19);
                     if (!container_bin_path.empty() && container_bin_path.back() == '\r')
                         container_bin_path.pop_back();
@@ -524,7 +525,7 @@ namespace tmoe::domain {
                     while (std::getline(ef, line)) {
                         if (line.empty() || line[0] == '#') continue;
                         // 去除 export 前缀
-                        if (line.rfind("export ", 0) == 0) {
+                        if (starts_with(line, "export ")) {
                             line = line.substr(7);
                         }
                         if (!line.empty()) {

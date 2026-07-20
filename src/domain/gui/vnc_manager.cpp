@@ -37,7 +37,7 @@ namespace tmoe::domain {
         if (osr.is_open()) {
             std::string line;
             while (std::getline(osr, line)) {
-                if (line.rfind("PRETTY_NAME=", 0) == 0) {
+                if (starts_with(line, "PRETTY_NAME=")) {
                     auto s = line.find('"', 13);
                     auto e = line.rfind('"');
                     if (s != std::string::npos && e != std::string::npos && e > s) {
@@ -60,7 +60,7 @@ namespace tmoe::domain {
             std::ifstream cfg(vnc_cfg);
             std::string line;
             while (std::getline(cfg, line)) {
-                if (line.rfind("geometry=", 0) == 0) {
+                if (starts_with(line, "geometry=")) {
                     std::string geo = line.substr(9);
                     auto xpos = geo.find('x');
                     if (xpos != std::string::npos) {
@@ -407,7 +407,7 @@ namespace tmoe::domain {
 
         if (family == DistroFamily::RedHat) {
             // arm* on RedHat → skip noVNC
-            return (arch.rfind("arm", 0) == 0);
+            return (starts_with(arch, "arm"));
         }
         // On other distros: armhf or armel → skip noVNC
         return (arch == "armhf" || arch == "armel");

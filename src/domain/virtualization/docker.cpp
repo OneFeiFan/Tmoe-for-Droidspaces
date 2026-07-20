@@ -4,6 +4,7 @@
 #include "domain/system/package_manager.h"
 #include <algorithm>
 #include "core/str_utils.h"
+#include "core/platform.h"
 #include <cstdio>
 #include <fstream>
 #include <sstream>
@@ -1292,13 +1293,8 @@ namespace tmoe::domain {
             arch.erase(std::remove(arch.begin(), arch.end(), '\n'), arch.end());
             arch.erase(std::remove(arch.begin(), arch.end(), '\r'), arch.end());
 
-            if (arch == "x86_64" || arch == "amd64") return "amd64";
-            if (arch == "aarch64" || arch == "arm64" || arch == "armv8l") return "arm64";
-            if (arch == "armv7l" || arch == "armhf") return "armhf";
-            if (arch == "i686" || arch == "i386") return "i386";
-            if (arch == "ppc64le") return "ppc64el";
-            if (arch == "s390x") return "s390x";
-            return arch;
+            std::string normalized = std::string(platform::normalize_arch(arch));
+            return normalized != "unknown" ? normalized : arch;
         }
         return "amd64";
     }
