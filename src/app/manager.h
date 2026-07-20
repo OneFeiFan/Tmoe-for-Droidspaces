@@ -26,7 +26,9 @@
 #include "domain/apps/download_tools.h"
 #include <memory>
 
-namespace tmoe::ui { class IUIMenu; }
+namespace tmoe::ui {
+    class IUIMenu;
+}
 
 #include "core/launch_context.h"
 #include "domain/runtime/container_manager.h"
@@ -74,8 +76,8 @@ namespace tmoe::app {
 
 
         /** 通用容器启动辅助方法 (Proot/Chroot/Nspawn)。 */
-        int launch_container(const LaunchContext& ctx, domain::ContainerMode mode,
-                             const std::string& mode_label, bool needs_root);
+        int launch_container(const LaunchContext &ctx, domain::ContainerMode mode,
+                             const std::string &mode_label, bool needs_root);
 
         /** 将各领域模块注册到 MenuRegistry 并构建主菜单。 */
         void register_plugins();
@@ -85,15 +87,22 @@ namespace tmoe::app {
 
         /** 子菜单构建器。 */
         std::shared_ptr<tmoe::ui::IUIMenu> build_faq_menu();
+
         std::shared_ptr<tmoe::ui::IUIMenu> build_locale_menu();
+
         std::shared_ptr<tmoe::ui::IUIMenu> build_mirror_menu();
-        void select_mirror_from_category(const std::string& category);
+
+        void select_mirror_from_category(const std::string &category);
 
         /** 容器操作辅助方法（原 tui_routes_ 内联逻辑）。 */
         void action_proot_container();
+
         void action_chroot_container();
+
         void action_remove_container();
+
         void action_self_update();
+
         void action_bug_report();
     };
 } // namespace tmoe::app

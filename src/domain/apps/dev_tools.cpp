@@ -255,28 +255,28 @@ namespace tmoe::domain {
 
         menu->add_child(std::make_shared<LambdaAction>(
             "upgrade 更新/升级", "1",
-            [this](MenuContext&) -> bool {
+            [this](MenuContext &) -> bool {
                 vscode_server_upgrade();
                 Logger::press_enter();
                 return true;
             }));
         menu->add_child(std::make_shared<LambdaAction>(
             "password 设定密码", "2",
-            [this](MenuContext&) -> bool {
+            [this](MenuContext &) -> bool {
                 vscode_server_password();
                 Logger::press_enter();
                 return true;
             }));
         menu->add_child(std::make_shared<LambdaAction>(
             "edit config manually 手动编辑配置", "3",
-            [this](MenuContext&) -> bool {
+            [this](MenuContext &) -> bool {
                 Executor::passthrough("nano ~/.config/code-server/config.yaml");
                 Logger::press_enter();
                 return true;
             }));
         menu->add_child(std::make_shared<LambdaAction>(
             "stop 停止", "4",
-            [this](MenuContext&) -> bool {
+            [this](MenuContext &) -> bool {
                 Logger::info(_("devtools.status.stopping_service"));
                 Executor::shell("pkill node 2>/dev/null || true");
                 Logger::press_enter();
@@ -284,14 +284,14 @@ namespace tmoe::domain {
             }));
         menu->add_child(std::make_shared<LambdaAction>(
             "remove 卸载/移除", "5",
-            [this](MenuContext&) -> bool {
+            [this](MenuContext &) -> bool {
                 vscode_server_remove();
                 Logger::press_enter();
                 return true;
             }));
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
     }
 

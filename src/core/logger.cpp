@@ -63,8 +63,8 @@ namespace tmoe {
         if (log_file_.is_open()) {
             std::lock_guard<std::mutex> lock(log_mutex_);
             log_file_ << "[" << timestamp() << "] "
-                      << (ok ? "[✓] " : "[✗] ") << task
-                      << (ok ? "" : " failed") << std::endl;
+                    << (ok ? "[✓] " : "[✗] ") << task
+                    << (ok ? "" : " failed") << std::endl;
         }
     }
 
@@ -126,7 +126,10 @@ namespace tmoe {
         }
 #else
         ch = std::getchar();
-        if (ch != '\n') { while (std::getchar() != '\n') {} }
+        if (ch != '\n') {
+            while (std::getchar() != '\n') {
+            }
+        }
 #endif
         return (ch == 'y' || ch == 'Y');
     }
@@ -144,12 +147,16 @@ namespace tmoe {
         }
 #else
         ch = std::getchar();
-        if (ch != '\n') { while (std::getchar() != '\n') {} }
+        if (ch != '\n') {
+            while (std::getchar() != '\n') {
+            }
+        }
 #endif
         // 默认 Yes：回车/空 → true，只有显式输入 'n'/'N' 才 false
         return !(ch == 'n' || ch == 'N');
     }
-    void Logger::init_file_log(const std::string& path) {
+
+    void Logger::init_file_log(const std::string &path) {
         std::error_code ec;
         auto parent = std::filesystem::path(path).parent_path();
         if (!parent.empty()) {

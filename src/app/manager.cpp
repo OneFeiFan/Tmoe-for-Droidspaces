@@ -105,7 +105,7 @@ namespace tmoe::app {
             return;
         }
         Logger::info(_("container.list_header"));
-        for (const auto &c : containers) {
+        for (const auto &c: containers) {
             Logger::info(_f("container.list_item", c.name(), c.distro()));
         }
         if (Logger::confirm(_("container.confirm_remove_default"))) {
@@ -147,42 +147,68 @@ namespace tmoe::app {
             auto menu = make_plugin_menu(title, _("menu.tui.manager_prompt"), "main_manager");
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.proot"), "1",
-                [this](MenuContext&) -> bool { action_proot_container(); return true; }));
+                [this](MenuContext &) -> bool {
+                    action_proot_container();
+                    return true;
+                }));
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.chroot"), "2",
-                [this](MenuContext&) -> bool { action_chroot_container(); return true; }));
+                [this](MenuContext &) -> bool {
+                    action_chroot_container();
+                    return true;
+                }));
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.remove"), "3",
-                [this](MenuContext&) -> bool { action_remove_container(); return true; }));
+                [this](MenuContext &) -> bool {
+                    action_remove_container();
+                    return true;
+                }));
             // 4: 语言切换 — 嵌套引擎运行新式菜单
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.locale"), "4",
-                [this](MenuContext& ctx) -> bool {
-                    MenuEngine(ctx).run(build_locale_menu()); return true;
+                [this](MenuContext &ctx) -> bool {
+                    MenuEngine(ctx).run(build_locale_menu());
+                    return true;
                 }));
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.termux"), "5",
-                [this](MenuContext& ctx) -> bool {
-                    MenuEngine(ctx).run(menus::make_menu<ui::menus::TermuxMenuPlugin>(termux_.get())); return true;
+                [this](MenuContext &ctx) -> bool {
+                    MenuEngine(ctx).run(menus::make_menu<ui::menus::TermuxMenuPlugin>(termux_.get()));
+                    return true;
                 }));
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.zsh"), "6",
-                [this](MenuContext&) -> bool { termux_->beautify_terminal(); Logger::press_enter(); return true; }));
+                [this](MenuContext &) -> bool {
+                    termux_->beautify_terminal();
+                    Logger::press_enter();
+                    return true;
+                }));
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.update"), "7",
-                [this](MenuContext&) -> bool { action_self_update(); return true; }));
+                [this](MenuContext &) -> bool {
+                    action_self_update();
+                    return true;
+                }));
             // 8: FAQ — 嵌套引擎运行新式菜单
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.faq"), "8",
-                [this](MenuContext& ctx) -> bool {
-                    MenuEngine(ctx).run(build_faq_menu()); return true;
+                [this](MenuContext &ctx) -> bool {
+                    MenuEngine(ctx).run(build_faq_menu());
+                    return true;
                 }));
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.report"), "9",
-                [this](MenuContext&) -> bool { action_bug_report(); return true; }));
+                [this](MenuContext &) -> bool {
+                    action_bug_report();
+                    return true;
+                }));
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.fix_signal9"), "10",
-                [this](MenuContext&) -> bool { termux_->fix_android_12_signal_9(); Logger::press_enter(); return true; }));
+                [this](MenuContext &) -> bool {
+                    termux_->fix_android_12_signal_9();
+                    Logger::press_enter();
+                    return true;
+                }));
             add_navigation_items(menu);
             return menu;
         } else {
@@ -190,40 +216,47 @@ namespace tmoe::app {
             auto menu = make_plugin_menu(title, _("menu.tui.tool_prompt"), "main_tool");
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.gui_de"), "1",
-                [this](MenuContext& ctx) -> bool {
-                    MenuEngine(ctx).run(menus::make_menu<ui::menus::DesktopMenuPlugin>(gui_.get())); return true;
+                [this](MenuContext &ctx) -> bool {
+                    MenuEngine(ctx).run(menus::make_menu<ui::menus::DesktopMenuPlugin>(gui_.get()));
+                    return true;
                 }));
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.software_center"), "2",
-                [this](MenuContext& ctx) -> bool {
-                    MenuEngine(ctx).run(menus::make_menu<ui::menus::SoftwareCenterMenuPlugin>(software_center_.get())); return true;
+                [this](MenuContext &ctx) -> bool {
+                    MenuEngine(ctx).run(menus::make_menu<ui::menus::SoftwareCenterMenuPlugin>(software_center_.get()));
+                    return true;
                 }));
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.secret_garden"), "3",
-                [this](MenuContext& ctx) -> bool {
-                    MenuEngine(ctx).run(menus::make_menu<ui::menus::BetaFeaturesMenuPlugin>(beta_features_.get())); return true;
+                [this](MenuContext &ctx) -> bool {
+                    MenuEngine(ctx).run(menus::make_menu<ui::menus::BetaFeaturesMenuPlugin>(beta_features_.get()));
+                    return true;
                 }));
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.gui_beautify"), "4",
-                [this](MenuContext& ctx) -> bool {
-                    MenuEngine(ctx).run(menus::make_menu<ui::menus::BeautifyMenuPlugin>(gui_.get())); return true;
+                [this](MenuContext &ctx) -> bool {
+                    MenuEngine(ctx).run(menus::make_menu<ui::menus::BeautifyMenuPlugin>(gui_.get()));
+                    return true;
                 }));
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.gui_remote"), "5",
-                [this](MenuContext& ctx) -> bool {
-                    MenuEngine(ctx).run(menus::make_menu<ui::menus::RemoteDesktopMenuPlugin>(gui_.get())); return true;
+                [this](MenuContext &ctx) -> bool {
+                    MenuEngine(ctx).run(menus::make_menu<ui::menus::RemoteDesktopMenuPlugin>(gui_.get()));
+                    return true;
                 }));
             // 6: 镜像源 — 嵌套引擎运行新式菜单
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.mirrors"), "6",
-                [this](MenuContext& ctx) -> bool {
-                    MenuEngine(ctx).run(build_mirror_menu()); return true;
+                [this](MenuContext &ctx) -> bool {
+                    MenuEngine(ctx).run(build_mirror_menu());
+                    return true;
                 }));
             // 7: FAQ — 嵌套引擎运行新式菜单
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.faq"), "7",
-                [this](MenuContext& ctx) -> bool {
-                    MenuEngine(ctx).run(build_faq_menu()); return true;
+                [this](MenuContext &ctx) -> bool {
+                    MenuEngine(ctx).run(build_faq_menu());
+                    return true;
                 }));
             add_navigation_items(menu);
             return menu;
@@ -241,97 +274,134 @@ namespace tmoe::app {
 
         // 1-2: 仅显示信息
         menu->add_child(std::make_shared<LambdaAction>(_("faq.q1"), "1",
-            [this](MenuContext&) -> bool { Logger::info(_("faq.a1")); Logger::press_enter(); return true; }));
+                                                       [this](MenuContext &) -> bool {
+                                                           Logger::info(_("faq.a1"));
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
         menu->add_child(std::make_shared<LambdaAction>(_("faq.q2"), "2",
-            [this](MenuContext&) -> bool { Logger::info(_("faq.a2")); Logger::press_enter(); return true; }));
+                                                       [this](MenuContext &) -> bool {
+                                                           Logger::info(_("faq.a2"));
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
         menu->add_child(std::make_shared<LambdaAction>(_("faq.q3"), "3",
-            [this](MenuContext&) -> bool { Logger::info(_("faq.a3")); Logger::press_enter(); return true; }));
+                                                       [this](MenuContext &) -> bool {
+                                                           Logger::info(_("faq.a3"));
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
         menu->add_child(std::make_shared<LambdaAction>(_("faq.q4"), "4",
-            [this](MenuContext&) -> bool { Logger::info(_("faq.a4")); Logger::press_enter(); return true; }));
+                                                       [this](MenuContext &) -> bool {
+                                                           Logger::info(_("faq.a4"));
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
 
         // 5: gvfs/udisks2 — 确认后卸载
         menu->add_child(std::make_shared<LambdaAction>(_("faq.q5"), "5",
-            [this](MenuContext&) -> bool {
-                Logger::info(_("faq.a5"));
-                if (Logger::confirm(_("faq.confirm_exec")))
-                    Executor::passthrough(
-                        cfg_.remove_command + " --allow-change-held-packages ^udisks2 ^gvfs 2>/dev/null");
-                Logger::press_enter(); return true;
-            }));
+                                                       [this](MenuContext &) -> bool {
+                                                           Logger::info(_("faq.a5"));
+                                                           if (Logger::confirm(_("faq.confirm_exec")))
+                                                               Executor::passthrough(
+                                                                   cfg_.remove_command +
+                                                                   " --allow-change-held-packages ^udisks2 ^gvfs 2>/dev/null");
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
 
         // 6: QQ crash — 确认后删配置
         menu->add_child(std::make_shared<LambdaAction>(_("faq.q6"), "6",
-            [this](MenuContext&) -> bool {
-                Logger::info(_("faq.a6"));
-                if (Logger::confirm(_("faq.confirm_exec")))
-                    Executor::passthrough("rm -rf ~/.config/tencent-qq/ 2>/dev/null");
-                Logger::press_enter(); return true;
-            }));
+                                                       [this](MenuContext &) -> bool {
+                                                           Logger::info(_("faq.a6"));
+                                                           if (Logger::confirm(_("faq.confirm_exec")))
+                                                               Executor::passthrough(
+                                                                   "rm -rf ~/.config/tencent-qq/ 2>/dev/null");
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
 
         // 7: VNC/X11 — 仅显示
         menu->add_child(std::make_shared<LambdaAction>(_("faq.q7"), "7",
-            [this](MenuContext&) -> bool { Logger::info(_("faq.a7")); Logger::press_enter(); return true; }));
+                                                       [this](MenuContext &) -> bool {
+                                                           Logger::info(_("faq.a7"));
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
 
         // 8: Baidu Netdisk — 确认后删 db
         menu->add_child(std::make_shared<LambdaAction>(_("faq.q8"), "8",
-            [this](MenuContext&) -> bool {
-                Logger::info(_("faq.a8"));
-                if (Logger::confirm(_("faq.confirm_exec")))
-                    Executor::passthrough("rm -vf ~/baidunetdisk/baidunetdiskdata.db 2>/dev/null");
-                Logger::press_enter(); return true;
-            }));
+                                                       [this](MenuContext &) -> bool {
+                                                           Logger::info(_("faq.a8"));
+                                                           if (Logger::confirm(_("faq.confirm_exec")))
+                                                               Executor::passthrough(
+                                                                   "rm -vf ~/baidunetdisk/baidunetdiskdata.db 2>/dev/null");
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
 
         // 9: mlocate — 确认后卸载
         menu->add_child(std::make_shared<LambdaAction>(_("faq.q9"), "9",
-            [this](MenuContext&) -> bool {
-                Logger::info(_("faq.a9"));
-                if (Logger::confirm(_("faq.confirm_exec"))) {
-                    domain::PackageManager::remove("mlocate",
-                        domain::infer_family_from_config(cfg_.linux_distro));
-                    domain::PackageManager::remove("catfish",
-                        domain::infer_family_from_config(cfg_.linux_distro));
-                    Executor::passthrough("sudo apt autoremove --purge 2>/dev/null");
-                }
-                Logger::press_enter(); return true;
-            }));
+                                                       [this](MenuContext &) -> bool {
+                                                           Logger::info(_("faq.a9"));
+                                                           if (Logger::confirm(_("faq.confirm_exec"))) {
+                                                               domain::PackageManager::remove("mlocate",
+                                                                   domain::infer_family_from_config(cfg_.linux_distro));
+                                                               domain::PackageManager::remove("catfish",
+                                                                   domain::infer_family_from_config(cfg_.linux_distro));
+                                                               Executor::passthrough(
+                                                                   "sudo apt autoremove --purge 2>/dev/null");
+                                                           }
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
 
         // 10: TTY Chinese — yesno 选择
         menu->add_child(std::make_shared<LambdaAction>(_("faq.q10"), "10",
-            [this](MenuContext&) -> bool {
-                Logger::info(_("faq.a10"));
-                std::string tty_choice = cfg_.tui_bin +
-                    " --title \"TTY Chinese\""
-                    " --yes-button 'fbterm' --no-button 'export LANG'"
-                    " --yesno \"" + _("faq.a10") + "\" 11 45";
-                auto tty_rc = Executor::passthrough(tty_choice);
-                if (tty_rc.exit_code == 0) {
-                    if (!Executor::has("fbterm"))
-                        domain::PackageManager::install("fbterm",
-                            domain::infer_family_from_config(cfg_.linux_distro));
-                    Executor::passthrough("fbterm 2>/dev/null");
-                } else {
-                    Logger::info("export LANG=C.UTF-8");
-                }
-                Logger::press_enter(); return true;
-            }));
+                                                       [this](MenuContext &) -> bool {
+                                                           Logger::info(_("faq.a10"));
+                                                           std::string tty_choice = cfg_.tui_bin +
+                                                               " --title \"TTY Chinese\""
+                                                               " --yes-button 'fbterm' --no-button 'export LANG'"
+                                                               " --yesno \"" + _("faq.a10") + "\" 11 45";
+                                                           auto tty_rc = Executor::passthrough(tty_choice);
+                                                           if (tty_rc.exit_code == 0) {
+                                                               if (!Executor::has("fbterm"))
+                                                                   domain::PackageManager::install("fbterm",
+                                                                       domain::infer_family_from_config(
+                                                                           cfg_.linux_distro));
+                                                               Executor::passthrough("fbterm 2>/dev/null");
+                                                           } else {
+                                                               Logger::info("export LANG=C.UTF-8");
+                                                           }
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
 
         // 11: time sync — 确认后完整同步
         menu->add_child(std::make_shared<LambdaAction>(_("faq.q11"), "11",
-            [this](MenuContext&) -> bool {
-                Logger::info(_("faq.a11"));
-                if (!Logger::confirm(_("faq.a11_confirm"))) { Logger::press_enter(); return true; }
-                Executor::passthrough("timedatectl set-local-rtc 1 --adjust-system-clock 2>/dev/null");
-                domain::PackageManager::install({"ntpdate", "chrony"},
-                    domain::infer_family_from_config(cfg_.linux_distro));
-                Executor::passthrough("ntpdate time.windows.com 2>/dev/null");
-                Executor::passthrough("timedatectl set-ntp true 2>/dev/null");
-                Executor::passthrough(
-                    "sudo systemctl enable chrony 2>/dev/null || "
-                    "sudo sudo systemctl enable chronyd 2>/dev/null || "
-                    "rc-update add chrony 2>/dev/null");
-                Executor::passthrough("chronyc sourcestats -v 2>/dev/null");
-                Logger::press_enter(); return true;
-            }));
+                                                       [this](MenuContext &) -> bool {
+                                                           Logger::info(_("faq.a11"));
+                                                           if (!Logger::confirm(_("faq.a11_confirm"))) {
+                                                               Logger::press_enter();
+                                                               return true;
+                                                           }
+                                                           Executor::passthrough(
+                                                               "timedatectl set-local-rtc 1 --adjust-system-clock 2>/dev/null");
+                                                           domain::PackageManager::install({"ntpdate", "chrony"},
+                                                               domain::infer_family_from_config(cfg_.linux_distro));
+                                                           Executor::passthrough(
+                                                               "ntpdate time.windows.com 2>/dev/null");
+                                                           Executor::passthrough(
+                                                               "timedatectl set-ntp true 2>/dev/null");
+                                                           Executor::passthrough(
+                                                               "sudo systemctl enable chrony 2>/dev/null || "
+                                                               "sudo sudo systemctl enable chronyd 2>/dev/null || "
+                                                               "rc-update add chrony 2>/dev/null");
+                                                           Executor::passthrough("chronyc sourcestats -v 2>/dev/null");
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
 
         add_sandwich_nav(menu);
         return menu;
@@ -345,8 +415,9 @@ namespace tmoe::app {
         std::string cur = std::string(I18n::current_lang());
         menu->add_child(std::make_shared<LambdaAction>(
             _("locale.zh_cn") + (cur == "zh_CN" ? " ✓" : ""), "zh_CN",
-            [this](MenuContext&) -> bool {
-                I18n::init("zh_CN"); cfg_.locale = "zh_CN";
+            [this](MenuContext &) -> bool {
+                I18n::init("zh_CN");
+                cfg_.locale = "zh_CN";
                 environment_->set_locale("zh_CN");
                 if (save_locale_) save_locale_("zh_CN");
                 Logger::ok(_f("locale.switched_ok", "zh_CN"));
@@ -354,8 +425,9 @@ namespace tmoe::app {
             }));
         menu->add_child(std::make_shared<LambdaAction>(
             _("locale.en_us") + (cur == "en_US" ? " ✓" : ""), "en_US",
-            [this](MenuContext&) -> bool {
-                I18n::init("en_US"); cfg_.locale = "en_US";
+            [this](MenuContext &) -> bool {
+                I18n::init("en_US");
+                cfg_.locale = "en_US";
                 environment_->set_locale("en_US");
                 if (save_locale_) save_locale_("en_US");
                 Logger::ok(_f("locale.switched_ok", "en_US"));
@@ -380,86 +452,102 @@ namespace tmoe::app {
 
         // 1-3: 按分类选镜像 → 进入动态镜像列表子菜单
         menu->add_child(std::make_shared<LambdaAction>(_("mirror.cat_business"), "1",
-            [this](MenuContext&) -> bool {
-                select_mirror_from_category("business");
-                return true;
-            }));
+                                                       [this](MenuContext &) -> bool {
+                                                           select_mirror_from_category("business");
+                                                           return true;
+                                                       }));
         menu->add_child(std::make_shared<LambdaAction>(_("mirror.cat_university"), "2",
-            [this](MenuContext&) -> bool {
-                select_mirror_from_category("university");
-                return true;
-            }));
+                                                       [this](MenuContext &) -> bool {
+                                                           select_mirror_from_category("university");
+                                                           return true;
+                                                       }));
         menu->add_child(std::make_shared<LambdaAction>(_("mirror.cat_worldwide"), "3",
-            [this](MenuContext&) -> bool {
-                select_mirror_from_category("worldwide");
-                return true;
-            }));
+                                                       [this](MenuContext &) -> bool {
+                                                           select_mirror_from_category("worldwide");
+                                                           return true;
+                                                       }));
 
         // 4-12: 单步操作
         menu->add_child(std::make_shared<LambdaAction>(_("mirror.ping_test"), "4",
-            [this](MenuContext&) -> bool {
-                mirror_mgr_->run_ping_latency_test(); Logger::press_enter(); return true;
-            }));
+                                                       [this](MenuContext &) -> bool {
+                                                           mirror_mgr_->run_ping_latency_test();
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
         menu->add_child(std::make_shared<LambdaAction>(_("mirror.speed_test"), "5",
-            [this](MenuContext&) -> bool {
-                mirror_mgr_->run_download_speed_test(); Logger::press_enter(); return true;
-            }));
+                                                       [this](MenuContext &) -> bool {
+                                                           mirror_mgr_->run_download_speed_test();
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
         menu->add_child(std::make_shared<LambdaAction>(_("mirror.restore_official"), "6",
-            [this](MenuContext&) -> bool {
-                if (Logger::confirm(_("mirror.confirm_restore_official")))
-                    mirror_mgr_->restore_official();
-                Logger::press_enter(); return true;
-            }));
+                                                       [this](MenuContext &) -> bool {
+                                                           if (Logger::confirm(_("mirror.confirm_restore_official")))
+                                                               mirror_mgr_->restore_official();
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
         menu->add_child(std::make_shared<LambdaAction>(_("mirror.edit_manual"), "7",
-            [this](MenuContext&) -> bool {
-                mirror_mgr_->edit_manually(); Logger::press_enter(); return true;
-            }));
+                                                       [this](MenuContext &) -> bool {
+                                                           mirror_mgr_->edit_manually();
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
         menu->add_child(std::make_shared<LambdaAction>(extra_label, "8",
-            [this](MenuContext&) -> bool {
-                mirror_mgr_->manage_extra_sources(); Logger::press_enter(); return true;
-            }));
+                                                       [this](MenuContext &) -> bool {
+                                                           mirror_mgr_->manage_extra_sources();
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
         menu->add_child(std::make_shared<LambdaAction>(_("mirror.faq"), "9",
-            [this](MenuContext&) -> bool {
-                mirror_mgr_->show_mirror_faq(); Logger::press_enter(); return true;
-            }));
+                                                       [this](MenuContext &) -> bool {
+                                                           mirror_mgr_->show_mirror_faq();
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
         menu->add_child(std::make_shared<LambdaAction>(_("mirror.toggle_protocol"), "10",
-            [this](MenuContext&) -> bool {
-                std::string toggle_cmd = cfg_.tui_bin +
-                    " --title \"" + _("mirror.protocol_title") + "\" --yes-button 'https' --no-button 'http'"
-                    " --yesno \"" + _("mirror.select_protocol") + "\" 0 50";
-                auto result = Executor::passthrough(toggle_cmd);
-                mirror_mgr_->toggle_http_https(result.exit_code == 0);
-                Logger::press_enter(); return true;
-            }));
+                                                       [this](MenuContext &) -> bool {
+                                                           std::string toggle_cmd = cfg_.tui_bin +
+                                                               " --title \"" + _("mirror.protocol_title") +
+                                                               "\" --yes-button 'https' --no-button 'http'"
+                                                               " --yesno \"" + _("mirror.select_protocol") + "\" 0 50";
+                                                           auto result = Executor::passthrough(toggle_cmd);
+                                                           mirror_mgr_->toggle_http_https(result.exit_code == 0);
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
         menu->add_child(std::make_shared<LambdaAction>(_("mirror.clean_sources"), "11",
-            [this](MenuContext&) -> bool {
-                if (Logger::confirm(_("mirror.confirm_clean_sources")))
-                    mirror_mgr_->clean_sources_list();
-                Logger::press_enter(); return true;
-            }));
+                                                       [this](MenuContext &) -> bool {
+                                                           if (Logger::confirm(_("mirror.confirm_clean_sources")))
+                                                               mirror_mgr_->clean_sources_list();
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
         menu->add_child(std::make_shared<LambdaAction>(_("mirror.trust_sources"), "12",
-            [this](MenuContext&) -> bool {
-                std::string trust_cmd = cfg_.tui_bin +
-                    " --title \"" + _("mirror.trust_title") + "\" --yes-button 'trust' --no-button 'untrust'"
-                    " --yesno \"" + _("mirror.trust_warning") + "\" 0 50";
-                auto result = Executor::passthrough(trust_cmd);
-                mirror_mgr_->trust_sources(result.exit_code == 0);
-                Logger::press_enter(); return true;
-            }));
+                                                       [this](MenuContext &) -> bool {
+                                                           std::string trust_cmd = cfg_.tui_bin +
+                                                               " --title \"" + _("mirror.trust_title") +
+                                                               "\" --yes-button 'trust' --no-button 'untrust'"
+                                                               " --yesno \"" + _("mirror.trust_warning") + "\" 0 50";
+                                                           auto result = Executor::passthrough(trust_cmd);
+                                                           mirror_mgr_->trust_sources(result.exit_code == 0);
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
 
         add_sandwich_nav(menu);
         return menu;
     }
 
     /** 从指定分类选择镜像（被 build_mirror_menu 的 1-3 项调用）。 */
-    void Manager::select_mirror_from_category(const std::string& category) {
+    void Manager::select_mirror_from_category(const std::string &category) {
         using namespace tmoe::ui;
 
         auto mirrors = domain::MirrorRegistry::instance().by_category(category);
         if (category == "worldwide") {
             auto extra = domain::MirrorRegistry::instance().by_region("global");
             mirrors.insert(mirrors.end(), extra.begin(), extra.end());
-            for (const auto& r : {"hk", "tw", "jp", "kr", "us", "uk", "de", "fr", "ru", "au"}) {
+            for (const auto &r: {"hk", "tw", "jp", "kr", "us", "uk", "de", "fr", "ru", "au"}) {
                 auto reg = domain::MirrorRegistry::instance().by_region(r);
                 mirrors.insert(mirrors.end(), reg.begin(), reg.end());
             }
@@ -480,7 +568,7 @@ namespace tmoe::app {
             auto id = mirrors[i].id;
             menu->add_child(std::make_shared<ui::LambdaAction>(
                 label, std::to_string(i + 1),
-                [this, id](ui::MenuContext&) -> bool {
+                [this, id](ui::MenuContext &) -> bool {
                     mirror_mgr_->switch_to(id);
                     Logger::press_enter();
                     return true;
@@ -593,7 +681,7 @@ namespace tmoe::app {
             case LaunchMode::Aria2Manager: {
                 tmoe::ui::MenuContext ctx{cfg_};
                 return tmoe::ui::MenuEngine(ctx).run(
-                        ui::menus::make_menu<ui::menus::DownloadMenuPlugin>(download_tools_.get())), 0;
+                           ui::menus::make_menu<ui::menus::DownloadMenuPlugin>(download_tools_.get())), 0;
             }
 
             case LaunchMode::GuiManager:
@@ -651,5 +739,4 @@ namespace tmoe::app {
         }
         return 0;
     }
-
 } // namespace tmoe::app

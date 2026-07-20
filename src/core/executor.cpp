@@ -45,7 +45,7 @@ namespace tmoe {
 
     /** popen → 读取全部输出 → pclose → ExecResult。
      *  消除 run / shell / run_with_env 中重复的管道管理代码。 */
-    static ExecResult popen_exec(const std::string& cmd) {
+    static ExecResult popen_exec(const std::string &cmd) {
         std::unique_ptr<FILE, decltype(&platform::pclose)> pipe(platform::popen(cmd.c_str(), "r"), platform::pclose);
         if (!pipe) {
             return ExecResult{-1, "", "popen failed"};
@@ -200,7 +200,7 @@ namespace tmoe {
 #else
         // Windows: CreateProcess + WaitForSingleObject 实现真正超时
         std::string cmd(bin);
-        for (const auto& a : args) {
+        for (const auto &a: args) {
             cmd += " ";
             cmd += shell_escape(a);
         }
@@ -217,12 +217,12 @@ namespace tmoe {
         STARTUPINFOA si = {sizeof(STARTUPINFOA)};
         si.dwFlags = STARTF_USESTDHANDLES;
         si.hStdOutput = hWritePipe;
-        si.hStdError  = hWritePipe;
-        si.hStdInput  = GetStdHandle(STD_INPUT_HANDLE);
+        si.hStdError = hWritePipe;
+        si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
 
         PROCESS_INFORMATION pi = {0};
         std::vector<char> cmd_buf(cmd_line.c_str(),
-                                   cmd_line.c_str() + cmd_line.size() + 1);
+                                  cmd_line.c_str() + cmd_line.size() + 1);
 
         if (!CreateProcessA(NULL, cmd_buf.data(), NULL, NULL, TRUE,
                             CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
@@ -246,7 +246,7 @@ namespace tmoe {
                 break;
             }
 
-            DWORD remain  = timeout_ms - static_cast<DWORD>(elapsed);
+            DWORD remain = timeout_ms - static_cast<DWORD>(elapsed);
             DWORD wait_ms = (remain < 100) ? remain : 100;
 
             DWORD wait_result = WaitForSingleObject(pi.hProcess, wait_ms);
@@ -288,8 +288,10 @@ namespace tmoe {
             CloseHandle(pi.hProcess);
             CloseHandle(pi.hThread);
             CloseHandle(hReadPipe);
-            return ExecResult{-1, std::move(output),
-                "timeout: command exceeded " + std::to_string(timeout_sec) + "s"};
+            return ExecResult{
+                -1, std::move(output),
+                "timeout: command exceeded " + std::to_string(timeout_sec) + "s"
+            };
         }
 
         // 进程正常退出：排空所有残留数据
@@ -323,14 +325,14 @@ namespace tmoe {
         // 构建 "KEY1='val1' KEY2='val2' bin arg1 arg2 ... 2>&1"
         // shell 的 VAR=val 前缀语法会在执行命令前设置环境变量
         std::string cmd;
-        for (const auto& [key, val] : env) {
+        for (const auto &[key, val]: env) {
             cmd += key;
             cmd += "=";
             cmd += shell_escape(val);
             cmd += " ";
         }
         cmd += bin;
-        for (const auto& a : args) {
+        for (const auto &a: args) {
             cmd += " ";
             cmd += shell_escape(a);
         }
@@ -343,11 +345,11 @@ namespace tmoe {
         return tui_select_impl(whiptail_args, ignored);
     }
 
-    std::string Executor::tui_select(std::string_view whiptail_args, bool& cancelled) {
+    std::string Executor::tui_select(std::string_view whiptail_args, bool &cancelled) {
         return tui_select_impl(whiptail_args, cancelled);
     }
 
-    std::string Executor::tui_select_impl(std::string_view whiptail_args, bool& cancelled) {
+    std::string Executor::tui_select_impl(std::string_view whiptail_args, bool &cancelled) {
         std::string args_str(whiptail_args);
         bool is_dialog = (contains(args_str, "dialog") &&
                           !contains(args_str, "whiptail"));
@@ -416,50 +418,49 @@ namespace tmoe {
     }
 
     [[noreturn]] void Executor::escalate_privileges(int argc, char *argv[]) {
-    if (platform::is_root()) {
-        std::exit(0); // 已是 root —— 理论上不应到达此处
-    }
-
-    if (has("sudo")) {
-        Logger::warn(_("exec.sudo_elevating"));
-
-        std::vector<char*> exec_args;
-        exec_args.push_back(const_cast<char*>("sudo"));
-        // 不用 -E：保留 $HOME 会导致 root 进程在用户 home 目录创建 root 归属文件
-        // sudo 默认设 HOME=/root，$SUDO_USER 保留原始用户名，需要用户路径时用 getent 反查
-
-        for (int i = 0; i < argc; ++i) {
-            exec_args.push_back(argv[i]);
-        }
-        exec_args.push_back(nullptr);
-
-        ::execvp("sudo", exec_args.data());
-
-        Logger::error(_("exec.sudo_failed"));
-        std::exit(1);
-
-    } else if (has("su")) {
-        Logger::warn(_("exec.su_elevating"));
-
-        std::string cmd = argv[0];
-        for (int i = 1; i < argc; ++i) {
-            cmd += " ";
-            cmd += shell_escape(argv[i]);
+        if (platform::is_root()) {
+            std::exit(0); // 已是 root —— 理论上不应到达此处
         }
 
-        std::vector<char*> exec_args;
-        exec_args.push_back(const_cast<char*>("su"));
-        exec_args.push_back(const_cast<char*>("-c"));
-        exec_args.push_back(const_cast<char*>(cmd.c_str()));
-        exec_args.push_back(nullptr);
+        if (has("sudo")) {
+            Logger::warn(_("exec.sudo_elevating"));
 
-        ::execvp("su", exec_args.data());
+            std::vector<char *> exec_args;
+            exec_args.push_back(const_cast<char *>("sudo"));
+            // 不用 -E：保留 $HOME 会导致 root 进程在用户 home 目录创建 root 归属文件
+            // sudo 默认设 HOME=/root，$SUDO_USER 保留原始用户名，需要用户路径时用 getent 反查
 
-        Logger::error(_("exec.su_failed"));
-        std::exit(1);
-    } else {
-        Logger::error(_("exec.no_su_sudo"));
-        std::exit(1);
-    }
+            for (int i = 0; i < argc; ++i) {
+                exec_args.push_back(argv[i]);
+            }
+            exec_args.push_back(nullptr);
+
+            ::execvp("sudo", exec_args.data());
+
+            Logger::error(_("exec.sudo_failed"));
+            std::exit(1);
+        } else if (has("su")) {
+            Logger::warn(_("exec.su_elevating"));
+
+            std::string cmd = argv[0];
+            for (int i = 1; i < argc; ++i) {
+                cmd += " ";
+                cmd += shell_escape(argv[i]);
+            }
+
+            std::vector<char *> exec_args;
+            exec_args.push_back(const_cast<char *>("su"));
+            exec_args.push_back(const_cast<char *>("-c"));
+            exec_args.push_back(const_cast<char *>(cmd.c_str()));
+            exec_args.push_back(nullptr);
+
+            ::execvp("su", exec_args.data());
+
+            Logger::error(_("exec.su_failed"));
+            std::exit(1);
+        } else {
+            Logger::error(_("exec.no_su_sudo"));
+            std::exit(1);
+        }
     }
 } // namespace tmoe

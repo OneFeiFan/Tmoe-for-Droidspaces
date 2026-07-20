@@ -26,19 +26,19 @@ namespace {
     struct AutoRegister {
         AutoRegister() {
             using namespace tmoe::domain;
-            REGISTER_DESKTOP("xfce",      XfceDesktop);
+            REGISTER_DESKTOP("xfce", XfceDesktop);
             REGISTER_DESKTOP("xfce-lite", XfceLiteDesktop);
-            REGISTER_DESKTOP("kde",       KdeDesktop);
-            REGISTER_DESKTOP("mate",      MateDesktop);
-            REGISTER_DESKTOP("lxde",      LxdeDesktop);
-            REGISTER_DESKTOP("lxqt",      LxqtDesktop);
-            REGISTER_DESKTOP("cinnamon",  CinnamonDesktop);
-            REGISTER_DESKTOP("gnome",     GnomeDesktop);
-            REGISTER_DESKTOP("budgie",    BudgieDesktop);
-            REGISTER_DESKTOP("dde",       DdeDesktop);
-            REGISTER_DESKTOP("deepin",    DeepinDesktop);
-            REGISTER_DESKTOP("ukui",      UkuiDesktop);
-            REGISTER_DESKTOP("cutefish",  CutefishDesktop);
+            REGISTER_DESKTOP("kde", KdeDesktop);
+            REGISTER_DESKTOP("mate", MateDesktop);
+            REGISTER_DESKTOP("lxde", LxdeDesktop);
+            REGISTER_DESKTOP("lxqt", LxqtDesktop);
+            REGISTER_DESKTOP("cinnamon", CinnamonDesktop);
+            REGISTER_DESKTOP("gnome", GnomeDesktop);
+            REGISTER_DESKTOP("budgie", BudgieDesktop);
+            REGISTER_DESKTOP("dde", DdeDesktop);
+            REGISTER_DESKTOP("deepin", DeepinDesktop);
+            REGISTER_DESKTOP("ukui", UkuiDesktop);
+            REGISTER_DESKTOP("cutefish", CutefishDesktop);
         }
     } auto_register;
 #undef REGISTER_DESKTOP

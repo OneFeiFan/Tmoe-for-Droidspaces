@@ -76,7 +76,7 @@ namespace tmoe {
     }
 
     CommandBuilder &CommandBuilder::add_bind_to_if(bool condition, std::string prefix,
-                                                    std::string source, std::string dest) {
+                                                   std::string source, std::string dest) {
         if (condition) {
             add_bind_to(std::move(prefix), std::move(source), std::move(dest));
         }

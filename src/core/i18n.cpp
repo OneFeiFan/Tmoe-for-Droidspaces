@@ -86,18 +86,18 @@ namespace tmoe {
         bool has_missing = !missing_keys_.empty();
         if (has_missing) {
             std::cerr << "\n══════════════════════════════════════════\n"
-                      << "[TMOE I18n] 缺失翻译 (" << missing_keys_.size() << " 个)"
-                      << " — 代码用了但 JSON 里没有:\n"
-                      << "══════════════════════════════════════════\n";
+                    << "[TMOE I18n] 缺失翻译 (" << missing_keys_.size() << " 个)"
+                    << " — 代码用了但 JSON 里没有:\n"
+                    << "══════════════════════════════════════════\n";
             auto keys = missing_keys();
-            for (const auto &k : keys) {
+            for (const auto &k: keys) {
                 std::cerr << "  \"" << k << "\": \"\",\n";
             }
         }
 
         // 2. 未使用的 key（JSON 有但代码没用过）
         std::vector<std::string> unused;
-        for (const auto &[k, _] : current_dict_) {
+        for (const auto &[k, _]: current_dict_) {
             if (used_keys_.find(k) == used_keys_.end()) {
                 unused.push_back(k);
             }
@@ -106,14 +106,14 @@ namespace tmoe {
 
         if (!unused.empty()) {
             std::cerr << "\n══════════════════════════════════════════\n"
-                      << "[TMOE I18n] 未使用翻译 (" << unused.size() << " 个)"
-                      << " — JSON 有但代码没用过:\n"
-                      << "══════════════════════════════════════════\n";
-            for (const auto &k : unused) {
+                    << "[TMOE I18n] 未使用翻译 (" << unused.size() << " 个)"
+                    << " — JSON 有但代码没用过:\n"
+                    << "══════════════════════════════════════════\n";
+            for (const auto &k: unused) {
                 std::cerr << "  \"" << k << "\",\n";
             }
             std::cerr << "══════════════════════════════════════════\n"
-                      << "[TMOE I18n] ↑ 以上 key 可安全从 JSON 中删除\n";
+                    << "[TMOE I18n] ↑ 以上 key 可安全从 JSON 中删除\n";
         }
 
         if (!has_missing && unused.empty()) {
