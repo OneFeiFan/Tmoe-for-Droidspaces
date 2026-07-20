@@ -1,4 +1,5 @@
 #include "domain/apps/installable_app.h"
+#include "ui/dialog_helpers.h"
 #include <filesystem>
 
 namespace fs = std::filesystem;
@@ -76,12 +77,8 @@ bool InstallableApp::confirm_install() {
 }
 
 bool InstallableApp::confirm_remove() {
-    // 默认：通过 whiptail 确认
-    auto result = Executor::passthrough(
-        "whiptail --title \"" + name() + "\""
-        " --yesno \"" + _f("app.confirm_remove", name()) + "\" 8 50"
-    );
-    return result.exit_code == 0;
+    // 使用 dialog::yesno 替代硬编码 whiptail
+    return ui::dialog::yesno(cfg_, name(), _f("app.confirm_remove", name()), "", "", 8, 50) == 0;
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -2,9 +2,11 @@
 #define BROWSER_H
 #pragma once
 #include "core/config.h"
+#include "domain/apps/browser_apps.h"
 #include <string>
 
 namespace tmoe::domain {
+    /** 浏览器管理器 — 对外部（UI 插件层）提供统一入口，内部委托给 InstallableApp 子类。 */
     class BrowserManager {
     public:
         explicit BrowserManager(const TmoeConfig &cfg);
@@ -30,13 +32,13 @@ namespace tmoe::domain {
         void remove_firefox_esr();
 
     private:
-        // 辅助
-        void create_no_sandbox_wrapper(const std::string &name, const std::string &bin_name);
-        void ensure_firefox_ppa();
-        void ensure_chromium_ppa();
-        void ensure_edge_repo();
-
         const TmoeConfig &cfg_;
+        ChromiumApp    chromium_;
+        FirefoxApp     firefox_;
+        FirefoxESRApp  firefox_esr_;
+        EdgeApp        edge_;
+        FalkonApp      falkon_;
+        VivaldiApp     vivaldi_;
     };
 } // namespace tmoe::domain
 #endif

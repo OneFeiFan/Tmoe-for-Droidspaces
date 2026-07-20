@@ -114,6 +114,7 @@ struct DistroPkgNames {
  */
 class InstallableApp {
 public:
+    explicit InstallableApp(const TmoeConfig& cfg) : cfg_(cfg) {}
     virtual ~InstallableApp() = default;
 
     // ── 标识（子类必须覆盖） ──
@@ -154,21 +155,23 @@ public:
 
     // ── 核心操作（模板方法 — 一般不需要覆盖） ──
 
-    /** 执行完整安装管线。
+    /** 执行完整安装管线（子类可覆盖以自定义安装逻辑）。
+     *  默认实现：
      *  1. pre_install(family)  →  false 则中止
      *  2. PackageManager::install(packages().get(family), family)
      *  3. post_install(family)  →  成功则调用
      *  4. needs_sandbox_wrapper()  →  自动创建 no-sandbox wrapper
      */
-    bool install(DistroFamily family);
+    virtual bool install(DistroFamily family);
 
-    /** 执行完整卸载管线。
+    /** 执行完整卸载管线（子类可覆盖以自定义卸载逻辑）。
+     *  默认实现：
      *  1. confirm_remove()      →  用户拒绝则中止
      *  2. pre_remove(family)    →  false 则中止
      *  3. PackageManager::remove(packages().get(family), family)
      *  4. post_remove(family)
      */
-    bool remove(DistroFamily family);
+    virtual bool remove(DistroFamily family);
 
     // ── 用户交互 ──
 
@@ -179,6 +182,8 @@ public:
     virtual bool confirm_remove();
 
 protected:
+    const TmoeConfig& cfg_;
+
     // ── 受保护的辅助方法（供子类 hook 使用） ──
 
     /** 创建 --no-sandbox 包装脚本 + .desktop 文件。
