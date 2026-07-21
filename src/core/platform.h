@@ -133,6 +133,14 @@ inline const char* normalize_arch(std::string_view machine) {
     if (machine.size() >= 4 && machine[0] == 'a' && machine[1] == 'r' &&
         machine[2] == 'm' && machine[3] == 'v')
         return (machine.size() > 4 && machine[4] == '5') ? "armel" : "armhf";
+    // ── MIPS 系列 ──
+    if (machine == "mips64" || machine == "mips64el")
+        return "mips64el";
+    if (machine == "mips" || machine == "mipsel")
+        return "mipsel";
+    // ── RISC-V ──
+    if (machine == "riscv64" || machine == "riscv64gc")
+        return "riscv64";
     // ── 其他架构 ──
     if (machine == "ppc64le" || machine == "ppc64el")
         return "ppc64el";

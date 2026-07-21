@@ -18,8 +18,7 @@ namespace tmoe {
             trim_newline(machine);
 
             cfg.arch = platform::normalize_arch(machine);
-            if (cfg.arch == "unknown") cfg.arch = machine; // 其他架构保持 uname -m 原始值
-            else if (!machine.empty()) cfg.arch = machine;
+            if (cfg.arch == "unknown" && !machine.empty()) cfg.arch = machine; // 未知架构回退到 uname -m 原始值
         }
 
         // 检测 Termux (Android)

@@ -1,5 +1,8 @@
 #include "domain/runtime/container_manager.h"
 #include "core/i18n.h"
+#include "core/executor.h"
+#include "core/command_builder.hpp"
+#include "core/str_utils.h"
 
 namespace fs = std::filesystem;
 
@@ -58,11 +61,57 @@ namespace tmoe::domain {
 
     bool ContainerManager::remove(std::string_view name) const {
         fs::path target = cfg_.container_root / name;
-        if (fs::exists(target)) {
-            Logger::step(_f("container.destroying", std::string(name)));
-            std::error_code ec;
-            fs::remove_all(target, ec);
-            return !ec;
+        if (!fs::exists(target)) return false;
+
+        std::string name_str(name);
+        std::string rootfs = target.string();
+
+        // ── 安全检查（对应 Bash: remove_gnu_linux_container L40-L53）──
+        // 1. 检查 /proc 是否非空（容器可能正在运行）
+        fs::path proc_dir = target / "proc";
+        if (fs::exists(proc_dir) && fs::is_directory(proc_dir)) {
+            int entry_count = 0;
+            for (const auto& entry : fs::directory_iterator(proc_dir)) {
+                if (++entry_count > 2) break; // 超过 . 和 .. 即非空
+            }
+            if (entry_count > 2) {
+                Logger::error(_("container.proc_not_empty"));
+                Logger::info(_("container.stop_before_remove"));
+                return false;
+            }
+        }
+
+        // 2. 检查容器内是否有活跃挂载点（dev/shm, dev/pts, proc, sys）
+        auto mount_check = Executor::shell(
+            "grep -qs '" + rootfs + "/' /proc/mounts 2>/dev/null && echo 'mounted' || true");
+        if (mount_check.ok() && !mount_check.stdout_data.empty()
+            && mount_check.stdout_data.find("mounted") != std::string::npos) {
+            Logger::error(_("container.has_active_mounts"));
+            Logger::info(_("container.umount_before_remove"));
+            return false;
+        }
+
+        // 3. 显示磁盘占用（Bash: du -sh --exclude=media/*）
+        auto du_result = Executor::shell(
+            "du -sh --exclude='" + rootfs + "/media/*' " + rootfs + " 2>/dev/null | awk '{print $1}' || true");
+        if (du_result.ok() && !du_result.stdout_data.empty()) {
+            std::string size = du_result.stdout_data;
+            trim_newline(size);
+            Logger::info(_f("container.disk_usage", size));
+        }
+
+        // 4. 确认删除
+        if (!Logger::confirm(_f("container.confirm_remove", name_str))) {
+            Logger::info(_("container.remove_cancelled"));
+            return false;
+        }
+
+        Logger::step(_f("container.destroying", name_str));
+        std::error_code ec;
+        fs::remove_all(target, ec);
+        if (!ec) {
+            Logger::ok(_f("container.removed_ok", name_str));
+            return true;
         }
         return false;
     }
