@@ -131,6 +131,8 @@ const std::vector<std::pair<std::string, std::vector<ConfigManager::TzEntry>>>& 
         }},
         {"tz.region.etc", {
             {"UTC", "tz.utc"},
+            {"Etc/GMT", "tz.etc_gmt"},
+            {"Etc/GMT+0", "tz.etc_gmt_plus0"},
         }},
     };
     return registry;

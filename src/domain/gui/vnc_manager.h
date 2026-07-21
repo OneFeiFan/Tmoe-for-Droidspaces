@@ -69,6 +69,13 @@ namespace tmoe::domain {
     };
 
     // ---------- VncManager 类 ----------
+    /// stop_vnc 行为控制标志
+    struct StopVncOptions {
+        bool stop_dbus = true;     // 同时停止 DBus 守护进程
+        bool stop_x11vnc = true;   // 同时 kill x11vnc 进程
+        bool x11_mode = false;     // true = 仅停止 x11vnc，不停止主 VNC 服务
+    };
+
     class VncManager {
     public:
         explicit VncManager(const TmoeConfig &cfg);
@@ -96,7 +103,7 @@ namespace tmoe::domain {
         // 启动 / 停止
         bool start_vnc(int display = -1, int width = 0, int height = 0);
 
-        bool stop_vnc(int display = -1);
+        bool stop_vnc(int display = -1, StopVncOptions opts = {});
 
         bool start_x11vnc(int display = -1);
 

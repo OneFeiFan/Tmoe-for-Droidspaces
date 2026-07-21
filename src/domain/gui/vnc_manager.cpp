@@ -743,11 +743,15 @@ namespace tmoe::domain {
             if (vnc_config_.always_shared)
                 cmd.add_arg("-alwaysshared");
         } else {
+            // TigerVNC: --I-KNOW-THIS-IS-INSECURE 跳过 TLS 证书要求
+            cmd.add_arg("--I-KNOW-THIS-IS-INSECURE");
             cmd.add_arg("-localhost").add_arg("no");
             cmd.add_arg("-SecurityTypes")
-                    .add_arg("VncAuth");
+                    .add_arg("VncAuth,TLSVnc");
             if (has_passwd)
                 cmd.add_arg("-rfbauth").add_arg(vnc_config_.passwd_file.string());
+            if (!vnc_config_.xstartup_file.empty() && fs::exists(vnc_config_.xstartup_file))
+                cmd.add_arg("-xstartup").add_arg(vnc_config_.xstartup_file.string());
             if (vnc_config_.zlib_level >= 0)
                 cmd.add_arg("-ZlibLevel").add_arg(std::to_string(vnc_config_.zlib_level));
             if (vnc_config_.always_shared)
@@ -900,10 +904,15 @@ namespace tmoe::domain {
         return false;
     }
 
-    bool VncManager::stop_vnc(int display) {
+    bool VncManager::stop_vnc(int display, StopVncOptions opts) {
         Logger::step(_("gui.vnc.stop"));
 
         if (display <= 0) display = vnc_config_.display;
+
+        if (opts.x11_mode) {
+            // -x11 模式：仅停止 x11vnc
+            return stop_x11vnc();
+        }
 
         // 1. vncserver -kill
         Executor::passthrough(CommandBuilder("vncserver").add_flag("-kill").add_arg(":" + std::to_string(display)).add_raw("2>/dev/null").build_string());
@@ -911,7 +920,7 @@ namespace tmoe::domain {
         // 2. 基于 PID 文件
         remove_vnc_pid_file(display);
 
-        // 3. pkill 精确匹配
+        // 3. pkill 精确匹配当前 display
         Executor::passthrough("pkill -f 'Xvnc.*:" + std::to_string(display) + "' 2>/dev/null || true");
         Executor::passthrough("pkill -f 'Xtigervnc.*:" + std::to_string(display) + "' 2>/dev/null || true");
         Executor::passthrough("pkill -f 'Xtightvnc.*:" + std::to_string(display) + "' 2>/dev/null || true");
@@ -923,8 +932,22 @@ namespace tmoe::domain {
         // 5. 停止 websockify
         Executor::passthrough("pkill -f 'websockify.*:" + std::to_string(vnc_config_.rfb_port) + "' 2>/dev/null || true");
 
-        // 6. 彻底清理
-        kill_all_vnc();
+        // 6. 可选：停止 x11vnc
+        if (opts.stop_x11vnc) {
+            Executor::passthrough("pkill x11vnc 2>/dev/null || true");
+            Executor::passthrough("pkill Xvfb 2>/dev/null || true");
+        }
+
+        // 7. 彻底清理残留 VNC 进程 (不含 x11vnc)
+        Executor::passthrough("pkill Xtightvnc 2>/dev/null || true");
+        Executor::passthrough("pkill Xtigervnc 2>/dev/null || true");
+        Executor::passthrough("pkill Xvnc 2>/dev/null || true");
+        Executor::passthrough("rm -f /tmp/.X*-lock /tmp/.X11-unix/X* 2>/dev/null || true");
+
+        // 8. 可选：停止 DBus 守护进程
+        if (opts.stop_dbus) {
+            stop_dbus_daemon();
+        }
 
         Logger::ok(_f("gui.vnc.stopped", std::to_string(display)));
         return true;
@@ -1352,6 +1375,26 @@ namespace tmoe::domain {
     // ================================================================
 
     void VncManager::check_vnc_resolution() {
+        // 1. 优先读取 C++ 标准路径 ~/.vnc/config (S68)
+        if (fs::exists(vnc_config_.vnc_home_dir / "config")) {
+            std::ifstream conf(vnc_config_.vnc_home_dir / "config");
+            std::string line;
+            while (std::getline(conf, line)) {
+                if (starts_with(line, "geometry=")) {
+                    std::string geo = line.substr(9);
+                    auto xpos = geo.find('x');
+                    if (xpos != std::string::npos) {
+                        try {
+                            vnc_config_.resolution_w = std::stoi(geo.substr(0, xpos));
+                            vnc_config_.resolution_h = std::stoi(geo.substr(xpos + 1));
+                        } catch (...) {}
+                    }
+                    return; // found in C++ config
+                }
+            }
+        }
+
+        // 2. 回退：读取旧 Bash startvnc 脚本中的 VNC_RESOLUTION
         auto r = Executor::shell(
             "grep '^VNC_RESOLUTION=' /usr/local/bin/startvnc 2>/dev/null | awk -F '=' '{print $2}' | head -n 1");
         if (r.ok() && !r.stdout_data.empty()) {

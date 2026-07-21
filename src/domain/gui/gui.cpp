@@ -1463,7 +1463,7 @@ namespace tmoe::domain {
             beautification_manager_.run_beautification_menu();
             return true;
         } else if (flag == "-c") {
-            run_remote_desktop_menu();
+            run_vnc_config_menu();
             return true;
         } else if (flag == "-x") {
             run_xsdl_config_menu();
@@ -1482,6 +1482,15 @@ namespace tmoe::domain {
             return true;
         } else if (flag == "--stop-vnc") {
             vnc_manager_.stop_vnc();
+            return true;
+        } else if (flag == "--stop-vnc-no-dbus") {
+            vnc_manager_.stop_vnc(-1, {.stop_dbus = false});
+            return true;
+        } else if (flag == "--stop-vnc-no-x11vnc") {
+            vnc_manager_.stop_vnc(-1, {.stop_x11vnc = false});
+            return true;
+        } else if (flag == "--stop-x11vnc") {
+            vnc_manager_.stop_vnc(-1, {.x11_mode = true});
             return true;
         } else if (flag == "--start-xsdl") {
             start_xsdl();

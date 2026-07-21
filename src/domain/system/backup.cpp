@@ -395,6 +395,22 @@ bool BackupManager::clean_user_garbage(std::string_view rootfs_path) {
         << root << "/root/.cache/go-build "
         << root << "/home/*/.cache/go-build ";
 
+    // ── 音乐软件缓存 (S31) ──
+    cmd << root << "/root/.cache/netease-cloud-music "
+        << root << "/home/*/.cache/netease-cloud-music "
+        << root << "/root/.config/netease-cloud-music "
+        << root << "/home/*/.config/netease-cloud-music "
+        << root << "/root/.cache/listen1 "
+        << root << "/home/*/.cache/listen1 "
+        << root << "/root/.config/lx-music "
+        << root << "/home/*/.config/lx-music ";
+
+    // ── XFCE verbose-log 清理 (S34) ──
+    cmd << root << "/home/*/.xfce4-session.verbose-log* "
+        << root << "/root/.xfce4-session.verbose-log* "
+        << root << "/home/*/.cache/sessions/xfce4-session* "
+        << root << "/root/.cache/sessions/xfce4-session* ";
+
     // ── 系统杂项 ──
     cmd << root << "/var/cache/man/* "
         << root << "/var/cache/ldconfig/aux-cache ";

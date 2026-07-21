@@ -109,11 +109,50 @@ namespace tmoe::domain {
         Logger::step(_f("container.destroying", name_str));
         std::error_code ec;
         fs::remove_all(target, ec);
-        if (!ec) {
-            Logger::ok(_f("container.removed_ok", name_str));
-            return true;
+        if (ec) {
+            Logger::error(_f("container.remove_failed", name_str));
+            return false;
         }
-        return false;
+        Logger::ok(_f("container.removed_ok", name_str));
+
+        // ── 后续清理（对应 Bash: remove_gnu_linux_container L92-L129）──
+
+        // 5. 删除启动器脚本 (R75: $PREFIX/bin 下的容器入口脚本)
+        const char* prefix_env = std::getenv("PREFIX");
+        std::string bin_dir = prefix_env ? (std::string(prefix_env) + "/bin") : "/usr/local/bin";
+        auto cleanup_launcher = [&](const std::string& launcher) {
+            fs::path p = fs::path(bin_dir) / launcher;
+            if (fs::exists(p)) {
+                Executor::passthrough(
+                    CommandBuilder("rm").add_flag("-fv").add_arg(p.string()).build_string());
+            }
+        };
+        cleanup_launcher(name_str);              // 容器同名启动器
+        cleanup_launcher(name_str + "-rm");      // 容器-rm 启动器
+        cleanup_launcher("startvnc");            // startvnc 符号链接
+        cleanup_launcher("stopvnc");             // stopvnc 符号链接
+        cleanup_launcher("startxsdl");           // startxsdl 符号链接
+
+        // 6. 清理 /etc/profile 中的 alias (R76)
+        Executor::shell(
+            "sed -i '/alias " + name_str + "=/d' /etc/profile 2>/dev/null || true");
+        Executor::shell(
+            "sed -i '/alias " + name_str + "-rm=/d' /etc/profile 2>/dev/null || true");
+
+        // 7. 提示是否删除 rootfs 镜像文件 (R78-R79)
+        auto rootfs_files = Executor::shell(
+            "ls " + cfg_.temp_dir.string() + "/" + name_str + "*-rootfs.tar.* 2>/dev/null || true");
+        if (rootfs_files.ok() && !rootfs_files.stdout_data.empty()) {
+            if (Logger::confirm(_("container.confirm_remove_rootfs"))) {
+                Executor::passthrough(
+                    CommandBuilder("rm").add_flag("-fv")
+                        .add_arg(cfg_.temp_dir.string() + "/" + name_str + "*-rootfs.tar.*")
+                        .build_string());
+                Logger::ok(_("container.rootfs_removed"));
+            }
+        }
+
+        return true;
     }
 
     std::vector<std::string> ContainerManager::available_distros() const {
