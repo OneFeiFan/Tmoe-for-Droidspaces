@@ -28,7 +28,8 @@ detect_platform() {
 
     case "$(uname -m)" in
         x86_64|amd64)   ARCH="x86_64" ;;
-        aarch64|arm64)  ARCH="ARM64"  ;;
+        aarch64)        ARCH="aarch64" ;;
+        arm64)          ARCH="arm64"  ;;
         armv7l)         ARCH="armv7l" ;;
         *)              err "不支持的架构: $(uname -m)" ;;
     esac
@@ -38,7 +39,7 @@ detect_platform() {
 
 # ── 获取最新 release 下载 URL ──
 fetch_latest() {
-    local api="https://api.github.com/repos/${REPO}/releases/latest"
+    local api="https://api.github.com/repos/${REPO}/releases?per_page=1"
 
     if command -v curl &>/dev/null; then
         RELEASE_JSON=$(curl -fsSL "${api}" 2>/dev/null) || err "无法访问 GitHub API (curl)"
