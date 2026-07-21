@@ -2,13 +2,13 @@
 # tmoes 一键安装脚本
 #
 # 用法（兼容 curl / wget，自动回退）:
-#   (curl -fsSL https://raw.githubusercontent.com/2moe/tmoe/main/install.sh || wget -qO- https://raw.githubusercontent.com/2moe/tmoe/main/install.sh) | bash
+#   (curl -fsSL https://raw.githubusercontent.com/OneFeiFan/Tmoe-for-Droidspaces/main/install.sh || wget -qO- https://raw.githubusercontent.com/OneFeiFan/Tmoe-for-Droidspaces/main/install.sh) | bash
 #
 # 自定义安装路径:
 #   INSTALL_DIR=~/.local/bin (curl ... || wget ...) | bash
 set -euo pipefail
 
-REPO="2moe/tmoe"
+REPO="OneFeiFan/Tmoe-for-Droidspaces"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 BINARY_NAME="tmoes"
 
