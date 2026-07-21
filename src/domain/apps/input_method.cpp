@@ -18,6 +18,13 @@ namespace tmoe::domain {
     }
 
     void InputMethodManager::write_input_env_vars() {
+        // 避免重复追加：先检查是否已有 fcitx 环境变量
+        auto check = Executor::shell(
+            "grep -q 'GTK_IM_MODULE=fcitx' /etc/environment 2>/dev/null && echo found || true");
+        if (check.ok() && check.stdout_data.find("found") != std::string::npos) {
+            Logger::info(_("input.env_already_set"));
+            return;
+        }
         Logger::step(_("input.env_writing"));
         std::string env_block =
                 "GTK_IM_MODULE=fcitx\n"

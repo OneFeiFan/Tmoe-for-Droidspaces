@@ -45,17 +45,11 @@ namespace tmoe::domain {
         bool install_docker_portainer();
 
         // ── 镜像管理 ──
-        /** 拉取 Docker 镜像。 */
-        bool pull_image(std::string_view image, std::string_view tag = "latest");
-
         /** 列出本地 Docker 镜像。 */
         std::vector<DockerImageInfo> list_images() const;
 
         /** 选择并拉取 Linux 发行版镜像 (完整 TUI，含 17 种发行版)。 */
         void choose_gnu_linux_docker_images();
-
-        /** TUI 拉取发行版镜像（旧版简易列表）。 */
-        bool tui_pull_distro_image();
 
         // ── 容器管理 ──
         /** 运行 Docker 容器（特权模式 + 持久化挂载）。 */

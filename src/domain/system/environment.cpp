@@ -284,6 +284,9 @@ namespace tmoe::domain {
         if (cfg_.is_termux) {
             Logger::step(_f("env.launching_intent", uri));
             Executor::shell("am start -a android.intent.action.VIEW -d \"" + uri + "\" >/dev/null 2>&1");
+        } else if (cfg_.is_wsl) {
+            Logger::step(_f("env.launching_program", uri));
+            Executor::shell("/mnt/c/WINDOWS/system32/cmd.exe /c start \"\" \"" + uri + "\" 2>/dev/null &");
         } else {
             Logger::step(_f("env.launching_program", uri));
             // 从 root 降权回真实用户以启动 UI 程序

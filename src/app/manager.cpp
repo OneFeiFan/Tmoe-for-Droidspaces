@@ -95,9 +95,18 @@ namespace tmoe::app {
     void Manager::action_chroot_container() {
         if (!cfg_.is_root) {
             Logger::error(_("error.no_root"));
+            Logger::press_enter();
             return;
         }
         Logger::step(_("container.launching_chroot"));
+        auto container = container_mgr_->create("debian_default", "debian", "sid", domain::ContainerMode::Chroot);
+        if (!container_mgr_->find("debian_default").has_value()) {
+            if (Logger::confirm(_("container.confirm_install_default"))) {
+                container.install();
+            }
+        } else {
+            container.start();
+        }
         Logger::press_enter();
     }
 
@@ -106,15 +115,23 @@ namespace tmoe::app {
         auto containers = container_mgr_->list_all();
         if (containers.empty()) {
             Logger::warn(_("container.none_installed"));
+            Logger::press_enter();
             return;
         }
-        Logger::info(_("container.list_header"));
-        for (const auto &c: containers) {
-            Logger::info(_f("container.list_item", c.name(), c.distro()));
+        // 让用户选择要删除的容器
+        std::string cmd = cfg_.tui_bin + " --title \"" + std::string(_("container.remove_title")) +
+            "\" --menu \"" + std::string(_("container.remove_select_prompt")) + "\" 0 0 0";
+        for (size_t i = 0; i < containers.size(); ++i) {
+            cmd += " \"" + containers[i].name() + "\" \"" + containers[i].distro() + "\"";
         }
-        if (Logger::confirm(_("container.confirm_remove_default"))) {
-            container_mgr_->remove("default");
-            Logger::ok(_("container.removed_ok"));
+        std::string chosen = Executor::tui_select(cmd);
+        if (chosen.empty()) {
+            Logger::info(_("container.remove_cancelled"));
+            Logger::press_enter();
+            return;
+        }
+        if (Logger::confirm(_f("container.confirm_remove", chosen))) {
+            container_mgr_->remove(chosen);
         }
         Logger::press_enter();
     }
@@ -131,8 +148,7 @@ namespace tmoe::app {
 
     void Manager::action_bug_report() {
         Logger::info(_("report.bug_info"));
-        // P2: 3 平台自动打开 GitHub Issues (Android→am start / Desktop→xdg-open / WSL→cmd.exe)
-        environment_->open_uri("https://github.com/2-moe/tmoe-linux");
+        environment_->open_uri("https://github.com/2moe/tmoe-linux/issues");
         Logger::press_enter();
     }
 
@@ -262,6 +278,13 @@ namespace tmoe::app {
                 _("menu.tui.faq"), "7",
                 [this](MenuContext &ctx) -> bool {
                     MenuEngine(ctx).run(build_faq_menu());
+                    return true;
+                }));
+            // 8: 语言切换
+            menu->add_child(std::make_shared<LambdaAction>(
+                _("menu.tui.locale"), "8",
+                [this](MenuContext &ctx) -> bool {
+                    MenuEngine(ctx).run(build_locale_menu());
                     return true;
                 }));
             add_navigation_items(menu);
@@ -655,11 +678,14 @@ namespace tmoe::app {
                 break;
             }
             case LaunchMode::ZshManager:
-                termux_->beautify_terminal();
+                termux_->start_tmoe_zsh();
                 break;
-            case LaunchMode::ThemeManager:
-                termux_->beautify_terminal();
+            case LaunchMode::ThemeManager: {
+                tmoe::ui::MenuContext ctx{cfg_};
+                tmoe::ui::MenuEngine(ctx).run(
+                    ui::menus::make_menu<ui::menus::BeautifyMenuPlugin>(gui_.get()));
                 break;
+            }
             case LaunchMode::MirrorManager: {
                 tmoe::ui::MenuContext ctx{cfg_};
                 tmoe::ui::MenuEngine(ctx).run(build_mirror_menu());
@@ -691,6 +717,10 @@ namespace tmoe::app {
             }
 
             case LaunchMode::GuiManager:
+                if (ctx.needs_root && !cfg_.is_root) {
+                    Logger::error(_("error.no_root"));
+                    return 1;
+                }
                 gui_->handle_gui_cli_flag(ctx.gui_flag);
                 return 0;
 
@@ -723,9 +753,12 @@ namespace tmoe::app {
             }
         }
 
-        // GUI 启动前钩子
-        bool is_gui_mode = (ctx.exec_program == "startvnc" || ctx.exec_program == "novnc" ||
-                            ctx.exec_program_01 == "startvnc");
+        // GUI 启动前钩子 — 检查所有 exec_program 槽位
+        auto is_vnc = [](std::string_view s) {
+            return s == "startvnc" || s == "novnc" || s == "startx11vnc" || s == "startxsdl";
+        };
+        bool is_gui_mode = is_vnc(ctx.exec_program) || is_vnc(ctx.exec_program_01) ||
+                           is_vnc(ctx.exec_program_02) || is_vnc(ctx.exec_program_03);
         if (is_gui_mode) {
             gui_->start_pulseaudio_bridge();
         }

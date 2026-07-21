@@ -43,27 +43,6 @@ namespace tmoe::domain {
         {"photon", "docker.distros_photon", "latest", "2.0", ""},
     };
 
-    // 旧版简易发行版列表（tui_pull_distro_image 使用）
-    static const std::vector<std::pair<std::string, std::string> > DISTRO_IMAGES = {
-        {"alpine", "Alpine Linux"},
-        {"debian", "Debian Sid"},
-        {"ubuntu", "Ubuntu"},
-        {"kali-rolling", "Kali Linux"},
-        {"archlinux", "Arch Linux"},
-        {"fedora", "Fedora"},
-        {"centos", "CentOS"},
-        {"opensuse/tumbleweed", "openSUSE Tumbleweed"},
-        {"gentoo/stage3", "Gentoo"},
-        {"clearlinux", "Clear Linux"},
-        {"voidlinux/void-linux-x86_64-musl", "Void Linux"},
-        {"oraclelinux", "Oracle Linux"},
-        {"amazonlinux", "Amazon Linux"},
-        {"crux", "CRUX"},
-        {"openwrt/rootfs", "OpenWrt"},
-        {"alt", "ALT Linux"},
-        {"photon", "VMware Photon OS"},
-    };
-
     DockerManager::DockerManager(const TmoeConfig &cfg) : cfg_(cfg) {
     }
 

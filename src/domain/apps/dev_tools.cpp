@@ -438,11 +438,32 @@ namespace tmoe::domain {
     }
 
     void DeveloperTools::vscode_server_password() {
+        // 读取当前密码文件路径 — code-server 默认存储在 ~/.config/code-server/config.yaml
+        std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
+        std::string config_yaml = home + "/.config/code-server/config.yaml";
+
+        if (!fs::exists(config_yaml)) {
+            Logger::warn(_("devtools.warn.no_codeserver_config"));
+            return;
+        }
+
         std::string cmd = cfg_.tui_bin +
-                          " --inputbox \"请设定访问密码\\nPlease enter the password.\" 12 50 --title \"PASSWORD\"";
-        auto result = Executor::passthrough(cmd + " 2>/tmp/vscode_passwd_out");
-        // whiptail inputbox is tricky with passthrough; use a simpler approach
-        Logger::info(_("devtools.hint.manual_set_password"));
+            " --inputbox \"" + std::string(_("devtools.prompt.set_password")) + "\" 12 50"
+            " --title \"code-server PASSWORD\"";
+        std::string passwd = Executor::tui_select(cmd);
+        if (passwd.empty()) {
+            Logger::info(_("devtools.status.cancelled"));
+            return;
+        }
+
+        // 更新 config.yaml 中的 hashed-password
+        Executor::shell(
+            "sed -i \"s@^hashed-password:.*@hashed-password: \"'$(echo -n '" + passwd +
+            "' | sha256sum | cut -d' ' -f1)'\"@\" " + config_yaml +
+            " 2>/dev/null || "
+            "sed -i \"s@^password:.*@password: " + passwd + "@\" " + config_yaml +
+            " 2>/dev/null || true");
+        Logger::ok(_("devtools.status.password_updated"));
     }
 
     void DeveloperTools::vscode_server_remove() {

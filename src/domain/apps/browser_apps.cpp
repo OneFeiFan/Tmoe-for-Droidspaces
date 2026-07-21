@@ -129,13 +129,14 @@ namespace tmoe::domain {
     bool ChromiumApp::remove(DistroFamily family) {
         if (!confirm_remove()) return false;
 
-        if (family == DistroFamily::Debian)
+        if (family == DistroFamily::Debian) {
             Executor::passthrough(
                 CommandBuilder("sudo").add_arg("apt-mark").add_flag("unhold")
                 .add_arg("chromium-browser").add_arg("chromium-browser-l10n")
                 .add_arg("chromium-codecs-ffmpeg-extra")
                 .add_raw("2>/dev/null || true").build_string());
-        Executor::passthrough("sudo add-apt-repository -ry ppa:xtradeb/apps 2>/dev/null || true");
+            Executor::passthrough("sudo add-apt-repository -ry ppa:xtradeb/apps 2>/dev/null || true");
+        }
         for (const auto &pkg: {"chromium", "chromium-l10n", "chromium-browser", "chromium-browser-l10n"})
             PackageManager::remove(pkg, family);
         Executor::passthrough(
@@ -200,6 +201,8 @@ namespace tmoe::domain {
                     .add_arg("/etc/apt/preferences.d/mozilla-firefox")
                     .add_raw("2>/dev/null || true").build_string());
             }
+        } else if (family == DistroFamily::Arch) {
+            PackageManager::remove({"firefox", "firefox-i18n-zh-cn", "firefox-i18n-zh-tw"}, family);
         } else {
             PackageManager::remove("firefox", family);
         }
@@ -269,6 +272,8 @@ namespace tmoe::domain {
                     .add_arg("/etc/apt/preferences.d/mozilla-firefox")
                     .add_raw("2>/dev/null || true").build_string());
             }
+        } else if (family == DistroFamily::Arch) {
+            PackageManager::remove({"firefox-esr", "firefox-i18n-zh-cn"}, family);
         } else {
             PackageManager::remove("firefox-esr", family);
         }

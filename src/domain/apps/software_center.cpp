@@ -648,9 +648,10 @@ namespace tmoe::domain {
             return;
         }
 
-        // 非 deb 系用 AppImage
-        if (family != DistroFamily::Debian && family != DistroFamily::Arch) {
-            // 替换 .deb 为 .AppImage
+        // 确定文件格式与下载文件名
+        bool is_appimage = (family != DistroFamily::Debian && family != DistroFamily::Arch);
+        std::string dl_file = is_appimage ? "mitalk.AppImage" : "mitalk.deb";
+        if (is_appimage) {
             size_t pos = dl_url.rfind(".deb");
             if (pos != std::string::npos)
                 dl_url.replace(pos, 4, ".AppImage");
@@ -660,14 +661,18 @@ namespace tmoe::domain {
         if (!Logger::confirm(_("swcenter.mitalk.confirm_install")))
             return;
 
-        std::string dl_file = "mitalk.deb";
         Executor::passthrough(
             "cd /tmp && "
             "aria2c --console-log-level=warn --no-conf --continue=true "
             "--allow-overwrite=true -s 5 -x 5 -k 1M -o " + dl_file + " '" + dl_url + "'"
         );
 
-        if (family == DistroFamily::Debian || family == DistroFamily::Arch) {
+        if (is_appimage) {
+            Executor::passthrough(
+                "cd /tmp && chmod +x " + dl_file +
+                " && mkdir -p ~/Applications && mv " + dl_file + " ~/Applications/ && "
+                "rm -vf /tmp/" + dl_file);
+        } else {
             Executor::passthrough(
                 "cd /tmp && sudo dpkg -i ./" + dl_file + " || sudo apt install -y ./" + dl_file +
                 " 2>/dev/null || true; "
@@ -823,7 +828,9 @@ namespace tmoe::domain {
                  "/usr/local/bin/gnome-shell-x11", "/usr/local/bin/budgie-desktop-builtin"
              })
             Executor::passthrough(std::string("sudo rm -f ") + script + " 2>/dev/null || true");
-        Executor::passthrough("sudo rm -rf /etc/X11/xinit 2>/dev/null || true");
+        if (ui::dialog::yesno(cfg_, "", _("swcenter.cleanup.confirm_rm_x11_xinit"), "", "", 8, 60) == 0) {
+            Executor::passthrough("sudo rm -rf /etc/X11/xinit 2>/dev/null || true");
+        }
     }
 
     void SoftwareCenter::remove_browser() {
@@ -844,15 +851,19 @@ namespace tmoe::domain {
                 PackageManager::remove(std::string(pkg), family);
         } else if (choice == 1) {
             if (ui::dialog::yesno(cfg_, "", _("swcenter.cleanup.browser_chromium_confirm")) != 0) return;
-            Executor::passthrough(
-                "apt-mark unhold chromium-browser chromium-browser-l10n chromium-codecs-ffmpeg-extra 2>/dev/null || true");
+            if (family == DistroFamily::Debian) {
+                Executor::passthrough(
+                    "apt-mark unhold chromium-browser chromium-browser-l10n chromium-codecs-ffmpeg-extra 2>/dev/null || true");
+            }
             for (const auto *pkg: {
                      "chromium", "chromium-l10n",
                      "chromium-browser", "chromium-browser-l10n"
                  })
                 PackageManager::remove(std::string(pkg), family);
         }
-        Executor::passthrough("sudo apt autoremove --purge -y 2>/dev/null || true");
+        if (family == DistroFamily::Debian) {
+            Executor::passthrough("sudo apt autoremove --purge -y 2>/dev/null || true");
+        }
     }
 
     void SoftwareCenter::remove_tmoe_tools() {
@@ -875,7 +886,7 @@ namespace tmoe::domain {
                 .add_arg("/usr/local/bin/debian")
                 .add_arg("/usr/local/bin/debian-i")
                 .add_arg("/usr/local/share/tmoe-linux")
-                .add_arg("~/.config/tmoe-linux")
+                .add_arg("${HOME}/.config/tmoe-linux")
                 .add_raw("2>/dev/null || true")
                 .execute();
 

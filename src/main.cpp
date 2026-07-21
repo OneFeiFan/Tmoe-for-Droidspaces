@@ -3,6 +3,7 @@
 #include "core/logger.h"
 #include "core/cli_parser.h"
 #include "core/system_helper.h"
+#include "domain/system/mirrors.h"
 #include "app/manager.h"
 
 #include <cstdlib>
@@ -58,13 +59,13 @@ int main(int argc, char *argv[]) {
     std::vector<std::string_view> pos_args;
     std::string lang = "en_US"; // 默认英文
     bool lang_from_cli = false;
+    bool show_help = false;
 
     // 阶段1: 剥离全局标志；剩余 token → 位置参数
     for (int i = 1; i < argc; ++i) {
         std::string_view arg = argv[i];
         if (arg == "--help" || arg == "-h") {
-            print_usage();
-            return 0;
+            show_help = true;
         } else if (arg == "--lang" && i + 1 < argc) {
             lang = argv[++i];
             lang_from_cli = true;
@@ -79,6 +80,12 @@ int main(int argc, char *argv[]) {
 
     // 阶段2: 加载 i18n 翻译 (先用默认/CLI 值)
     tmoe::I18n::init(lang);
+
+    // --help 必须在 I18n 初始化之后，否则 _() 宏返回裸 key
+    if (show_help) {
+        print_usage();
+        return 0;
+    }
 
     // 阶段3: 自动检测环境
     auto cfg = tmoe::TmoeConfig::detect();
@@ -161,6 +168,27 @@ int main(int argc, char *argv[]) {
             tmoe::I18n::init(lang);
             save_locale_pref(lang);
             cfg.locale = (lang == "zh_CN") ? "zh_CN.UTF-8" : "en_US.UTF-8";
+        }
+    }
+
+    // 阶段5.7: 首次运行 — 镜像源自动测速选择 (仅交互模式)
+    // SWITCH_MIRROR=true 的发行版: Debian/Ubuntu/Kali/Alpine (非 Deepin)
+    if (first_run && pos_args.empty()) {
+        std::string distro = cfg.linux_distro;
+        bool should_switch = (distro == "debian" || distro == "alpine") &&
+                             cfg.sub_distro != "deepin";
+        if (should_switch) {
+            std::string yes_label = _("mirror.auto_yes");
+            std::string no_label = _("mirror.auto_skip");
+            std::string cmd = cfg.tui_bin +
+                " --title \"tmoe-linux\""
+                " --yes-button \"" + yes_label + "\""
+                " --no-button \"" + no_label + "\""
+                " --yesno \"" + std::string(_("mirror.first_run_prompt")) + "\" 0 0";
+            if (tmoe::Executor::passthrough(cmd).exit_code == 0) {
+                tmoe::domain::MirrorManager mirror_mgr(cfg);
+                mirror_mgr.auto_select();
+            }
         }
     }
 

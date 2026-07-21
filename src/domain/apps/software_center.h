@@ -52,8 +52,6 @@ namespace tmoe::domain {
         void debian_opt_install_or_remove(const std::string& name);
 
     private:
-        void check_download_path();
-        void install_electron_app(const std::string &app_name);
         void remove_electron_app(const std::string &app_name);
         void download_tmoe_electron_app(const std::string &app_name);
 

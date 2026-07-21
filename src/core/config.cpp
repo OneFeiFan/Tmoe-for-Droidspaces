@@ -87,6 +87,38 @@ namespace tmoe {
             cfg.update_command = "apk update";
             cfg.install_command = "apk add";
             cfg.remove_command = "sudo apk del";
+        } else if (contains(content, "Fedora") || contains(content, "CentOS") ||
+                   contains(content, "Red Hat") || contains(content, "rhel") ||
+                   contains(content, "AlmaLinux") || contains(content, "Rocky")) {
+            cfg.linux_distro = "fedora";
+            cfg.distro_family = DistroFamily::RedHat;
+            cfg.update_command = "dnf check-update";
+            cfg.install_command = "dnf install -y";
+            cfg.remove_command = "dnf remove -y";
+        } else if (contains(content, "openSUSE") || contains(content, "SUSE")) {
+            cfg.linux_distro = "opensuse";
+            cfg.distro_family = DistroFamily::Suse;
+            cfg.update_command = "zypper refresh";
+            cfg.install_command = "zypper install -y";
+            cfg.remove_command = "zypper remove -y";
+        } else if (contains(content, "Gentoo")) {
+            cfg.linux_distro = "gentoo";
+            cfg.distro_family = DistroFamily::Gentoo;
+            cfg.update_command = "emerge --sync";
+            cfg.install_command = "emerge -av";
+            cfg.remove_command = "emerge -Cav";
+        } else if (contains(content, "Void")) {
+            cfg.linux_distro = "void";
+            cfg.distro_family = DistroFamily::Void_;
+            cfg.update_command = "xbps-install -S";
+            cfg.install_command = "xbps-install -y";
+            cfg.remove_command = "xbps-remove -y";
+        } else if (contains(content, "Solus")) {
+            cfg.linux_distro = "solus";
+            cfg.distro_family = DistroFamily::Solus;
+            cfg.update_command = "eopkg update-repo";
+            cfg.install_command = "eopkg install -y";
+            cfg.remove_command = "eopkg remove -y";
         }
 
         // 默认容器根目录路径
@@ -97,6 +129,13 @@ namespace tmoe {
         if (home) {
             cfg.work_dir = std::string(home) + "/.local/share/tmoe";
             cfg.backup_dir = std::string(home) + "/tmoe-backups";
+        }
+
+        // iSH (iOS Alpine) 检测
+        auto uname_v = Executor::shell("uname -v 2>/dev/null");
+        if (uname_v.ok() && uname_v.stdout_data.size() >= 3 &&
+            uname_v.stdout_data.substr(0, 3) == "iSH") {
+            Logger::warn("iSH (iOS) detected — full functionality not supported on iOS");
         }
 
         // 应用环境变量覆盖 (TMOE_WORK_DIR 等比 detect 中的默认值优先级更高)
