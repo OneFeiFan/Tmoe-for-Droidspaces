@@ -54,10 +54,15 @@ jobs:
           brew install libarchive curl
 
       - name: Configure CMake
-        run: >
-          cmake -B build
-          -DCMAKE_BUILD_TYPE=Release
-          ${{ matrix.cmake_extra }}
+        run: |
+          PREFIX=""
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            PREFIX="$(brew --prefix)"
+          fi
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            ${PREFIX:+-DCMAKE_PREFIX_PATH="${PREFIX}"} \
+            ${{ matrix.cmake_extra }}
 
       - name: Build
         run: cmake --build build --config Release -j$(nproc 2>/dev/null || sysctl -n hw.logicalcpu 2>/dev/null || echo 4)
