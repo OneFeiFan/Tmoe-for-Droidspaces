@@ -32,12 +32,12 @@ jobs:
       matrix:
         include:
           - name: Ubuntu (x86_64)
-            os: ubuntu-24.04
+            os: ubuntu-22.04
             arch: x86_64
             cmake_extra: -DTMOE_USE_LIBARCHIVE=ON -DTMOE_USE_LIBCURL=ON
 
           - name: Ubuntu (ARM64)
-            os: ubuntu-24.04-arm
+            os: ubuntu-22.04-arm
             arch: aarch64
             cmake_extra: -DTMOE_USE_LIBARCHIVE=ON -DTMOE_USE_LIBCURL=ON
 
@@ -111,11 +111,54 @@ jobs:
           retention-days: 7
 
   # ═══════════════════════════════════════════════════════════════
+  # 静态构建 — Alpine musl，零系统依赖，通用 Linux 二进制
+  # ═══════════════════════════════════════════════════════════════
+  static:
+    needs: i18n
+    name: Static (x86_64, musl)
+    runs-on: ubuntu-22.04
+    container:
+      image: alpine:latest
+      options: --user root
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          apk add --no-cache \
+            cmake g++ make git \
+            linux-headers
+
+      - name: Configure CMake
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=MinSizeRel \
+            -DTMOE_STATIC_LINK=ON
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Strip binary
+        run: strip build/tmoes
+
+      - name: Rename artifact
+        run: |
+          mkdir -p release
+          BUILD_NAME=tmoes-${{ github.ref_name }}-Linux-x86_64-static
+          cp build/tmoes "release/${BUILD_NAME}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tmoes-Linux-x86_64-static
+          path: release/
+          retention-days: 7
+
+  # ═══════════════════════════════════════════════════════════════
   # 发布 — 仅在 tag push 时触发
   # ═══════════════════════════════════════════════════════════════
   release:
     name: Create Release
-    needs: build
+    needs: [build, static]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     permissions:
@@ -149,7 +192,8 @@ jobs:
 
             | 平台 | 架构 |
             |------|------|
-            | Ubuntu 24.04 | x86_64, ARM64 |
+            | Ubuntu 22.04 | x86_64, ARM64 |
+            | Alpine (musl static) | x86_64 |
             | macOS | x86_64, ARM64 |
 
             ### 校验

@@ -162,6 +162,14 @@ if(CMAKE_BUILD_TYPE MATCHES "Release" OR CMAKE_BUILD_TYPE MATCHES "MinSizeRel")
 endif()
 
 # ═══════════════════════════════════════════════════════
+# 静态链接
+# ═══════════════════════════════════════════════════════
+option(TMOE_STATIC_LINK "Fully static link (no shared library deps)" OFF)
+if(TMOE_STATIC_LINK)
+    target_link_options(tmoes PRIVATE -static)
+endif()
+
+# ═══════════════════════════════════════════════════════
 # 单元测试
 # ═══════════════════════════════════════════════════════
 if (TMOE_BUILD_TESTS)

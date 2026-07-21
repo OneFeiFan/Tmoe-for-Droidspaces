@@ -52,9 +52,17 @@ fetch_latest() {
     TAG_NAME=$(echo "$RELEASE_JSON" | grep -oP '"tag_name":\s*"\K[^"]+')
     [[ -z "$TAG_NAME" ]] && err "未找到任何 release，请先创建 tag 并发布"
 
+    # Linux x86_64: 优先静态链接版本（musl，通用）
+    if [[ "${OS}" == "Linux" && "${ARCH}" == "x86_64" ]]; then
+        ASSET_PATTERN="tmoes-${TAG_NAME}-Linux-x86_64-static"
+        DOWNLOAD_URL=$(echo "$RELEASE_JSON" | grep -oP '"browser_download_url":\s*"\K[^"]*'"${ASSET_PATTERN}"'[^"]*')
+    fi
+
     # 匹配产物名: tmoes-v1.0.0-Linux-x86_64
-    ASSET_PATTERN="tmoes-${TAG_NAME}-${OS}-${ARCH}"
-    DOWNLOAD_URL=$(echo "$RELEASE_JSON" | grep -oP '"browser_download_url":\s*"\K[^"]*'"${ASSET_PATTERN}"'[^"]*')
+    if [[ -z "$DOWNLOAD_URL" ]]; then
+        ASSET_PATTERN="tmoes-${TAG_NAME}-${OS}-${ARCH}"
+        DOWNLOAD_URL=$(echo "$RELEASE_JSON" | grep -oP '"browser_download_url":\s*"\K[^"]*'"${ASSET_PATTERN}"'[^"]*')
+    fi
 
     if [[ -z "$DOWNLOAD_URL" ]]; then
         # 尝试小写 os 变体
