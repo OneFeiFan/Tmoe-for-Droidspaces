@@ -897,6 +897,29 @@ namespace tmoe::domain {
             }
 
             write_vnc_pid_file(vnc_config_.display);
+
+            // ── 平台集成：启动本地 VNC 客户端 ──
+            // G48: Android — am start RealVNC viewer
+            if (cfg_.is_termux) {
+                Executor::shell(
+                    "am start -n com.realvnc.viewer.android/"
+                    "com.realvnc.viewer.android.app.ConnectionChooserActivity "
+                    "2>/dev/null || true");
+            }
+            // G52/G167: WSL — 启动 Windows 侧 TigerVNC viewer
+            if (cfg_.is_wsl) {
+                std::string viewer = "/mnt/c/Users/Public/Downloads/tigervnc/vncviewer64.exe";
+                if (fs::exists(viewer)) {
+                    std::string passwd_opt = (fs::exists(vnc_config_.passwd_file) &&
+                                              fs::file_size(vnc_config_.passwd_file) > 0)
+                        ? " -PasswordFile " + vnc_config_.passwd_file.string()
+                        : "";
+                    Executor::shell("cd \"${HOME}\" && nohup " + viewer + passwd_opt +
+                                    " localhost:" + std::to_string(vnc_config_.rfb_port) +
+                                    " &>/dev/null &");
+                }
+            }
+
             return true;
         }
 
@@ -987,6 +1010,21 @@ namespace tmoe::domain {
             if (!fs::exists(xsession)) xsession = "/etc/X11/xinit/Xsession";
             Executor::passthrough("bash " + xsession + " &>/dev/null &");
             Logger::ok(_f("gui.x11vnc.started", std::to_string(vnc_config_.rfb_port)));
+
+            // G114: WSL — 启动 Windows 侧 TigerVNC viewer
+            if (cfg_.is_wsl) {
+                std::string viewer = "/mnt/c/Users/Public/Downloads/tigervnc/vncviewer64.exe";
+                if (fs::exists(viewer)) {
+                    std::string passwd_opt = (fs::exists(vnc_config_.passwd_file) &&
+                                              fs::file_size(vnc_config_.passwd_file) > 0)
+                        ? " -PasswordFile " + vnc_config_.passwd_file.string()
+                        : "";
+                    Executor::shell("cd \"${HOME}\" && nohup " + viewer + passwd_opt +
+                                    " localhost:" + std::to_string(vnc_config_.rfb_port) +
+                                    " &>/dev/null &");
+                }
+            }
+
             return true;
         }
 

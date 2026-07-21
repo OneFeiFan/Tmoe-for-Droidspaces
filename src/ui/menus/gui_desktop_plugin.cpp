@@ -48,6 +48,7 @@ std::shared_ptr<IUIMenu> DesktopMenuPlugin::build_rootless_menu() {
                 "de_install_" + d.id,
                 [mgr = mgr_, id = d.id] {
                     mgr->desktop_manager().install_desktop(id);
+                    mgr->first_configure_vnc(id);
                     mgr->desktop_manager().after_desktop_install_hint();
                 });
         }
@@ -68,6 +69,7 @@ std::shared_ptr<IUIMenu> DesktopMenuPlugin::build_rootful_menu() {
                 "de_install_" + d.id,
                 [mgr = mgr_, id = d.id] {
                     mgr->desktop_manager().install_desktop(id);
+                    mgr->first_configure_vnc(id);
                     mgr->desktop_manager().after_desktop_install_hint();
                 });
         }
@@ -90,6 +92,7 @@ std::shared_ptr<IUIMenu> DesktopMenuPlugin::build_wm_menu() {
                 "wm_install_" + d.id,
                 [mgr = mgr_, id = d.id] {
                     mgr->desktop_manager().install_window_manager(id);
+                    mgr->first_configure_vnc(id);
                     mgr->desktop_manager().after_desktop_install_hint();
                 });
         }

@@ -76,8 +76,6 @@ namespace tmoe::domain {
 
         void run_vnc_config_menu();
 
-        void run_desktop_install_menu();
-
         void run_remote_desktop_menu();
         void run_xsdl_config_menu();
 
@@ -109,18 +107,18 @@ namespace tmoe::domain {
         BeautificationManager beautification_manager_;
         const RemoteDesktopManager &remote_desktop_manager() const { return remote_desktop_manager_; }
 
+        // ═══════════════════════════════════════════════
+        // VNC 首次配置 (桌面安装后自动调用)
+        // ═══════════════════════════════════════════════
+
+        void first_configure_vnc(std::string_view desktop);
+
     private:
         const TmoeConfig &cfg_;
         VncManager vnc_manager_;
         DesktopManager desktop_manager_;
         RemoteDesktopManager remote_desktop_manager_;
         bool auto_install_mode_ = false;
-
-        // ═══════════════════════════════════════════════
-        // VNC 首次配置
-        // ═══════════════════════════════════════════════
-
-        void first_configure_vnc(std::string_view desktop);
 
         // ═══════════════════════════════════════════════
         // 配置内容生成
@@ -138,14 +136,6 @@ namespace tmoe::domain {
         // ═══════════════════════════════════════════════
         // TUI 子菜单
         // ═══════════════════════════════════════════════
-
-        void run_rootless_de_menu();
-
-        void run_rootful_de_menu();
-
-        void run_wm_menu();
-
-        void run_dm_menu();
 
         // ═══════════════════════════════════════════════
         // 主题管理子步骤

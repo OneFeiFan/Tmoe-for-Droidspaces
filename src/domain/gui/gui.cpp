@@ -2,6 +2,8 @@
 #include "core/str_utils.h"
 #include "ui/plugin_helpers.h"
 #include "ui/menu_engine.h"
+#include "ui/menus/gui_desktop_plugin.h"
+#include "ui/menus/plugin_factories.h"
 
 namespace fs = std::filesystem;
 
@@ -357,6 +359,30 @@ namespace tmoe::domain {
 
         if (cfg_.is_wsl) {
             vnc_manager_.detect_wsl_environment();
+        }
+
+        // G119/G168: WSL — 启动 Windows VcXsrv X 服务器
+        if (cfg_.is_wsl) {
+            std::string vcxsrv_dir = "/mnt/c/Users/Public/Downloads/VcXsrv";
+            if (fs::exists(vcxsrv_dir + "/vcxsrv.exe")) {
+                Logger::info(_("gui.xsdl.wsl_launch_vcxsrv"));
+                // 先杀掉旧 VcXsrv 进程，再启动新的
+                Executor::shell("/mnt/c/WINDOWS/system32/taskkill.exe /f /im vcxsrv.exe "
+                                "2>/dev/null; true");
+                Executor::shell("cd \"" + vcxsrv_dir + "\" && "
+                                "/mnt/c/WINDOWS/system32/cmd.exe /c "
+                                "\"start .\\vcxsrv.exe :0 -multiwindow -clipboard -wgl -ac\" "
+                                "&>/dev/null &");
+            }
+        }
+
+        // G118: Android — am start XServer XSDL
+        if (cfg_.is_termux) {
+            Logger::info(_("gui.xsdl.android_launch"));
+            Executor::shell("am start -n x.org.server/x.org.server.MainActivity "
+                            "2>/dev/null || true");
+            Logger::info(_("gui.xsdl.android_wait"));
+            Executor::shell("sleep 6");
         }
 
         std::string display = cfg_.is_wsl ? (vnc_manager_.config().windows_ip + ":0") : "127.0.0.1:0";
@@ -738,159 +764,6 @@ namespace tmoe::domain {
             [res_menu](MenuContext& ctx) -> bool {
                 MenuEngine(ctx).run(res_menu);
                 return true;
-            }));
-
-        add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
-        MenuEngine(ctx).run(menu);
-    }
-
-    void GUIManager::run_desktop_install_menu() {
-        using namespace tmoe::ui;
-        auto menu = make_plugin_menu(
-            std::string(_("gui.de_install_title")), "", "de_install");
-
-        menu->add_child(LambdaAction::make(
-            _("gui.de_rootless"), "1",
-            [this] { run_rootless_de_menu(); Logger::press_enter(); }));
-        menu->add_child(LambdaAction::make(
-            _("gui.de_rootful"), "2",
-            [this] { run_rootful_de_menu(); Logger::press_enter(); }));
-        menu->add_child(LambdaAction::make(
-            _("gui.de_install_wm"), "3",
-            [this] { run_wm_menu(); Logger::press_enter(); }));
-        menu->add_child(LambdaAction::make(
-            _("gui.de_install_dm"), "4",
-            [this] { run_dm_menu(); Logger::press_enter(); }));
-
-        add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
-        MenuEngine(ctx).run(menu);
-    }
-
-    void GUIManager::run_rootless_de_menu() {
-        using namespace tmoe::ui;
-        auto menu = make_plugin_menu(
-            std::string(_("gui.de_rootless")), "", "de_rootless");
-
-        int tag = 1;
-        for (const auto &d: desktop_manager_.desktop_registry()) {
-            if (!d.requires_root && !d.is_window_manager) {
-                std::string desc = d.name + " (" + d.compat_notes + ")";
-                std::string desktop_id = d.id;
-                menu->add_child(std::make_shared<LambdaAction>(
-                    desc, std::to_string(tag++),
-                    [this, desktop_id](MenuContext&) -> bool {
-                        desktop_manager_.install_desktop(desktop_id);
-                        first_configure_vnc(desktop_id);
-                        desktop_manager_.after_desktop_install_hint();
-                        return true;
-                    }));
-            }
-        }
-
-        add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
-        MenuEngine(ctx).run(menu);
-    }
-
-    void GUIManager::run_rootful_de_menu() {
-        using namespace tmoe::ui;
-        auto menu = make_plugin_menu(
-            std::string(_("gui.de_rootful")), "", "de_rootful");
-
-        int tag = 1;
-        for (const auto &d: desktop_manager_.desktop_registry()) {
-            if (d.requires_root && !d.is_window_manager) {
-                std::string desc = d.name + " (" + d.compat_notes + ")";
-                std::string desktop_id = d.id;
-                menu->add_child(std::make_shared<LambdaAction>(
-                    desc, std::to_string(tag++),
-                    [this, desktop_id](MenuContext&) -> bool {
-                        desktop_manager_.install_desktop(desktop_id);
-                        first_configure_vnc(desktop_id);
-                        desktop_manager_.after_desktop_install_hint();
-                        return true;
-                    }));
-            }
-        }
-
-        add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
-        MenuEngine(ctx).run(menu);
-    }
-
-    void GUIManager::run_wm_menu() {
-        using namespace tmoe::ui;
-        auto menu = make_plugin_menu(
-            std::string(_("gui.wm_title")), std::string(_("gui.wm_prompt")), "wm_menu");
-
-        int tag = 1;
-        for (const auto &d: desktop_manager_.desktop_registry()) {
-            if (d.is_window_manager) {
-                std::string desc = d.name + (d.compat_notes.empty() ? "" : " (" + d.compat_notes + ")");
-                std::string desktop_id = d.id;
-                menu->add_child(std::make_shared<LambdaAction>(
-                    desc, std::to_string(tag++),
-                    [this, desktop_id](MenuContext&) -> bool {
-                        desktop_manager_.install_window_manager(desktop_id);
-                        desktop_manager_.after_desktop_install_hint();
-                        return true;
-                    }));
-            }
-        }
-
-        add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
-        MenuEngine(ctx).run(menu);
-    }
-
-    void GUIManager::run_dm_menu() {
-        using namespace tmoe::ui;
-        auto menu = make_plugin_menu(
-            std::string(_("gui.dm_title")), std::string(_("gui.dm_prompt")), "dm_menu");
-
-        menu->add_child(LambdaAction::make(
-            _("gui.dm.lightdm"), "1",
-            [this] {
-                auto fam = get_family(cfg_);
-                if (fam == DistroFamily::Alpine) {
-                    Executor::passthrough("sudo setup-xorg-base 2>/dev/null || true");
-                    PackageManager::install({"lightdm", "lightdm-gtk-greeter",
-                        "xf86-input-mouse", "xf86-input-keyboard", "polkit", "consolekit2"}, fam);
-                } else {
-                    PackageManager::install({"lightdm", "lightdm-gtk-greeter",
-                        "lightdm-gtk-greeter-settings", "ukui-greeter"}, fam);
-                }
-                desktop_manager_.tmoe_display_manager_systemctl("lightdm", "lightdm");
-            }));
-        menu->add_child(LambdaAction::make(
-            _("gui.dm.sddm"), "2",
-            [this] {
-                auto fam = get_family(cfg_);
-                PackageManager::install({"sddm", "sddm-theme-breeze"}, fam);
-                desktop_manager_.tmoe_display_manager_systemctl("sddm", "sddm");
-            }));
-        menu->add_child(LambdaAction::make(
-            _("gui.dm.gdm"), "3",
-            [this] {
-                auto fam = get_family(cfg_);
-                PackageManager::install({"gdm", "gdm3"}, fam);
-                desktop_manager_.tmoe_display_manager_systemctl("gdm3", "gdm");
-            }));
-        menu->add_child(LambdaAction::make(
-            _("gui.dm.slim"), "4",
-            [this] {
-                auto fam = get_family(cfg_);
-                PackageManager::install("slim", fam);
-                desktop_manager_.tmoe_display_manager_systemctl("slim", "slim");
-            }));
-        menu->add_child(LambdaAction::make(
-            _("gui.dm.lxdm"), "5",
-            [this] {
-                auto fam = get_family(cfg_);
-                PackageManager::install("lxdm", fam);
-                desktop_manager_.tmoe_display_manager_systemctl("lxdm", "lxdm");
             }));
 
         add_sandwich_nav(menu);
@@ -1316,7 +1189,10 @@ namespace tmoe::domain {
         Logger::info(_("gui.press_enter_select_de"));
         Logger::press_enter();
 
-        run_desktop_install_menu();
+        // 委托给 DesktopMenuPlugin — 统一桌面安装入口
+        tmoe::ui::MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        tmoe::ui::MenuEngine(ctx).run(
+            tmoe::ui::menus::make_menu<tmoe::ui::menus::DesktopMenuPlugin>(this));
     }
 
 
