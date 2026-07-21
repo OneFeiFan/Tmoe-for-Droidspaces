@@ -21,6 +21,15 @@ private:
     std::shared_ptr<IUIMenu> build_fileshare_menu();
     std::shared_ptr<IUIMenu> build_cleanup_menu();
     std::shared_ptr<IUIMenu> build_debian_opt_menu();
+    std::shared_ptr<IUIMenu> build_debian_opt_music_menu();
+    std::shared_ptr<IUIMenu> build_debian_opt_note_menu();
+    std::shared_ptr<IUIMenu> build_debian_opt_video_menu();
+    std::shared_ptr<IUIMenu> build_debian_opt_picture_menu();
+    std::shared_ptr<IUIMenu> build_debian_opt_reader_menu();
+    std::shared_ptr<IUIMenu> build_debian_opt_game_menu();
+    std::shared_ptr<IUIMenu> build_debian_opt_development_menu();
+    std::shared_ptr<IUIMenu> build_debian_opt_tools_menu();
+    std::shared_ptr<IUIMenu> build_debian_opt_internet_menu();
     std::shared_ptr<IUIMenu> build_electron_vm_menu();
     std::shared_ptr<IUIMenu> build_electron_music_menu();
     std::shared_ptr<IUIMenu> build_electron_video_menu();

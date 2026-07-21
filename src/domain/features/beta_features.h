@@ -41,7 +41,8 @@ public:
     void input_method_delegate() { if (input_method_cb_) input_method_cb_(); }
     void terminal_delegate() { if (terminal_cb_) terminal_cb_(); }
 
-    /** 选项9: 网络管理 (nmtui, 设备管理, WiFi扫描, 网卡驱动, IP查看, etc.) — 占位 */
+    /** 选项9: 网络管理 — 对应 Bash old/tools/system/network (321行)
+     *  包含 nmtui, 设备管理, WiFi扫描, 网卡驱动, IP查看, 蓝牙等 11 个子选项 */
     void run_network_menu();
 
     /** 通用单包安装（供插件层内嵌子菜单使用）。*/
@@ -51,6 +52,18 @@ public:
     void install_multi(const std::vector<std::string>& pkgs);
 
 private:
+    // ── 网络管理子功能 ──
+    void ensure_nm_tools();
+    void enable_network_device();
+    void wifi_scan();
+    void network_device_status();
+    void install_network_driver();
+    void view_ip_address();
+    void install_wifi_qr_tool();
+    void edit_network_config();
+    void toggle_nm_autostart();
+    void install_blueman_pkg();
+    void install_gnome_nettool_pkg();
     const TmoeConfig& cfg_;
 
     // 跨模块回调

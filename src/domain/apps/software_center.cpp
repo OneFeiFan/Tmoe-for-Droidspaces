@@ -886,4 +886,80 @@ namespace tmoe::domain {
 
         Logger::warn(_("swcenter.cleanup.remove_tmoe_done"));
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Debian Opt 仓库 — 对应 Bash old/tools/deprecated/debian-opt (820行)
+    // 仓库: https://dl.cloudsmith.io/public/debianopt/debianopt/deb/debian
+    // ═══════════════════════════════════════════════════════════════
+
+    void SoftwareCenter::ensure_debian_opt_repo() {
+        if (fs::exists("/etc/apt/sources.list.d/debianopt-debianopt.list")) return;
+
+        Logger::step("debian-opt repo setup");
+        Logger::info("Adding debian-opt repository (https://github.com/coslyk/debianopt-repo)");
+
+        Executor::passthrough(
+            "curl -LsS 'https://dl.cloudsmith.io/public/debianopt/debianopt/gpg.D215CE5D26AF10D5.key' | "
+            "gpg --dearmor > /tmp/debian-opt-11.gpg 2>/dev/null && "
+            "sudo install -o root -g root -m 644 /tmp/debian-opt-11.gpg "
+            "/usr/share/keyrings/debian-opt-11-archive-keyring.gpg && "
+            "rm -f /tmp/debian-opt-11.gpg");
+
+        SystemHelper::write_file("/etc/apt/sources.list.d/debianopt-debianopt.list",
+            "deb [signed-by=/usr/share/keyrings/debian-opt-11-archive-keyring.gpg] "
+            "https://dl.cloudsmith.io/public/debianopt/debianopt/deb/debian bullseye main\n");
+
+        auto family = infer_family_from_config(cfg_.linux_distro);
+        if (family == DistroFamily::Debian) {
+            PackageManager::update(family);
+        }
+        Logger::ok("debian-opt repo configured");
+    }
+
+    void SoftwareCenter::debian_opt_install_or_remove(const std::string& name) {
+        auto family = infer_family_from_config(cfg_.linux_distro);
+        bool is_debian = (family == DistroFamily::Debian);
+
+        // 检测是否已安装 (dpkg 或 command -v)
+        bool installed = Executor::has(name) ||
+            Executor::shell("dpkg -l " + name + " 2>/dev/null | grep -q '^ii'").ok();
+
+        if (installed) {
+            Logger::info(_f("swcenter.already_installed", name));
+            int choice = ui::dialog::yesno(cfg_, name + " manager",
+                _f("swcenter.debian_opt.what_to_do", name),
+                _("swcenter.debian_opt.upgrade"), _("swcenter.debian_opt.remove"), 0, 0);
+            if (choice == 0) {
+                // 升级
+                ensure_debian_opt_repo();
+                PackageManager::update(family);
+                PackageManager::install(name, family);
+                Logger::ok(_f("swcenter.debian_opt.upgraded", name));
+            } else if (choice == 1) {
+                // 移除
+                if (is_debian) {
+                    PackageManager::remove(name, family);
+                } else {
+                    Executor::passthrough(
+                        "sudo rm -rf /opt/" + name + " "
+                        "/usr/share/applications/" + name + ".desktop 2>/dev/null || true");
+                }
+                Logger::ok(_f("swcenter.debian_opt.removed", name));
+            }
+            return;
+        }
+
+        // 未安装 → 安装
+        ensure_debian_opt_repo();
+        Logger::step(_f("swcenter.installing", name));
+        if (is_debian) {
+            PackageManager::update(family);
+            PackageManager::install(name, family);
+        } else {
+            Logger::warn("debian-opt repo is designed for Debian-based distros");
+            Logger::info("Attempting install anyway...");
+            PackageManager::install(name, family);
+        }
+        Logger::ok(_f("swcenter.debian_opt.installed", name));
+    }
 } // namespace tmoe::domain

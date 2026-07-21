@@ -273,39 +273,180 @@ std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_cleanup_menu() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// build_debian_opt_menu — 对应旧 Bash explore_debian_opt_repo
-// 9 items: ALL stubs printing not_implemented message
+// build_debian_opt_menu — 对应旧 Bash explore_debian_opt_repo (820行)
+// 9 个分类子菜单, 每个安装来自 https://dl.cloudsmith.io/public/debianopt/debianopt
 // ═══════════════════════════════════════════════════════════════
+
+namespace {
+    struct DebianOptApp { const char* i18n; const char* pkg; };
+
+    void add_debian_opt_items(std::shared_ptr<IUIMenu> menu,
+                              domain::SoftwareCenter* mgr,
+                              const DebianOptApp* apps, int count) {
+        for (int i = 0; i < count; ++i) {
+            std::string tag = std::to_string(i + 1);
+            std::string pkg = apps[i].pkg;
+            menu->add_child(std::make_shared<LambdaAction>(
+                _(apps[i].i18n), tag,
+                [mgr, pkg](MenuContext&) -> bool {
+                    mgr->debian_opt_install_or_remove(pkg);
+                    Logger::press_enter();
+                    return true;
+                }));
+        }
+    }
+} // anonymous namespace
+
 std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_debian_opt_menu() {
     auto menu = make_plugin_menu(
         _("swcenter.debian_opt.menu_title"), _("swcenter.debian_opt.menu_prompt"), "plugin_debian_opt");
-    menu->add_action(_("swcenter.debian_opt.music"), "1", [] {
-        Logger::info(_("swcenter.debian_opt.not_implemented"));
-    });
-    menu->add_action(_("swcenter.debian_opt.notes"), "2", [] {
-        Logger::info(_("swcenter.debian_opt.not_implemented"));
-    });
-    menu->add_action(_("swcenter.debian_opt.videos"), "3", [] {
-        Logger::info(_("swcenter.debian_opt.not_implemented"));
-    });
-    menu->add_action(_("swcenter.debian_opt.pictures"), "4", [] {
-        Logger::info(_("swcenter.debian_opt.not_implemented"));
-    });
-    menu->add_action(_("swcenter.debian_opt.reader"), "5", [] {
-        Logger::info(_("swcenter.debian_opt.not_implemented"));
-    });
-    menu->add_action(_("swcenter.debian_opt.games_item"), "6", [] {
-        Logger::info(_("swcenter.debian_opt.not_implemented"));
-    });
-    menu->add_action(_("swcenter.debian_opt.development"), "7", [] {
-        Logger::info(_("swcenter.debian_opt.not_implemented"));
-    });
-    menu->add_action(_("swcenter.debian_opt.tools"), "8", [] {
-        Logger::info(_("swcenter.debian_opt.not_implemented"));
-    });
-    menu->add_action(_("swcenter.debian_opt.internet"), "9", [] {
-        Logger::info(_("swcenter.debian_opt.not_implemented"));
-    });
+
+    menu->add_submenu(_("swcenter.debian_opt.music"), "1", build_debian_opt_music_menu());
+    menu->add_submenu(_("swcenter.debian_opt.notes"), "2", build_debian_opt_note_menu());
+    menu->add_submenu(_("swcenter.debian_opt.videos"), "3", build_debian_opt_video_menu());
+    menu->add_submenu(_("swcenter.debian_opt.pictures"), "4", build_debian_opt_picture_menu());
+    menu->add_submenu(_("swcenter.debian_opt.reader"), "5", build_debian_opt_reader_menu());
+    menu->add_submenu(_("swcenter.debian_opt.games_item"), "6", build_debian_opt_game_menu());
+    menu->add_submenu(_("swcenter.debian_opt.development"), "7", build_debian_opt_development_menu());
+    menu->add_submenu(_("swcenter.debian_opt.tools"), "8", build_debian_opt_tools_menu());
+    menu->add_submenu(_("swcenter.debian_opt.internet"), "9", build_debian_opt_internet_menu());
+
+    add_sandwich_nav(menu);
+    return menu;
+}
+
+std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_debian_opt_music_menu() {
+    auto menu = make_plugin_menu("Music", "debian-opt music apps", "plugin_debopt_music");
+    static const DebianOptApp apps[] = {
+        {"swcenter.debian_opt.netease_gtk", "netease-cloud-music-gtk"},
+        {"swcenter.debian_opt.vocal", "vocal"},
+        {"swcenter.debian_opt.flacon", "flacon"},
+        {"swcenter.debian_opt.chord", "chord"},
+        {"swcenter.debian_opt.cocomusic", "cocomusic"},
+        {"swcenter.debian_opt.feeluown", "feeluown"},
+        {"swcenter.debian_opt.givemelyrics", "givemelyrics"},
+        {"swcenter.debian_opt.listen1", "listen1"},
+        {"swcenter.debian_opt.melody", "melody"},
+        {"swcenter.debian_opt.electron_ncm", "electron-netease-cloud-music"},
+    };
+    add_debian_opt_items(menu, mgr_, apps, 10);
+    add_sandwich_nav(menu);
+    return menu;
+}
+
+std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_debian_opt_note_menu() {
+    auto menu = make_plugin_menu("Notes", "debian-opt note apps", "plugin_debopt_note");
+    static const DebianOptApp apps[] = {
+        {"swcenter.debian_opt.vnote", "vnote"},
+        {"swcenter.debian_opt.go_for_it", "go-for-it"},
+        {"swcenter.debian_opt.wiznote", "wiznote"},
+        {"swcenter.debian_opt.xournalpp", "xournalpp"},
+        {"swcenter.debian_opt.notes_up", "notes-up"},
+        {"swcenter.debian_opt.qownnotes", "qownnotes"},
+        {"swcenter.debian_opt.quilter", "quilter"},
+        {"swcenter.debian_opt.textadept", "textadept"},
+        {"swcenter.debian_opt.marktext", "marktext"},
+        {"swcenter.debian_opt.apostrophe", "apostrophe"},
+        {"swcenter.debian_opt.p3x_onenote", "p3x-onenote"},
+        {"swcenter.debian_opt.trelby", "trelby"},
+    };
+    add_debian_opt_items(menu, mgr_, apps, 12);
+    add_sandwich_nav(menu);
+    return menu;
+}
+
+std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_debian_opt_video_menu() {
+    auto menu = make_plugin_menu("Video", "debian-opt video apps", "plugin_debopt_video");
+    static const DebianOptApp apps[] = {
+        {"swcenter.debian_opt.ciano", "ciano"},
+        {"swcenter.debian_opt.lossless_cut", "lossless-cut"},
+        {"swcenter.debian_opt.gifup", "gifup"},
+        {"swcenter.debian_opt.moonplayer", "moonplayer"},
+        {"swcenter.debian_opt.vidbox", "vidbox"},
+    };
+    add_debian_opt_items(menu, mgr_, apps, 5);
+    add_sandwich_nav(menu);
+    return menu;
+}
+
+std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_debian_opt_picture_menu() {
+    auto menu = make_plugin_menu("Pictures", "debian-opt picture apps", "plugin_debopt_picture");
+    static const DebianOptApp apps[] = {
+        {"swcenter.debian_opt.bingle", "bingle"},
+        {"swcenter.debian_opt.fondo", "fondo"},
+        {"swcenter.debian_opt.komorebi", "komorebi"},
+        {"swcenter.debian_opt.drawio", "draw.io"},
+        {"swcenter.debian_opt.colorpicker", "colorpicker"},
+    };
+    add_debian_opt_items(menu, mgr_, apps, 5);
+    add_sandwich_nav(menu);
+    return menu;
+}
+
+std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_debian_opt_reader_menu() {
+    auto menu = make_plugin_menu("Reader", "debian-opt reader apps", "plugin_debopt_reader");
+    static const DebianOptApp apps[] = {
+        {"swcenter.debian_opt.bookworm", "bookworm"},
+        {"swcenter.debian_opt.foliate", "foliate"},
+        {"swcenter.debian_opt.lector", "lector"},
+    };
+    add_debian_opt_items(menu, mgr_, apps, 3);
+    add_sandwich_nav(menu);
+    return menu;
+}
+
+std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_debian_opt_game_menu() {
+    auto menu = make_plugin_menu("Games", "debian-opt game apps", "plugin_debopt_game");
+    static const DebianOptApp apps[] = {
+        {"swcenter.debian_opt.hmcl", "hmcl"},
+        {"swcenter.debian_opt.minetest", "minetest"},
+        {"swcenter.debian_opt.gamehub", "gamehub"},
+        {"swcenter.debian_opt.sdlpal", "sdlpal"},
+    };
+    add_debian_opt_items(menu, mgr_, apps, 4);
+    add_sandwich_nav(menu);
+    return menu;
+}
+
+std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_debian_opt_development_menu() {
+    auto menu = make_plugin_menu("Development", "debian-opt dev apps", "plugin_debopt_dev");
+    static const DebianOptApp apps[] = {
+        {"swcenter.debian_opt.wxformbuilder", "wxformbuilder"},
+        {"swcenter.debian_opt.netron", "netron"},
+        {"swcenter.debian_opt.textadept", "textadept"},
+        {"swcenter.debian_opt.vala_ls", "vala-language-server"},
+        {"swcenter.debian_opt.nasc", "nasc"},
+    };
+    add_debian_opt_items(menu, mgr_, apps, 5);
+    add_sandwich_nav(menu);
+    return menu;
+}
+
+std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_debian_opt_tools_menu() {
+    auto menu = make_plugin_menu("Tools", "debian-opt tool apps", "plugin_debopt_tools");
+    static const DebianOptApp apps[] = {
+        {"swcenter.debian_opt.appeditor", "appeditor"},
+        {"swcenter.debian_opt.eddy", "eddy"},
+        {"swcenter.debian_opt.imageburner", "imageburner"},
+        {"swcenter.debian_opt.woeusb", "woeusb"},
+        {"swcenter.debian_opt.albert", "albert"},
+        {"swcenter.debian_opt.alohomora", "alohomora"},
+        {"swcenter.debian_opt.qgnomeplatform", "qgnomeplatform"},
+        {"swcenter.debian_opt.winetricks_zh", "winetricks-zh"},
+    };
+    add_debian_opt_items(menu, mgr_, apps, 8);
+    add_sandwich_nav(menu);
+    return menu;
+}
+
+std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_debian_opt_internet_menu() {
+    auto menu = make_plugin_menu("Internet", "debian-opt internet apps", "plugin_debopt_internet");
+    static const DebianOptApp apps[] = {
+        {"swcenter.debian_opt.motrix", "motrix"},
+        {"swcenter.debian_opt.remotely", "remotely"},
+        {"swcenter.debian_opt.freechat", "freechat"},
+    };
+    add_debian_opt_items(menu, mgr_, apps, 3);
     add_sandwich_nav(menu);
     return menu;
 }

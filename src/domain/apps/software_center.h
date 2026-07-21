@@ -47,6 +47,10 @@ namespace tmoe::domain {
         void install_mitalk();
         MediaTools* media_tools() { return media_tools_.get(); }
 
+        // ── Debian Opt 仓库 (对应 Bash explore_debian_opt_repo, 820行) ──
+        void ensure_debian_opt_repo();
+        void debian_opt_install_or_remove(const std::string& name);
+
     private:
         void check_download_path();
         void install_electron_app(const std::string &app_name);
