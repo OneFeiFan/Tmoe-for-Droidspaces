@@ -581,6 +581,7 @@
   "env.deps_ok": "依赖安装成功！",
   "env.deps_passed": "基础依赖检查通过。",
   "env.dpkg_abnormal": "检测到 dpkg 状态异常 (之前的操作可能被中断)",
+  "env.privileges_dropped": "已从 root 降权至用户 {}",
   "env.dpkg_broken_deps": "  发现破损的包依赖",
   "env.dpkg_incomplete_config": "  发现未完成的 dpkg 配置",
   "env.dpkg_process_running": "  另一个 apt/dpkg 进程正在运行，跳过自动修复",

@@ -34,11 +34,13 @@ namespace tmoe::platform {
 inline int getpid() { return ::_getpid(); }
 inline int getuid() { return 0; }  // Windows 无 UID 概念
 inline int geteuid() { return 0; } // Windows 无有效 UID 概念
+inline int seteuid(int) { return 0; } // Windows 下无操作
 inline bool is_root() { return false; } // Windows 下近似（实际由 UAC 控制，但编译通过优先）
 #else
 inline int getpid() { return ::getpid(); }
 inline int getuid() { return ::getuid(); }
 inline int geteuid() { return ::geteuid(); }
+inline int seteuid(uid_t uid) { return ::seteuid(uid); }
 inline bool is_root() { return ::geteuid() == 0; }
 #endif
 

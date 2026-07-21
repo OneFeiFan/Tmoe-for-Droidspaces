@@ -718,6 +718,7 @@
   "env.deps_ok": "Dependencies installed successfully!",
   "env.deps_passed": "Basic dependency check passed.",
   "env.dpkg_abnormal": "Abnormal dpkg status detected (previous operations may have been interrupted)",
+  "env.privileges_dropped": "Dropped root privileges to user {}",
   "env.dpkg_broken_deps": "  Broken package dependencies found",
   "env.dpkg_incomplete_config": "  Unfinished dpkg configuration found",
   "env.dpkg_process_running": "  Another apt/dpkg process is running, skipping automatic repair",

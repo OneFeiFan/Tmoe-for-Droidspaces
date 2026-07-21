@@ -15,6 +15,10 @@ namespace tmoe::app {
         environment_ = std::make_unique<domain::Environment>(cfg_);
         container_mgr_ = std::make_unique<domain::ContainerManager>(cfg_);
         termux_ = std::make_unique<domain::TermuxManager>(cfg_);
+        // P1: Android Termux libnewt 0.52.21 bug 绕过 — LD_PRELOAD + whiptail-wrapper
+        if (cfg_.is_termux) {
+            cfg_.tui_bin = termux_->check_and_patch_tui_env();
+        }
         gui_ = std::make_unique<domain::GUIManager>(cfg_);
         mirror_mgr_ = std::make_unique<domain::MirrorManager>(cfg_);
         backup_mgr_ = std::make_unique<domain::BackupManager>(cfg_);
@@ -127,7 +131,8 @@ namespace tmoe::app {
 
     void Manager::action_bug_report() {
         Logger::info(_("report.bug_info"));
-        Logger::info("https://github.com/2-moe/tmoe-linux");
+        // P2: 3 平台自动打开 GitHub Issues (Android→am start / Desktop→xdg-open / WSL→cmd.exe)
+        environment_->open_uri("https://github.com/2-moe/tmoe-linux");
         Logger::press_enter();
     }
 
@@ -179,7 +184,8 @@ namespace tmoe::app {
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.zsh"), "6",
                 [this](MenuContext &) -> bool {
-                    termux_->beautify_terminal();
+                    // P2: "Configure zsh" 调用 start_tmoe_zsh() (启动外部 zsh TUI 管理脚本)
+                    termux_->start_tmoe_zsh();
                     Logger::press_enter();
                     return true;
                 }));

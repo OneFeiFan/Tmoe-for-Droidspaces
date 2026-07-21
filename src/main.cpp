@@ -80,6 +80,19 @@ int main(int argc, char *argv[]) {
     // 阶段3: 自动检测环境
     auto cfg = tmoe::TmoeConfig::detect();
 
+    // 阶段3.1: 权限降级 — 若通过 sudo 启动，降回原始用户
+    // 真 root 环境 (login shell, 容器内) 不做处理，SUDO_USER 为空
+    if (cfg.is_root) {
+        const char* sudo_user = std::getenv("SUDO_USER");
+        if (sudo_user && sudo_user[0] != '\0') {
+            int real_uid = tmoe::platform::getuid();
+            if (real_uid != 0 && tmoe::platform::seteuid(real_uid) == 0) {
+                cfg.is_root = false;
+                tmoe::Logger::info(_f("env.privileges_dropped", std::string(sudo_user)));
+            }
+        }
+    }
+
     // 阶段3.5: 解析 CLI 确定是否需要 root 权限（按需提权）
     tmoe::LaunchContext ctx;
     if (!pos_args.empty()) {
@@ -114,6 +127,11 @@ int main(int argc, char *argv[]) {
                 "Pin-Priority: -1\n"
                 "TMOE_EOF");
         }
+        // P2: WSL 下 cmd.exe 需要 Windows 系统目录在 PATH 中 (open_uri 等依赖)
+        const char* existing_path = std::getenv("PATH");
+        std::string new_path = "/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS/system32/WindowsPowerShell/v1.0";
+        if (existing_path) new_path += ":" + std::string(existing_path);
+        tmoe::platform::set_env("PATH", new_path.c_str());
     }
 
     // 阶段5.5: 读取持久化的 locale 偏好 (优先级: CLI > 持久化 > 默认英文)
