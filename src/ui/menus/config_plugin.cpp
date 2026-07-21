@@ -1,4 +1,4 @@
-/** Config 菜单插件 — 将旧版 whiptail 子菜单（DNS/时区/Locale/Fortune）
+/** Config 菜单插件 — 将旧版 whiptail 子菜单（DNS/时区/Locale）
  *  迁移至 IUIMenu 嵌套引擎框架。
  *  configure_shared_dirs (checklist)、configure_hostname (inputbox)、
  *  change_root_password (passwordbox) 保持旧版，不迁移。 */
@@ -95,37 +95,6 @@ std::shared_ptr<IUIMenu> ConfigMenuPlugin::build_locale_select_menu(int region_i
     return menu;
 }
 
-// ── Fortune 子菜单 ──────────────────────────────────────
-
-std::shared_ptr<IUIMenu> ConfigMenuPlugin::build_fortune_menu() {
-    auto menu = make_plugin_menu(_("fortune.title"), _("fortune.menu_prompt"), "plugin_fortune");
-
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("fortune.install"), "1",
-        [this](MenuContext&) -> bool {
-            bool ok = mgr_->install_fortune();
-            Logger::press_enter();
-            return ok;
-        }));
-
-    menu->add_child(std::make_shared<LambdaAction>(
-        _("fortune.hitokoto_enable"), "2",
-        [this](MenuContext&) -> bool {
-            bool ok = mgr_->toggle_hitokoto();
-            Logger::press_enter();
-            return ok;
-        }));
-
-    menu->add_action(_("fortune.hitokoto_disable"), "3", [this] {
-        mgr_->write_config_file(
-            mgr_->config_dir() + "/hitokoto.conf", "TMOE_CONTAINER_HITOKOTO=false");
-        Logger::ok(_("fortune.hitokoto_disabled"));
-    });
-
-    add_sandwich_nav(menu);
-    return menu;
-}
-
 // ── 主配置菜单入口 ──────────────────────────────────────
 
 std::shared_ptr<IUIMenu> ConfigMenuPlugin::build() {
@@ -159,10 +128,7 @@ std::shared_ptr<IUIMenu> ConfigMenuPlugin::build() {
             return true;
         }));
 
-    // 4 — Fortune / Hitokoto → 嵌套引擎运行 Fortune 子菜单
-    menu->add_submenu(_("config.fortune"), "cfg_fortune", build_fortune_menu());
-
-    // 5 — 共享目录 (内部已调用 Logger::press_enter())
+    // 4 — 共享目录 (内部已调用 Logger::press_enter())
     menu->add_child(std::make_shared<LambdaAction>(
         _("config.shared_dirs"), "cfg_shared_dirs",
         [this](MenuContext&) -> bool {

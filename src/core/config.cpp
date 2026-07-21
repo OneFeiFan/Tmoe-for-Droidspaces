@@ -93,7 +93,14 @@ namespace tmoe {
         // 默认容器根目录路径
         cfg.container_root = "/var/lib/tmoe/containers";
 
-        // 应用环境变量覆盖
+        // 非 Termux 的 GNU/Linux 路径：基于 $HOME（降权后为普通用户目录）
+        const char* home = std::getenv("HOME");
+        if (home) {
+            cfg.work_dir = std::string(home) + "/.local/share/tmoe";
+            cfg.backup_dir = std::string(home) + "/tmoe-backups";
+        }
+
+        // 应用环境变量覆盖 (TMOE_WORK_DIR 等比 detect 中的默认值优先级更高)
         cfg.from_env();
         return cfg;
     }

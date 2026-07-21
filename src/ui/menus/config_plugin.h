@@ -17,7 +17,6 @@ private:
     std::shared_ptr<IUIMenu> build_timezone_city_menu(int region_index);
     std::shared_ptr<IUIMenu> build_locale_region_menu();
     std::shared_ptr<IUIMenu> build_locale_select_menu(int region_index);
-    std::shared_ptr<IUIMenu> build_fortune_menu();
 };
 
 } // namespace tmoe::ui::menus

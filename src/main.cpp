@@ -22,12 +22,15 @@ static void print_usage() {
 /** 程序入口。
  *  阶段1: 解析全局标志 (--lang, --quiet, --no-color, --help)。
  *  阶段2: 初始化多语言子系统。
- *  阶段3: 自动检测运行环境。
- *  阶段3.5: 解析 CLI，确定操作类型。
- *  阶段4: 按需提权 — 仅对需要 root 的操作（chroot/安装/镜像源）提权；
- *         VNC 启动/停止等日常操作以普通用户身份运行。
+ *  阶段3: 自动检测运行环境 (Termux/WSL/发行版/架构)。
+ *  阶段3.1: 权限降级 — 若通过 sudo 启动，降回原始用户。
+ *        真 root 环境 (login shell/容器) 不处理。
+ *        需要系统权限的操作在各模块中通过命令字符串显式加 sudo。
+ *  阶段3.5: 解析 CLI 位置参数，确定操作类型。
  *  阶段5: 确保工作目录存在。
- *  阶段6: 构建顶层应用管理器。
+ *  阶段5.1: WSL 系统初始化 (updatedb.conf + apt-blacklist + PATH)。
+ *  阶段5.5: 读取持久化的 locale 偏好文件。
+ *  阶段6: 构建顶层应用管理器 (18 个领域模块)。
  *  阶段7: 路由至交互式 TUI 或命令行分发模式。
  */
 /** 读取持久化的 locale 偏好 (若存在)。 */
@@ -99,8 +102,8 @@ int main(int argc, char *argv[]) {
         ctx = tmoe::CliParser::parse(pos_args);
     }
 
-    // 阶段5: 确保工作目录存在（非 root 时静默跳过系统级目录）
-    cfg.ensure_dirs();// 需要修改
+    // 阶段5: 确保工作目录存在（$HOME/.local/share/tmoe 等用户目录）
+    cfg.ensure_dirs();
 
     // 阶段5.1: WSL 系统初始化（通过 sudo 写系统配置文件）
     if (cfg.is_wsl) {

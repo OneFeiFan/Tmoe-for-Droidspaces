@@ -16,8 +16,7 @@ namespace tmoe::domain {
  *   1. DNS 切换 (6 种 DNS 提供商)
  *   2. 时区配置 (UTC-12 ~ UTC+14, 30 常用)
  *   3. Locale 选择 (300+ 语言, 分组浏览)
- *   4. Fortune/一言 (MOTD 欢迎语)
- *   5. 共享目录开关 (sd/HOME/storage/tf)
+ *   4. 共享目录开关 (sd/HOME/storage/tf)
  *   6. 密码管理 (root 密码修改)
  *   7. 主机名配置
  */
@@ -42,14 +41,6 @@ public:
 
     /** 列出所有可用 locale (从 /usr/share/i18n/SUPPORTED 或内置表)。 */
     std::vector<std::pair<std::string, std::string>> list_supported_locales() const;
-
-    // ── Fortune / Hitokoto ──
-
-    /** 安装 fortune 包 (跨发行版)。 */
-    bool install_fortune();
-
-    /** 启用/禁用 Hitokoto (一言 API)。 */
-    bool toggle_hitokoto();
 
     // ── 共享目录 ──
 

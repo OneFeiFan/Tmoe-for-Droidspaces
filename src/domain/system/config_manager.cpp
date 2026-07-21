@@ -267,59 +267,6 @@ std::vector<std::pair<std::string, std::string>> ConfigManager::list_supported_l
     return result;
 }
 
-bool ConfigManager::install_fortune() {
-    Logger::step(_("fortune.installing"));
-
-    // 检测当前 locale 语言
-    std::string lang = cfg_.locale.substr(0, 2);
-    auto family = infer_family_from_config(cfg_.linux_distro);
-
-    bool ok = false;
-    switch (family) {
-        case DistroFamily::Debian:
-            ok = PackageManager::install({"fortune-mod", "fortunes"}, family);
-            if (ok && (lang == "zh" || lang == "ja" || lang == "ko")) {
-                PackageManager::install("fortunes-" + lang, family);
-            }
-            break;
-        case DistroFamily::Arch:
-            ok = PackageManager::install("fortune-mod", family);
-            break;
-        case DistroFamily::Alpine:
-            ok = PackageManager::install("fortune", family);
-            break;
-        case DistroFamily::Gentoo:
-            ok = PackageManager::install("games-misc/fortune-mod", family);
-            break;
-        default:
-            ok = PackageManager::install("fortune-mod", family);
-            break;
-    }
-
-    if (ok) {
-        Logger::ok(_("fortune.install_ok"));
-        // 写入配置
-        write_config_file(config_dir() + "/fortune.conf", "TMOE_CONTAINER_FORTUNE=true");
-    } else {
-        Logger::warn(_("fortune.install_failed"));
-    }
-    return ok;
-}
-
-bool ConfigManager::toggle_hitokoto() {
-    Logger::step(_("fortune.hitokoto_enabling"));
-
-    // 确保 curl 可用
-    if (!Executor::has("curl") && !Executor::has("wget")) {
-        Logger::warn(_("fortune.no_curl"));
-        return false;
-    }
-
-    write_config_file(config_dir() + "/hitokoto.conf", "TMOE_CONTAINER_HITOKOTO=true");
-    Logger::ok(_("fortune.hitokoto_enabled"));
-    return true;
-}
-
 // ═══════════════════════════════════════════════════════════════════
 // 共享目录
 // ═══════════════════════════════════════════════════════════════════
