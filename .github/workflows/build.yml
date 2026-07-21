@@ -68,13 +68,22 @@ jobs:
 
       - name: Configure CMake
         run: |
-          PREFIX=""
+          CMAKE_PREFIX_PATH=""
           if [[ "${{ runner.os }}" == "macOS" ]]; then
-            PREFIX="$(brew --prefix)"
+            HOMEBREW_PREFIX="$(brew --prefix)"
+            CMAKE_PREFIX_PATH="${HOMEBREW_PREFIX}"
+            # libarchive / curl 在 macOS 上可能是 keg-only，
+            # 需显式添加其独立 prefix 到搜索路径
+            for pkg in libarchive curl; do
+              PKG_PATH="$(brew --prefix "$pkg" 2>/dev/null || true)"
+              if [[ -n "$PKG_PATH" && "$PKG_PATH" != "$HOMEBREW_PREFIX" ]]; then
+                CMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH};${PKG_PATH}"
+              fi
+            done
           fi
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            ${PREFIX:+-DCMAKE_PREFIX_PATH="${PREFIX}"} \
+            ${CMAKE_PREFIX_PATH:+-DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}"} \
             ${{ matrix.cmake_extra }}
 
       - name: Build
