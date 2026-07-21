@@ -115,11 +115,21 @@ jobs:
   # ═══════════════════════════════════════════════════════════════
   static:
     needs: i18n
-    name: Static (x86_64, musl)
-    runs-on: ubuntu-22.04
+    name: Static (${{ matrix.arch }}, musl)
+    runs-on: ${{ matrix.runner }}
     container:
       image: alpine:latest
       options: --user root
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+            cmake_arch:
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+            cmake_arch: -DCMAKE_SYSTEM_PROCESSOR=aarch64
     steps:
       - uses: actions/checkout@v4
 
@@ -133,7 +143,8 @@ jobs:
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=MinSizeRel \
-            -DTMOE_STATIC_LINK=ON
+            -DTMOE_STATIC_LINK=ON \
+            ${{ matrix.cmake_arch }}
 
       - name: Build
         run: cmake --build build -j$(nproc)
@@ -144,12 +155,12 @@ jobs:
       - name: Rename artifact
         run: |
           mkdir -p release
-          BUILD_NAME=tmoes-${{ github.ref_name }}-Linux-x86_64-static
+          BUILD_NAME=tmoes-${{ github.ref_name }}-Linux-${{ matrix.arch }}-static
           cp build/tmoes "release/${BUILD_NAME}"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: tmoes-Linux-x86_64-static
+          name: tmoes-Linux-${{ matrix.arch }}-static
           path: release/
           retention-days: 7
 
@@ -193,7 +204,7 @@ jobs:
             | 平台 | 架构 |
             |------|------|
             | Ubuntu 22.04 | x86_64, ARM64 |
-            | Alpine (musl static) | x86_64 |
+            | Alpine (musl static) | x86_64, ARM64 |
             | macOS | x86_64, ARM64 |
 
             ### 校验
