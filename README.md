@@ -77,3 +77,44 @@ tmoes            # 自动检测平台 (Termux→容器管理 / Linux→工具箱
 tmoes m          # 容器管理界面
 tmoes t          # Linux 工具箱界面
 ```
+
+## CI / 发布
+
+本项目使用 GitHub Actions 自动化构建与发布（`.github/workflows/build.yml`）。
+
+### 自动构建
+
+每次 **push 到 `main`** 或 **Pull Request** 触发构建矩阵：
+
+| 平台 | 架构 |
+|------|------|
+| Ubuntu 24.04 | x86_64, ARM64 |
+| macOS 14/15 | x86_64, ARM64 |
+
+PR 仅验证编译通过。`main` 分支 push 额外上传 7 天有效期的构建产物供临时下载。
+
+### 发布版本
+
+推送 `v` 开头 tag 自动创建 GitHub Release：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+自动流程：并行编译 → strip 瘦身 → 生成校验文件 → 创建 Release 并上传全部产物。
+
+> 产物命名：`tmoes-{tag}-{os}-{arch}`（如 `tmoes-v1.0.0-Linux-x86_64`）
+
+### 预发布版
+
+tag 含 `-rc`、`-beta` 或 `-alpha` 时自动标记 **prerelease**：
+
+```bash
+git tag v1.0.0-rc1     # GitHub 上显示 Pre-release
+git tag v1.0.0-beta    # 同上
+```
+
+### 手动取 CI 构建
+
+非 tag 的 `main` 分支 push 不会创建 Release。可在 [Actions](../../actions) 页面找到对应 run，从 **Artifacts** 区域下载临时产物。
