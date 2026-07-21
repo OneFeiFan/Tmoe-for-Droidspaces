@@ -845,6 +845,7 @@
   "gui.dde.chroot_fedora_msg": "Enjoy the DDE desktop experience!",
   "gui.dde.chroot_other_msg": "If DDE fails to run properly, consider switching to a fedora container.",
   "gui.dde.confirm_install": "Press Enter to continue installing DDE desktop, type n to cancel?",
+  "gui.dde.install_cancelled": "DDE desktop installation cancelled",
   "gui.dde.package_list": "About to install dde, fonts-noto-cjk (Noto Sans CJK), fonts-noto-color-emoji packages.",
   "gui.dde.proot_warning": "WARNING! You may be running in a PROOT container environment!\nDDE desktop may not work properly. Consider using a deepin or fedora chroot container instead.",
   "gui.dde.tiger_vnc_tip": "When prompted to choose between tight/tiger VNC during desktop installation in a VM or container, please select tiger.",

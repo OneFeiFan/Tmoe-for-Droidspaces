@@ -690,6 +690,7 @@
   "gui.dde.chroot_fedora_msg": "尽情享受 DDE 桌面带来的乐趣吧！",
   "gui.dde.chroot_other_msg": "若 DDE 无法正常运行，建议更换为 fedora 容器。",
   "gui.dde.confirm_install": "按回车继续安装 DDE 桌面环境，输入 n 取消？",
+  "gui.dde.install_cancelled": "DDE 桌面安装已取消",
   "gui.dde.package_list": "即将安装 dde、fonts-noto-cjk（思源黑体）、fonts-noto-color-emoji 软件包。",
   "gui.dde.proot_warning": "WARNING！检测到您当前可能处于 PROOT 容器环境下！\nDDE 桌面环境可能无法正常运行，建议您换用 deepin 或 fedora chroot 容器进行安装。",
   "gui.dde.tiger_vnc_tip": "在您使用虚拟机或容器安装本桌面的过程中，当提示选择 tight/tiger VNC 时，请选择 tiger。",

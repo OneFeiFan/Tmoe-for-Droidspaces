@@ -1,7 +1,6 @@
 #include "dde_desktop.h"
 #include "desktop_utils.h"
 #include "domain/system/package_manager.h"
-#include <cstdlib>
 
 #include "domain/gui/desktop_manager.h"
 #include "ui/dialog_helpers.h"
@@ -34,11 +33,15 @@ void DdeDesktop::will_be_installed_message() const {
 
     // Bash: tips_of_tiger_vnc_server — Tiger VNC 推荐
     Logger::info(_("gui.dde.tiger_vnc_tip"));
+}
 
+bool DdeDesktop::dde_warning() const {
     // Bash: do_you_want_to_continue — 终端 Y/N 确认
     if (!Logger::confirm_yes_default(_("gui.dde.confirm_install"))) {
-        std::exit(0);
+        Logger::warn(_("gui.dde.install_cancelled"));
+        return false;
     }
+    return true;
 }
 
 PreInstallChoices DdeDesktop::pre_install_choices(DistroFamily f, bool a) {
@@ -61,6 +64,8 @@ PreInstallChoices DdeDesktop::pre_install_choices(DistroFamily f, bool a) {
 }
 
 void DdeDesktop::post_install_config(const PostInstallContext& ctx) {
+    if (!dde_warning()) return;
+
     // Bash: fix_dde_dpkg_error — 修复 mincores-dkms 和 warm-sched 的 dpkg postinst 脚本
     if (ctx.is_debian) {
         Executor::shell(
