@@ -113,38 +113,23 @@ jobs:
   # ═══════════════════════════════════════════════════════════════
   # 静态构建 — Alpine musl，零系统依赖，通用 Linux 二进制
   # ═══════════════════════════════════════════════════════════════
-  static:
+  static-x86_64:
     needs: i18n
-    name: Static (${{ matrix.arch }}, musl)
-    runs-on: ${{ matrix.runner }}
+    name: Static (x86_64, musl)
+    runs-on: ubuntu-22.04
     container:
       image: alpine:latest
       options: --user root
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: x86_64
-            runner: ubuntu-22.04
-            cmake_arch:
-          - arch: aarch64
-            runner: ubuntu-22.04-arm
-            cmake_arch: -DCMAKE_SYSTEM_PROCESSOR=aarch64
     steps:
       - uses: actions/checkout@v4
 
       - name: Install toolchain
         run: |
           apk add --no-cache \
-            cmake g++ make git \
-            linux-headers
+            cmake g++ make git linux-headers
 
       - name: Configure CMake
-        run: |
-          cmake -B build \
-            -DCMAKE_BUILD_TYPE=MinSizeRel \
-            -DTMOE_STATIC_LINK=ON \
-            ${{ matrix.cmake_arch }}
+        run: cmake -B build -DCMAKE_BUILD_TYPE=MinSizeRel -DTMOE_STATIC_LINK=ON
 
       - name: Build
         run: cmake --build build -j$(nproc)
@@ -155,12 +140,48 @@ jobs:
       - name: Rename artifact
         run: |
           mkdir -p release
-          BUILD_NAME=tmoes-${{ github.ref_name }}-Linux-${{ matrix.arch }}-static
-          cp build/tmoes "release/${BUILD_NAME}"
+          cp build/tmoes "release/tmoes-${{ github.ref_name }}-Linux-x86_64-static"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: tmoes-Linux-${{ matrix.arch }}-static
+          name: tmoes-Linux-x86_64-static
+          path: release/
+          retention-days: 7
+
+  static-aarch64:
+    needs: i18n
+    name: Static (aarch64, musl)
+    runs-on: ubuntu-22.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ make git musl-tools
+
+      - name: Configure CMake
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=MinSizeRel \
+            -DTMOE_STATIC_LINK=ON \
+            -DCMAKE_C_COMPILER=musl-gcc \
+            -DCMAKE_CXX_COMPILER=musl-g++
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Strip binary
+        run: strip build/tmoes
+
+      - name: Rename artifact
+        run: |
+          mkdir -p release
+          cp build/tmoes "release/tmoes-${{ github.ref_name }}-Linux-aarch64-static"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tmoes-Linux-aarch64-static
           path: release/
           retention-days: 7
 
@@ -169,7 +190,7 @@ jobs:
   # ═══════════════════════════════════════════════════════════════
   release:
     name: Create Release
-    needs: [build, static]
+    needs: [build, static-x86_64, static-aarch64]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     permissions:
