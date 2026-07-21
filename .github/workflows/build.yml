@@ -1,0 +1,134 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════
+  # 构建矩阵 — 跨平台编译
+  # ═══════════════════════════════════════════════════════════════
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Ubuntu (x86_64)
+            os: ubuntu-24.04
+            arch: x86_64
+            cmake_extra: -DTMOE_USE_LIBARCHIVE=ON -DTMOE_USE_LIBCURL=ON
+
+          - name: Ubuntu (ARM64)
+            os: ubuntu-24.04-arm
+            arch: aarch64
+            cmake_extra: -DTMOE_USE_LIBARCHIVE=ON -DTMOE_USE_LIBCURL=ON
+
+          - name: macOS (x86_64)
+            os: macos-14
+            arch: x86_64
+            cmake_extra: -DTMOE_USE_LIBARCHIVE=ON -DTMOE_USE_LIBCURL=ON
+
+          - name: macOS (ARM64)
+            os: macos-15
+            arch: arm64
+            cmake_extra: -DTMOE_USE_LIBARCHIVE=ON -DTMOE_USE_LIBCURL=ON
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libarchive-dev libcurl4-openssl-dev
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install libarchive curl
+
+      - name: Configure CMake
+        run: >
+          cmake -B build
+          -DCMAKE_BUILD_TYPE=Release
+          ${{ matrix.cmake_extra }}
+
+      - name: Build
+        run: cmake --build build --config Release -j$(nproc 2>/dev/null || sysctl -n hw.logicalcpu 2>/dev/null || echo 4)
+
+      - name: Strip binary
+        run: strip build/tmoes 2>/dev/null || true
+
+      - name: Rename artifact
+        shell: bash
+        run: |
+          BUILD_NAME=tmoes-${{ github.ref_name }}-${{ runner.os }}-${{ matrix.arch }}
+          mkdir -p release
+          cp build/tmoes "release/${BUILD_NAME}"
+          # 兼容 Windows
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            mv "release/${BUILD_NAME}" "release/${BUILD_NAME}.exe"
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tmoes-${{ runner.os }}-${{ matrix.arch }}
+          path: release/
+          retention-days: 7
+
+  # ═══════════════════════════════════════════════════════════════
+  # 发布 — 仅在 tag push 时触发
+  # ═══════════════════════════════════════════════════════════════
+  release:
+    name: Create Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p dist
+          find artifacts -type f -name 'tmoes-*' | while read f; do
+            name=$(basename "$f")
+            cp "$f" "dist/${name}"
+            echo "- ${name}" >> dist/SHA256SUMS.txt
+            (cd dist && sha256sum "${name}" >> SHA256SUMS.txt)
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body: |
+            ## ${{ github.ref_name }}
+
+            自动构建版本，基于 commit [`${{ github.sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})。
+
+            ### 构建产物
+
+            | 平台 | 架构 |
+            |------|------|
+            | Ubuntu 24.04 | x86_64, ARM64 |
+            | macOS | x86_64, ARM64 |
+
+            ### 校验
+
+            见 `SHA256SUMS.txt`。
+          files: dist/*
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+          generate_release_notes: true

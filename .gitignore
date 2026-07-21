@@ -644,3 +644,5 @@ backups/
 /build/_deps/nlohmann_json-src/.github/workflows/windows.yml
 /build/_deps/nlohmann_json-src/WORKSPACE.bazel
 /build/_deps/nlohmann_json-src/docs/mkdocs/docs/api/basic_json/~basic_json.md
+/.tmoe_migration/
+/MEMORY.md
