@@ -150,7 +150,7 @@ jobs:
 
   static-aarch64:
     needs: i18n
-    name: Static (aarch64, musl)
+    name: Static (aarch64, glibc)
     runs-on: ubuntu-22.04-arm
     steps:
       - uses: actions/checkout@v4
@@ -158,15 +158,13 @@ jobs:
       - name: Install toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake g++ make git musl-tools
+          sudo apt-get install -y cmake g++ make git
 
       - name: Configure CMake
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=MinSizeRel \
-            -DTMOE_STATIC_LINK=ON \
-            -DCMAKE_C_COMPILER=musl-gcc \
-            -DCMAKE_CXX_COMPILER=musl-g++
+            -DTMOE_STATIC_LINK=ON
 
       - name: Build
         run: cmake --build build -j$(nproc)
