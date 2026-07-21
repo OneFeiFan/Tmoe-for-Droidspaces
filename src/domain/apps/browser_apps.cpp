@@ -242,7 +242,13 @@ namespace tmoe::domain {
                 ok = PackageManager::install("firefox-esr", family);
         }
 
-        if (!ok) return false;
+        // ESR 安装失败 → 回退到普通 Firefox
+        if (!ok) {
+            Logger::warn(_("browser.firefox_esr_failed_fallback"));
+            FirefoxApp fallback(cfg_);
+            return fallback.install(family);
+        }
+
         create_sandbox_wrapper("Firefox", "firefox-esr");
         return true;
     }

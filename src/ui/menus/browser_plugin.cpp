@@ -37,7 +37,7 @@ namespace tmoe::ui::menus {
                                                             "Firefox", "ESR", 12, 53);
                                      if (c2 == 0) {
                                          if (c3 == 0) mgr_->firefox.install();
-                                         else if (c3 == 1) mgr_->install_firefox_esr();
+                                         else if (c3 == 1) mgr_->firefox_esr.install();
                                      } else {
                                          if (c3 == 0) mgr_->firefox.remove();
                                          else if (c3 == 1) mgr_->firefox_esr.remove();

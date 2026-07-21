@@ -23,9 +23,6 @@ namespace tmoe::domain {
         SimpleApp epiphany;
         SimpleApp midori;
 
-        // ESR 安装失败时回退到普通 Firefox
-        void install_firefox_esr();
-
     private:
         const TmoeConfig &cfg_;
     };
