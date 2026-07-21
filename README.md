@@ -85,7 +85,7 @@ tmoes t          # Linux 工具箱界面
 ### 一键安装
 
 ```bash
-(curl -fsSL https://raw.githubusercontent.com/2moe/tmoe/main/install.sh || wget -qO- https://raw.githubusercontent.com/2moe/tmoe/main/install.sh) | bash
+(curl -fsSL https://raw.githubusercontent.com/OneFeiFan/Tmoe-for-Droidspaces/refs/heads/main/install.sh || wget -qO- https://raw.githubusercontent.com/OneFeiFan/Tmoe-for-Droidspaces/refs/heads/main/install.sh) | bash
 ```
 
 > `curl` 不可用时自动回退 `wget`，覆盖所有主流发行版。
@@ -93,7 +93,7 @@ tmoes t          # Linux 工具箱界面
 自定义安装路径：
 
 ```bash
-INSTALL_DIR=~/.local/bin curl -fsSL https://raw.githubusercontent.com/2moe/tmoe/main/install.sh | bash
+INSTALL_DIR=~/.local/bin curl -fsSL https://raw.githubusercontent.com/OneFeiFan/Tmoe-for-Droidspaces/refs/heads/main/install.sh | bash
 ```
 
 ### 自动构建
