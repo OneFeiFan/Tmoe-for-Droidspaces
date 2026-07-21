@@ -646,3 +646,4 @@ backups/
 /build/_deps/nlohmann_json-src/docs/mkdocs/docs/api/basic_json/~basic_json.md
 /.tmoe_migration/
 /MEMORY.md
+__pycache__/
