@@ -533,7 +533,7 @@ namespace tmoe::domain {
         menu->add_child(LambdaAction::make(
             "remove", "5",
             [this] {
-                if (dialog::yesno(cfg_, "", "确认卸载 x11vnc？") == 0) remove_x11vnc_ext();
+                if (dialog::yesno(cfg_, "", _f("app.confirm_remove", "x11vnc")) == 0) remove_x11vnc_ext();
                 Logger::press_enter();
             }));
         menu->add_child(LambdaAction::make(
@@ -607,7 +607,7 @@ namespace tmoe::domain {
         menu->add_child(LambdaAction::make(
             "remove", "3",
             [this] {
-                if (dialog::yesno(cfg_, "", "确认卸载 noVNC？") == 0) remove_novnc();
+                if (dialog::yesno(cfg_, "", _f("app.confirm_remove", "noVNC")) == 0) remove_novnc();
                 Logger::press_enter();
             }));
 
@@ -762,7 +762,7 @@ namespace tmoe::domain {
         menu->add_child(LambdaAction::make(
             "remove", "10",
             [this] {
-                if (dialog::yesno(cfg_, "", "确认卸载 xrdp？") == 0) remove_xrdp();
+                if (dialog::yesno(cfg_, "", _f("app.confirm_remove", "xrdp")) == 0) remove_xrdp();
                 Logger::press_enter();
             }));
         menu->add_child(LambdaAction::make(

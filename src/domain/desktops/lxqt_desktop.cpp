@@ -30,13 +30,13 @@ namespace tmoe::domain {
 
         bool is_ubuntu = (cfg_.sub_distro == "ubuntu");
         if (is_ubuntu) {
-            if (ui::dialog::yesno(cfg_, "Lxqt or Lubuntu-desktop", "前者为普通lxqt,后者为lubuntu", "lxqt", "lubuntu") == 1) {
+            if (ui::dialog::yesno(cfg_, "Lxqt or Lubuntu-desktop", _("gui.desktop.lxqt_or_lubuntu_desc"), "lxqt", "lubuntu") == 1) {
                 c.pkg_list = "lubuntu-desktop";
                 return c;
             }
         }
 
-        if (ui::dialog::yesno(cfg_, "LXQT-CORE or LXQT-LITE", "前者为普通lxqt,后者为精简版lxqt", "core", "lite") != 0) {
+        if (ui::dialog::yesno(cfg_, "LXQT-CORE or LXQT-LITE", _("gui.desktop.lxqt_core_or_lite_desc"), "core", "lite") != 0) {
             c.use_no_recommends = true;
             c.pkg_list = "pcmanfm-qt pcmanfm-qt-l10n qterminal qterminal-l10n "
                     "openbox lxqt-theme-debian lxqt-panel lxqt-config "
@@ -51,7 +51,7 @@ namespace tmoe::domain {
 
         // 非 Debian 发行版时显示不支持的警告
         if (!ctx.is_debian && ctx.family == DistroFamily::Solus)
-            Logger::warn("ERROR!未适配solus");
+            Logger::warn(_("app.solus_not_supported"));
 
         desktop_utils::dpkg_configure_and_keyboard(ctx.is_debian);
         desktop_utils::purge_libfprint_and_clean(ctx.is_proot, ctx.is_debian);

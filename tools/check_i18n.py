@@ -20,9 +20,18 @@ RE_DIRECT = re.compile(r'\b_[f]?\s*\(\s*"((?:[^"\\]|\\.)*)"')
 # 匹配: _("key1" "key2") 这种拼接形式（少见但也覆盖）
 RE_MULTI = re.compile(r'_\s*\(\s*"((?:[^"\\]|\\.)*)"\s*"((?:[^"\\]|\\.)*)"')
 
+# 匹配动态 i18n key 引用 — 通过变量传入 _(struct.field) 的字符串字面量
+# 如 DebianOptApp{"swcenter.debian_opt.xxx", "pkg"}, regions[i].first 等
+# 规则: 小写字母开头，含至少一个点号，仅含 [a-z0-9_.]，不以 _config/_key/_id 结尾
+RE_I18N_KEY_LITERAL = re.compile(r'"([a-z][a-z0-9_]{2,}(?:\.[a-z0-9_]+)+)"')
 
-def extract_keys_from_file(filepath: Path) -> set[str]:
-    """从单个源文件中提取所有 i18n key。"""
+
+def extract_keys_from_file(filepath: Path, known_json_keys: set[str] | None = None) -> set[str]:
+    """从单个源文件中提取所有 i18n key。
+
+    known_json_keys: 如果提供，则额外提取与该集合匹配的 i18n 风格字符串字面量
+    （捕获 _() 通过变量引用的 key，如 DebianOptApp 数组中的 key）。
+    """
     keys = set()
     try:
         text = filepath.read_text(encoding="utf-8", errors="ignore")
@@ -42,16 +51,23 @@ def extract_keys_from_file(filepath: Path) -> set[str]:
         if key:
             keys.add(key)
 
+    # 动态引用: 提取与已知 JSON key 匹配的 i18n 风格字面量
+    if known_json_keys:
+        for m in RE_I18N_KEY_LITERAL.finditer(text):
+            key = m.group(1)
+            if key in known_json_keys:
+                keys.add(key)
+
     return keys
 
 
-def extract_all_code_keys(src_dir: Path) -> set[str]:
+def extract_all_code_keys(src_dir: Path, known_json_keys: set[str] | None = None) -> set[str]:
     """扫描 src/ 下所有 .cpp/.h/.hpp/.c/.cc 文件。"""
     all_keys = set()
     extensions = {".cpp", ".h", ".hpp", ".c", ".cc"}
     for f in src_dir.rglob("*"):
         if f.suffix in extensions:
-            all_keys |= extract_keys_from_file(f)
+            all_keys |= extract_keys_from_file(f, known_json_keys)
     return all_keys
 
 
@@ -246,16 +262,22 @@ def main():
     parser.add_argument("--fix", action="store_true", help="Add missing keys as empty placeholders to JSON")
     parser.add_argument("--match", action="store_true", help="Show rename pairs + new + unused report")
     parser.add_argument("--rename", action="store_true", help="Auto-rename matched old JSON keys to new names")
+    parser.add_argument("--ci", action="store_true", help="Exit with non-zero code if issues found (for CI)")
     args = parser.parse_args()
-
-    print("Scanning source code for i18n keys...")
-    code_keys = extract_all_code_keys(SRC_DIR)
-    print(f"   Found {len(code_keys)} unique keys")
 
     langs = [args.lang] if args.lang else ["zh_CN", "en_US"]
 
     en_dict = load_json_dict(LOCALES_DIR / "en_US.json")
     zh_dict = load_json_dict(LOCALES_DIR / "zh_CN.json")
+
+    # 先汇总所有 JSON keys，供源码扫描阶段识别动态引用
+    all_json_keys = set()
+    for lang in langs:
+        all_json_keys |= load_json_keys(LOCALES_DIR / f"{lang}.json")
+
+    print("Scanning source code for i18n keys...")
+    code_keys = extract_all_code_keys(SRC_DIR, all_json_keys)
+    print(f"   Found {len(code_keys)} unique keys (including {len(code_keys & all_json_keys)} matched from JSON)")
 
     # Compute rename pairs once
     best_matches = None
@@ -276,6 +298,8 @@ def main():
         for lang in langs:
             rename_matched_pairs(lang, best_matches)
 
+    has_missing = False
+
     for lang in langs:
         json_path = LOCALES_DIR / f"{lang}.json"
         print(f"\n>> {lang} ...")
@@ -285,12 +309,22 @@ def main():
         missing = code_keys - json_keys
         unused = json_keys - code_keys
 
+        if missing:
+            has_missing = True
+
         if args.fix:
             fix_missing(json_path, missing)
         elif args.match and best_matches:
             group_report(missing, unused, en_dict, zh_dict)
         else:
             report(missing, unused, lang)
+
+    if args.ci:
+        if has_missing:
+            print("\n[CI] i18n check FAILED — missing keys must be added to locale JSON before merging.")
+            sys.exit(1)
+        else:
+            print("\n[CI] i18n check passed.")
 
 
 if __name__ == "__main__":

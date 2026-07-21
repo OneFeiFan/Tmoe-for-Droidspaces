@@ -49,6 +49,11 @@ namespace tmoe::domain {
     void BetaFeaturesManager::run_network_menu() {
         ensure_nm_tools();
 
+        Logger::info(_("beta.net_will_cover"));
+        Logger::info(_("beta.net_will_cover2"));
+        Logger::info(_("beta.net_will_cover3"));
+        Logger::info("");
+
         auto family = infer_family_from_config(cfg_.linux_distro);
         bool running = true;
         while (running) {

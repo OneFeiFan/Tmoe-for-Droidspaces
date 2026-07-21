@@ -1385,17 +1385,17 @@ namespace tmoe::domain {
         fs::create_directories(pub_dl + "/VcXsrv");
         fs::create_directories(pub_dl + "/tigervnc");
 
-        Logger::info("下载 Windows PulseAudio...");
+        Logger::info(_("gui.wsl.download_pulseaudio"));
         Executor::shell("cd " + pub_dl + "/pulseaudio && "
                         "curl -LfsS 'https://gitee.com/mo2/wsl/raw/master/pulseaudio/pulseaudio.tar.xz' -o pulseaudio.tar.xz 2>/dev/null && "
                         "tar -Jxvf pulseaudio.tar.xz 2>/dev/null || true");
 
-        Logger::info("下载 Windows VcXsrv X Server...");
+        Logger::info(_("gui.wsl.download_vcxsrv"));
         Executor::shell("cd " + pub_dl + "/VcXsrv && "
                         "curl -LfsS 'https://gitee.com/mo2/wsl/raw/master/VcXsrv/VcXsrv.tar.xz' -o VcXsrv.tar.xz 2>/dev/null && "
                         "tar -Jxvf VcXsrv.tar.xz 2>/dev/null || true");
 
-        Logger::info("下载 Windows TigerVNC Viewer...");
+        Logger::info(_("gui.wsl.download_tigervnc"));
         Executor::shell("cd " + pub_dl + "/tigervnc && "
                         "curl -LfsS 'https://gitee.com/ak2/tigervnc-viewer/raw/master/vncviewer64.zip' -o vncviewer64.zip 2>/dev/null && "
                         "unzip -o vncviewer64.zip 2>/dev/null || true");

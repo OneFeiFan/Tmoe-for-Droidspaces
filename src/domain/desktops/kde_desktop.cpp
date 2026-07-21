@@ -29,20 +29,20 @@ namespace tmoe::domain {
         if (family == DistroFamily::Debian) {
             bool is_ubuntu = (cfg_.sub_distro == "ubuntu");
             if (is_ubuntu) {
-                if (ui::dialog::yesno(cfg_, "KDE-plasma or Kubuntu-desktop", "前者为普通KDE,后者为kubuntu", "KDE", "kubuntu") == 1) {
+                if (ui::dialog::yesno(cfg_, "KDE-plasma or Kubuntu-desktop", _("gui.desktop.kde_or_kubuntu_desc"), "KDE", "kubuntu") == 1) {
                     c.pkg_list = "kubuntu-desktop";
                     return c;
                 }
             }
             // choose_kde_plasma_or_standard
-            if (ui::dialog::yesno(cfg_, "kde-plasma or kde-standard", "前者为精简安装,后者为标准安装", "plasma", "standard") == 0) {
+            if (ui::dialog::yesno(cfg_, "kde-plasma or kde-standard", _("gui.desktop.kde_plasma_or_standard_desc"), "plasma", "standard") == 0) {
                 c.pkg_list = "kde-plasma-desktop";
             } else {
-                c.pkg_list = ui::dialog::yesno(cfg_, "kde-standard or kde-full", "前者包含KDE标准套件,后者为KDE全家桶", "standard", "full") == 0
+                c.pkg_list = ui::dialog::yesno(cfg_, "kde-standard or kde-full", _("gui.desktop.kde_standard_or_full_desc"), "standard", "full") == 0
                                  ? "kde-standard" : "kde-full";
             }
         } else if (family == DistroFamily::Arch) {
-            c.pkg_list = ui::dialog::yesno(cfg_, "kde-plasma or plasma-meta", "前者为plasma基础桌面,后者包含kde全家桶", "plasma", "plasma+apps") == 0
+            c.pkg_list = ui::dialog::yesno(cfg_, "kde-plasma or plasma-meta", _("gui.desktop.kde_plasma_or_meta_desc"), "plasma", "plasma+apps") == 0
                              ? "plasma-desktop dolphin konsole discover"
                              : "plasma-meta kde-applications-meta plasma-wayland-session sddm sddm-kcm";
         }
@@ -101,7 +101,7 @@ namespace tmoe::domain {
     }
 
     void KdeDesktop::choose_wayland_or_x11(const PostInstallContext & /*ctx*/) {
-        if (ui::dialog::yesno(cfg_, "x11 or wayland", "默认推荐x11, wayland尚在实验阶段", "x11", "wayland") == 1) {
+        if (ui::dialog::yesno(cfg_, "x11 or wayland", _("gui.desktop.kde_x11_or_wayland_desc"), "x11", "wayland") == 1) {
             plasma_wayland_env();
             Logger::info(_("gui.plasma_wayland.selected"));
         }

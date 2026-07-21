@@ -39,7 +39,7 @@ namespace tmoe::domain {
         PreInstallChoices c;
         if (family == DistroFamily::Debian
             && cfg_.sub_distro == "ubuntu" && !is_auto_mode) {
-            if (ui::dialog::yesno(cfg_, "Xfce or Xubuntu-desktop", "前者为普通xfce,后者为xubuntu", "xfce", "xubuntu") == 1)
+            if (ui::dialog::yesno(cfg_, "Xfce or Xubuntu-desktop", _("gui.desktop.xfce_or_xubuntu_desc"), "xfce", "xubuntu") == 1)
                 c.pkg_list = "xubuntu-desktop";
         }
         return c;

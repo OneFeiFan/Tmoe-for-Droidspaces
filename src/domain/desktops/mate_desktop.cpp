@@ -41,13 +41,13 @@ PreInstallChoices MateDesktop::pre_install_choices(
 
     bool is_ubuntu = (cfg_.sub_distro == "ubuntu");
     if (is_ubuntu) {
-        if (ui::dialog::yesno(cfg_, "Mate or Ubuntu-MATE", "前者为普通mate,后者为ubuntu-mate", "mate", "ubuntu-mate") == 1) {
+        if (ui::dialog::yesno(cfg_, "Mate or Ubuntu-MATE", _("gui.desktop.mate_or_ubuntu_desc"), "mate", "ubuntu-mate") == 1) {
             c.pkg_list = "ubuntu-mate-desktop"; return c;
         }
     }
 
     // core / lite
-    if (ui::dialog::yesno(cfg_, "MATE-CORE or MATE-LITE", "前者为普通mate,后者为精简版mate", "core", "lite") != 0) {
+    if (ui::dialog::yesno(cfg_, "MATE-CORE or MATE-LITE", _("gui.desktop.mate_core_or_lite_desc"), "core", "lite") != 0) {
         c.use_no_recommends = true;
         c.pkg_list = "mate-session-manager mate-settings-daemon marco mate-terminal mate-panel";
     }
@@ -69,7 +69,7 @@ void MateDesktop::post_install_config(const PostInstallContext& ctx) {
 
     // 非 Debian 发行版时显示不支持的警告
     if (!ctx.is_debian && ctx.family == DistroFamily::Solus)
-        Logger::warn("ERROR!未适配solus");
+        Logger::warn(_("app.solus_not_supported"));
 
     desktop_utils::dpkg_configure_and_keyboard(ctx.is_debian);
     desktop_utils::purge_libfprint_and_clean(ctx.is_proot, ctx.is_debian);

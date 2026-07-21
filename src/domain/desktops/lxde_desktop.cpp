@@ -31,13 +31,13 @@ PreInstallChoices LxdeDesktop::pre_install_choices(
 
     // Ubuntu: 先选 lubuntu-desktop
     if (cfg_.sub_distro == "ubuntu") {
-        if (ui::dialog::yesno(cfg_, "Lxde or Lubuntu-desktop", "前者为普通lxde,后者为lubuntu", "lxde", "lubuntu") == 1) {
+        if (ui::dialog::yesno(cfg_, "Lxde or Lubuntu-desktop", _("gui.desktop.lxde_or_lubuntu_desc"), "lxde", "lubuntu") == 1) {
             c.pkg_list = "lubuntu-desktop";
             return c;
         }
     }
 
-    if (ui::dialog::yesno(cfg_, "LXDE-CORE or LXDE-LITE", "前者为普通lxde(包含额外组件),后者为精简版", "core", "lite") != 0) {
+    if (ui::dialog::yesno(cfg_, "LXDE-CORE or LXDE-LITE", _("gui.desktop.lxde_core_or_lite_desc"), "core", "lite") != 0) {
         c.use_no_recommends = true;
         c.pkg_list = "pcmanfm lxterminal openbox-lxde-session lxde-icon-theme lxpanel";
     }
@@ -50,7 +50,7 @@ void LxdeDesktop::post_install_config(const PostInstallContext& ctx) {
 
     // 非 Debian 发行版时显示不支持的警告
     if (!ctx.is_debian && ctx.family == DistroFamily::Solus)
-        Logger::warn("ERROR!未适配solus");
+        Logger::warn(_("app.solus_not_supported"));
 
     desktop_utils::dpkg_configure_and_keyboard(ctx.is_debian);
     desktop_utils::purge_libfprint_and_clean(ctx.is_proot, ctx.is_debian);

@@ -189,11 +189,10 @@ namespace tmoe::domain {
                                                    " --title \"input method\""
                                                    " --defaultno"
                                                    " --yesno '" + std::string(cfg_.is_wsl
-                                                                                  ? "检测到WSL环境,是否需要安装中文输入法(fcitx-pinyin)？"
-                                                                                  : "检测到您当前的语言环境为中文，是否需要安装中文输入法？") +
-                                                   "\\n"
-                                                   "安装完成后，在桌面环境下按Ctrl+空格切换输入法\\n"
-                                                   "你也可以选择NO跳过，之后可以单独安装fcitx5' 0 0");
+                                                                                  ? _("gui.desktop.input_method_prompt_wsl")
+                                                                                  : _("gui.desktop.input_method_prompt_zh")) +
+                                                   "\\n" +
+                                                   _("gui.desktop.input_method_hint") + "' 0 0");
                     want_fcitx = (r.exit_code == 0);
                 } else {
                     want_fcitx = auto_install_fcitx4_;
@@ -219,11 +218,7 @@ namespace tmoe::domain {
                 auto r = Executor::passthrough(cfg_.tui_bin +
                                                " --title \"Electron apps\""
                                                " --defaultno"
-                                               " --yesno '请问您是否需要安装开发者推荐的electron软件包合集？\\n"
-                                               "该合集包含哔哩哔哩客户端，obsidian(markdown编辑器)，\\n"
-                                               "网易云音乐第三方electron版，listen1，\\n"
-                                               "YesPlayMusic，petal和zy-player\\n"
-                                               "你可以选择NO跳过，之后可以单独安装electron app。' 0 0");
+                                               " --yesno '" + _("gui.desktop.electron_prompt") + "' 0 0");
                 want_electron = (r.exit_code == 0);
             }
         }
