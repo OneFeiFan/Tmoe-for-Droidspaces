@@ -287,15 +287,6 @@ namespace tmoe::domain {
             fs::exists("/etc/apt/sources.list.d/microsoft-edge-dev.list"))
             return;
 
-        // Microsoft Edge 仅提供 amd64 包
-        auto arch_result = Executor::shell("dpkg --print-architecture 2>/dev/null");
-        std::string arch = arch_result.stdout_data;
-        trim_newline(arch);
-        if (arch != "amd64") {
-            Logger::warn("Microsoft Edge only supports amd64, skipped (current: " + arch + ")");
-            return;
-        }
-
         Logger::step(_("browser.edge_repo") + ": GPG key");
         Executor::passthrough(
             "curl -fSL --progress-bar https://packages.microsoft.com/keys/microsoft.asc | "
@@ -311,8 +302,17 @@ namespace tmoe::domain {
 
     bool EdgeApp::install(DistroFamily family) {
         Logger::step(name());
-        bool ok = false;
 
+        // Microsoft Edge 仅提供 x86_64/amd64 包（所有发行版通用）
+        auto arch_result = Executor::shell("uname -m 2>/dev/null");
+        std::string arch = arch_result.stdout_data;
+        trim_newline(arch);
+        if (arch != "x86_64") {
+            Logger::warn(_("browser.edge_arch_unsupported") + ": " + arch);
+            return false;
+        }
+
+        bool ok = false;
         switch (family) {
             case DistroFamily::Debian:
                 ensure_repo();

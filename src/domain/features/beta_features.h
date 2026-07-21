@@ -44,6 +44,12 @@ public:
     /** 选项9: 网络管理 (nmtui, 设备管理, WiFi扫描, 网卡驱动, IP查看, etc.) — 占位 */
     void run_network_menu();
 
+    /** 通用单包安装（供插件层内嵌子菜单使用）。*/
+    void install_single(const std::string& i18n_key, const std::string& pkg);
+
+    /** 通用多包安装（供插件层内嵌子菜单使用）。*/
+    void install_multi(const std::vector<std::string>& pkgs);
+
 private:
     const TmoeConfig& cfg_;
 
@@ -53,13 +59,6 @@ private:
     std::function<void()> input_method_cb_;
     std::function<void()> terminal_cb_;
 
-    // ── 辅助 ──
-
-    /** 通用单包安装 */
-    void install_single(const std::string& i18n_key, const std::string& pkg);
-
-    /** 通用多包安装 */
-    void install_multi(const std::vector<std::string>& pkgs);
 };
 
 } // namespace tmoe::domain

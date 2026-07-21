@@ -12,8 +12,7 @@ namespace tmoe::domain {
 // ═══════════════════════════════════════════════════════════════
 
 void LibreOfficeApp::apply_proot_patch() {
-    if (!cfg_.is_termux && !cfg_.is_root) return;
-
+    // shell 层已有安全检查：文件存在且非软链接才执行
     Logger::step(_("office.proot_patch"));
     Executor::shell(
         "if [ -f /usr/lib/libreoffice/program/oosplash ] && "
@@ -38,8 +37,7 @@ bool LibreOfficeApp::install(DistroFamily family) {
 // ═══════════════════════════════════════════════════════════════
 
 void LibreOfficeZhApp::apply_proot_patch() {
-    if (!cfg_.is_termux && !cfg_.is_root) return;
-
+    // shell 层已有安全检查：文件存在且非软链接才执行
     Logger::step(_("office.proot_patch"));
     Executor::shell(
         "if [ -f /usr/lib/libreoffice/program/oosplash ] && "
