@@ -138,11 +138,29 @@ int main(int argc, char *argv[]) {
     }
 
     // 阶段5.5: 读取持久化的 locale 偏好 (优先级: CLI > 持久化 > 默认英文)
+    bool first_run = false;
     if (!lang_from_cli) {
         std::string saved = load_saved_locale();
         if (!saved.empty() && saved != lang) {
             lang = saved;
             tmoe::I18n::init(lang);
+        } else if (saved.empty()) {
+            first_run = true;
+        }
+    }
+
+    // 阶段5.6: 首次运行 — 弹出语言选择对话框 (仅交互模式)
+    if (first_run && pos_args.empty()) {
+        std::string choice = tmoe::Executor::tui_select(
+            cfg.tui_bin + " --title \"tmoe-linux\" "
+            "--menu \"Language / 语言\\n\\nPlease select your preferred language.\" 12 50 2 "
+            "\"zh_CN\" \"中文 (简体)  /  Chinese (Simplified)\" "
+            "\"en_US\" \"English\"");
+        if (!choice.empty()) {
+            lang = choice;
+            tmoe::I18n::init(lang);
+            save_locale_pref(lang);
+            cfg.locale = (lang == "zh_CN") ? "zh_CN.UTF-8" : "en_US.UTF-8";
         }
     }
 
