@@ -134,6 +134,34 @@ add_dependencies(tmoes gen_embedded_data)
 add_subdirectory(src/ui)
 
 # ═══════════════════════════════════════════════════════
+# 发行版优化 — 减小二进制体积
+# ═══════════════════════════════════════════════════════
+if(CMAKE_BUILD_TYPE MATCHES "Release" OR CMAKE_BUILD_TYPE MATCHES "MinSizeRel")
+    # LTO：跨翻译单元内联 + 死代码消除
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT _tmoes_ipo_ok OUTPUT _tmoes_ipo_output)
+    if(_tmoes_ipo_ok)
+        set_property(TARGET tmoes_lib tmoes PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    endif()
+
+    # gc-sections：链接时丢弃未引用的函数/数据段
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(tmoes_lib PRIVATE -ffunction-sections -fdata-sections)
+        if(NOT APPLE)
+            target_link_options(tmoes PRIVATE -Wl,--gc-sections)
+        endif()
+    endif()
+
+    # 自动 strip（CI 仍可再跑一次，不冲突）
+    if(CMAKE_STRIP)
+        add_custom_command(TARGET tmoes POST_BUILD
+            COMMAND ${CMAKE_STRIP} "$<TARGET_FILE:tmoes>"
+            COMMENT "Stripping tmoes"
+            VERBATIM)
+    endif()
+endif()
+
+# ═══════════════════════════════════════════════════════
 # 单元测试
 # ═══════════════════════════════════════════════════════
 if (TMOE_BUILD_TESTS)
