@@ -863,10 +863,14 @@ namespace tmoe::domain {
             "mkdir -p /tmp/.X11-unix; "
             "chmod 1777 /tmp/.X11-unix 2>/dev/null || true");
 
-        // 清理残留锁
+        // 清理残留锁和 socket — 先 vncserver -kill 确保旧实例彻底关闭
+        // vncserver Perl wrapper 检测到锁文件时拒绝启动，必须先清理
+        // 使用 sudo：锁文件可能由 root 创建（chroot/多用户场景），普通用户无权限删除
         std::string lock_path = "/tmp/.X" + std::to_string(vnc_config_.display) + "-lock";
         std::string socket_path = "/tmp/.X11-unix/X" + std::to_string(vnc_config_.display);
-        Executor::passthrough(CommandBuilder("rm").add_flag("-f").add_arg(lock_path).add_arg(socket_path).add_raw("2>/dev/null").build_string());
+        Executor::passthrough("vncserver -kill :" + std::to_string(vnc_config_.display) + " 2>/dev/null || true");
+        Executor::passthrough("sudo rm -f " + lock_path + " " + socket_path + " 2>/dev/null || true");
+        Executor::passthrough("rm -f " + lock_path + " " + socket_path + " 2>/dev/null || true");
 
         // WSL 环境准备 (VNC 以普通用户运行，无需 sudo)
         std::string env_prefix;
