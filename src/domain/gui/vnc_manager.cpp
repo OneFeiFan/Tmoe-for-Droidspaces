@@ -840,12 +840,14 @@ namespace tmoe::domain {
         std::string lock_path = "/tmp/.X" + std::to_string(vnc_config_.display) + "-lock";
         std::string socket_path = "/tmp/.X11-unix/X" + std::to_string(vnc_config_.display);
         std::string display_id = std::to_string(vnc_config_.display);
+        Logger::info(lock_path);
+        Logger::info(socket_path);
 
         // 1a. 杀死可能还在运行的旧 VNC 进程
         Executor::passthrough("vncserver -kill :" + display_id + " 2>/dev/null || true");
 
         // 1b. 尝试以当前用户身份删除锁文件
-        Executor::passthrough("rm -f " + lock_path + " " + socket_path + " 2>/dev/null || true");
+        Executor::passthrough("rm -f " + lock_path + " " + socket_path);
 
         // 1c. 如果锁文件还存在（可能属于 root/其他用户），用 sudo 清理
         //     故意不加 2>/dev/null：让 sudo 的密码提示能显示给用户
