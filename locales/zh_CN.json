@@ -759,6 +759,8 @@
   "gui.vnc.no_password": "密码为空，将使用无密码模式",
   "gui.vnc.password": "设置 VNC 密码...",
   "gui.vnc.password_failed": "VNC 密码设置失败",
+  "gui.vnc.password_not_set": "VNC 密码未设置，正在配置...",
+  "gui.vnc.password_required": "需要设置 VNC 密码才能启动服务",
   "gui.vnc.password_set": "VNC 密码已设置 -> {0}",
   "gui.vnc.performance_accel": "流畅程度(支持加速渲染时): tiger > x11vnc ? tight",
   "gui.vnc.performance_no_accel": "流畅程度(无法进行加速渲染时): tight > tiger > x11vnc",

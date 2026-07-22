@@ -30,6 +30,9 @@ namespace tmoe::domain {
         Logger::step(std::string(_("gui.vnc.config_title")) + " — " + std::string(desktop));
         auto family = get_family(cfg_);
 
+        // 0. 确保 VNC 服务端已安装 — 否则后续 vncpasswd 不存在，密码设置静默失败
+        vnc_manager_.install_vnc_server();
+
         // 0.5. 卸载 udisks2 (对应旧 Bash remove_udisk_and_gvfs)
         if (cfg_.is_termux && family == DistroFamily::Debian) {
             auto os_rel_content = SystemHelper::read_file("/etc/os-release");

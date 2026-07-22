@@ -638,9 +638,10 @@ namespace tmoe::domain {
                 << "    set_session_env\n"
                 << "    open_terminal\n"
                 << "    echo \"Starting desktop session: $REMOTE_DESKTOP_SESSION\"\n";
-        bool is_proot = cfg_.is_termux || cfg_.linux_distro == "Android";
+        bool is_container = cfg_.is_termux || cfg_.is_chroot ||
+                            cfg_.linux_distro == "Android";
         script << "    exec dbus-launch"
-                << (is_proot ? "" : " --exit-with-session")
+                << (is_container ? "" : " --exit-with-session")
                 << " $REMOTE_DESKTOP_SESSION \"$@\"\n"
                 << "}\n\n"
                 << "start_session\n";
@@ -833,6 +834,15 @@ namespace tmoe::domain {
         if (!fs::exists(vnc_config_.xstartup_file)) {
             Logger::warn(_("gui.vnc.xstartup_missing"));
             configure_xstartup("xfce");
+        }
+
+        // 确保 VNC 密码已设置 — 否则 vncserver 会交互式提示，阻塞 CLI 启动
+        if (!fs::exists(vnc_config_.passwd_file) || fs::file_size(vnc_config_.passwd_file) == 0) {
+            Logger::warn(_("gui.vnc.password_not_set"));
+            if (!configure_vnc_password()) {
+                Logger::error(_("gui.vnc.password_required"));
+                return false;
+            }
         }
 
         if (is_vnc_running()) {
@@ -1296,10 +1306,10 @@ namespace tmoe::domain {
 
     bool VncManager::launch_dbus_daemon() {
         bool is_proot = cfg_.is_termux || cfg_.linux_distro == "Android";
-        bool is_chroot = !is_proot && cfg_.linux_distro == "chroot";
+        bool is_in_container = is_proot || cfg_.is_chroot;
 
         // Bash: proot/chroot 环境中 pid 文件可能是残留的 → 清理后重新 fork
-        if (is_proot || is_chroot) {
+        if (is_in_container) {
             Executor::passthrough("sudo rm -vf /var/run/dbus/pid /run/dbus/pid "
                 "/var/run/dbus/messagebus.pid /run/messagebus.pid 2>/dev/null || true");
             Executor::passthrough("sudo mkdir -p /run/dbus /var/lib/dbus 2>/dev/null");

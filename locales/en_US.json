@@ -781,6 +781,8 @@
   "gui.vnc.no_password": "If the password is empty, passwordless mode will be used",
   "gui.vnc.password": "Set VNC password...",
   "gui.vnc.password_failed": "VNC password setting failed",
+  "gui.vnc.password_not_set": "VNC password not set, configuring...",
+  "gui.vnc.password_required": "VNC password is required to start the service",
   "gui.vnc.password_set": "VNC password set -> {0}",
   "gui.vnc.performance_accel": "Fluency (when accelerated rendering is supported): tiger > x11vnc ? tight",
   "gui.vnc.performance_no_accel": "Fluency (when accelerated rendering cannot be performed): tight > tiger > x11vnc",
