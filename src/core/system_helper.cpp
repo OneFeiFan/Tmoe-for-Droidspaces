@@ -145,22 +145,34 @@ namespace tmoe {
 
     std::string SystemHelper::user_home() {
 #ifndef _WIN32
+        uid_t uid = geteuid();
+
+    // 1. 如果当前进程已经是普通用户（比如 UID 1001），直接按实际 UID 查，忽略 SUDO_USER
+    if (uid != 0) {
+        struct passwd* pw = getpwuid(uid);
+        if (pw && pw->pw_dir) {
+            return std::string(pw->pw_dir);
+        }
+    }
+
+    // 2. 如果当前是 root 进程，才去检查 SUDO_USER（必须排除 SUDO_USER 也是 root 的情况）
     const char* sudo_user = std::getenv("SUDO_USER");
-    if (sudo_user && sudo_user[0]) {
+    if (sudo_user && sudo_user[0] && std::strcmp(sudo_user, "root") != 0) {
         struct passwd* pw = getpwnam(sudo_user);
         if (pw && pw->pw_dir) {
             return std::string(pw->pw_dir);
         }
     }
-    // 按实际 UID 查 home 目录 — chroot 中 $HOME 可能错误设为 /root
-    uid_t uid = geteuid();
-    struct passwd* pw = getpwuid(uid);
-    if (pw && pw->pw_dir) {
-        return std::string(pw->pw_dir);
+
+    // 3. 检查 HOME 环境变量
+    const char *home = std::getenv("HOME");
+    if (home && home[0]) {
+        return std::string(home);
     }
 #endif
+
         const char *home = std::getenv("HOME");
-        return home ? home : "/root";
+        return (home && home[0]) ? home : "/root";
     }
 
     // ---------- 下载 / 解压 ----------
