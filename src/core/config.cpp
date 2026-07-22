@@ -51,6 +51,27 @@ namespace tmoe {
             cfg.tui_bin = "whiptail";
         }
 
+        // 检测 chroot/proot 容器环境
+        const char* tmoe_chroot = std::getenv("TMOE_CHROOT");
+        if (tmoe_chroot && std::string(tmoe_chroot) == "true") {
+            cfg.is_chroot = true;
+        } else {
+            // 启发式: /proc/1/root 与 / 不同 → 容器内运行
+            auto root_check = Executor::shell("stat -c '%i' /proc/1/root/ 2>/dev/null; stat -c '%i' / 2>/dev/null");
+            if (root_check.ok()) {
+                auto lines = root_check.stdout_data;
+                auto nl = lines.find('\n');
+                if (nl != std::string::npos && nl + 1 < lines.size()) {
+                    std::string inode1 = lines.substr(0, nl);
+                    std::string inode2 = lines.substr(nl + 1);
+                    trim_newline(inode1); trim_newline(inode2);
+                    if (!inode1.empty() && inode1 != inode2) {
+                        cfg.is_chroot = true;
+                    }
+                }
+            }
+        }
+
         // 读取 /etc/os-release 进行发行版识别
         std::ifstream file("/etc/os-release");
         std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());

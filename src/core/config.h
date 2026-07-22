@@ -39,6 +39,7 @@ namespace tmoe {
         std::string locale = "zh_CN.UTF-8";
         bool is_termux = false;
         bool is_root = false;
+        bool is_chroot = false;   // true = 运行在 chroot/proot 容器内
 
         // ── 容器默认值 ──
         std::string default_distro = "debian";
