@@ -1100,10 +1100,29 @@ namespace tmoe::domain {
 
     bool VncManager::is_vnc_running(int display) const {
         if (display <= 0) display = vnc_config_.display;
+        // 检查进程（最可靠的判断）
         auto result = Executor::shell("pgrep -f 'X(vnc|tigervnc|tightvnc).*:" +
                                       std::to_string(display) + "' 2>/dev/null");
         if (result.ok() && !result.stdout_data.empty()) return true;
-        if (fs::exists("/tmp/.X" + std::to_string(display) + "-lock")) return true;
+
+        // 锁文件存在但进程不在 → 残留，验证后仍返回 false
+        std::string lock = "/tmp/.X" + std::to_string(display) + "-lock";
+        if (fs::exists(lock)) {
+            // 读取锁文件中的 PID，检查该进程是否还在运行
+            auto pid_data = SystemHelper::read_file(lock);
+            trim_newline(pid_data);
+            if (!pid_data.empty()) {
+                int pid = 0;
+                try { pid = std::stoi(pid_data); } catch (...) {}
+                if (pid > 1) {
+                    // 检查进程是否存在
+                    auto check = Executor::shell("kill -0 " + std::to_string(pid) + " 2>/dev/null");
+                    if (check.ok()) return true;
+                }
+            }
+            // 进程不存在 → 锁文件是残留的 → 清理掉
+            Executor::passthrough("rm -f " + lock + " /tmp/.X11-unix/X" + std::to_string(display) + " 2>/dev/null || true");
+        }
         return false;
     }
 
