@@ -711,8 +711,8 @@ namespace tmoe::domain {
             Executor::passthrough("sudo ln -svf /etc/machine-id /var/lib/dbus/machine-id 2>/dev/null || true");
         }
 
-        // 3. 创建 ~/.vnc/xstartup
-        Executor::passthrough("mkdir -p ~/.vnc 2>/dev/null; sudo mkdir -p /etc/X11/xinit 2>/dev/null");
+        // 3. 创建 xstartup（使用实际家目录，兼容 chroot 中 $HOME 错误的环境）
+        Executor::passthrough("mkdir -p " + vnc_config_.vnc_home_dir.string() + " 2>/dev/null; sudo mkdir -p /etc/X11/xinit 2>/dev/null");
         std::string xstartup_content = generate_xstartup_content();
         if (!write_file_content(vnc_config_.xstartup_file, xstartup_content)) {
             Logger::error(_f("gui.vnc.xstartup_write_failed", vnc_config_.xstartup_file.string()));
@@ -878,6 +878,12 @@ namespace tmoe::domain {
                 Logger::info(_f("gui.vnc.wsl2_pulseaudio", vnc_config_.windows_ip));
             }
         }
+
+        // 确保 vncserver 使用正确的 HOME 路径
+        // chroot 等场景中 $HOME 环境变量可能错误（如指向 /root），
+        // 但 C++ 端的 user_home() 已正确解析实际家目录
+        std::string correct_home = vnc_config_.vnc_home_dir.parent_path().string();
+        env_prefix += "HOME=" + correct_home + " ";
 
         // 禁用 OpenGL: VNC 无硬件 GPU，避免 llvmpipe 软件回退
         // 写入 ~/.vnc/config — TigerVNC 在启动 Xvnc 前读取此文件
