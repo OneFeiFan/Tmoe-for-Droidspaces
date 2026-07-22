@@ -130,7 +130,12 @@ namespace tmoe::domain {
         Logger::step(_("mirror.updating"));
         auto family = infer_family_from_config(cfg_.linux_distro);
         if (family == DistroFamily::Unknown) return true;
-        return PackageManager::update(family);
+        // apt update 可能因第三方仓库 GPG 错误返回非零，
+        // 但主镜像源切换本身是成功的 — 仅警告，不阻塞
+        if (!PackageManager::update(family)) {
+            Logger::warn(_("mirror.update_warn"));
+        }
+        return true;
     }
 
     bool MirrorManager::run_dist_upgrade() const {

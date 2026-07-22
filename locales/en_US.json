@@ -1110,6 +1110,7 @@
   "mirror.unsupported_fedora": "Fedora 29 and below are not supported",
   "mirror.update_failed_hint": "apt update failed - the image source may be unreachable or misconfigured",
   "mirror.update_troubleshoot": "Please try: 1) Switch HTTP/HTTPS 2) Force trust source 3) Change to other mirror sites",
+  "mirror.update_warn": "apt update returned warnings (likely from third-party repo GPG keys), main mirror switch succeeded",
   "mirror.updating": "Update package database...",
   "misc.not_implemented": "Function not yet implemented",
   "misc.press_enter": "Press Enter to continue...",

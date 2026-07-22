@@ -1088,6 +1088,7 @@
   "mirror.unsupported_fedora": "不支持 Fedora 29 及以下版本",
   "mirror.update_failed_hint": "apt update 失败 — 镜像源可能不可达或配置有误",
   "mirror.update_troubleshoot": "请尝试: 1) 切换 HTTP/HTTPS  2) 强制信任源  3) 更换其他镜像站",
+  "mirror.update_warn": "apt update 有警告（可能来自第三方仓库的 GPG 密钥过期），主镜像源切换成功",
   "mirror.updating": "更新软件包数据库...",
   "misc.not_implemented": "功能尚未实现",
   "misc.press_enter": "按回车继续...",
