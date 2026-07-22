@@ -147,11 +147,16 @@ namespace tmoe {
 #ifndef _WIN32
     const char* sudo_user = std::getenv("SUDO_USER");
     if (sudo_user && sudo_user[0]) {
-        // 废弃原版存在严重注入漏洞的 getent shell 调用，改用内存级 POSIX API
         struct passwd* pw = getpwnam(sudo_user);
         if (pw && pw->pw_dir) {
             return std::string(pw->pw_dir);
         }
+    }
+    // 按实际 UID 查 home 目录 — chroot 中 $HOME 可能错误设为 /root
+    uid_t uid = geteuid();
+    struct passwd* pw = getpwuid(uid);
+    if (pw && pw->pw_dir) {
+        return std::string(pw->pw_dir);
     }
 #endif
         const char *home = std::getenv("HOME");

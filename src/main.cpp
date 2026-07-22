@@ -48,11 +48,18 @@ static std::string load_saved_locale() {
 
 /** 持久化 locale 偏好到文件。 */
 static void save_locale_pref(std::string_view lang) {
-    std::string home = tmoe::SystemHelper::user_home();
-    std::string dir = home + "/.config/tmoe-linux";
-    std::string path = dir + "/locale";
-    fs::create_directories(dir);
-    tmoe::SystemHelper::write_file(path, std::string(lang) + "\n");
+    try {
+        std::string home = tmoe::SystemHelper::user_home();
+        std::string dir = home + "/.config/tmoe-linux";
+        std::string path = dir + "/locale";
+        std::error_code ec;
+        fs::create_directories(dir, ec);
+        if (!ec) {
+            tmoe::SystemHelper::write_file(path, std::string(lang) + "\n");
+        }
+    } catch (...) {
+        // 某些 chroot 环境 $HOME 目录不可写，静默跳过
+    }
 }
 
 int main(int argc, char *argv[]) {
