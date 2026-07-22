@@ -796,8 +796,7 @@ namespace tmoe::domain {
         }
 
         // ── 共享清理：桌面配置残余（所有发行版通用）──
-        const char *home = std::getenv("HOME");
-        std::string h = home ? home : "/root";
+        std::string h = SystemHelper::user_home();
         for (const auto *dir: {
                  "/.config/xfce4", "/.config/mate", "/.config/lxde",
                  "/.config/lxqt", "/.config/kde", "/.config/plasma",

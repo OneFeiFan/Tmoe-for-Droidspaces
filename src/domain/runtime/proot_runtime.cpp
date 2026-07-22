@@ -5,6 +5,7 @@
 #include "core/i18n.h"
 #include "core/command_builder.hpp"
 #include "core/str_utils.h"
+#include "core/system_helper.h"
 #include <filesystem>
 #include <algorithm>
 #include <cstdlib>
@@ -32,7 +33,7 @@ static std::string resolve_var(const std::string &s, const std::string &home,
 std::string ProotRuntime::generate_launch_cmd(const Container &container, const LaunchContext *ctx) const {
     auto c = config_;
     const std::string &rootfs = container.rootfs_path();
-    std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
+    std::string home = SystemHelper::user_home();
     std::string prefix = std::getenv("PREFIX") ? std::getenv("PREFIX") : "/usr";
     std::string tmoe_linux_dir = home + "/.local/share/tmoe-linux";
     auto rv = [&](const std::string &s) { return resolve_var(s, home, tmoe_linux_dir, prefix); };
@@ -112,7 +113,7 @@ std::string ProotRuntime::generate_launch_cmd(const Container &container, const 
 void ProotRuntime::apply_proot_args(const Container &container, CommandBuilder &cb) const {
     auto c = config_;
     const std::string &rootfs = container.rootfs_path();
-    std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
+    std::string home = SystemHelper::user_home();
     std::string prefix = std::getenv("PREFIX") ? std::getenv("PREFIX") : "/usr";
     std::string tmoe_linux_dir = home + "/.local/share/tmoe-linux";
 

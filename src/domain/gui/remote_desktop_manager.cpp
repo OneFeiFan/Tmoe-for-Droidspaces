@@ -1018,8 +1018,8 @@ namespace tmoe::domain {
                                  generate_polkit_colord_pkla());
         // 备份配置
         if (!fs::exists(
-            std::string(std::getenv("HOME") ? std::getenv("HOME") : "/root") + "/.config/tmoe-linux/xrdp.ini")) {
-            std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
+            SystemHelper::user_home() + "/.config/tmoe-linux/xrdp.ini")) {
+            std::string home = SystemHelper::user_home();
             Executor::shell("mkdir -pv " + home + "/.config/tmoe-linux/; "
                             "cp -p /etc/xrdp/startwm.sh /etc/xrdp/xrdp.ini " + home +
                             "/.config/tmoe-linux/ 2>/dev/null || true");
@@ -1329,7 +1329,7 @@ namespace tmoe::domain {
                 execute();
 
         // 尝试从备份恢复
-        std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
+        std::string home = SystemHelper::user_home();
         std::string backup_ini = home + "/.config/tmoe-linux/xrdp.ini";
         std::string backup_wm = home + "/.config/tmoe-linux/startwm.sh";
 

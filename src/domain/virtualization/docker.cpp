@@ -5,6 +5,7 @@
 #include <algorithm>
 #include "core/str_utils.h"
 #include "core/platform.h"
+#include "core/system_helper.h"
 #include <cstdio>
 #include <fstream>
 #include <sstream>
@@ -839,7 +840,7 @@ namespace tmoe::domain {
     void DockerManager::export_container_flow(const std::string& container_name) {
         // 选择保存路径
         std::string start_dir;
-        std::string home_dir = std::getenv("HOME") ? std::getenv("HOME") : "";
+        std::string home_dir = SystemHelper::user_home();
         for (const auto &d: {
                  home_dir + "/sd/Download/backup/rootfs",
                  std::string{"/media/sd/Download/backup/rootfs"},
@@ -867,7 +868,7 @@ namespace tmoe::domain {
         export_container(container_name, bak_file);
 
         // 修复权限
-        if (std::getenv("HOME") && std::string(std::getenv("HOME")) != "/root") {
+        if (SystemHelper::user_home() != "/root") {
             std::string user = Executor::shell("whoami").stdout_data;
             user.erase(std::remove(user.begin(), user.end(), '\n'), user.end());
             user.erase(std::remove(user.begin(), user.end(), '\r'), user.end());
@@ -921,7 +922,7 @@ namespace tmoe::domain {
 
         // 找起始目录
         std::string start_dir;
-        std::string home_dir = std::getenv("HOME") ? std::getenv("HOME") : "";
+        std::string home_dir = SystemHelper::user_home();
         for (const auto &d: {
                  home_dir + "/sd/Download/backup/rootfs",
                  std::string{"/media/sd/Download/backup/rootfs"},
@@ -1098,20 +1099,18 @@ namespace tmoe::domain {
         Logger::step(_("docker.adding_user_group"));
 
         // 对应 Bash: 优先用 $SUDO_USER（sudo提权时的原始用户），
-        // 其次从 $HOME 在 /etc/passwd 中反查，最后用 whoami
+        // 其次从实际家目录在 /etc/passwd 中反查，最后用 whoami
         std::string cur_user;
         const char *sudo_user = std::getenv("SUDO_USER");
         if (sudo_user && sudo_user[0] != '\0') {
             cur_user = sudo_user;
         } else {
-            const char *home = std::getenv("HOME");
-            if (home) {
-                auto result = Executor::shell(
-                    std::string("grep \"") + home + "\" /etc/passwd | awk -F':' '{print $1}' | head -n 1");
-                if (result.ok() && !result.stdout_data.empty()) {
-                    cur_user = result.stdout_data;
-                    cur_user.erase(std::remove(cur_user.begin(), cur_user.end(), '\n'), cur_user.end());
-                }
+            std::string home = SystemHelper::user_home();
+            auto result = Executor::shell(
+                std::string("grep \"") + home + "\" /etc/passwd | awk -F':' '{print $1}' | head -n 1");
+            if (result.ok() && !result.stdout_data.empty()) {
+                cur_user = result.stdout_data;
+                cur_user.erase(std::remove(cur_user.begin(), cur_user.end(), '\n'), cur_user.end());
             }
             if (cur_user.empty()) {
                 auto result = Executor::shell("whoami");

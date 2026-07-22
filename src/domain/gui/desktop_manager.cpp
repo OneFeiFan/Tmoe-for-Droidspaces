@@ -307,16 +307,17 @@ namespace tmoe::domain {
         }
 
         // 确定字体缓存目录
+        std::string home = SystemHelper::user_home();
         std::string font_dir;
         if (fs::exists("/etc/gitstatus")) {
-            if (fs::exists("/root/.cache/gitstatus")) {
-                Executor::shell("sudo cp -f /root/.cache/gitstatus/* /etc/gitstatus 2>/dev/null || true");
+            if (fs::exists(home + "/.cache/gitstatus")) {
+                Executor::shell("sudo cp -f " + home + "/.cache/gitstatus/* /etc/gitstatus 2>/dev/null || true");
                 CommandBuilder("sudo").add_arg("chmod").add_flag("-R").add_arg("a+rx").add_arg("/etc/gitstatus/").add_raw(
                     "2>/dev/null || true").execute();
             }
             font_dir = "/etc/gitstatus";
         } else {
-            font_dir = "/root/.cache/gitstatus";
+            font_dir = home + "/.cache/gitstatus";
             CommandBuilder("mkdir").add_flag("-pv").add_arg(font_dir).add_raw("2>/dev/null").execute();
         }
 

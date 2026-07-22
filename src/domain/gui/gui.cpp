@@ -1,5 +1,6 @@
 #include "gui.hpp"
 #include "core/str_utils.h"
+#include "core/system_helper.h"
 #include "ui/plugin_helpers.h"
 #include "ui/menu_engine.h"
 #include "ui/menus/gui_desktop_plugin.h"
@@ -130,7 +131,7 @@ namespace tmoe::domain {
             detect_and_configure_hidpi(desktop);
         }
 
-        std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
+        std::string home = SystemHelper::user_home();
 
         // Neko ASCII art
         Logger::info("               .::::..");
@@ -419,9 +420,7 @@ namespace tmoe::domain {
         std::string pulse_server = "tcp:" + vnc_manager_.config().windows_ip + ":" +
                                    std::to_string(vnc_manager_.config().pulse_port);
 
-        std::string bashrc = std::getenv("HOME")
-                                 ? std::string(std::getenv("HOME")) + "/.bashrc"
-                                 : "/root/.bashrc";
+        std::string bashrc = SystemHelper::user_home() + "/.bashrc";
         SystemHelper::append_file(fs::path(bashrc),
                                   "\n# tmoe WSL PulseAudio (已自动配置)\n"
                                   "export PULSE_SERVER=" + pulse_server + "\n");
@@ -935,7 +934,7 @@ namespace tmoe::domain {
         ac = true;
         desktop_manager_.set_auto_install_flags(af, ae, av, ac, ak, kt);
 
-        std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
+        std::string home = SystemHelper::user_home();
         fs::create_directories(home + "/.vnc");
         SystemHelper::write_file(home + "/.vnc/passwd", "please delete the invalid passwd file\n");
 

@@ -4,6 +4,7 @@
 #include "core/logger.h"
 #include "core/config.h"
 #include "core/command_builder.hpp"
+#include "core/system_helper.h"
 
 namespace tmoe::domain {
 
@@ -20,11 +21,8 @@ std::string EducationManager::get_download_folder() const {
     if (cfg_.is_wsl) {
         return "/mnt/c/Users/Public/Documents";
     }
-    const char* home = std::getenv("HOME");
-    if (home) {
-        return std::string(home) + "/sd/Download/Documents";
-    }
-    return "/tmp/tmoe_study";
+    std::string home = SystemHelper::user_home();
+    return home + "/sd/Download/Documents";
 }
 
 bool EducationManager::whiptail_yesno(const std::string& title,

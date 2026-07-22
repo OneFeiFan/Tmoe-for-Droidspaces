@@ -1214,6 +1214,10 @@ namespace tmoe::domain {
             Executor::passthrough(CommandBuilder("sudo").add_arg("chmod").add_arg("+x").add_arg("/usr/local/bin/" + name).build_string());
         };
 
+        // 使用实际家目录而非 $HOME，兼容 chroot 等 $HOME 错误的环境
+        std::string vnc_home = vnc_config_.vnc_home_dir.string();
+        std::string user_home = vnc_home.substr(0, vnc_home.rfind("/.vnc"));
+
         // startvnc — 用户可编辑的完整脚本，对齐 Bash 原版
         write_script("startvnc",
             "#!/usr/bin/env bash\n"
@@ -1244,11 +1248,11 @@ namespace tmoe::domain {
             "AUTO_START_DBUS=true              # 自动启动 D-Bus\n"
             "AUTO_STOP_VNC=true                # 启动前自动停止旧 VNC\n"
             "AUTO_VNC_LOG_CLEARING=true        # 每次启动清空日志\n"
-            "VNC_LOG_FILE=$HOME/.vnc/vnc.log\n"
+            "VNC_LOG_FILE=" + vnc_home + "/vnc.log\n"
             "\n"
             "# ── 加载系统/用户配置文件 ──\n"
             "[ -r /etc/tigervnc/vncserver-config-tmoe ] && source /etc/tigervnc/vncserver-config-tmoe 2>/dev/null\n"
-            "[ -r \"$HOME/.vnc/config\" ] && { grep -q '^geometry=' \"$HOME/.vnc/config\" && VNC_RESOLUTION=$(grep '^geometry=' \"$HOME/.vnc/config\" | cut -d= -f2); grep -q '^ZlibLevel=' \"$HOME/.vnc/config\" && ZLIB_LEVEL=$(grep '^ZlibLevel=' \"$HOME/.vnc/config\" | cut -d= -f2); grep -q '^depth=' \"$HOME/.vnc/config\" && PIXEL_DEPTH=$(grep '^depth=' \"$HOME/.vnc/config\" | cut -d= -f2); } 2>/dev/null || true\n"
+            "[ -r \"" + vnc_home + "/config\" ] && { grep -q '^geometry=' \"" + vnc_home + "/config\" && VNC_RESOLUTION=$(grep '^geometry=' \"" + vnc_home + "/config\" | cut -d= -f2); grep -q '^ZlibLevel=' \"" + vnc_home + "/config\" && ZLIB_LEVEL=$(grep '^ZlibLevel=' \"" + vnc_home + "/config\" | cut -d= -f2); grep -q '^depth=' \"" + vnc_home + "/config\" && PIXEL_DEPTH=$(grep '^depth=' \"" + vnc_home + "/config\" | cut -d= -f2); } 2>/dev/null || true\n"
             "\n"
             "# 通过 tmoe C++ 运行时启动（完整逻辑）\n"
             "TMOE_BIN=\"" + std::string(tmoe_bin) + "\"\n"
@@ -1259,7 +1263,7 @@ namespace tmoe::domain {
             "\n"
             "# fallback: 直接用 vncserver 启动\n"
             "echo 'tmoe not found, using vncserver directly...'\n"
-            "mkdir -p ~/.vnc /tmp/.X11-unix 2>/dev/null\n"
+            "mkdir -p " + vnc_home + " /tmp/.X11-unix 2>/dev/null\n"
             "chmod 1777 /tmp/.X11-unix 2>/dev/null\n"
             "vncserver \"${VNC_USER:+ -u $VNC_USER}\" :${VNC_DISPLAY} -geometry ${VNC_RESOLUTION} -depth ${PIXEL_DEPTH} -localhost no -SecurityTypes VncAuth 2>&1\n");
 

@@ -439,7 +439,7 @@ namespace tmoe::domain {
 
     void DeveloperTools::vscode_server_password() {
         // 读取当前密码文件路径 — code-server 默认存储在 ~/.config/code-server/config.yaml
-        std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
+        std::string home = SystemHelper::user_home();
         std::string config_yaml = home + "/.config/code-server/config.yaml";
 
         if (!fs::exists(config_yaml)) {

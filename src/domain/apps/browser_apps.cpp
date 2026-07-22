@@ -359,7 +359,7 @@ namespace tmoe::domain {
 
         create_sandbox_wrapper("Edge", "microsoft-edge-dev");
         // 将 Edge 的桌面快捷方式也复制到桌面
-        std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
+        std::string home = SystemHelper::user_home();
         Executor::shell("for f in /usr/share/applications/microsoft-edge*.desktop; do "
                         "  [ -f \"$f\" ] && cp -f \"$f\" " + home + "/Desktop/ 2>/dev/null; "
                         "done; true");

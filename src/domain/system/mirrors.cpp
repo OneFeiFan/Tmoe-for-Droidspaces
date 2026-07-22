@@ -80,7 +80,7 @@ namespace tmoe::domain {
             // 展开 ~ 为 $HOME
             std::string bp = compat->backup_path;
             if (!bp.empty() && bp[0] == '~') {
-                bp = std::string(std::getenv("HOME") ? std::getenv("HOME") : "/root") + bp.substr(1);
+                bp = SystemHelper::user_home() + bp.substr(1);
             }
             backup_path = bp;
             source_file = compat->source_file;
@@ -116,7 +116,7 @@ namespace tmoe::domain {
         if (cfg_.linux_distro == "arch" && compat && !compat->backup_conf.empty()) {
             std::string bc = compat->backup_conf;
             if (!bc.empty() && bc[0] == '~') {
-                bc = std::string(std::getenv("HOME") ? std::getenv("HOME") : "/root") + bc.substr(1);
+                bc = SystemHelper::user_home() + bc.substr(1);
             }
             if (!fs::exists(bc)) {
                 CommandBuilder("cp").add_flag("-pf").add_arg(compat->source_conf).add_arg(bc).execute();
@@ -1017,7 +1017,7 @@ namespace tmoe::domain {
 
         std::string backup_path = compat->backup_path;
         if (!backup_path.empty() && backup_path[0] == '~') {
-            backup_path = std::string(std::getenv("HOME") ? std::getenv("HOME") : "/root") + backup_path.substr(1);
+            backup_path = SystemHelper::user_home() + backup_path.substr(1);
         }
 
         if (!fs::exists(backup_path)) {
@@ -1046,7 +1046,7 @@ namespace tmoe::domain {
         if (cfg_.linux_distro == "arch" && !compat->backup_conf.empty()) {
             std::string bc = compat->backup_conf;
             if (!bc.empty() && bc[0] == '~') {
-                bc = std::string(std::getenv("HOME") ? std::getenv("HOME") : "/root") + bc.substr(1);
+                bc = SystemHelper::user_home() + bc.substr(1);
             }
             if (fs::exists(bc)) {
                 CommandBuilder("cp").add_flag("-pf").add_arg(bc).add_arg(compat->source_conf).execute();

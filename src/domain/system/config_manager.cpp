@@ -19,7 +19,7 @@ namespace tmoe::domain {
 ConfigManager::ConfigManager(const TmoeConfig& cfg) : cfg_(cfg) {}
 
 std::string ConfigManager::config_dir() const {
-    std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
+    std::string home = SystemHelper::user_home();
     return home + "/.config/tmoe-linux";
 }
 

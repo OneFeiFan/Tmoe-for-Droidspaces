@@ -1,5 +1,6 @@
 #include "core/config.h"
 #include "core/str_utils.h"
+#include "core/system_helper.h"
 
 namespace tmoe {
     TmoeConfig TmoeConfig::detect() {
@@ -145,12 +146,10 @@ namespace tmoe {
         // 默认容器根目录路径
         cfg.container_root = "/var/lib/tmoe/containers";
 
-        // 非 Termux 的 GNU/Linux 路径：基于 $HOME（降权后为普通用户目录）
-        const char* home = std::getenv("HOME");
-        if (home) {
-            cfg.work_dir = std::string(home) + "/.local/share/tmoe";
-            cfg.backup_dir = std::string(home) + "/tmoe-backups";
-        }
+        // 非 Termux 的 GNU/Linux 路径：基于实际用户家目录
+        std::string home = SystemHelper::user_home();
+        cfg.work_dir = home + "/.local/share/tmoe";
+        cfg.backup_dir = home + "/tmoe-backups";
 
         // iSH (iOS Alpine) 检测
         auto uname_v = Executor::shell("uname -v 2>/dev/null");

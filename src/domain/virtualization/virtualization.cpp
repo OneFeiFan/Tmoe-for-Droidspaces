@@ -1,6 +1,7 @@
 #include "domain/virtualization/virtualization.h"
 #include "core/i18n.h"
 #include "domain/system/package_manager.h"
+#include "core/system_helper.h"
 #include <algorithm>
 
 namespace tmoe::domain {
@@ -86,19 +87,17 @@ namespace tmoe::domain {
         Logger::step(_("virt.installing_dxvk"));
         Logger::info(_("virt.dxvk_hint"));
 
-        // Wine 不能以 root 运行。用 $SUDO_USER 或从 $HOME 反查真实用户
+        // Wine 不能以 root 运行。用 $SUDO_USER 或从实际家目录反查真实用户
         std::string real_user;
         const char *sudo_user = std::getenv("SUDO_USER");
         if (sudo_user && sudo_user[0]) real_user = sudo_user;
         else {
-            const char *home = std::getenv("HOME");
-            if (home) {
-                auto r = Executor::shell(
-                    std::string("grep \"") + home + "\" /etc/passwd | awk -F':' '{print $1}' | head -n1");
-                if (r.ok()) {
-                    real_user = r.stdout_data;
-                    real_user.erase(std::remove(real_user.begin(), real_user.end(), '\n'), real_user.end());
-                }
+            std::string home = SystemHelper::user_home();
+            auto r = Executor::shell(
+                std::string("grep \"") + home + "\" /etc/passwd | awk -F':' '{print $1}' | head -n1");
+            if (r.ok()) {
+                real_user = r.stdout_data;
+                real_user.erase(std::remove(real_user.begin(), real_user.end(), '\n'), real_user.end());
             }
         }
 

@@ -11,6 +11,7 @@
 #include <cstdio>
 #include "core/platform.h"
 #include "core/str_utils.h"
+#include "core/system_helper.h"
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -590,7 +591,7 @@ bool BackupManager::restore_container(std::string_view archive_path) {
 
     if (is_chroot_restore && mode != RestoreMode::Compat) {
         // 清除旧的 chroot 容器标记
-        std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
+        std::string home = SystemHelper::user_home();
         std::string chroot_flag = home + "/.config/tmoe-linux/chroot_container";
         if (fs::exists(chroot_flag)) {
             fs::remove(chroot_flag);
@@ -754,7 +755,7 @@ std::vector<std::string> BackupManager::collect_extra_backup_targets(
     std::string_view container_name) {
 
     std::vector<std::string> targets;
-    std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
+    std::string home = SystemHelper::user_home();
 
     // ── tmoe 辅助脚本 ──
     std::vector<std::string> tmoe_scripts = {
@@ -1035,7 +1036,7 @@ bool BackupManager::is_chroot_container(std::string_view rootfs_path) const {
     std::string root(rootfs_path);
 
     // 检查 chroot 标记文件
-    std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
+    std::string home = SystemHelper::user_home();
     if (fs::exists(home + "/.config/tmoe-linux/chroot_container")) return true;
 
     // 检查是否是完整系统根目录结构

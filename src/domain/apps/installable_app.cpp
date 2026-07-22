@@ -1,5 +1,6 @@
 #include "domain/apps/installable_app.h"
 #include "ui/dialog_helpers.h"
+#include "core/system_helper.h"
 #include <filesystem>
 
 namespace fs = std::filesystem;
@@ -132,7 +133,7 @@ namespace tmoe::domain {
                 .add_raw("2>/dev/null").execute();
 
         // 复制到桌面
-        std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/root";
+        std::string home = SystemHelper::user_home();
         CommandBuilder("mkdir").add_flag("-p").add_arg(home + "/Desktop")
                 .add_raw("2>/dev/null").execute();
         CommandBuilder("cp").add_flag("-f").add_arg(desktop_path)

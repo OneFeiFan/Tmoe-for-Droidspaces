@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include "core/str_utils.h"
+#include "core/system_helper.h"
 #include <filesystem>
 
 #include "domain/runtime/container.h"
@@ -275,12 +276,9 @@ namespace tmoe::domain {
         if (config_.mount_tf.empty() || config_.mount_tf == "true") {
             std::string tf_link = config_.tf_card_link;
             // 展开 ${HOME}
-            const char *home = std::getenv("HOME");
-            if (home) {
-                std::string home_str(home);
-                size_t pos = tf_link.find("${HOME}");
-                if (pos != std::string::npos) tf_link.replace(pos, 7, home_str);
-            }
+            std::string home_str = SystemHelper::user_home();
+            size_t pos = tf_link.find("${HOME}");
+            if (pos != std::string::npos) tf_link.replace(pos, 7, home_str);
             if (fs::is_symlink(tf_link)) {
                 auto resolved = fs::read_symlink(tf_link);
                 if (fs::exists(resolved)) {
