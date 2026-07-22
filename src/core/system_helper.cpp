@@ -147,7 +147,7 @@ namespace tmoe {
 #ifndef _WIN32
         uid_t uid = geteuid();
 
-    // 1. 如果当前进程已经是普通用户（比如 UID 1001），直接按实际 UID 查，忽略 SUDO_USER
+    // 1. 如果当前进程已经是普通用户（UID != 0），直接按实际 UID 查
     if (uid != 0) {
         struct passwd* pw = getpwuid(uid);
         if (pw && pw->pw_dir) {
@@ -155,7 +155,7 @@ namespace tmoe {
         }
     }
 
-    // 2. 如果当前是 root 进程，才去检查 SUDO_USER（必须排除 SUDO_USER 也是 root 的情况）
+    // 2. 如果当前是 root 进程，检查 SUDO_USER（必须排除 SUDO_USER 也是 root 的情况）
     const char* sudo_user = std::getenv("SUDO_USER");
     if (sudo_user && sudo_user[0] && std::strcmp(sudo_user, "root") != 0) {
         struct passwd* pw = getpwnam(sudo_user);
@@ -164,15 +164,25 @@ namespace tmoe {
         }
     }
 
-    // 3. 检查 HOME 环境变量
-    const char *home = std::getenv("HOME");
-    if (home && home[0]) {
-        return std::string(home);
+    // 3. 检查 USER 环境变量（处理 su 切换后 USER 变量变更的情况）
+    const char* user_env = std::getenv("USER");
+    if (user_env && std::strcmp(user_env, "root") != 0) {
+        struct passwd* pw = getpwnam(user_env);
+        if (pw && pw->pw_dir) {
+            return std::string(pw->pw_dir);
+        }
     }
 #endif
 
+        // 4. 统一处理 HOME 环境变量（非 Windows 读取 $HOME，Windows 读取 %HOME%）
+        // 此处只声明一次 home，彻底避免 redeclaration 错误
         const char *home = std::getenv("HOME");
-        return (home && home[0]) ? home : "/root";
+        if (home && home[0]) {
+            return std::string(home);
+        }
+
+        // 5. 兜底方案
+        return "/root";
     }
 
     // ---------- 下载 / 解压 ----------
