@@ -610,6 +610,9 @@ namespace tmoe::domain {
         std::ostringstream script;
         script << "#!/bin/bash\n"
                 << "# tmoe-linux Xsession — 自动生成\n"
+                << "LOG=/tmp/tmoe_vnc_session.log\n"
+                << "exec 2>>\"$LOG\"\n"
+                << "echo \"=== tmoe-xsession started $(date) ===\" >> \"$LOG\"\n"
                 << "unset WAYLAND_DISPLAY\n"
                 << "unset XDG_RUNTIME_DIR\n"
                 << "export LIBGL_ALWAYS_SOFTWARE=1\n"
@@ -622,8 +625,8 @@ namespace tmoe::domain {
                 << "    elif command -v \"$SESSION_02\" >/dev/null 2>&1; then\n"
                 << "        REMOTE_DESKTOP_SESSION=\"$SESSION_02\"\n"
                 << "    else\n"
-                << "        echo \"Error: desktop session command not found\"\n"
-                << "        exit 1\n"
+                << "        echo \"Error: $SESSION_01 / $SESSION_02 not found\" >> \"$LOG\"\n"
+                << "        exec xterm -geometry 80x24+10+10 -ls -title \"VNC Fallback\"\n"
                 << "    fi\n"
                 << "    [[ ! -s /etc/environment ]] || source /etc/environment\n"
                 << "}\n\n"
@@ -637,12 +640,16 @@ namespace tmoe::domain {
                 << "start_session() {\n"
                 << "    set_session_env\n"
                 << "    open_terminal\n"
-                << "    echo \"Starting desktop session: $REMOTE_DESKTOP_SESSION\"\n";
+                << "    echo \"Starting: $REMOTE_DESKTOP_SESSION\" >> \"$LOG\"\n";
         bool is_container = cfg_.is_termux || cfg_.is_chroot ||
                             cfg_.linux_distro == "Android";
-        script << "    exec dbus-launch"
+        script << "    dbus-launch"
                 << (is_container ? "" : " --exit-with-session")
                 << " $REMOTE_DESKTOP_SESSION \"$@\"\n"
+                << "    rc=$?\n"
+                << "    echo \"Session exited with code $rc\" >> \"$LOG\"\n"
+                << "    # 桌面会话崩溃 → 启动回退终端\n"
+                << "    exec xterm -geometry 80x24+10+10 -ls -title \"Session crashed - Fallback\"\n"
                 << "}\n\n"
                 << "start_session\n";
         return script.str();
@@ -665,13 +672,13 @@ namespace tmoe::domain {
                 << "if command -v ibus-daemon >/dev/null 2>&1; then\n"
                 << "    ibus-daemon -drx >/dev/null 2>&1 &\n"
                 << "fi\n\n"
-                << "# 优先用系统 Xsession，否则用 tmoe 生成的会话脚本\n"
-                << "if [ -x /etc/X11/Xsession ]; then\n"
+                << "# 优先用 tmoe 生成的会话脚本（含 DBus 和桌面启动）\n"
+                << "if [ -x " << vnc_config_.xsession_file.string() << " ]; then\n"
+                << "    exec " << vnc_config_.xsession_file.string() << "\n"
+                << "elif [ -x /etc/X11/Xsession ]; then\n"
                 << "    exec /etc/X11/Xsession\n"
                 << "elif [ -x /etc/X11/xinit/Xsession ]; then\n"
                 << "    exec /etc/X11/xinit/Xsession\n"
-                << "elif [ -x " << vnc_config_.xsession_file.string() << " ]; then\n"
-                << "    exec " << vnc_config_.xsession_file.string() << "\n"
                 << "else\n"
                 << "    xterm -geometry 80x24+10+10 -ls -title \"tmoe VNC Desktop\" &\n"
                 << "    exec twm\n"
@@ -732,6 +739,8 @@ namespace tmoe::domain {
         bool has_passwd = fs::exists(vnc_config_.passwd_file) &&
                           fs::file_size(vnc_config_.passwd_file) > 0;
 
+        // vncserver (Perl 包装器) 负责: 启动 Xvnc + 等待就绪 + 运行 xstartup
+        // Xtigervnc 直调只会启动 X 服务器，不执行桌面会话，会导致黑屏
         CommandBuilder cmd(vnc_config_.server == "tight" ? "tightvncserver" : "vncserver");
         cmd.add_arg(":" + std::to_string(display))
                 .add_arg("-geometry").add_arg(std::to_string(width) + "x" + std::to_string(height))
@@ -744,17 +753,11 @@ namespace tmoe::domain {
             if (vnc_config_.always_shared)
                 cmd.add_arg("-alwaysshared");
         } else {
-            // TigerVNC: --I-KNOW-THIS-IS-INSECURE 跳过 TLS 证书要求
+            // vncserver + TLSvnc 需要跳过证书检查
             cmd.add_arg("--I-KNOW-THIS-IS-INSECURE");
             cmd.add_arg("-localhost").add_arg("no");
-            cmd.add_arg("-SecurityTypes")
-                    .add_arg("VncAuth,TLSVnc");
             if (has_passwd)
                 cmd.add_arg("-rfbauth").add_arg(vnc_config_.passwd_file.string());
-            if (!vnc_config_.xstartup_file.empty() && fs::exists(vnc_config_.xstartup_file))
-                cmd.add_arg("-xstartup").add_arg(vnc_config_.xstartup_file.string());
-            if (vnc_config_.zlib_level >= 0)
-                cmd.add_arg("-ZlibLevel").add_arg(std::to_string(vnc_config_.zlib_level));
             if (vnc_config_.always_shared)
                 cmd.add_arg("-AlwaysShared");
         }
@@ -831,10 +834,8 @@ namespace tmoe::domain {
             return start_x11vnc(display);
         }
 
-        if (!fs::exists(vnc_config_.xstartup_file)) {
-            Logger::warn(_("gui.vnc.xstartup_missing"));
-            configure_xstartup("xfce");
-        }
+        // 每次启动前重建 xstartup，确保桌面会话脚本正确
+        configure_xstartup("xfce");
 
         // 确保 VNC 密码已设置 — 否则 vncserver 会交互式提示，阻塞 CLI 启动
         if (!fs::exists(vnc_config_.passwd_file) || fs::file_size(vnc_config_.passwd_file) == 0) {
@@ -890,6 +891,7 @@ namespace tmoe::domain {
 
         launch_dbus_daemon();
 
+        // vncserver 内部自动 fork Xvnc 到后台 + 等待就绪 + 运行 xstartup
         std::string cmd = build_vnc_start_command(display, width, height);
         ExecResult result = Executor::passthrough(env_prefix + cmd);
 
