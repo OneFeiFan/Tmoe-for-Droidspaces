@@ -834,6 +834,32 @@ namespace tmoe::domain {
             return start_x11vnc(display);
         }
 
+        // ── 第1步: 清理残留 VNC 实例 ──
+        // vncserver -kill 通过 PID 文件杀死旧进程（如果还在运行）
+        // vncserver Perl wrapper 检测到锁文件时会拒绝启动，必须先清理
+        std::string lock_path = "/tmp/.X" + std::to_string(vnc_config_.display) + "-lock";
+        std::string socket_path = "/tmp/.X11-unix/X" + std::to_string(vnc_config_.display);
+        std::string display_id = std::to_string(vnc_config_.display);
+
+        // 1a. 杀死可能还在运行的旧 VNC 进程
+        Executor::passthrough("vncserver -kill :" + display_id + " 2>/dev/null || true");
+
+        // 1b. 尝试以当前用户身份删除锁文件
+        Executor::passthrough("rm -f " + lock_path + " " + socket_path + " 2>/dev/null || true");
+
+        // 1c. 如果锁文件还存在（可能属于 root/其他用户），用 sudo 清理
+        //     故意不加 2>/dev/null：让 sudo 的密码提示能显示给用户
+        if (fs::exists(lock_path) || fs::exists(socket_path)) {
+            Logger::info(_f("gui.vnc.stale_lock", lock_path));
+            auto sudo_rc = Executor::passthrough("sudo rm -f " + lock_path + " " + socket_path);
+            // sudo 可能需要密码 → 上面的 passthrough 会透传终端交互
+            if (!sudo_rc.ok() && (fs::exists(lock_path) || fs::exists(socket_path))) {
+                Logger::error(_("gui.vnc.cannot_clean_lock"));
+                Logger::info("  sudo rm -f " + lock_path + " " + socket_path);
+                return false;
+            }
+        }
+
         // 每次启动前重建 xstartup，确保桌面会话脚本正确
         configure_xstartup("xfce");
 
@@ -862,15 +888,6 @@ namespace tmoe::domain {
             "[ -f /tmp/.X11-unix ] && rm -f /tmp/.X11-unix; "
             "mkdir -p /tmp/.X11-unix; "
             "chmod 1777 /tmp/.X11-unix 2>/dev/null || true");
-
-        // 清理残留锁和 socket — 先 vncserver -kill 确保旧实例彻底关闭
-        // vncserver Perl wrapper 检测到锁文件时拒绝启动，必须先清理
-        // 使用 sudo：锁文件可能由 root 创建（chroot/多用户场景），普通用户无权限删除
-        std::string lock_path = "/tmp/.X" + std::to_string(vnc_config_.display) + "-lock";
-        std::string socket_path = "/tmp/.X11-unix/X" + std::to_string(vnc_config_.display);
-        Executor::passthrough("vncserver -kill :" + std::to_string(vnc_config_.display) + " 2>/dev/null || true");
-        Executor::passthrough("sudo rm -f " + lock_path + " " + socket_path + " 2>/dev/null || true");
-        Executor::passthrough("rm -f " + lock_path + " " + socket_path + " 2>/dev/null || true");
 
         // WSL 环境准备 (VNC 以普通用户运行，无需 sudo)
         std::string env_prefix;
