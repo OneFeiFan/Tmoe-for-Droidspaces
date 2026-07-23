@@ -15,9 +15,9 @@ namespace tmoe::domain {
     std::vector<std::pair<std::string, std::string> >
     VirtualizationManager::wine_branches() {
         return {
-            {"devel", _("virt.wine_branch_devel")},
-            {"staging", _("virt.wine_branch_staging")},
-            {"stable", _("virt.wine_stable")},
+                {"devel",   _("virt.wine_branch_devel")},
+                {"staging", _("virt.wine_branch_staging")},
+                {"stable",  _("virt.wine_stable")},
         };
     }
 
@@ -26,25 +26,23 @@ namespace tmoe::domain {
 
         if (is_debian() || is_ubuntu()) {
             Executor::passthrough("sudo dpkg --add-architecture i386 2>/dev/null");
-            Executor::passthrough(cfg_.update_command);
+            PackageManager::update(DistroFamily::Debian);
 
-            auto result = Executor::passthrough(cfg_.install_command +
-                                                " wine wine32 wine64 2>/dev/null");
+            auto result = PackageManager::install({"wine", "wine32", "wine64"}, DistroFamily::Debian);
 
-            if (!result.ok()) {
+            if (!result) {
                 Executor::passthrough("sudo mkdir -p /etc/apt/keyrings");
                 Executor::passthrough("wget -qO- https://dl.winehq.org/wine-builds/winehq.key | "
-                    "gpg --dearmor -o /etc/apt/keyrings/winehq-archive-keyring.gpg");
-                Executor::passthrough(cfg_.update_command);
+                                      "gpg --dearmor -o /etc/apt/keyrings/winehq-archive-keyring.gpg");
+                PackageManager::update(DistroFamily::Debian);
 
-                result = Executor::passthrough(cfg_.install_command + " --install-recommends "
-                                               "winehq-" + std::string(branch) + " wine-" +
-                                               std::string(branch) + " wine-" +
-                                               std::string(branch) + "-amd64 wine-" +
-                                               std::string(branch) + "-i386");
+                std::string whq = "winehq-" + std::string(branch);
+                std::string wb = "wine-" + std::string(branch);
+                result = PackageManager::install({whq, wb, wb + "-amd64", wb + "-i386"},
+                                                 DistroFamily::Debian);
             }
 
-            if (result.ok()) {
+            if (result) {
                 Logger::ok(_f("virt.wine_installed", std::string(branch)));
                 Logger::info(_("virt.wine_winecfg_hint"));
                 return true;
@@ -59,8 +57,8 @@ namespace tmoe::domain {
             }
         }
 
-        auto result = Executor::passthrough(cfg_.install_command + " wine 2>/dev/null");
-        if (result.ok()) {
+        auto result = PackageManager::install("wine");
+        if (result) {
             Logger::ok(_("virt.wine_installed_simple"));
             return true;
         }
@@ -71,13 +69,13 @@ namespace tmoe::domain {
 
     bool VirtualizationManager::install_winetricks() {
         Logger::step(_("virt.installing_winetricks"));
-        auto result = Executor::passthrough(cfg_.install_command + " winetricks");
-        if (result.ok()) {
+        auto result = PackageManager::install("winetricks");
+        if (result) {
             Logger::ok(_("virt.winetricks_installed"));
         } else {
             Logger::warn(_("virt.winetricks_fallback"));
             Executor::passthrough("sudo wget -O /usr/local/bin/winetricks "
-                "https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks 2>/dev/null");
+                                  "https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks 2>/dev/null");
             Executor::shell("sudo chmod +x /usr/local/bin/winetricks");
         }
         return true;
@@ -94,7 +92,7 @@ namespace tmoe::domain {
         else {
             std::string home = SystemHelper::user_home();
             auto r = Executor::shell(
-                std::string("grep \"") + home + "\" /etc/passwd | awk -F':' '{print $1}' | head -n1");
+                    std::string("grep \"") + home + "\" /etc/passwd | awk -F':' '{print $1}' | head -n1");
             if (r.ok()) {
                 real_user = r.stdout_data;
                 real_user.erase(std::remove(real_user.begin(), real_user.end(), '\n'), real_user.end());
@@ -102,14 +100,14 @@ namespace tmoe::domain {
         }
 
         std::string cmd = real_user.empty() || real_user == "root"
-                              ? "winetricks dxvk 2>/dev/null"
-                              : "su " + real_user + " -c \"winetricks dxvk\" 2>/dev/null";
+                          ? "winetricks dxvk 2>/dev/null"
+                          : "su " + real_user + " -c \"winetricks dxvk\" 2>/dev/null";
         return Executor::passthrough(cmd).ok();
     }
 
     bool VirtualizationManager::install_playonlinux() {
         Logger::step(_("virt.installing_pol"));
-        return Executor::passthrough(cfg_.install_command + " playonlinux").ok();
+        return PackageManager::install("playonlinux");
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -125,6 +123,8 @@ namespace tmoe::domain {
     }
 
     bool VirtualizationManager::is_debian() const { return os_release() == "debian"; }
+
     bool VirtualizationManager::is_ubuntu() const { return os_release() == "ubuntu"; }
+
     bool VirtualizationManager::is_arch() const { return os_release() == "arch"; }
 } // namespace tmoe::domain

@@ -1,4 +1,5 @@
 #pragma once
+
 #include <string>
 #include <memory>
 #include "core/logger.h"
@@ -10,7 +11,9 @@
 #include <stdexcept>
 
 namespace tmoe::domain {
-    enum class ContainerMode { Proot, Chroot, Nspawn };
+    enum class ContainerMode {
+        Proot, Chroot, Nspawn
+    };
 
     /** 容器领域实体。
      *  聚合运行时策略以实现多态调用。
@@ -31,9 +34,13 @@ namespace tmoe::domain {
 
         // ── Accessors ──
         [[nodiscard]] const std::string &name() const { return name_; }
+
         [[nodiscard]] const std::string &distro() const { return distro_; }
+
         [[nodiscard]] const std::string &version() const { return version_; }
+
         [[nodiscard]] const std::string &rootfs_path() const { return rootfs_path_; }
+
         [[nodiscard]] ContainerMode mode() const { return mode_; }
 
     private:

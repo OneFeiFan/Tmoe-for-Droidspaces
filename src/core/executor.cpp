@@ -14,8 +14,11 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+
 #include <windows.h>
+
 #endif
+
 #include <chrono>
 
 namespace tmoe {
@@ -240,7 +243,7 @@ namespace tmoe {
 
         while (true) {
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - start_time).count();
+                    std::chrono::steady_clock::now() - start_time).count();
             if (static_cast<DWORD>(elapsed) >= timeout_ms) {
                 timed_out = true;
                 break;
@@ -257,8 +260,8 @@ namespace tmoe {
                    && available > 0) {
                 DWORD bytes_read = 0;
                 DWORD to_read = (available < static_cast<DWORD>(buf.size()))
-                                    ? available
-                                    : static_cast<DWORD>(buf.size());
+                                ? available
+                                : static_cast<DWORD>(buf.size());
                 if (!ReadFile(hReadPipe, buf.data(), to_read, &bytes_read, NULL)
                     || bytes_read == 0) {
                     break;
@@ -280,8 +283,8 @@ namespace tmoe {
                 && available > 0) {
                 DWORD bytes_read = 0;
                 DWORD to_read = (available < static_cast<DWORD>(buf.size()))
-                                    ? available
-                                    : static_cast<DWORD>(buf.size());
+                                ? available
+                                : static_cast<DWORD>(buf.size());
                 ReadFile(hReadPipe, buf.data(), to_read, &bytes_read, NULL);
                 output.append(buf.data(), bytes_read);
             }
@@ -289,8 +292,8 @@ namespace tmoe {
             CloseHandle(pi.hThread);
             CloseHandle(hReadPipe);
             return ExecResult{
-                -1, std::move(output),
-                "timeout: command exceeded " + std::to_string(timeout_sec) + "s"
+                    -1, std::move(output),
+                    "timeout: command exceeded " + std::to_string(timeout_sec) + "s"
             };
         }
 
@@ -300,8 +303,8 @@ namespace tmoe {
                && available > 0) {
             DWORD bytes_read = 0;
             DWORD to_read = (available < static_cast<DWORD>(buf.size()))
-                                ? available
-                                : static_cast<DWORD>(buf.size());
+                            ? available
+                            : static_cast<DWORD>(buf.size());
             if (!ReadFile(hReadPipe, buf.data(), to_read, &bytes_read, NULL)
                 || bytes_read == 0) {
                 break;
@@ -319,9 +322,9 @@ namespace tmoe {
     }
 
     ExecResult Executor::run_with_env(
-        const std::vector<std::pair<std::string, std::string> > &env,
-        std::string_view bin,
-        std::initializer_list<std::string_view> args) {
+            const std::vector<std::pair<std::string, std::string> > &env,
+            std::string_view bin,
+            std::initializer_list<std::string_view> args) {
         // 构建 "KEY1='val1' KEY2='val2' bin arg1 arg2 ... 2>&1"
         // shell 的 VAR=val 前缀语法会在执行命令前设置环境变量
         std::string cmd;
@@ -377,7 +380,7 @@ namespace tmoe {
         }
 
         std::unique_ptr<FILE, decltype(&platform::pclose)> pipe(
-            platform::popen(args_str.c_str(), "r"), platform::pclose);
+                platform::popen(args_str.c_str(), "r"), platform::pclose);
         if (!pipe) {
             cancelled = true;
             return "";
@@ -406,14 +409,14 @@ namespace tmoe {
 #ifdef _WIN32
         return ExecResult{raw, "", ""};
 #else
-    if (raw == -1) {
-        return ExecResult{-1, "", "system() failed"};
-    }
-    return ExecResult{
-        platform::extract_exit_code(raw),
-        "",
-        WIFSIGNALED(raw) ? ("signal " + std::to_string(WTERMSIG(raw))) : ""
-    };
+        if (raw == -1) {
+            return ExecResult{-1, "", "system() failed"};
+        }
+        return ExecResult{
+            platform::extract_exit_code(raw),
+            "",
+            WIFSIGNALED(raw) ? ("signal " + std::to_string(WTERMSIG(raw))) : ""
+        };
 #endif
     }
 

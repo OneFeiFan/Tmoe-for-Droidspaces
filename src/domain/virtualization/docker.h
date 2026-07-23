@@ -1,4 +1,5 @@
 #pragma once
+
 #include "core/config.h"
 #include "core/executor.h"
 #include "core/logger.h"
@@ -183,10 +184,10 @@ namespace tmoe::domain {
         void process_docker_distro_choice(int idx);
 
         /** 导出一个选定容器的完整流程（路径选择 + 导出 + 权限修复）。 */
-        void export_container_flow(const std::string& container_name);
+        void export_container_flow(const std::string &container_name);
 
         /** 应用 Docker 镜像源 URL 到 daemon.json。 */
-        bool apply_docker_mirror(const std::string& mirror_url);
+        bool apply_docker_mirror(const std::string &mirror_url);
 
         // ── 状态 ──
         std::string current_docker_name_;

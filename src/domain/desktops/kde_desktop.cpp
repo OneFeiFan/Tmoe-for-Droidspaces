@@ -10,7 +10,7 @@
 
 namespace tmoe::domain {
     KdeDesktop::KdeDesktop(const TmoeConfig &cfg)
-        : DesktopBase(cfg, gui_config::all_desktops()[5]) // kde is idx 5
+            : DesktopBase(cfg, gui_config::all_desktops()[5]) // kde is idx 5
     {
     }
 
@@ -22,29 +22,34 @@ namespace tmoe::domain {
 
     // ── 阶段2: 装包前版本选择 ──
     PreInstallChoices KdeDesktop::pre_install_choices(
-        DistroFamily family, bool is_auto_mode) {
+            DistroFamily family, bool is_auto_mode) {
         PreInstallChoices c;
         if (is_auto_mode) return c;
 
         if (family == DistroFamily::Debian) {
             bool is_ubuntu = (cfg_.sub_distro == "ubuntu");
             if (is_ubuntu) {
-                if (ui::dialog::yesno(cfg_, "KDE-plasma or Kubuntu-desktop", _("gui.desktop.kde_or_kubuntu_desc"), "KDE", "kubuntu") == 1) {
+                if (ui::dialog::yesno(cfg_, "KDE-plasma or Kubuntu-desktop", _("gui.desktop.kde_or_kubuntu_desc"),
+                                      "KDE", "kubuntu") == 1) {
                     c.pkg_list = "kubuntu-desktop";
                     return c;
                 }
             }
             // choose_kde_plasma_or_standard
-            if (ui::dialog::yesno(cfg_, "kde-plasma or kde-standard", _("gui.desktop.kde_plasma_or_standard_desc"), "plasma", "standard") == 0) {
+            if (ui::dialog::yesno(cfg_, "kde-plasma or kde-standard", _("gui.desktop.kde_plasma_or_standard_desc"),
+                                  "plasma", "standard") == 0) {
                 c.pkg_list = "kde-plasma-desktop";
             } else {
-                c.pkg_list = ui::dialog::yesno(cfg_, "kde-standard or kde-full", _("gui.desktop.kde_standard_or_full_desc"), "standard", "full") == 0
-                                 ? "kde-standard" : "kde-full";
+                c.pkg_list =
+                        ui::dialog::yesno(cfg_, "kde-standard or kde-full", _("gui.desktop.kde_standard_or_full_desc"),
+                                          "standard", "full") == 0
+                        ? "kde-standard" : "kde-full";
             }
         } else if (family == DistroFamily::Arch) {
-            c.pkg_list = ui::dialog::yesno(cfg_, "kde-plasma or plasma-meta", _("gui.desktop.kde_plasma_or_meta_desc"), "plasma", "plasma+apps") == 0
-                             ? "plasma-desktop dolphin konsole discover"
-                             : "plasma-meta kde-applications-meta plasma-wayland-session sddm sddm-kcm";
+            c.pkg_list = ui::dialog::yesno(cfg_, "kde-plasma or plasma-meta", _("gui.desktop.kde_plasma_or_meta_desc"),
+                                           "plasma", "plasma+apps") == 0
+                         ? "plasma-desktop dolphin konsole discover"
+                         : "plasma-meta kde-applications-meta plasma-wayland-session sddm sddm-kcm";
         }
         return c;
     }
@@ -101,7 +106,8 @@ namespace tmoe::domain {
     }
 
     void KdeDesktop::choose_wayland_or_x11(const PostInstallContext & /*ctx*/) {
-        if (ui::dialog::yesno(cfg_, "x11 or wayland", _("gui.desktop.kde_x11_or_wayland_desc"), "x11", "wayland") == 1) {
+        if (ui::dialog::yesno(cfg_, "x11 or wayland", _("gui.desktop.kde_x11_or_wayland_desc"), "x11", "wayland") ==
+            1) {
             plasma_wayland_env();
             Logger::info(_("gui.plasma_wayland.selected"));
         }
@@ -128,7 +134,8 @@ namespace tmoe::domain {
             Logger::ok(_("gui.plasma_wayland.configured"));
         }
     }
-    void KdeDesktop::post_install_extras(const PostInstallContext& /*ctx*/) {
+
+    void KdeDesktop::post_install_extras(const PostInstallContext & /*ctx*/) {
         // 安装 Breeze 主题全套（Bash 原版在 KDE 安装后自动安装）
         desktop_utils::install_breeze_theme_ext(cfg_);
     }

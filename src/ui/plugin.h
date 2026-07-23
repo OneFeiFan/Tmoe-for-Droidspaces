@@ -1,4 +1,5 @@
 #pragma once
+
 #include "menu.h"
 #include <memory>
 
@@ -13,13 +14,13 @@ namespace tmoe::ui {
  * 使用方式：
  *   MenuEngine(ctx).run(DesktopMenuPlugin(gui).build());
  */
-class IPlugin {
-public:
-    virtual ~IPlugin() = default;
+    class IPlugin {
+    public:
+        virtual ~IPlugin() = default;
 
-    /** 构建并返回完整的菜单树（含导航项）。 */
-    virtual std::shared_ptr<IUIMenu> build() = 0;
-};
+        /** 构建并返回完整的菜单树（含导航项）。 */
+        virtual std::shared_ptr<IUIMenu> build() = 0;
+    };
 
 /**
  * 通用插件适配器——消除各插件类重复的构造函数/mgr_ 样板。
@@ -31,12 +32,13 @@ public:
  *       std::shared_ptr<IUIMenu> build() override;
  *   };
  */
-template<typename Mgr>
-class PluginFor : public IPlugin {
-public:
-    explicit PluginFor(Mgr* mgr) : mgr_(mgr) {}
-protected:
-    Mgr* mgr_;
-};
+    template<typename Mgr>
+    class PluginFor : public IPlugin {
+    public:
+        explicit PluginFor(Mgr *mgr) : mgr_(mgr) {}
+
+    protected:
+        Mgr *mgr_;
+    };
 
 } // namespace tmoe::ui

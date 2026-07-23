@@ -1,4 +1,5 @@
 #pragma once
+
 #include "desktop_base.h"
 
 namespace tmoe::domain {
@@ -12,11 +13,13 @@ namespace tmoe::domain {
         PreInstallChoices pre_install_choices(DistroFamily, bool) override;
 
         void post_install_config(const PostInstallContext &) override;
+
         void post_install_extras(const PostInstallContext &) override;
 
         std::string session_ = "1";
 
         void write_session_scripts();
+
     private:
         bool gnome_warning() const;
     };

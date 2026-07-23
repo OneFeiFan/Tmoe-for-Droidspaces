@@ -35,7 +35,7 @@ namespace tmoe::domain {
         // Debian / Ubuntu / Kali: 读取 VERSION_CODENAME
         if (distro == "debian" || distro == "ubuntu" || distro == "kali") {
             auto r = Executor::shell(
-                "grep VERSION_CODENAME /etc/os-release 2>/dev/null | cut -d= -f2");
+                    "grep VERSION_CODENAME /etc/os-release 2>/dev/null | cut -d= -f2");
             if (r.ok() && !r.stdout_data.empty()) {
                 // 去掉末尾换行符
                 auto s = r.stdout_data;
@@ -44,7 +44,7 @@ namespace tmoe::domain {
             }
             // 回退: /etc/os-release PRETTY_NAME
             r = Executor::shell(
-                "grep PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'");
+                    "grep PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'");
             if (r.ok() && !r.stdout_data.empty()) {
                 auto s = r.stdout_data;
                 trim_newline(s);
@@ -58,7 +58,7 @@ namespace tmoe::domain {
         // Alpine: 从 PRETTY_NAME 提取版本号
         if (distro == "alpine") {
             auto r = Executor::shell(
-                "grep PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"' | awk '{print $NF}'");
+                    "grep PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"' | awk '{print $NF}'");
             if (r.ok() && !r.stdout_data.empty()) {
                 auto s = r.stdout_data;
                 trim_newline(s);
@@ -101,7 +101,8 @@ namespace tmoe::domain {
         if (cfg_.linux_distro == "redhat") {
             Logger::step(_("mirror.backing_up_redhat"));
             auto r = Executor::shell("mkdir -p \"$(dirname " + backup_path + ")\" && "
-                                     "tar -Ppzcvf " + backup_path + " " + compat->source_dir);
+                                                                             "tar -Ppzcvf " + backup_path + " " +
+                                     compat->source_dir);
             Logger::ok_or_fail(r.ok(), _("mirror.backup_redhat_ok"));
             return r.ok();
         }
@@ -109,7 +110,7 @@ namespace tmoe::domain {
         // 普通文件拷贝
         Logger::step(_("mirror.backing_up"));
         auto r = Executor::shell("mkdir -p \"$(dirname " + backup_path + ")\" && "
-                                 "cp -pf " + source_file + " " + backup_path);
+                                                                         "cp -pf " + source_file + " " + backup_path);
         Logger::ok_or_fail(r.ok(), _f("mirror.backup_file_status", source_file));
 
         // Arch: 额外备份 pacman.conf
@@ -175,7 +176,7 @@ namespace tmoe::domain {
 
         // 方法1: getent hosts (glibc 内置，依赖最少)
         auto r = CommandBuilder("getent").add_arg("hosts").add_arg(host)
-                     .add_raw("2>/dev/null | awk '{print $1; exit}'").execute();
+                .add_raw("2>/dev/null | awk '{print $1; exit}'").execute();
         if (r.ok() && !r.stdout_data.empty()) {
             auto ip = r.stdout_data;
             trim_newline(ip);
@@ -211,17 +212,23 @@ namespace tmoe::domain {
         std::string source_content;
         if (codename == "sid") {
             source_content = "deb http://" + url + "/debian/ sid main contrib non-free\n"
-                             "#deb http://" + url + "/debian/ experimental main contrib non-free\n";
+                                                   "#deb http://" + url +
+                             "/debian/ experimental main contrib non-free\n";
         } else if (old_style) {
             source_content = "deb http://" + url + "/debian/ " + codename + " main contrib non-free\n"
-                             "deb http://" + url + "/debian/ " + codename + "-updates main contrib non-free\n"
-                             "deb http://" + url + "/debian/ " + codename + "-backports main contrib non-free\n"
+                                                                            "deb http://" + url + "/debian/ " +
+                             codename + "-updates main contrib non-free\n"
+                                        "deb http://" + url + "/debian/ " + codename +
+                             "-backports main contrib non-free\n"
                              "deb http://" + url + "/debian-security/ " + codename + "/updates main contrib non-free\n";
         } else {
             source_content = "deb http://" + url + "/debian/ " + codename + " main contrib non-free\n"
-                             "deb http://" + url + "/debian/ " + codename + "-updates main contrib non-free\n"
-                             "deb http://" + url + "/debian/ " + codename + "-backports main contrib non-free\n"
-                             "deb http://" + url + "/debian-security/ " + codename + "-security main contrib non-free\n";
+                                                                            "deb http://" + url + "/debian/ " +
+                             codename + "-updates main contrib non-free\n"
+                                        "deb http://" + url + "/debian/ " + codename +
+                             "-backports main contrib non-free\n"
+                             "deb http://" + url + "/debian-security/ " + codename +
+                             "-security main contrib non-free\n";
         }
         SystemHelper::append_file("/etc/apt/sources.list", source_content);
 
@@ -247,10 +254,14 @@ namespace tmoe::domain {
         Executor::shell("sudo sed -i 's/^deb/# &/g' /etc/apt/sources.list");
 
         SystemHelper::append_file("/etc/apt/sources.list",
-            "deb http://" + url + "/ubuntu/ " + codename + " main restricted universe multiverse\n"
-            "deb http://" + url + "/ubuntu/ " + codename + "-updates main restricted universe multiverse\n"
-            "deb http://" + url + "/ubuntu/ " + codename + "-backports main restricted universe multiverse\n"
-            "deb http://" + url + "/ubuntu/ " + codename + "-security main restricted universe multiverse\n");
+                                  "deb http://" + url + "/ubuntu/ " + codename +
+                                  " main restricted universe multiverse\n"
+                                  "deb http://" + url + "/ubuntu/ " + codename +
+                                  "-updates main restricted universe multiverse\n"
+                                  "deb http://" + url + "/ubuntu/ " + codename +
+                                  "-backports main restricted universe multiverse\n"
+                                  "deb http://" + url + "/ubuntu/ " + codename +
+                                  "-security main restricted universe multiverse\n");
 
         // ARM: 自动切换到 ubuntu-ports
         if (cfg_.arch != "amd64" && cfg_.arch != "i386" && cfg_.arch != "x86_64") {
@@ -281,9 +292,10 @@ namespace tmoe::domain {
         std::string branch = compat ? compat->rolling_branch : "kali-rolling";
 
         SystemHelper::append_file("/etc/apt/sources.list",
-            "deb http://" + url + "/kali/ " + branch + " main contrib non-free\n"
-            "# deb http://" + url + "/debian/ stable main contrib non-free\n"
-            "# deb http://" + url + "/kali/ kali-last-snapshot main contrib non-free\n");
+                                  "deb http://" + url + "/kali/ " + branch + " main contrib non-free\n"
+                                                                             "# deb http://" + url +
+                                  "/debian/ stable main contrib non-free\n"
+                                  "# deb http://" + url + "/kali/ kali-last-snapshot main contrib non-free\n");
 
         return true;
     }
@@ -299,12 +311,12 @@ namespace tmoe::domain {
         if (cfg_.arch == "arm64" || cfg_.arch == "armhf" || cfg_.arch == "aarch64") {
             Executor::shell("sudo tee -a /etc/pacman.d/mirrorlist >/dev/null <<-TMOE_EOF\n"
                             "Server = https://" + url + "/archlinuxarm/$arch/$repo\n"
-                            "TMOE_EOF");
+                                                        "TMOE_EOF");
         } else {
             Executor::shell("sudo tee -a /etc/pacman.d/mirrorlist >/dev/null <<-TMOE_EOF\n"
                             "#Server = http://mirrors.kernel.org/archlinux/$repo/os/$arch\n"
                             "Server = https://" + url + "/archlinux/$repo/os/$arch\n"
-                            "TMOE_EOF");
+                                                        "TMOE_EOF");
         }
 
         return true;
@@ -322,8 +334,8 @@ namespace tmoe::domain {
         // 写入新仓库
         Executor::shell("sudo tee -a /etc/apk/repositories >/dev/null <<-TMOE_EOF\n"
                         "http://" + url + "/alpine/" + version + "/main\n"
-                        "http://" + url + "/alpine/" + version + "/community\n"
-                        "TMOE_EOF");
+                                                                 "http://" + url + "/alpine/" + version + "/community\n"
+                                                                                                          "TMOE_EOF");
 
         return true;
     }
@@ -340,13 +352,13 @@ namespace tmoe::domain {
         if (cfg_.arch == "arm64" || cfg_.arch == "armhf" || cfg_.arch == "aarch64") {
             Executor::shell("sudo tee -a /etc/pacman.d/mirrorlist >/dev/null <<-TMOE_EOF\n"
                             "#Server = https://" + url + "/archlinuxarm/$arch/$repo\n"
-                            "Server = https://" + url + "/manjaro/arm-stable/$repo/$arch\n"
-                            "TMOE_EOF");
+                                                         "Server = https://" + url + "/manjaro/arm-stable/$repo/$arch\n"
+                                                                                     "TMOE_EOF");
         } else {
             Executor::shell("sudo tee -a /etc/pacman.d/mirrorlist >/dev/null <<-TMOE_EOF\n"
                             "#Server = https://" + url + "/archlinux/$repo/os/$arch\n"
-                            "Server = https://" + url + "/manjaro/stable/$repo/$arch\n"
-                            "TMOE_EOF");
+                                                         "Server = https://" + url + "/manjaro/stable/$repo/$arch\n"
+                                                                                     "TMOE_EOF");
         }
 
         return true;
@@ -394,11 +406,11 @@ namespace tmoe::domain {
     void MirrorManager::fedora_31_repos(const std::string &url) {
         // 直接从镜像站下载官方 repo 文件
         CommandBuilder("sudo").add_arg("curl").add_flag("-o").add_arg("/etc/yum.repos.d/fedora.repo")
-            .add_arg("http://" + url + "/repo/fedora.repo")
-            .add_raw("2>/dev/null || true").execute();
+                .add_arg("http://" + url + "/repo/fedora.repo")
+                .add_raw("2>/dev/null || true").execute();
         CommandBuilder("sudo").add_arg("curl").add_flag("-o").add_arg("/etc/yum.repos.d/fedora-updates.repo")
-            .add_arg("http://" + url + "/repo/fedora-updates.repo")
-            .add_raw("2>/dev/null || true").execute();
+                .add_arg("http://" + url + "/repo/fedora-updates.repo")
+                .add_raw("2>/dev/null || true").execute();
     }
 
     void MirrorManager::fedora_32_repos(const std::string &url) {
@@ -407,22 +419,22 @@ namespace tmoe::domain {
                         "name=Fedora $releasever - $basearch\n"
                         "failovermethod=priority\n"
                         "baseurl=https://" + url + "/fedora/releases/$releasever/Everything/$basearch/os/\n"
-                        "metadata_expire=28d\n"
-                        "gpgcheck=1\n"
-                        "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-$releasever-$basearch\n"
-                        "skip_if_unavailable=False\n"
-                        "TMOE_EOF");
+                                                   "metadata_expire=28d\n"
+                                                   "gpgcheck=1\n"
+                                                   "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-$releasever-$basearch\n"
+                                                   "skip_if_unavailable=False\n"
+                                                   "TMOE_EOF");
         Executor::shell("sudo tee /etc/yum.repos.d/fedora-updates.repo <<-'TMOE_EOF'\n"
                         "[updates]\n"
                         "name=Fedora $releasever - $basearch - Updates\n"
                         "failovermethod=priority\n"
                         "baseurl=https://" + url + "/fedora/updates/$releasever/Everything/$basearch/\n"
-                        "enabled=1\n"
-                        "gpgcheck=1\n"
-                        "metadata_expire=6h\n"
-                        "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-$releasever-$basearch\n"
-                        "skip_if_unavailable=False\n"
-                        "TMOE_EOF");
+                                                   "enabled=1\n"
+                                                   "gpgcheck=1\n"
+                                                   "metadata_expire=6h\n"
+                                                   "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-$releasever-$basearch\n"
+                                                   "skip_if_unavailable=False\n"
+                                                   "TMOE_EOF");
     }
 
     void MirrorManager::fedora_3x_repos(const std::string &url) {
@@ -431,23 +443,23 @@ namespace tmoe::domain {
                         "name=Fedora Modular $releasever - $basearch\n"
                         "failovermethod=priority\n"
                         "baseurl=https://" + url + "/fedora/releases/$releasever/Modular/$basearch/os/\n"
-                        "enabled=1\n"
-                        "metadata_expire=7d\n"
-                        "gpgcheck=1\n"
-                        "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-$releasever-$basearch\n"
-                        "skip_if_unavailable=False\n"
-                        "TMOE_EOF");
+                                                   "enabled=1\n"
+                                                   "metadata_expire=7d\n"
+                                                   "gpgcheck=1\n"
+                                                   "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-$releasever-$basearch\n"
+                                                   "skip_if_unavailable=False\n"
+                                                   "TMOE_EOF");
         Executor::shell("sudo tee /etc/yum.repos.d/fedora-updates-modular.repo <<-'TMOE_EOF'\n"
                         "[updates-modular]\n"
                         "name=Fedora Modular $releasever - $basearch - Updates\n"
                         "failovermethod=priority\n"
                         "baseurl=https://" + url + "/fedora/updates/$releasever/Modular/$basearch/\n"
-                        "enabled=1\n"
-                        "gpgcheck=1\n"
-                        "metadata_expire=6h\n"
-                        "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-$releasever-$basearch\n"
-                        "skip_if_unavailable=False\n"
-                        "TMOE_EOF");
+                                                   "enabled=1\n"
+                                                   "gpgcheck=1\n"
+                                                   "metadata_expire=6h\n"
+                                                   "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-$releasever-$basearch\n"
+                                                   "skip_if_unavailable=False\n"
+                                                   "TMOE_EOF");
     }
 
     // ── Solus 源写入 ──
@@ -463,7 +475,7 @@ namespace tmoe::domain {
 
         Logger::step(_("mirror.adding_solus_new"));
         auto r = CommandBuilder("eopkg").add_arg("add-repo").add_arg("mirror")
-                     .add_arg(repo_url).execute();
+                .add_arg(repo_url).execute();
         if (!r.ok()) {
             Logger::error(_("mirror.solus_add_failed"));
             return false;
@@ -488,17 +500,20 @@ namespace tmoe::domain {
         auto cn_mirrors = MirrorRegistry::instance().by_region("cn");
         auto global = MirrorRegistry::instance().by_region("global");
 
-        struct SpeedTarget { std::string name; std::string host; };
+        struct SpeedTarget {
+            std::string name;
+            std::string host;
+        };
         std::vector<SpeedTarget> targets;
 
-        auto add_target = [&](const auto& m) {
+        auto add_target = [&](const auto &m) {
             std::string host = m.url;
             auto pos = host.find("://");
             if (pos != std::string::npos) host = host.substr(pos + 3);
             pos = host.find('/');
             if (pos != std::string::npos) host = host.substr(0, pos);
             // 去重
-            for (auto& t : targets) if (t.host == host) return;
+            for (auto &t: targets) if (t.host == host) return;
             targets.push_back({m.name, host});
         };
         for (const auto &m: cn_mirrors) add_target(m);
@@ -522,24 +537,24 @@ namespace tmoe::domain {
             Logger::info(_f("mirror.speedtest_checking", t.name, t.host));
 
             auto r = CommandBuilder("curl").add_flag("-sL").add_flag("--max-time")
-                          .add_arg("8").add_flag("-o").add_arg("/dev/null")
-                          .add_flag("-w").add_arg("%{speed_download}")
-                          .add_arg(test_url).add_raw("2>/dev/null").execute();
+                    .add_arg("8").add_flag("-o").add_arg("/dev/null")
+                    .add_flag("-w").add_arg("%{speed_download}")
+                    .add_arg(test_url).add_raw("2>/dev/null").execute();
             if (r.ok() && !r.stdout_data.empty()) {
                 std::string s = r.stdout_data;
                 // 提取纯数字和小数点，去掉所有空白和垃圾字符
                 s.erase(std::remove_if(s.begin(), s.end(),
-                    [](unsigned char c){ return !std::isdigit(c) && c != '.'; }), s.end());
+                                       [](unsigned char c) { return !std::isdigit(c) && c != '.'; }), s.end());
                 if (!s.empty() && s != "0" && s != "0.000") {
                     double bps = 0;
                     try { bps = std::stod(s); } catch (...) {}
                     std::string human;
                     if (bps > 1048576) {
-                        human = std::to_string((int)(bps / 1048576)) + " MiB/s";
+                        human = std::to_string((int) (bps / 1048576)) + " MiB/s";
                     } else if (bps > 1024) {
-                        human = std::to_string((int)(bps / 1024)) + " KiB/s";
+                        human = std::to_string((int) (bps / 1024)) + " KiB/s";
                     } else {
-                        human = std::to_string((int)bps) + " B/s";
+                        human = std::to_string((int) bps) + " B/s";
                     }
                     results.push_back({t.name, human});
                     Logger::info(_f("mirror.speedtest_result", human));
@@ -555,7 +570,7 @@ namespace tmoe::domain {
         if (!results.empty()) {
             // 按速度排序（简单提取数值比较）
             Logger::ok(_("mirror.speedtest_complete"));
-            for (const auto& x : results)
+            for (const auto &x: results)
                 Logger::info("  " + x.first + " — " + x.second);
         }
         Logger::info(_("mirror.speedtest_tip"));
@@ -616,9 +631,9 @@ namespace tmoe::domain {
 
         for (const auto &rt: resolved) {
             auto r = CommandBuilder("ping").add_arg("-c").add_arg("3")
-                         .add_arg("-W").add_arg("2")
-                         .add_arg(rt.ip)
-                         .add_raw("2>/dev/null | grep 'rtt min/avg/max' | cut -d/ -f5").execute();
+                    .add_arg("-W").add_arg("2")
+                    .add_arg(rt.ip)
+                    .add_raw("2>/dev/null | grep 'rtt min/avg/max' | cut -d/ -f5").execute();
             if (r.ok() && !r.stdout_data.empty()) {
                 try {
                     double avg = std::stod(r.stdout_data);
@@ -682,7 +697,7 @@ namespace tmoe::domain {
 
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(_("mirror.extra_title"), _("mirror.extra_prompt"), "mirror_extra");
-        menu->add_child(std::make_shared<LambdaAction>(item_label, "1", [&](MenuContext&) -> bool {
+        menu->add_child(std::make_shared<LambdaAction>(item_label, "1", [&](MenuContext &) -> bool {
             if (distro == "debian") {
                 ok = add_kali_extra_source();
             } else if (distro == "arch") {
@@ -696,7 +711,7 @@ namespace tmoe::domain {
             return false;
         }));
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
 
         if (ok) run_update();
@@ -719,23 +734,26 @@ namespace tmoe::domain {
 
         Logger::step(_("mirror.kali_downloading_key"));
         auto r = Executor::passthrough("curl -L https://archive.kali.org/archive-key.asc | "
-            "gpg --dearmor > /tmp/kali.gpg");
+                                       "gpg --dearmor > /tmp/kali.gpg");
         if (!r.ok()) {
             Logger::error(_("mirror.kali_gpg_failed"));
             return false;
         }
 
         CommandBuilder("install").add_flag("-o").add_arg("root")
-            .add_flag("-g").add_arg("root")
-            .add_flag("-m").add_arg("644")
-            .add_arg("/tmp/kali.gpg").add_arg(keyring).execute();
+                .add_flag("-g").add_arg("root")
+                .add_flag("-m").add_arg("644")
+                .add_arg("/tmp/kali.gpg").add_arg(keyring).execute();
 
         Logger::step(_("mirror.kali_writing_list"));
         std::string kali_content =
-            "deb [signed-by=" + keyring + "] http://http.kali.org/kali/ kali-rolling main contrib non-free\n"
-            "# deb [signed-by=" + keyring + "] http://mirrors.bfsu.edu.cn/kali/ kali-rolling main contrib non-free\n"
-            "# deb [signed-by=" + keyring + "] https://mirrors.ustc.edu.cn/kali kali-rolling main non-free contrib\n"
-            "# deb [signed-by=" + keyring + "] http://mirrors.bfsu.edu.cn/kali/ kali-last-snapshot main contrib non-free\n";
+                "deb [signed-by=" + keyring + "] http://http.kali.org/kali/ kali-rolling main contrib non-free\n"
+                                              "# deb [signed-by=" + keyring +
+                "] http://mirrors.bfsu.edu.cn/kali/ kali-rolling main contrib non-free\n"
+                "# deb [signed-by=" + keyring +
+                "] https://mirrors.ustc.edu.cn/kali kali-rolling main non-free contrib\n"
+                "# deb [signed-by=" + keyring +
+                "] http://mirrors.bfsu.edu.cn/kali/ kali-last-snapshot main contrib non-free\n";
         if (!SystemHelper::write_file(kali_list, kali_content)) {
             Logger::error(_f("mirror.kali_write_failed", kali_list));
             return false;
@@ -759,11 +777,11 @@ namespace tmoe::domain {
 
         Logger::step(_("mirror.archlinuxcn_adding"));
         Executor::shell(
-            "sudo tee -a /etc/pacman.conf >/dev/null <<-'TMOE_EOF'\n"
-            "[archlinuxcn]\n"
-            "Server = https://mirrors.tuna.tsinghua.edu.cn/archlinuxcn/$arch\n"
-            "SigLevel = Never\n"
-            "TMOE_EOF");
+                "sudo tee -a /etc/pacman.conf >/dev/null <<-'TMOE_EOF'\n"
+                "[archlinuxcn]\n"
+                "Server = https://mirrors.tuna.tsinghua.edu.cn/archlinuxcn/$arch\n"
+                "SigLevel = Never\n"
+                "TMOE_EOF");
 
         Logger::step(_("mirror.archlinuxcn_installing_keyring"));
         Executor::shell("sudo pacman -Syu --noconfirm archlinux-keyring 2>/dev/null || true");
@@ -793,20 +811,20 @@ namespace tmoe::domain {
 
         // 备份
         CommandBuilder("cp").add_flag("-pvf")
-            .add_arg("/etc/yum.repos.d/epel.repo")
-            .add_arg("/etc/yum.repos.d/epel.repo.backup")
-            .add_raw("2>/dev/null || true").execute();
+                .add_arg("/etc/yum.repos.d/epel.repo")
+                .add_arg("/etc/yum.repos.d/epel.repo.backup")
+                .add_raw("2>/dev/null || true").execute();
         CommandBuilder("cp").add_flag("-pvf")
-            .add_arg("/etc/yum.repos.d/epel-testing.repo")
-            .add_arg("/etc/yum.repos.d/epel-testing.repo.backup")
-            .add_raw("2>/dev/null || true").execute();
+                .add_arg("/etc/yum.repos.d/epel-testing.repo")
+                .add_arg("/etc/yum.repos.d/epel-testing.repo.backup")
+                .add_raw("2>/dev/null || true").execute();
 
         // 替换为 OpenTUNA 镜像
         Logger::step(_("mirror.epel_replacing"));
         Executor::shell(
-            "sed -E -e 's@^(metalink=)@#\\1@g' "
-            "-e 's@^#(baseurl)=.*/pub/(epel)@\\1=https://opentuna.cn/\\2@g' "
-            "-i /etc/yum.repos.d/epel.repo /etc/yum.repos.d/epel-testing.repo 2>/dev/null || true");
+                "sed -E -e 's@^(metalink=)@#\\1@g' "
+                "-e 's@^#(baseurl)=.*/pub/(epel)@\\1=https://opentuna.cn/\\2@g' "
+                "-i /etc/yum.repos.d/epel.repo /etc/yum.repos.d/epel-testing.repo 2>/dev/null || true");
 
         Logger::ok(_("mirror.epel_ok"));
         return true;
@@ -828,18 +846,19 @@ namespace tmoe::domain {
                                   "rpmfusion-nonfree-release-" + std::to_string(fv) + ".noarch.rpm";
 
         Executor::shell("sudo dnf install -y --nogpgcheck " + rpm_free + " " + rpm_nonfree + " 2>/dev/null || "
-                        "sudo yum install -y --nogpgcheck " + rpm_free + " " + rpm_nonfree + " 2>/dev/null || true");
+                                                                                             "sudo yum install -y --nogpgcheck " +
+                        rpm_free + " " + rpm_nonfree + " 2>/dev/null || true");
 
         // 替换 baseurl 为 bfsu 镜像
         Executor::shell(
-            "for i in $(ls /etc/yum.repos.d/rpmfusion*repo 2>/dev/null | grep -v rawhide); do "
-            "  cp -vf ${i} ${i}.backup; "
-            "  sed -e 's!^metalink=!#metalink=!g' "
-            "      -e 's!^#baseurl=!baseurl=!g' "
-            "      -e 's!//download1\\.rpmfusion\\.org/!//mirrors.bfsu.edu.cn/rpmfusion/!g' "
-            "      -e 's!http://mirrors\\.bfsu!https://mirrors.bfsu!g' "
-            "      -i ${i}; "
-            "done");
+                "for i in $(ls /etc/yum.repos.d/rpmfusion*repo 2>/dev/null | grep -v rawhide); do "
+                "  cp -vf ${i} ${i}.backup; "
+                "  sed -e 's!^metalink=!#metalink=!g' "
+                "      -e 's!^#baseurl=!baseurl=!g' "
+                "      -e 's!//download1\\.rpmfusion\\.org/!//mirrors.bfsu.edu.cn/rpmfusion/!g' "
+                "      -e 's!http://mirrors\\.bfsu!https://mirrors.bfsu!g' "
+                "      -i ${i}; "
+                "done");
 
         Logger::ok(_("mirror.rpmfusion_ok"));
         return true;
@@ -968,9 +987,9 @@ namespace tmoe::domain {
         // 第二步: ping 已解析的 IP 地址（零 DNS 开销）
         for (const auto &rm: resolved) {
             auto r = CommandBuilder("ping").add_arg("-c").add_arg("3")
-                         .add_arg("-W").add_arg("2")
-                         .add_arg(rm.ip)
-                         .add_raw("2>/dev/null | grep 'rtt min/avg/max' | cut -d/ -f5").execute();
+                    .add_arg("-W").add_arg("2")
+                    .add_arg(rm.ip)
+                    .add_raw("2>/dev/null | grep 'rtt min/avg/max' | cut -d/ -f5").execute();
             if (r.ok() && !r.stdout_data.empty()) {
                 try {
                     double avg = std::stod(r.stdout_data);
@@ -1039,8 +1058,8 @@ namespace tmoe::domain {
 
         // 显示新旧对比
         CommandBuilder("diff").add_arg(backup_path).add_arg(source)
-            .add_flag("-y").add_flag("--color")
-            .add_raw("2>/dev/null || true").execute();
+                .add_flag("-y").add_flag("--color")
+                .add_raw("2>/dev/null || true").execute();
 
         // Arch: 额外还原 pacman.conf
         if (cfg_.linux_distro == "arch" && !compat->backup_conf.empty()) {
@@ -1127,7 +1146,7 @@ namespace tmoe::domain {
 
         // 去重 (sort -u)
         CommandBuilder("sort").add_flag("-u").add_arg(compat->source_file)
-            .add_flag("-o").add_arg(compat->source_file).execute();
+                .add_flag("-o").add_arg(compat->source_file).execute();
 
         run_update();
         Logger::ok(_("mirror.clean_complete"));

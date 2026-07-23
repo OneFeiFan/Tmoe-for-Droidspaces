@@ -1,6 +1,7 @@
 #ifndef ROOTFS_REGISTRY_H
 #define ROOTFS_REGISTRY_H
 #pragma once
+
 #include "rootfs_data.h"
 #include <algorithm>
 #include <iostream>
@@ -41,9 +42,9 @@ namespace tmoe::domain {
 
         /** 查询指定发行版/版本/架构组合的下载 URL。 */
         std::optional<RootfsInfo> query_rootfs(
-            const std::string &distro,
-            const std::string &version,
-            const std::string &arch) const;
+                const std::string &distro,
+                const std::string &version,
+                const std::string &arch) const;
 
     private:
         RootfsRegistry();

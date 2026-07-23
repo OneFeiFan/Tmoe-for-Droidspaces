@@ -14,7 +14,7 @@ namespace fs = std::filesystem;
 
 namespace tmoe::app {
     Manager::Manager(TmoeConfig cfg, LocaleSaveFunc save_locale)
-        : cfg_(std::move(cfg)), save_locale_(std::move(save_locale)) {
+            : cfg_(std::move(cfg)), save_locale_(std::move(save_locale)) {
         environment_ = std::make_unique<domain::Environment>(cfg_);
         container_mgr_ = std::make_unique<domain::ContainerManager>(cfg_);
         termux_ = std::make_unique<domain::TermuxManager>(cfg_);
@@ -152,7 +152,7 @@ namespace tmoe::app {
         }
         // 让用户选择要删除的容器
         std::string cmd = cfg_.tui_bin + " --title \"" + std::string(_("container.remove_title")) +
-            "\" --menu \"" + std::string(_("container.remove_select_prompt")) + "\" 0 0 0";
+                          "\" --menu \"" + std::string(_("container.remove_select_prompt")) + "\" 0 0 0";
         for (size_t i = 0; i < containers.size(); ++i) {
             cmd += " \"" + containers[i].name() + "\" \"" + containers[i].distro() + "\"";
         }
@@ -200,7 +200,7 @@ namespace tmoe::app {
         // 2. 查询 GitHub API 获取最新 release
         std::string api_url = "https://api.github.com/repos/OneFeiFan/Tmoe-for-Droidspaces/releases?per_page=1";
         auto api_result = Executor::shell(
-            "curl -fsSL \"" + api_url + "\" 2>/dev/null || wget -qO- \"" + api_url + "\" 2>/dev/null");
+                "curl -fsSL \"" + api_url + "\" 2>/dev/null || wget -qO- \"" + api_url + "\" 2>/dev/null");
         if (!api_result.ok() || api_result.stdout_data.empty()) {
             Logger::error(_("update.api_failed"));
             Logger::press_enter();
@@ -253,8 +253,9 @@ namespace tmoe::app {
         Executor::shell("mkdir -p " + tmp_dir + " 2>/dev/null");
         std::string tmp_file = tmp_dir + "/tmoes_new";
         auto dl_result = Executor::shell(
-            "curl -fsSL -o " + tmp_file + " \"" + download_url + "\" 2>&1 || "
-            "wget -q -O " + tmp_file + " \"" + download_url + "\" 2>&1");
+                "curl -fsSL -o " + tmp_file + " \"" + download_url + "\" 2>&1 || "
+                                                                     "wget -q -O " + tmp_file + " \"" + download_url +
+                "\" 2>&1");
         if (!dl_result.ok() || !fs::exists(tmp_file)) {
             Logger::error(_("update.download_failed"));
             Executor::shell("rm -rf " + tmp_dir + " 2>/dev/null");
@@ -268,8 +269,8 @@ namespace tmoe::app {
         Logger::info(std::string(_("update.replacing")) + ": " + current_exe);
         Executor::shell("chmod +x " + tmp_file);
         auto mv_result = Executor::shell(
-            "sudo mv " + tmp_file + " " + current_exe + " 2>/dev/null || "
-            "mv " + tmp_file + " " + current_exe + " 2>/dev/null");
+                "sudo mv " + tmp_file + " " + current_exe + " 2>/dev/null || "
+                                                            "mv " + tmp_file + " " + current_exe + " 2>/dev/null");
         Executor::shell("rm -rf " + tmp_dir + " 2>/dev/null");
 
         if (mv_result.ok()) {
@@ -301,133 +302,134 @@ namespace tmoe::app {
             // Termux 容器管理：10 项
             auto menu = make_plugin_menu(title, _("menu.tui.manager_prompt"), "main_manager");
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.proot"), "1",
-                [this](MenuContext &) -> bool {
-                    action_proot_container();
-                    return true;
-                }));
+                    _("menu.tui.proot"), "1",
+                    [this](MenuContext &) -> bool {
+                        action_proot_container();
+                        return true;
+                    }));
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.chroot"), "2",
-                [this](MenuContext &) -> bool {
-                    action_chroot_container();
-                    return true;
-                }));
+                    _("menu.tui.chroot"), "2",
+                    [this](MenuContext &) -> bool {
+                        action_chroot_container();
+                        return true;
+                    }));
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.remove"), "3",
-                [this](MenuContext &) -> bool {
-                    action_remove_container();
-                    return true;
-                }));
+                    _("menu.tui.remove"), "3",
+                    [this](MenuContext &) -> bool {
+                        action_remove_container();
+                        return true;
+                    }));
             // 4: 语言切换 — 嵌套引擎运行新式菜单
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.locale"), "4",
-                [this](MenuContext &ctx) -> bool {
-                    MenuEngine(ctx).run(build_locale_menu());
-                    return true;
-                }));
+                    _("menu.tui.locale"), "4",
+                    [this](MenuContext &ctx) -> bool {
+                        MenuEngine(ctx).run(build_locale_menu());
+                        return true;
+                    }));
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.termux"), "5",
-                [this](MenuContext &ctx) -> bool {
-                    MenuEngine(ctx).run(menus::make_menu<ui::menus::TermuxMenuPlugin>(termux_.get()));
-                    return true;
-                }));
+                    _("menu.tui.termux"), "5",
+                    [this](MenuContext &ctx) -> bool {
+                        MenuEngine(ctx).run(menus::make_menu<ui::menus::TermuxMenuPlugin>(termux_.get()));
+                        return true;
+                    }));
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.zsh"), "6",
-                [this](MenuContext &) -> bool {
-                    // P2: "Configure zsh" 调用 start_tmoe_zsh() (启动外部 zsh TUI 管理脚本)
-                    termux_->start_tmoe_zsh();
-                    Logger::press_enter();
-                    return true;
-                }));
+                    _("menu.tui.zsh"), "6",
+                    [this](MenuContext &) -> bool {
+                        // P2: "Configure zsh" 调用 start_tmoe_zsh() (启动外部 zsh TUI 管理脚本)
+                        termux_->start_tmoe_zsh();
+                        Logger::press_enter();
+                        return true;
+                    }));
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.update"), "7",
-                [this](MenuContext &) -> bool {
-                    action_self_update();
-                    return true;
-                }));
+                    _("menu.tui.update"), "7",
+                    [this](MenuContext &) -> bool {
+                        action_self_update();
+                        return true;
+                    }));
             // 8: FAQ — 嵌套引擎运行新式菜单
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.faq"), "8",
-                [this](MenuContext &ctx) -> bool {
-                    MenuEngine(ctx).run(build_faq_menu());
-                    return true;
-                }));
+                    _("menu.tui.faq"), "8",
+                    [this](MenuContext &ctx) -> bool {
+                        MenuEngine(ctx).run(build_faq_menu());
+                        return true;
+                    }));
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.report"), "9",
-                [this](MenuContext &) -> bool {
-                    action_bug_report();
-                    return true;
-                }));
+                    _("menu.tui.report"), "9",
+                    [this](MenuContext &) -> bool {
+                        action_bug_report();
+                        return true;
+                    }));
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.fix_signal9"), "10",
-                [this](MenuContext &) -> bool {
-                    termux_->fix_android_12_signal_9();
-                    Logger::press_enter();
-                    return true;
-                }));
+                    _("menu.tui.fix_signal9"), "10",
+                    [this](MenuContext &) -> bool {
+                        termux_->fix_android_12_signal_9();
+                        Logger::press_enter();
+                        return true;
+                    }));
             add_navigation_items(menu);
             return menu;
         } else {
             // Linux 工具箱：9 项
             auto menu = make_plugin_menu(title, _("menu.tui.tool_prompt"), "main_tool");
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.gui_de"), "1",
-                [this](MenuContext &ctx) -> bool {
-                    MenuEngine(ctx).run(menus::make_menu<ui::menus::DesktopMenuPlugin>(gui_.get()));
-                    return true;
-                }));
+                    _("menu.tui.gui_de"), "1",
+                    [this](MenuContext &ctx) -> bool {
+                        MenuEngine(ctx).run(menus::make_menu<ui::menus::DesktopMenuPlugin>(gui_.get()));
+                        return true;
+                    }));
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.software_center"), "2",
-                [this](MenuContext &ctx) -> bool {
-                    MenuEngine(ctx).run(menus::make_menu<ui::menus::SoftwareCenterMenuPlugin>(software_center_.get()));
-                    return true;
-                }));
+                    _("menu.tui.software_center"), "2",
+                    [this](MenuContext &ctx) -> bool {
+                        MenuEngine(ctx).run(
+                                menus::make_menu<ui::menus::SoftwareCenterMenuPlugin>(software_center_.get()));
+                        return true;
+                    }));
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.secret_garden"), "3",
-                [this](MenuContext &ctx) -> bool {
-                    MenuEngine(ctx).run(menus::make_menu<ui::menus::BetaFeaturesMenuPlugin>(beta_features_.get()));
-                    return true;
-                }));
+                    _("menu.tui.secret_garden"), "3",
+                    [this](MenuContext &ctx) -> bool {
+                        MenuEngine(ctx).run(menus::make_menu<ui::menus::BetaFeaturesMenuPlugin>(beta_features_.get()));
+                        return true;
+                    }));
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.gui_beautify"), "4",
-                [this](MenuContext &ctx) -> bool {
-                    MenuEngine(ctx).run(menus::make_menu<ui::menus::BeautifyMenuPlugin>(gui_.get()));
-                    return true;
-                }));
+                    _("menu.tui.gui_beautify"), "4",
+                    [this](MenuContext &ctx) -> bool {
+                        MenuEngine(ctx).run(menus::make_menu<ui::menus::BeautifyMenuPlugin>(gui_.get()));
+                        return true;
+                    }));
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.gui_remote"), "5",
-                [this](MenuContext &ctx) -> bool {
-                    MenuEngine(ctx).run(menus::make_menu<ui::menus::RemoteDesktopMenuPlugin>(gui_.get()));
-                    return true;
-                }));
+                    _("menu.tui.gui_remote"), "5",
+                    [this](MenuContext &ctx) -> bool {
+                        MenuEngine(ctx).run(menus::make_menu<ui::menus::RemoteDesktopMenuPlugin>(gui_.get()));
+                        return true;
+                    }));
             // 6: 镜像源 — 嵌套引擎运行新式菜单
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.mirrors"), "6",
-                [this](MenuContext &ctx) -> bool {
-                    MenuEngine(ctx).run(build_mirror_menu());
-                    return true;
-                }));
+                    _("menu.tui.mirrors"), "6",
+                    [this](MenuContext &ctx) -> bool {
+                        MenuEngine(ctx).run(build_mirror_menu());
+                        return true;
+                    }));
             // 7: FAQ — 嵌套引擎运行新式菜单
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.faq"), "7",
-                [this](MenuContext &ctx) -> bool {
-                    MenuEngine(ctx).run(build_faq_menu());
-                    return true;
-                }));
+                    _("menu.tui.faq"), "7",
+                    [this](MenuContext &ctx) -> bool {
+                        MenuEngine(ctx).run(build_faq_menu());
+                        return true;
+                    }));
             // 8: 语言切换
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.locale"), "8",
-                [this](MenuContext &ctx) -> bool {
-                    MenuEngine(ctx).run(build_locale_menu());
-                    return true;
-                }));
+                    _("menu.tui.locale"), "8",
+                    [this](MenuContext &ctx) -> bool {
+                        MenuEngine(ctx).run(build_locale_menu());
+                        return true;
+                    }));
             // 9: 自更新 — 从 GitHub Releases 下载最新预编译二进制
             menu->add_child(std::make_shared<LambdaAction>(
-                _("menu.tui.update"), "9",
-                [this](MenuContext &) -> bool {
-                    action_self_update();
-                    return true;
-                }));
+                    _("menu.tui.update"), "9",
+                    [this](MenuContext &) -> bool {
+                        action_self_update();
+                        return true;
+                    }));
             add_navigation_items(menu);
             return menu;
         }
@@ -473,9 +475,7 @@ namespace tmoe::app {
                                                        [this](MenuContext &) -> bool {
                                                            Logger::info(_("faq.a5"));
                                                            if (Logger::confirm(_("faq.confirm_exec")))
-                                                               Executor::passthrough(
-                                                                   cfg_.remove_command +
-                                                                   " --allow-change-held-packages ^udisks2 ^gvfs 2>/dev/null");
+                                                               domain::PackageManager::remove({"udisks2", "gvfs"});
                                                            Logger::press_enter();
                                                            return true;
                                                        }));
@@ -486,7 +486,7 @@ namespace tmoe::app {
                                                            Logger::info(_("faq.a6"));
                                                            if (Logger::confirm(_("faq.confirm_exec")))
                                                                Executor::passthrough(
-                                                                   "rm -rf ~/.config/tencent-qq/ 2>/dev/null");
+                                                                       "rm -rf ~/.config/tencent-qq/ 2>/dev/null");
                                                            Logger::press_enter();
                                                            return true;
                                                        }));
@@ -505,7 +505,7 @@ namespace tmoe::app {
                                                            Logger::info(_("faq.a8"));
                                                            if (Logger::confirm(_("faq.confirm_exec")))
                                                                Executor::passthrough(
-                                                                   "rm -vf ~/baidunetdisk/baidunetdiskdata.db 2>/dev/null");
+                                                                       "rm -vf ~/baidunetdisk/baidunetdiskdata.db 2>/dev/null");
                                                            Logger::press_enter();
                                                            return true;
                                                        }));
@@ -516,11 +516,13 @@ namespace tmoe::app {
                                                            Logger::info(_("faq.a9"));
                                                            if (Logger::confirm(_("faq.confirm_exec"))) {
                                                                domain::PackageManager::remove("mlocate",
-                                                                   domain::infer_family_from_config(cfg_.linux_distro));
+                                                                                              domain::infer_family_from_config(
+                                                                                                      cfg_.linux_distro));
                                                                domain::PackageManager::remove("catfish",
-                                                                   domain::infer_family_from_config(cfg_.linux_distro));
+                                                                                              domain::infer_family_from_config(
+                                                                                                      cfg_.linux_distro));
                                                                Executor::passthrough(
-                                                                   "sudo apt autoremove --purge 2>/dev/null");
+                                                                       "sudo apt autoremove --purge 2>/dev/null");
                                                            }
                                                            Logger::press_enter();
                                                            return true;
@@ -531,15 +533,16 @@ namespace tmoe::app {
                                                        [this](MenuContext &) -> bool {
                                                            Logger::info(_("faq.a10"));
                                                            std::string tty_choice = cfg_.tui_bin +
-                                                               " --title \"TTY Chinese\""
-                                                               " --yes-button 'fbterm' --no-button 'export LANG'"
-                                                               " --yesno \"" + _("faq.a10") + "\" 11 45";
+                                                                                    " --title \"TTY Chinese\""
+                                                                                    " --yes-button 'fbterm' --no-button 'export LANG'"
+                                                                                    " --yesno \"" + _("faq.a10") +
+                                                                                    "\" 11 45";
                                                            auto tty_rc = Executor::passthrough(tty_choice);
                                                            if (tty_rc.exit_code == 0) {
                                                                if (!Executor::has("fbterm"))
                                                                    domain::PackageManager::install("fbterm",
-                                                                       domain::infer_family_from_config(
-                                                                           cfg_.linux_distro));
+                                                                                                   domain::infer_family_from_config(
+                                                                                                           cfg_.linux_distro));
                                                                Executor::passthrough("fbterm 2>/dev/null");
                                                            } else {
                                                                Logger::info("export LANG=C.UTF-8");
@@ -557,17 +560,18 @@ namespace tmoe::app {
                                                                return true;
                                                            }
                                                            Executor::passthrough(
-                                                               "timedatectl set-local-rtc 1 --adjust-system-clock 2>/dev/null");
+                                                                   "timedatectl set-local-rtc 1 --adjust-system-clock 2>/dev/null");
                                                            domain::PackageManager::install({"ntpdate", "chrony"},
-                                                               domain::infer_family_from_config(cfg_.linux_distro));
+                                                                                           domain::infer_family_from_config(
+                                                                                                   cfg_.linux_distro));
                                                            Executor::passthrough(
-                                                               "ntpdate time.windows.com 2>/dev/null");
+                                                                   "ntpdate time.windows.com 2>/dev/null");
                                                            Executor::passthrough(
-                                                               "timedatectl set-ntp true 2>/dev/null");
+                                                                   "timedatectl set-ntp true 2>/dev/null");
                                                            Executor::passthrough(
-                                                               "sudo systemctl enable chrony 2>/dev/null || "
-                                                               "sudo sudo systemctl enable chronyd 2>/dev/null || "
-                                                               "rc-update add chrony 2>/dev/null");
+                                                                   "sudo systemctl enable chrony 2>/dev/null || "
+                                                                   "sudo sudo systemctl enable chronyd 2>/dev/null || "
+                                                                   "rc-update add chrony 2>/dev/null");
                                                            Executor::passthrough("chronyc sourcestats -v 2>/dev/null");
                                                            Logger::press_enter();
                                                            return true;
@@ -584,25 +588,25 @@ namespace tmoe::app {
 
         std::string cur = std::string(I18n::current_lang());
         menu->add_child(std::make_shared<LambdaAction>(
-            _("locale.zh_cn") + (cur == "zh_CN" ? " ✓" : ""), "zh_CN",
-            [this](MenuContext &) -> bool {
-                I18n::init("zh_CN");
-                cfg_.locale = "zh_CN";
-                environment_->set_locale("zh_CN");
-                if (save_locale_) save_locale_("zh_CN");
-                Logger::ok(_f("locale.switched_ok", "zh_CN"));
-                return true;
-            }));
+                _("locale.zh_cn") + (cur == "zh_CN" ? " ✓" : ""), "zh_CN",
+                [this](MenuContext &) -> bool {
+                    I18n::init("zh_CN");
+                    cfg_.locale = "zh_CN";
+                    environment_->set_locale("zh_CN");
+                    if (save_locale_) save_locale_("zh_CN");
+                    Logger::ok(_f("locale.switched_ok", "zh_CN"));
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("locale.en_us") + (cur == "en_US" ? " ✓" : ""), "en_US",
-            [this](MenuContext &) -> bool {
-                I18n::init("en_US");
-                cfg_.locale = "en_US";
-                environment_->set_locale("en_US");
-                if (save_locale_) save_locale_("en_US");
-                Logger::ok(_f("locale.switched_ok", "en_US"));
-                return true;
-            }));
+                _("locale.en_us") + (cur == "en_US" ? " ✓" : ""), "en_US",
+                [this](MenuContext &) -> bool {
+                    I18n::init("en_US");
+                    cfg_.locale = "en_US";
+                    environment_->set_locale("en_US");
+                    if (save_locale_) save_locale_("en_US");
+                    Logger::ok(_f("locale.switched_ok", "en_US"));
+                    return true;
+                }));
 
         add_sandwich_nav(menu);
         return menu;
@@ -678,9 +682,12 @@ namespace tmoe::app {
         menu->add_child(std::make_shared<LambdaAction>(_("mirror.toggle_protocol"), "10",
                                                        [this](MenuContext &) -> bool {
                                                            std::string toggle_cmd = cfg_.tui_bin +
-                                                               " --title \"" + _("mirror.protocol_title") +
-                                                               "\" --yes-button 'https' --no-button 'http'"
-                                                               " --yesno \"" + _("mirror.select_protocol") + "\" 0 50";
+                                                                                    " --title \"" +
+                                                                                    _("mirror.protocol_title") +
+                                                                                    "\" --yes-button 'https' --no-button 'http'"
+                                                                                    " --yesno \"" +
+                                                                                    _("mirror.select_protocol") +
+                                                                                    "\" 0 50";
                                                            auto result = Executor::passthrough(toggle_cmd);
                                                            mirror_mgr_->toggle_http_https(result.exit_code == 0);
                                                            Logger::press_enter();
@@ -696,9 +703,12 @@ namespace tmoe::app {
         menu->add_child(std::make_shared<LambdaAction>(_("mirror.trust_sources"), "12",
                                                        [this](MenuContext &) -> bool {
                                                            std::string trust_cmd = cfg_.tui_bin +
-                                                               " --title \"" + _("mirror.trust_title") +
-                                                               "\" --yes-button 'trust' --no-button 'untrust'"
-                                                               " --yesno \"" + _("mirror.trust_warning") + "\" 0 50";
+                                                                                   " --title \"" +
+                                                                                   _("mirror.trust_title") +
+                                                                                   "\" --yes-button 'trust' --no-button 'untrust'"
+                                                                                   " --yesno \"" +
+                                                                                   _("mirror.trust_warning") +
+                                                                                   "\" 0 50";
                                                            auto result = Executor::passthrough(trust_cmd);
                                                            mirror_mgr_->trust_sources(result.exit_code == 0);
                                                            Logger::press_enter();
@@ -731,18 +741,18 @@ namespace tmoe::app {
 
         // 动态构建镜像选择子菜单
         auto menu = make_plugin_menu(
-            _("mirror.select_mirror_title"), _("mirror.select_mirror_prompt"), "mirror_select");
+                _("mirror.select_mirror_title"), _("mirror.select_mirror_prompt"), "mirror_select");
 
         for (size_t i = 0; i < mirrors.size(); ++i) {
             auto label = mirrors[i].name + " (" + mirrors[i].url + ")";
             auto id = mirrors[i].id;
             menu->add_child(std::make_shared<ui::LambdaAction>(
-                label, std::to_string(i + 1),
-                [this, id](ui::MenuContext &) -> bool {
-                    mirror_mgr_->switch_to(id);
-                    Logger::press_enter();
-                    return true;
-                }));
+                    label, std::to_string(i + 1),
+                    [this, id](ui::MenuContext &) -> bool {
+                        mirror_mgr_->switch_to(id);
+                        Logger::press_enter();
+                        return true;
+                    }));
         }
 
         add_sandwich_nav(menu);
@@ -826,7 +836,7 @@ namespace tmoe::app {
             case LaunchMode::ThemeManager: {
                 tmoe::ui::MenuContext ctx{cfg_};
                 tmoe::ui::MenuEngine(ctx).run(
-                    ui::menus::make_menu<ui::menus::BeautifyMenuPlugin>(gui_.get()));
+                        ui::menus::make_menu<ui::menus::BeautifyMenuPlugin>(gui_.get()));
                 break;
             }
             case LaunchMode::MirrorManager: {
@@ -856,7 +866,7 @@ namespace tmoe::app {
             case LaunchMode::Aria2Manager: {
                 tmoe::ui::MenuContext ctx{cfg_};
                 return tmoe::ui::MenuEngine(ctx).run(
-                           ui::menus::make_menu<ui::menus::DownloadMenuPlugin>(download_tools_.get())), 0;
+                        ui::menus::make_menu<ui::menus::DownloadMenuPlugin>(download_tools_.get())), 0;
             }
 
             case LaunchMode::GuiManager:
@@ -915,8 +925,8 @@ namespace tmoe::app {
         if (is_gui_mode) {
             Executor::shell("sleep 3");
             std::string uri = (ctx.exec_program == "novnc" || ctx.exec_program_01 == "novnc")
-                                  ? "http://127.0.0.1:6080"
-                                  : "vnc://127.0.0.1:5901";
+                              ? "http://127.0.0.1:6080"
+                              : "vnc://127.0.0.1:5901";
             environment_->open_uri(uri);
         }
         return 0;

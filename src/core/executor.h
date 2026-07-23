@@ -1,4 +1,5 @@
 #pragma once
+
 #include <cstdio>
 #include <cstdlib>
 #include <array>
@@ -20,6 +21,7 @@ namespace tmoe {
         std::string stderr_data;
 
         explicit operator bool() const { return exit_code == 0; }
+
         [[nodiscard]] bool ok() const { return exit_code == 0; }
     };
 
@@ -50,9 +52,9 @@ namespace tmoe {
          *  通过 shell 的 VAR=val 前缀语法实现，无需 fork+exec。
          */
         static ExecResult run_with_env(
-            const std::vector<std::pair<std::string, std::string> > &env,
-            std::string_view bin,
-            std::initializer_list<std::string_view> args);
+                const std::vector<std::pair<std::string, std::string> > &env,
+                std::string_view bin,
+                std::initializer_list<std::string_view> args);
 
         /** 启动 whiptail 对话框并返回用户选中的标签。 */
         static std::string tui_select(std::string_view whiptail_args);
@@ -60,7 +62,7 @@ namespace tmoe {
         /** 同 tui_select，通过 cancelled 报告用户是否按了 Esc/Cancel。
          *  cancelled=true  → 用户取消，返回值无效
          *  cancelled=false → 用户确认，返回值为有效输入 */
-        static std::string tui_select(std::string_view whiptail_args, bool& cancelled);
+        static std::string tui_select(std::string_view whiptail_args, bool &cancelled);
 
         /** 直接透传终端给子进程（用于交互式命令）。
          *  底层使用 system() —— 子进程完全继承 stdin/stdout/stderr。
@@ -77,7 +79,7 @@ namespace tmoe {
         /** 两个 tui_select 重载共享的实现。
          *  构建 whiptail/dialog 命令 → popen 执行 → 返回用户选择。
          *  cancelled 始终被设置（调用方若不需要可忽略）。 */
-        static std::string tui_select_impl(std::string_view whiptail_args, bool& cancelled);
+        static std::string tui_select_impl(std::string_view whiptail_args, bool &cancelled);
     };
 
     /** 对字符串进行单引号 Shell 转义。

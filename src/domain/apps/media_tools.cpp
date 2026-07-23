@@ -19,11 +19,14 @@ namespace tmoe::domain {
         auto family = PackageManager::detect_distro_family();
         std::string img_pkg;
         switch (family) {
-            case DistroFamily::Debian: img_pkg = "graphicsmagick-imagemagick-compat";
+            case DistroFamily::Debian:
+                img_pkg = "graphicsmagick-imagemagick-compat";
                 break;
-            case DistroFamily::RedHat: img_pkg = "ImageMagick";
+            case DistroFamily::RedHat:
+                img_pkg = "ImageMagick";
                 break;
-            default: img_pkg = "imagemagick";
+            default:
+                img_pkg = "imagemagick";
                 break;
         }
         Logger::step(_("media.compress.installing_deps"));
@@ -102,7 +105,7 @@ namespace tmoe::domain {
     void MediaTools::gui_compress() {
         // 用 zenity 选择目录
         auto dir_result = Executor::shell(
-            "zenity --file-selection --directory --title=\"" + _("media.compress.choose_dir") + "\" 2>/dev/null");
+                "zenity --file-selection --directory --title=\"" + _("media.compress.choose_dir") + "\" 2>/dev/null");
         std::string target_dir = dir_result.stdout_data;
         trim_newline(target_dir);
 
@@ -113,9 +116,9 @@ namespace tmoe::domain {
 
         // 用 zenity scale 选择质量
         auto q_result = Executor::shell(
-            "zenity --scale --title=\"" + _("media.compress.quality_prompt")
-            + "\" --text=\"" + _("media.compress.quality_prompt")
-            + "\" --min-value=1 --max-value=99 --value=80 --step=1 2>/dev/null");
+                "zenity --scale --title=\"" + _("media.compress.quality_prompt")
+                + "\" --text=\"" + _("media.compress.quality_prompt")
+                + "\" --min-value=1 --max-value=99 --value=80 --step=1 2>/dev/null");
         std::string q_str = q_result.stdout_data;
         trim_newline(q_str);
         int quality = q_str.empty() ? 80 : std::stoi(q_str);
@@ -137,11 +140,11 @@ namespace tmoe::domain {
         // 批量转换：遍历所有 jpg/png，执行 convert
         std::string cmd =
                 "cd " + dir.string() + " && "
-                "for f in *.jpg *.jpeg *.png *.JPG *.JPEG *.PNG; do "
-                "  [ -f \"$f\" ] || continue; "
-                "  convert +profile \"*\" -strip -quality " + std::to_string(quality)
+                                       "for f in *.jpg *.jpeg *.png *.JPG *.JPEG *.PNG; do "
+                                       "  [ -f \"$f\" ] || continue; "
+                                       "  convert +profile \"*\" -strip -quality " + std::to_string(quality)
                 + " \"$f\" \"" + out_path.string() + "/${f%%.*}.jpg\" 2>/dev/null; "
-                "done";
+                                                     "done";
         Executor::passthrough(cmd);
 
         Logger::ok(_f("media.compress.done", out_path.string()));
@@ -170,9 +173,9 @@ namespace tmoe::domain {
 
     void MediaTools::fix_folder_permissions(const fs::path &dir) {
         // 如果非 root 运行，chown 输出目录给当前用户
-    if (platform::geteuid() != 0) {
-        std::string out_pattern = dir.string() + "/tmoe_compression_quality_*";
-        Executor::shell("sudo chown -R $(id -u):$(id -g) " + out_pattern + " 2>/dev/null || true");
-    }
+        if (platform::geteuid() != 0) {
+            std::string out_pattern = dir.string() + "/tmoe_compression_quality_*";
+            Executor::shell("sudo chown -R $(id -u):$(id -g) " + out_pattern + " 2>/dev/null || true");
+        }
     }
 } // namespace tmoe::domain

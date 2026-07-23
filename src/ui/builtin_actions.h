@@ -1,4 +1,5 @@
 #pragma once
+
 #include "action.h"
 #include "menu.h"
 #include "core/i18n.h"
@@ -8,64 +9,71 @@ namespace tmoe::ui {
 // ── 内置操作 ──────────────────────────────────────────
 
 /** 返回上级菜单。Engine 通过 get_tag() == "back" 识别。 */
-class BackAction : public IAction {
-public:
-    std::string get_label() const override { return _("menu.tui.back_upper"); }
-    std::string get_tag() const override { return "back"; }
-    bool execute(MenuContext&) override { return true; } // Engine 拦截，不会到达此处
-    bool needs_root() const override { return false; }
-};
+    class BackAction : public IAction {
+    public:
+        std::string get_label() const override { return _("menu.tui.back_upper"); }
+
+        std::string get_tag() const override { return "back"; }
+
+        bool execute(MenuContext &) override { return true; } // Engine 拦截，不会到达此处
+        bool needs_root() const override { return false; }
+    };
 
 /** 退出程序。Engine 通过 get_tag() == "exit" 识别。 */
-class ExitAction : public IAction {
-public:
-    std::string get_label() const override { return _("menu.tui.exit"); }
-    std::string get_tag() const override { return "exit"; }
-    bool execute(MenuContext&) override { return true; } // Engine 拦截，不会到达此处
-    bool needs_root() const override { return false; }
-};
+    class ExitAction : public IAction {
+    public:
+        std::string get_label() const override { return _("menu.tui.exit"); }
+
+        std::string get_tag() const override { return "exit"; }
+
+        bool execute(MenuContext &) override { return true; } // Engine 拦截，不会到达此处
+        bool needs_root() const override { return false; }
+    };
 
 // ── 辅助方法 ──────────────────────────────────────────
 
 /** 为 sub_menu 添加标准导航（底部：返回 + 退出）。 */
-inline void add_navigation_items(std::shared_ptr<IUIMenu> sub_menu) {
-    sub_menu->add_child(std::make_shared<BackAction>());
-    sub_menu->add_child(std::make_shared<ExitAction>());
-}
+    inline void add_navigation_items(std::shared_ptr<IUIMenu> sub_menu) {
+        sub_menu->add_child(std::make_shared<BackAction>());
+        sub_menu->add_child(std::make_shared<ExitAction>());
+    }
 
 /** "夹心饼"导航：上(返回) → 内容 → 下(退出)。
  *  在所有内容添加完毕后调用。 */
-inline void add_sandwich_nav(std::shared_ptr<IUIMenu> menu) {
-    menu->add_child_at(0, std::make_shared<BackAction>());       // 上饼干
-    menu->add_child(std::make_shared<ExitAction>());             // 下饼干
-}
+    inline void add_sandwich_nav(std::shared_ptr<IUIMenu> menu) {
+        menu->add_child_at(0, std::make_shared<BackAction>());       // 上饼干
+        menu->add_child(std::make_shared<ExitAction>());             // 下饼干
+    }
 
 /** 创建一个带标准导航选项的子菜单。 */
-inline std::shared_ptr<IUIMenu> make_menu_with_nav(std::shared_ptr<IUIMenu> menu) {
-    add_navigation_items(menu);
-    return menu;
-}
+    inline std::shared_ptr<IUIMenu> make_menu_with_nav(std::shared_ptr<IUIMenu> menu) {
+        add_navigation_items(menu);
+        return menu;
+    }
 
 // ── 简单容器菜单 ──────────────────────────────────────
 
 /** 具体的 IUIMenu 实现——通过构造函数注入 title/label/tag，
  *  使用基类默认的 build_whiptail_cmd() 遍历 children。 */
-class SimpleMenu : public IUIMenu {
-public:
-    SimpleMenu(std::string title, std::string label, std::string tag,
-               std::string prompt = "")
-        : title_(std::move(title)), label_(std::move(label)), tag_(std::move(tag)),
-          prompt_(std::move(prompt)) {}
+    class SimpleMenu : public IUIMenu {
+    public:
+        SimpleMenu(std::string title, std::string label, std::string tag,
+                   std::string prompt = "")
+                : title_(std::move(title)), label_(std::move(label)), tag_(std::move(tag)),
+                  prompt_(std::move(prompt)) {}
 
-    std::string get_label() const override { return label_; }
-    std::string get_tag() const override { return tag_; }
-    std::string get_title() const override { return title_; }
-    std::string get_prompt() const override {
-        return prompt_.empty() ? _("menu.tui.title") : prompt_;
-    }
+        std::string get_label() const override { return label_; }
 
-private:
-    std::string title_, label_, tag_, prompt_;
-};
+        std::string get_tag() const override { return tag_; }
+
+        std::string get_title() const override { return title_; }
+
+        std::string get_prompt() const override {
+            return prompt_.empty() ? _("menu.tui.title") : prompt_;
+        }
+
+    private:
+        std::string title_, label_, tag_, prompt_;
+    };
 
 } // namespace tmoe::ui

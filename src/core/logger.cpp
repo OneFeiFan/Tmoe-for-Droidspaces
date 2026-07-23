@@ -3,10 +3,12 @@
 #include <cstdio>
 #include <ctime>
 #include <sstream>
+
 #ifndef _WIN32
 #include <unistd.h>
 #include <termios.h>
 #endif
+
 #include <iomanip>
 
 namespace tmoe {
@@ -18,12 +20,18 @@ namespace tmoe {
     const char *Logger::ansi(Level lv) {
         if (!enable_color) return "";
         switch (lv) {
-            case DEBUG: return "\033[90m"; // 灰
-            case INFO: return "\033[36m"; // 青
-            case OK: return "\033[32m"; // 绿
-            case WARN: return "\033[33m"; // 黄
-            case ERROR: return "\033[31m"; // 红
-            default: return "\033[0m";
+            case DEBUG:
+                return "\033[90m"; // 灰
+            case INFO:
+                return "\033[36m"; // 青
+            case OK:
+                return "\033[32m"; // 绿
+            case WARN:
+                return "\033[33m"; // 黄
+            case ERROR:
+                return "\033[31m"; // 红
+            default:
+                return "\033[0m";
         }
     }
 
@@ -34,15 +42,20 @@ namespace tmoe {
 
         const char *prefix = "";
         switch (lv) {
-            case DEBUG: prefix = "[DEBUG] ";
+            case DEBUG:
+                prefix = "[DEBUG] ";
                 break;
-            case INFO: prefix = "[*] ";
+            case INFO:
+                prefix = "[*] ";
                 break;
-            case OK: prefix = "[✓] ";
+            case OK:
+                prefix = "[✓] ";
                 break;
-            case WARN: prefix = "[!] ";
+            case WARN:
+                prefix = "[!] ";
                 break;
-            case ERROR: prefix = "[✗] ";
+            case ERROR:
+                prefix = "[✗] ";
                 break;
         }
         std::fprintf(stderr, "%s%s%s%s\n", ansi(lv), prefix, RESET, msg.data());
@@ -63,8 +76,8 @@ namespace tmoe {
         if (log_file_.is_open()) {
             std::lock_guard<std::mutex> lock(log_mutex_);
             log_file_ << "[" << timestamp() << "] "
-                    << (ok ? "[✓] " : "[✗] ") << task
-                    << (ok ? "" : " failed") << std::endl;
+                      << (ok ? "[✓] " : "[✗] ") << task
+                      << (ok ? "" : " failed") << std::endl;
         }
     }
 

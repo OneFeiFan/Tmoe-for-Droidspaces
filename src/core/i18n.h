@@ -1,4 +1,5 @@
 #pragma once
+
 #include "i18n_data.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
@@ -33,6 +34,7 @@ namespace tmoe {
         static std::string trf(std::string_view key, Args &&... args);
 
         static std::string_view current_lang();
+
         static const std::vector<std::string> &available_langs();
 
         static void register_custom(std::string_view lang,

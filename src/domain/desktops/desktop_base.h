@@ -1,4 +1,5 @@
 #pragma once
+
 #include <string>
 #include <string_view>
 #include <memory>
@@ -35,18 +36,19 @@ namespace tmoe::domain {
 
     class DesktopBase {
     public:
-        explicit DesktopBase(const TmoeConfig& cfg, const DesktopInfo& info)
-            : cfg_(cfg), info_(info) {}
+        explicit DesktopBase(const TmoeConfig &cfg, const DesktopInfo &info)
+                : cfg_(cfg), info_(info) {}
 
         virtual ~DesktopBase() = default;
 
         // ── 标识 ──
         virtual std::string get_id() const { return info_.id; }
 
-        virtual const DesktopInfo& get_info() const { return info_; }
+        virtual const DesktopInfo &get_info() const { return info_; }
 
         // ── 分类 ──
         virtual bool is_window_manager() const { return get_info().is_window_manager; }
+
         virtual bool needs_root() const { return get_info().requires_root; }
 
         // ── 会话命令（默认从 DesktopInfo 读取，GNOME/Budgie 可覆盖） ──
@@ -58,7 +60,7 @@ namespace tmoe::domain {
 
         /** 阶段2: 装包前版本选择。返回空 pkg_list 表示不覆盖 registry */
         virtual PreInstallChoices pre_install_choices(
-            DistroFamily family, bool is_auto_mode) {
+                DistroFamily family, bool is_auto_mode) {
             return {};
         }
 
@@ -78,7 +80,7 @@ namespace tmoe::domain {
         }
 
     protected:
-        const TmoeConfig& cfg_;
-        const DesktopInfo& info_;
+        const TmoeConfig &cfg_;
+        const DesktopInfo &info_;
     };
 } // namespace tmoe::domain

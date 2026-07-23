@@ -1,6 +1,7 @@
 #ifndef INSTALLABLE_APP_H
 #define INSTALLABLE_APP_H
 #pragma once
+
 #include <string>
 #include <string_view>
 #include <vector>
@@ -20,64 +21,78 @@ namespace tmoe::domain {
 
 /** 各发行版家族的包名（空格分隔多包时自动拆分为数组）。
  *  common 字段作为未显式指定发行版的回退值。 */
-struct DistroPkgNames {
-    std::string debian;
-    std::string arch;
-    std::string redhat;
-    std::string alpine;
-    std::string gentoo;
-    std::string suse;
-    std::string common;     // 回退（优先级最低）
+    struct DistroPkgNames {
+        std::string debian;
+        std::string arch;
+        std::string redhat;
+        std::string alpine;
+        std::string gentoo;
+        std::string suse;
+        std::string common;     // 回退（优先级最低）
 
-    /** 将空格分隔的包名拆分为字符串向量。 */
-    static std::vector<std::string> split_pkgs(std::string_view s) {
-        std::vector<std::string> result;
-        if (s.empty()) return result;
-        size_t start = 0;
-        while (start < s.size()) {
-            while (start < s.size() && s[start] == ' ') ++start;
-            if (start >= s.size()) break;
-            size_t end = s.find(' ', start);
-            if (end == std::string_view::npos) end = s.size();
-            result.emplace_back(s.substr(start, end - start));
-            start = end;
+        /** 将空格分隔的包名拆分为字符串向量。 */
+        static std::vector<std::string> split_pkgs(std::string_view s) {
+            std::vector<std::string> result;
+            if (s.empty()) return result;
+            size_t start = 0;
+            while (start < s.size()) {
+                while (start < s.size() && s[start] == ' ') ++start;
+                if (start >= s.size()) break;
+                size_t end = s.find(' ', start);
+                if (end == std::string_view::npos) end = s.size();
+                result.emplace_back(s.substr(start, end - start));
+                start = end;
+            }
+            return result;
         }
-        return result;
-    }
 
-    /** 获取指定发行版家族对应的包名向量。 */
-    std::vector<std::string> get(DistroFamily family) const {
-        auto pkgs = [&]() -> std::string_view {
-            switch (family) {
-                case DistroFamily::Debian:  return debian;
-                case DistroFamily::Arch:    return arch;
-                case DistroFamily::RedHat:  return redhat;
-                case DistroFamily::Alpine:  return alpine;
-                case DistroFamily::Gentoo:  return gentoo;
-                case DistroFamily::Suse:    return suse;
-                default:                    return common;
-            }
-        }();
-        if (pkgs.empty()) return split_pkgs(common);
-        return split_pkgs(pkgs);
-    }
+        /** 获取指定发行版家族对应的包名向量。 */
+        std::vector<std::string> get(DistroFamily family) const {
+            auto pkgs = [&]() -> std::string_view {
+                switch (family) {
+                    case DistroFamily::Debian:
+                        return debian;
+                    case DistroFamily::Arch:
+                        return arch;
+                    case DistroFamily::RedHat:
+                        return redhat;
+                    case DistroFamily::Alpine:
+                        return alpine;
+                    case DistroFamily::Gentoo:
+                        return gentoo;
+                    case DistroFamily::Suse:
+                        return suse;
+                    default:
+                        return common;
+                }
+            }();
+            if (pkgs.empty()) return split_pkgs(common);
+            return split_pkgs(pkgs);
+        }
 
-    /** 检查某个发行版是否有显式配置（非空且非 common 回退）。 */
-    bool has_explicit(DistroFamily family) const {
-        auto pkgs = [&]() -> std::string_view {
-            switch (family) {
-                case DistroFamily::Debian:  return debian;
-                case DistroFamily::Arch:    return arch;
-                case DistroFamily::RedHat:  return redhat;
-                case DistroFamily::Alpine:  return alpine;
-                case DistroFamily::Gentoo:  return gentoo;
-                case DistroFamily::Suse:    return suse;
-                default:                    return {};
-            }
-        }();
-        return !pkgs.empty();
-    }
-};
+        /** 检查某个发行版是否有显式配置（非空且非 common 回退）。 */
+        bool has_explicit(DistroFamily family) const {
+            auto pkgs = [&]() -> std::string_view {
+                switch (family) {
+                    case DistroFamily::Debian:
+                        return debian;
+                    case DistroFamily::Arch:
+                        return arch;
+                    case DistroFamily::RedHat:
+                        return redhat;
+                    case DistroFamily::Alpine:
+                        return alpine;
+                    case DistroFamily::Gentoo:
+                        return gentoo;
+                    case DistroFamily::Suse:
+                        return suse;
+                    default:
+                        return {};
+                }
+            }();
+            return !pkgs.empty();
+        }
+    };
 
 // ═══════════════════════════════════════════════════════════════
 // InstallableApp — 可安装应用的抽象基类（模板方法模式）
@@ -112,105 +127,106 @@ struct DistroPkgNames {
  *        }
  *    };
  */
-class InstallableApp {
-public:
-    explicit InstallableApp(const TmoeConfig& cfg) : cfg_(cfg) {}
-    virtual ~InstallableApp() = default;
+    class InstallableApp {
+    public:
+        explicit InstallableApp(const TmoeConfig &cfg) : cfg_(cfg) {}
 
-    // ── 标识（子类必须覆盖） ──
+        virtual ~InstallableApp() = default;
 
-    /** 用户可见的应用名称（用于日志和 TUI 显示）。 */
-    virtual std::string name() const = 0;
+        // ── 标识（子类必须覆盖） ──
 
-    /** 可执行文件名（用于 no-sandbox wrapper、desktop 图标名称）。
-     *  默认与 name() 相同，Chromium/Edge 等需要覆盖。 */
-    virtual std::string bin_name() const { return name(); }
+        /** 用户可见的应用名称（用于日志和 TUI 显示）。 */
+        virtual std::string name() const = 0;
 
-    /** 应用描述（用于 TUI 提示，可选）。 */
-    virtual std::string description() const { return ""; }
+        /** 可执行文件名（用于 no-sandbox wrapper、desktop 图标名称）。
+         *  默认与 name() 相同，Chromium/Edge 等需要覆盖。 */
+        virtual std::string bin_name() const { return name(); }
 
-    /** 各发行版的包名配置。 */
-    virtual DistroPkgNames packages() const = 0;
+        /** 应用描述（用于 TUI 提示，可选）。 */
+        virtual std::string description() const { return ""; }
 
-    // ── 安装管线钩子（子类按需覆盖） ──
+        /** 各发行版的包名配置。 */
+        virtual DistroPkgNames packages() const = 0;
 
-    /** 安装前准备（添加 PPA、导入 GPG key、架构检查等）。
-     *  返回 false 取消安装。 */
-    virtual bool pre_install(DistroFamily /*family*/) { return true; }
+        // ── 安装管线钩子（子类按需覆盖） ──
 
-    /** 安装后处理（创建 wrapper、配置环境变量、写 desktop 文件等）。
-     *  仅在 PackageManager::install() 成功后才调用。 */
-    virtual bool post_install(DistroFamily /*family*/) { return true; }
+        /** 安装前准备（添加 PPA、导入 GPG key、架构检查等）。
+         *  返回 false 取消安装。 */
+        virtual bool pre_install(DistroFamily /*family*/) { return true; }
 
-    /** 卸载前准备（解除 apt hold 等）。返回 false 取消卸载。 */
-    virtual bool pre_remove(DistroFamily /*family*/) { return true; }
+        /** 安装后处理（创建 wrapper、配置环境变量、写 desktop 文件等）。
+         *  仅在 PackageManager::install() 成功后才调用。 */
+        virtual bool post_install(DistroFamily /*family*/) { return true; }
 
-    /** 卸载后清理（删除 PPA、wrapper、desktop 文件等）。 */
-    virtual bool post_remove(DistroFamily /*family*/) { return true; }
+        /** 卸载前准备（解除 apt hold 等）。返回 false 取消卸载。 */
+        virtual bool pre_remove(DistroFamily /*family*/) { return true; }
 
-    // ── 特性标志 ──
+        /** 卸载后清理（删除 PPA、wrapper、desktop 文件等）。 */
+        virtual bool post_remove(DistroFamily /*family*/) { return true; }
 
-    /** 是否需要创建 --no-sandbox 包装脚本（浏览器类应用专用）。 */
-    virtual bool needs_sandbox_wrapper() const { return false; }
+        // ── 特性标志 ──
 
-    // ── 核心操作（模板方法 — 一般不需要覆盖） ──
+        /** 是否需要创建 --no-sandbox 包装脚本（浏览器类应用专用）。 */
+        virtual bool needs_sandbox_wrapper() const { return false; }
 
-    /** 执行完整安装管线（子类可覆盖以自定义安装逻辑）。
-     *  默认实现：
-     *  1. pre_install(family)  →  false 则中止
-     *  2. PackageManager::install(packages().get(family), family)
-     *  3. post_install(family)  →  成功则调用
-     *  4. needs_sandbox_wrapper()  →  自动创建 no-sandbox wrapper
-     */
-    virtual bool install(DistroFamily family);
+        // ── 核心操作（模板方法 — 一般不需要覆盖） ──
 
-    /** 执行完整卸载管线（子类可覆盖以自定义卸载逻辑）。
-     *  默认实现：
-     *  1. confirm_remove()      →  用户拒绝则中止
-     *  2. pre_remove(family)    →  false 则中止
-     *  3. PackageManager::remove(packages().get(family), family)
-     *  4. post_remove(family)
-     */
-    virtual bool remove(DistroFamily family);
+        /** 执行完整安装管线（子类可覆盖以自定义安装逻辑）。
+         *  默认实现：
+         *  1. pre_install(family)  →  false 则中止
+         *  2. PackageManager::install(packages().get(family), family)
+         *  3. post_install(family)  →  成功则调用
+         *  4. needs_sandbox_wrapper()  →  自动创建 no-sandbox wrapper
+         */
+        virtual bool install(DistroFamily family);
 
-    /** 便捷方法：自动从 cfg_ 推断发行版家族后调用 install(family)。 */
-    bool install() { return install(infer_family_from_config(cfg_.linux_distro)); }
+        /** 执行完整卸载管线（子类可覆盖以自定义卸载逻辑）。
+         *  默认实现：
+         *  1. confirm_remove()      →  用户拒绝则中止
+         *  2. pre_remove(family)    →  false 则中止
+         *  3. PackageManager::remove(packages().get(family), family)
+         *  4. post_remove(family)
+         */
+        virtual bool remove(DistroFamily family);
 
-    /** 便捷方法：自动从 cfg_ 推断发行版家族后调用 remove(family)。 */
-    bool remove() { return remove(infer_family_from_config(cfg_.linux_distro)); }
+        /** 便捷方法：自动从 cfg_ 推断发行版家族后调用 install(family)。 */
+        bool install() { return install(infer_family_from_config(cfg_.linux_distro)); }
 
-    // ── 用户交互 ──
+        /** 便捷方法：自动从 cfg_ 推断发行版家族后调用 remove(family)。 */
+        bool remove() { return remove(infer_family_from_config(cfg_.linux_distro)); }
 
-    /** 显示安装确认 TUI 对话框。默认使用 whiptail --yesno。 */
-    virtual bool confirm_install();
+        // ── 用户交互 ──
 
-    /** 显示卸载确认 TUI 对话框。默认使用 whiptail --yesno。 */
-    virtual bool confirm_remove();
+        /** 显示安装确认 TUI 对话框。默认使用 whiptail --yesno。 */
+        virtual bool confirm_install();
 
-protected:
-    const TmoeConfig& cfg_;
+        /** 显示卸载确认 TUI 对话框。默认使用 whiptail --yesno。 */
+        virtual bool confirm_remove();
 
-    // ── 受保护的辅助方法（供子类 hook 使用） ──
+    protected:
+        const TmoeConfig &cfg_;
 
-    /** 创建 --no-sandbox 包装脚本 + .desktop 文件。
-     *  适用于 Chromium 系浏览器等在沙箱环境中需要特权才能运行的 GUI 应用。
-     *  @param display_name 桌面图标显示名称
-     *  @param bin          可执行文件名（用于 $PATH 查找和 wrapper 命名）
-     */
-    static void create_sandbox_wrapper(std::string_view display_name, std::string_view bin);
+        // ── 受保护的辅助方法（供子类 hook 使用） ──
 
-    /** 创建 .desktop 文件（不创建 wrapper 脚本）。
-     *  适用于只需要桌面快捷方式的应用。
-     *  @param app_name  桌面图标显示名称
-     *  @param exec_path 可执行文件路径（绝对路径）
-     *  @param icon_name 图标名称（无扩展名）
-     *  @param categories 桌面分类（分号分隔，如 "Network;WebBrowser;"）
-     */
-    static void create_desktop_entry(std::string_view app_name,
-                                     std::string_view exec_path,
-                                     std::string_view icon_name,
-                                     std::string_view categories = "Utility;");
-};
+        /** 创建 --no-sandbox 包装脚本 + .desktop 文件。
+         *  适用于 Chromium 系浏览器等在沙箱环境中需要特权才能运行的 GUI 应用。
+         *  @param display_name 桌面图标显示名称
+         *  @param bin          可执行文件名（用于 $PATH 查找和 wrapper 命名）
+         */
+        static void create_sandbox_wrapper(std::string_view display_name, std::string_view bin);
+
+        /** 创建 .desktop 文件（不创建 wrapper 脚本）。
+         *  适用于只需要桌面快捷方式的应用。
+         *  @param app_name  桌面图标显示名称
+         *  @param exec_path 可执行文件路径（绝对路径）
+         *  @param icon_name 图标名称（无扩展名）
+         *  @param categories 桌面分类（分号分隔，如 "Network;WebBrowser;"）
+         */
+        static void create_desktop_entry(std::string_view app_name,
+                                         std::string_view exec_path,
+                                         std::string_view icon_name,
+                                         std::string_view categories = "Utility;");
+    };
 
 // ═══════════════════════════════════════════════════════════════
 // SimpleApp — 零样板单包名应用
@@ -223,21 +239,22 @@ protected:
  *      SimpleApp emacs(cfg, "Emacs", "emacs");
  *      emacs.install(family);   // → Logger::step("Emacs") → install("emacs") → done
  */
-class SimpleApp : public InstallableApp {
-public:
-    SimpleApp(const TmoeConfig& cfg, std::string name, std::string pkg)
-        : InstallableApp(cfg), name_(std::move(name)), pkg_(std::move(pkg)) {}
+    class SimpleApp : public InstallableApp {
+    public:
+        SimpleApp(const TmoeConfig &cfg, std::string name, std::string pkg)
+                : InstallableApp(cfg), name_(std::move(name)), pkg_(std::move(pkg)) {}
 
-    std::string name() const override { return name_; }
-    DistroPkgNames packages() const override {
-        DistroPkgNames p;
-        p.common = pkg_;
-        return p;
-    }
+        std::string name() const override { return name_; }
 
-private:
-    std::string name_, pkg_;
-};
+        DistroPkgNames packages() const override {
+            DistroPkgNames p;
+            p.common = pkg_;
+            return p;
+        }
+
+    private:
+        std::string name_, pkg_;
+    };
 
 } // namespace tmoe::domain
 #endif //INSTALLABLE_APP_H

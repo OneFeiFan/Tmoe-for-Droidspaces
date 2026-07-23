@@ -24,25 +24,31 @@ namespace tmoe::domain {
         if (f == DistroFamily::Debian) {
             using namespace tmoe::ui;
             auto menu = make_plugin_menu("gnome-session", "Select GNOME session", "gnome_session");
-            menu->add_child(std::make_shared<LambdaAction>("gnome-shell-x11", "1", [this](MenuContext&) -> bool {
-                session_ = "1"; return false;
+            menu->add_child(std::make_shared<LambdaAction>("gnome-shell-x11", "1", [this](MenuContext &) -> bool {
+                session_ = "1";
+                return false;
             }));
-            menu->add_child(std::make_shared<LambdaAction>("gnome-flashback", "2", [this](MenuContext&) -> bool {
-                session_ = "2"; return false;
+            menu->add_child(std::make_shared<LambdaAction>("gnome-flashback", "2", [this](MenuContext &) -> bool {
+                session_ = "2";
+                return false;
             }));
-            menu->add_child(std::make_shared<LambdaAction>("gnome-session", "3", [this](MenuContext&) -> bool {
-                session_ = "3"; return false;
+            menu->add_child(std::make_shared<LambdaAction>("gnome-session", "3", [this](MenuContext &) -> bool {
+                session_ = "3";
+                return false;
             }));
-            menu->add_child(std::make_shared<LambdaAction>("gnome-session-ubuntu", "4", [this](MenuContext&) -> bool {
-                session_ = "4"; return false;
+            menu->add_child(std::make_shared<LambdaAction>("gnome-session-ubuntu", "4", [this](MenuContext &) -> bool {
+                session_ = "4";
+                return false;
             }));
-            menu->add_child(std::make_shared<LambdaAction>("gnome-session-classic", "5", [this](MenuContext&) -> bool {
-                session_ = "5"; return false;
+            menu->add_child(std::make_shared<LambdaAction>("gnome-session-classic", "5", [this](MenuContext &) -> bool {
+                session_ = "5";
+                return false;
             }));
-            menu->add_child(std::make_shared<LambdaAction>("Back", "0", [this](MenuContext&) -> bool {
-                session_ = "0"; return false;
+            menu->add_child(std::make_shared<LambdaAction>("Back", "0", [this](MenuContext &) -> bool {
+                session_ = "0";
+                return false;
             }));
-            MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+            MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
             MenuEngine(ctx).run(menu);
 
             if (session_ == "2") {
@@ -58,12 +64,12 @@ namespace tmoe::domain {
             }
             if (c.pkg_list.empty()) {
                 c.pkg_list = dialog::yesno(cfg_, "gnome-shell/core", "shell/core?", "gnome-shell", "gnome-core") == 0
-                                 ? "xorg gnome-panel gnome-menus gnome-shell gnome-session"
-                                 : "gnome-core";
+                             ? "xorg gnome-panel gnome-menus gnome-shell gnome-session"
+                             : "gnome-core";
             }
         } else if (f == DistroFamily::Arch) {
             c.pkg_list = ui::dialog::yesno(cfg_, "gnome/gnome-extra", "gnome/extra?", "gnome", "gnome-extra") == 0
-                             ? "gnome-tweaks gnome" : "gnome-extra gnome";
+                         ? "gnome-tweaks gnome" : "gnome-extra gnome";
         } else if (f == DistroFamily::RedHat) {
             c.pkg_list = "@GNOME";
         }
@@ -97,45 +103,49 @@ namespace tmoe::domain {
     void GnomeDesktop::write_session_scripts() {
         auto wr = [&](const char *n, const std::string &c) {
             SystemHelper::write_file("/usr/local/bin/" + std::string(n), c);
-            CommandBuilder("sudo").add_arg("chmod").add_arg("a+rx").add_arg("/usr/local/bin/" + std::string(n)).execute();
+            CommandBuilder("sudo").add_arg("chmod").add_arg("a+rx").add_arg(
+                    "/usr/local/bin/" + std::string(n)).execute();
         };
         // bash: gnome-shell-x11 总是创建（不管选哪个 session）
         wr("gnome-shell-x11", "#!/bin/sh\nexec gnome-shell --x11 \"$@\"\n");
         if (session_ == "2") {
             // bash: ln_s_gnome_flashback_metacity — 检测 --builtin 支持，不支持则退回 metacity &
             std::string fb = "#!/bin/sh\nexport XDG_CURRENT_DESKTOP=\"GNOME-Flashback:GNOME\"\n"
-                    "if gnome-session --help 2>&1 | grep -q builtin; then\n"
-                    "  exec gnome-session --builtin --session=gnome-flashback-metacity --disable-acceleration-check \"$@\"\n"
-                    "else\n  metacity &\n  exec gnome-session --session=gnome-flashback-metacity --disable-acceleration-check \"$@\"\nfi\n";
+                             "if gnome-session --help 2>&1 | grep -q builtin; then\n"
+                             "  exec gnome-session --builtin --session=gnome-flashback-metacity --disable-acceleration-check \"$@\"\n"
+                             "else\n  metacity &\n  exec gnome-session --session=gnome-flashback-metacity --disable-acceleration-check \"$@\"\nfi\n";
             wr("gnome-flashback-metacity", fb);
         }
-        if (session_ == "4") wr("gnome-session-ubuntu",
-                                "#!/bin/sh\nexport DESKTOP_SESSION=ubuntu\nexport GNOME_SHELL_SESSION_MODE=ubuntu\nexport XDG_CURRENT_DESKTOP=\"ubuntu:GNOME\"\nexport XDG_CONFIG_DIRS=/etc/xdg/xdg-ubuntu:/etc/xdg\nexec gnome-session --session=ubuntu --disable-acceleration-check \"$@\"\n");
-        if (session_ == "5") wr("gnome-session-classic",
-                                "#!/bin/sh\nexport GNOME_SHELL_SESSION_MODE=classic\nexec gnome-session --session=gnome-classic --disable-acceleration-check \"$@\"\n");
+        if (session_ == "4")
+            wr("gnome-session-ubuntu",
+               "#!/bin/sh\nexport DESKTOP_SESSION=ubuntu\nexport GNOME_SHELL_SESSION_MODE=ubuntu\nexport XDG_CURRENT_DESKTOP=\"ubuntu:GNOME\"\nexport XDG_CONFIG_DIRS=/etc/xdg/xdg-ubuntu:/etc/xdg\nexec gnome-session --session=ubuntu --disable-acceleration-check \"$@\"\n");
+        if (session_ == "5")
+            wr("gnome-session-classic",
+               "#!/bin/sh\nexport GNOME_SHELL_SESSION_MODE=classic\nexec gnome-session --session=gnome-classic --disable-acceleration-check \"$@\"\n");
     }
-void GnomeDesktop::post_install_extras(const PostInstallContext& ctx) {
-    // GNOME tweaks 和扩展（Bash 原版在 GNOME 安装后安装）
-    auto family = ctx.family;
-    PackageManager::install({"gnome-tweaks", "gnome-shell-extensions"}, family);
-    // chrome-gnome-shell 用于浏览器集成安装扩展
-    if (family == DistroFamily::Debian) {
-        PackageManager::install("chrome-gnome-shell", family);
-    }
-    // GNOME 壁纸
-    if (ctx.is_debian && ctx.is_ubuntu) {
-        PackageManager::install("ubuntu-wallpapers", family);
-    }
-}
 
-bool GnomeDesktop::gnome_warning() const {
-    Logger::info("------------------------");
-    Logger::info(_("gui.gnome.warning.continue"));
-    if (!Logger::confirm_yes_default(_("gui.gnome.warning.continue"))) {
-        Logger::warn(_("gui.gnome.warning.cancelled"));
-        return false;
+    void GnomeDesktop::post_install_extras(const PostInstallContext &ctx) {
+        // GNOME tweaks 和扩展（Bash 原版在 GNOME 安装后安装）
+        auto family = ctx.family;
+        PackageManager::install({"gnome-tweaks", "gnome-shell-extensions"}, family);
+        // chrome-gnome-shell 用于浏览器集成安装扩展
+        if (family == DistroFamily::Debian) {
+            PackageManager::install("chrome-gnome-shell", family);
+        }
+        // GNOME 壁纸
+        if (ctx.is_debian && ctx.is_ubuntu) {
+            PackageManager::install("ubuntu-wallpapers", family);
+        }
     }
-    return true;
-}
+
+    bool GnomeDesktop::gnome_warning() const {
+        Logger::info("------------------------");
+        Logger::info(_("gui.gnome.warning.continue"));
+        if (!Logger::confirm_yes_default(_("gui.gnome.warning.continue"))) {
+            Logger::warn(_("gui.gnome.warning.cancelled"));
+            return false;
+        }
+        return true;
+    }
 
 } // namespace tmoe::domain

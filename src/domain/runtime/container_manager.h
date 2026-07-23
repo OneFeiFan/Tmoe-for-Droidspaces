@@ -1,6 +1,7 @@
 #ifndef CONTAINER_MANAGER_H
 #define CONTAINER_MANAGER_H
 #pragma once
+
 #include "core/config.h"
 #include "domain/runtime/container.h"
 #include "core/logger.h"

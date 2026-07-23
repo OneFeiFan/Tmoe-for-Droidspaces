@@ -32,7 +32,8 @@ namespace tmoe::domain {
         std::string t = target;
         // 移除尾部斜杠（对应 Bash 的 ${var%/}）
         while (!t.empty() && t.back() == '/') t.pop_back();
-        return tmoe::CommandBuilder("grep").add_flag("-qs").add_arg(" " + t + " ").add_arg("/proc/mounts").execute().ok();
+        return tmoe::CommandBuilder("grep").add_flag("-qs").add_arg(" " + t + " ").add_arg(
+                "/proc/mounts").execute().ok();
     }
 
     /** 执行挂载（对应 Bash 的 mount_01 / mount_ro_or_rw） */
@@ -145,8 +146,8 @@ namespace tmoe::domain {
         std::string mount_bin = detect_mount_bin();
 
         std::string rootfs = config_.rootfs_path.empty()
-                                 ? container.rootfs_path()
-                                 : config_.rootfs_path;
+                             ? container.rootfs_path()
+                             : config_.rootfs_path;
 
         // 1. 自挂载（arch 自行处理，对应 Bash 的 MOUNT_ITSELF）
         if (config_.mount_itself) {
@@ -181,12 +182,12 @@ namespace tmoe::domain {
             const char *extra_opts;
         };
         DirMount dirs[] = {
-            {"dev", config_.mount_dev, nullptr},
-            {"proc", config_.mount_proc, "rw,nosuid,nodev,noexec,relatime -t proc"},
-            {"sys", config_.mount_sys, "rw,nosuid,nodev,noexec,relatime -t sysfs"},
-            {"dev/pts", config_.mount_dev_pts, "rw,nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=000 -t devpts"},
-            {"dev/shm", config_.mount_dev_shm, "rw,nosuid,nodev,mode=1777 -t tmpfs"},
-            {"etc/gitstatus", config_.mount_gitstatus, nullptr},
+                {"dev",           config_.mount_dev,       nullptr},
+                {"proc",          config_.mount_proc,      "rw,nosuid,nodev,noexec,relatime -t proc"},
+                {"sys",           config_.mount_sys,       "rw,nosuid,nodev,noexec,relatime -t sysfs"},
+                {"dev/pts",       config_.mount_dev_pts,   "rw,nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=000 -t devpts"},
+                {"dev/shm",       config_.mount_dev_shm,   "rw,nosuid,nodev,mode=1777 -t tmpfs"},
+                {"etc/gitstatus", config_.mount_gitstatus, nullptr},
         };
 
         for (const auto &dm: dirs) {
@@ -236,13 +237,13 @@ namespace tmoe::domain {
             mkdirp_as_root(config_.sd_mount_point, prefix);
 
             const char *sd_dirs[] = {
-                config_.sd_dir_0.c_str(),
-                config_.sd_dir_1.c_str(),
-                config_.sd_dir_2.c_str(),
-                config_.sd_dir_3.c_str(),
-                config_.sd_dir_4.c_str(),
-                config_.sd_dir_5.c_str(),
-                nullptr
+                    config_.sd_dir_0.c_str(),
+                    config_.sd_dir_1.c_str(),
+                    config_.sd_dir_2.c_str(),
+                    config_.sd_dir_3.c_str(),
+                    config_.sd_dir_4.c_str(),
+                    config_.sd_dir_5.c_str(),
+                    nullptr
             };
 
             for (int i = 0; sd_dirs[i] != nullptr; i++) {
@@ -298,8 +299,8 @@ namespace tmoe::domain {
 
         std::string prefix = get_root_prefix();
         std::string rootfs = config_.rootfs_path.empty()
-                                 ? container.rootfs_path()
-                                 : config_.rootfs_path;
+                             ? container.rootfs_path()
+                             : config_.rootfs_path;
 
         // PROC_FD_PATH 来自配置，默认为 "/proc/self/fd"（host 路径，在 chroot 内对应 /proc/self/fd）
         std::string proc_fd = "/proc/self/fd";
@@ -312,11 +313,11 @@ namespace tmoe::domain {
             const char *target;
         };
         DevLink links[] = {
-            {"/dev/fd", proc_fd.c_str()},
-            {"/dev/stdin", (proc_fd + "/0").c_str()},
-            {"/dev/stdout", (proc_fd + "/1").c_str()},
-            {"/dev/stderr", (proc_fd + "/2").c_str()},
-            {"/dev/tty0", "/dev/null"},
+                {"/dev/fd",     proc_fd.c_str()},
+                {"/dev/stdin",  (proc_fd + "/0").c_str()},
+                {"/dev/stdout", (proc_fd + "/1").c_str()},
+                {"/dev/stderr", (proc_fd + "/2").c_str()},
+                {"/dev/tty0",   "/dev/null"},
         };
 
         for (const auto &link: links) {
@@ -334,8 +335,8 @@ namespace tmoe::domain {
 
     std::string ChrootRuntime::detect_shell(const Container &container) const {
         std::string rootfs = config_.rootfs_path.empty()
-                                 ? container.rootfs_path()
-                                 : config_.rootfs_path;
+                             ? container.rootfs_path()
+                             : config_.rootfs_path;
         std::string shell;
 
         // 如果指定了非 root 用户，从 /etc/passwd 检测用户 shell
@@ -376,8 +377,8 @@ namespace tmoe::domain {
         std::string unshare_bin = config_.unshare_enabled ? detect_unshare_bin() : "";
 
         std::string rootfs = config_.rootfs_path.empty()
-                                 ? container.rootfs_path()
-                                 : config_.rootfs_path;
+                             ? container.rootfs_path()
+                             : config_.rootfs_path;
 
         std::string prefix = get_root_prefix();
         bool use_sudo = !prefix.empty() && prefix == "sudo";
@@ -560,8 +561,8 @@ namespace tmoe::domain {
         Logger::step(_f("chroot.preparing", container.name()));
 
         std::string rootfs = config_.rootfs_path.empty()
-                                 ? container.rootfs_path()
-                                 : config_.rootfs_path;
+                             ? container.rootfs_path()
+                             : config_.rootfs_path;
 
         // 1. 写 chroot.conf（标记启动模式，对应 Bash 版 SYSTEMD_NSPAWN 标志）
         {
@@ -578,7 +579,8 @@ namespace tmoe::domain {
         // 2. 设置 hostname（对应 Bash 版：写 /etc/hostname）
         std::string machine_name = container.name();
         std::replace(machine_name.begin(), machine_name.end(), '_', '-');
-        std::string hostname_target = rootfs + "/etc/hostname"; {
+        std::string hostname_target = rootfs + "/etc/hostname";
+        {
             std::ofstream hf(hostname_target);
             if (hf.is_open()) {
                 hf << machine_name << "\n";
@@ -610,8 +612,8 @@ namespace tmoe::domain {
         Logger::step(_f("chroot.stopping", container.name()));
 
         std::string rootfs = config_.rootfs_path.empty()
-                                 ? container.rootfs_path()
-                                 : config_.rootfs_path;
+                             ? container.rootfs_path()
+                             : config_.rootfs_path;
 
         std::string prefix = get_root_prefix();
 

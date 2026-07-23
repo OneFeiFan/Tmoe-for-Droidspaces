@@ -166,6 +166,7 @@ namespace tmoe::domain {
 
         // 配置访问
         [[nodiscard]] const VncConfig &config() const { return vnc_config_; }
+
         VncConfig &config() { return vnc_config_; }
 
     private:
@@ -215,6 +216,7 @@ namespace tmoe::domain {
 
         // ---------- 辅助工具 ----------
         [[nodiscard]] bool ensure_vnc_home_dir() const;
+
         [[nodiscard]] bool write_file_content(const fs::path &path, std::string_view content) const;
     };
 } // namespace tmoe::domain

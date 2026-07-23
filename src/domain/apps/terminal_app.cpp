@@ -5,7 +5,7 @@
 
 namespace tmoe::domain {
     TerminalAppManager::TerminalAppManager(const TmoeConfig &cfg)
-        : cfg_(cfg), family_(DistroFamily::Unknown) {
+            : cfg_(cfg), family_(DistroFamily::Unknown) {
         family_ = infer_family_from_config(cfg_.linux_distro);
         if (family_ == DistroFamily::Unknown)
             family_ = PackageManager::detect_distro_family();

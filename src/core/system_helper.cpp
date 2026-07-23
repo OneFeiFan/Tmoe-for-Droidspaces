@@ -12,6 +12,7 @@
 #include <system_error>
 
 #include "core/platform.h"
+
 #ifndef _WIN32
 #include <pwd.h>
 #endif
@@ -126,21 +127,6 @@ namespace tmoe {
         }
     }
 
-    // ---------- 包安装 ----------
-
-    bool SystemHelper::install_packages(const std::vector<std::string> &packages,
-                                        const std::string &install_command) {
-        std::ostringstream oss;
-        for (const auto &pkg: packages) {
-            // 对包名强制转义，杜绝 "pkg; rm -rf /" 的注入攻击
-            oss << shell_escape(pkg) << " ";
-        }
-        bool need_sudo = (platform::geteuid() != 0);
-        std::string cmd = (need_sudo ? "sudo " : "") + install_command + " " + oss.str();
-        Logger::step(_f("gui.installing_pkgs", oss.str()));
-        return Executor::passthrough(cmd).ok();
-    }
-
     // ---------- 用户路径 ----------
 
     std::string SystemHelper::user_home() {
@@ -242,17 +228,19 @@ namespace tmoe {
         // --- 4. 组合执行流程 ---
         std::string extract_cmd =
                 prep_cmd + " && "
-                "( "
-                "  (echo '  => tar...' && (" + tar_cmd + ") && echo '  [OK] tar') || "
-                "  (echo '  => deb...' && (" + deb_cmd + ") && echo '  [OK] deb') || "
+                           "( "
+                           "  (echo '  => tar...' && (" + tar_cmd + ") && echo '  [OK] tar') || "
+                                                                    "  (echo '  => deb...' && (" + deb_cmd +
+                ") && echo '  [OK] deb') || "
                 "  (echo '  => zip...' && (" + zip_cmd + ") && echo '  [OK] zip') || "
-                "  (echo '  => zst...' && (" + zst_cmd + ") && echo '  [OK] zst') || "
+                                                         "  (echo '  => zst...' && (" + zst_cmd +
+                ") && echo '  [OK] zst') || "
                 "  (echo '  [FAIL]' && false) "
                 ") && "
                 "(" + smart_transfer + ") ; "
-                "STATUS=$?; "
-                "sudo rm -rf $SANDBOX; "
-                "exit $STATUS";
+                                       "STATUS=$?; "
+                                       "sudo rm -rf $SANDBOX; "
+                                       "exit $STATUS";
 
         auto result = Executor::passthrough(extract_cmd);
         if (result.ok())
@@ -365,11 +353,11 @@ namespace tmoe {
         // 用 file(1) 动态探测压缩格式，选择对应解压器，管道传给 tar
         std::string detect =
                 "FTYPE=$(file -b " + safe_archive + " | tr '[:upper:]' '[:lower:]'); "
-                "if echo \"$FTYPE\" | grep -q 'zstandard'; then DEC='zstd -d -c'; "
-                "elif echo \"$FTYPE\" | grep -q 'xz'; then DEC='xz -d -c'; "
-                "elif echo \"$FTYPE\" | grep -q 'gzip'; then DEC='gzip -d -c'; "
-                "elif echo \"$FTYPE\" | grep -q 'bzip2'; then DEC='bzip2 -d -c'; "
-                "else DEC='cat'; fi; ";
+                                                    "if echo \"$FTYPE\" | grep -q 'zstandard'; then DEC='zstd -d -c'; "
+                                                    "elif echo \"$FTYPE\" | grep -q 'xz'; then DEC='xz -d -c'; "
+                                                    "elif echo \"$FTYPE\" | grep -q 'gzip'; then DEC='gzip -d -c'; "
+                                                    "elif echo \"$FTYPE\" | grep -q 'bzip2'; then DEC='bzip2 -d -c'; "
+                                                    "else DEC='cat'; fi; ";
 
         if (has_pv)
             return detect + "pv " + safe_archive + " | $DEC 2>/dev/null | sudo tar -xf - -C $PAYLOAD";
@@ -380,7 +368,7 @@ namespace tmoe {
     std::string SystemHelper::build_deb_extract_cmd(const std::string &safe_archive) {
         // 在隔离沙盒中解开 .deb 的 ar 外壳，只提取 data.tar.* 到 PAYLOAD
         return "cd $SANDBOX && sudo ar x " + safe_archive + " 2>/dev/null && "
-               "for f in data.tar.*; do [ -e \"$f\" ] && sudo tar -xaf \"$f\" -C $PAYLOAD 2>/dev/null; done";
+                                                            "for f in data.tar.*; do [ -e \"$f\" ] && sudo tar -xaf \"$f\" -C $PAYLOAD 2>/dev/null; done";
     }
 
     std::string SystemHelper::build_smart_transfer_cmd(const std::string &safe_dest) {
@@ -400,7 +388,7 @@ namespace tmoe {
                 "  done; "
                 "else "
                 "  sudo mkdir -p " + safe_dest + "; "
-                "  sudo cp -rf \"$PAYLOAD/\"* " + safe_dest + "/ 2>/dev/null; "
-                "fi";
+                                                 "  sudo cp -rf \"$PAYLOAD/\"* " + safe_dest + "/ 2>/dev/null; "
+                                                                                               "fi";
     }
 } // namespace tmoe

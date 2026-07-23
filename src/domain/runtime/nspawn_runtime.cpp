@@ -140,9 +140,9 @@ namespace tmoe::domain {
         if (config_.mount_sd.empty() || config_.mount_sd == "true") {
             std::string sd_dir;
             for (const auto &d: {
-                     config_.sd_dir_0, config_.sd_dir_1,
-                     config_.sd_dir_2, config_.sd_dir_3, config_.sd_dir_4, config_.sd_dir_5
-                 }) {
+                    config_.sd_dir_0, config_.sd_dir_1,
+                    config_.sd_dir_2, config_.sd_dir_3, config_.sd_dir_4, config_.sd_dir_5
+            }) {
                 if (d.empty()) continue;
                 if (CommandBuilder("test").add_flag("-d").add_arg(d).execute().ok()) {
                     sd_dir = d;
@@ -224,7 +224,7 @@ namespace tmoe::domain {
         std::string shadow_file = rootfs + "/etc/shadow";
         if (fs::exists(shadow_file)) {
             CommandBuilder("sed").add_flag("-i").add_flag("-E")
-                .add_arg("s/^(root):.*:/\\1::/").add_arg(shadow_file).execute();
+                    .add_arg("s/^(root):.*:/\\1::/").add_arg(shadow_file).execute();
         }
 
         // 设置 hostname
@@ -240,7 +240,7 @@ namespace tmoe::domain {
             hf_tmp << machine_name << "\n";
         }
         CommandBuilder("cp").add_arg("/tmp/.tmp_hostname")
-            .add_arg(rootfs + "/etc/hostname").execute();
+                .add_arg(rootfs + "/etc/hostname").execute();
         fs::remove("/tmp/.tmp_hostname");
 
         // 移除 machine-id
@@ -264,7 +264,7 @@ namespace tmoe::domain {
             }
             Executor::shell("cp " + tmp_file + " " + startup_script + " && chmod a+rx " + startup_script);
             CommandBuilder("mv").add_flag("-f").add_arg(tmp_file)
-                .add_arg(startup_dir + "/nspawn").execute();
+                    .add_arg(startup_dir + "/nspawn").execute();
         }
 
         // 生成启动命令

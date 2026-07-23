@@ -12,7 +12,7 @@ namespace tmoe::domain {
 
         // 2. 从数据驱动注册表查询 rootfs 下载地址
         auto rootfs_opt = RootfsRegistry::get_instance().query_rootfs(
-            container.distro(), container.version(), cfg.arch
+                container.distro(), container.version(), cfg.arch
         );
 
         if (!rootfs_opt) {

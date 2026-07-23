@@ -1,6 +1,7 @@
 #ifndef PACKAGE_MANAGER_H
 #define PACKAGE_MANAGER_H
 #pragma once
+
 #include <string>
 #include <string_view>
 #include <vector>
@@ -24,17 +25,28 @@ namespace tmoe::domain {
 
         static Commands commands_for(DistroFamily family);
 
-        /** 便捷安装 */
+        /** 便捷安装（自动检测发行版） */
+        static bool install(std::string_view pkg);
+
+        static bool install(const std::vector<std::string> &pkgs);
+
+        /** 便捷安装（指定发行版） */
         static bool install(std::string_view pkg, DistroFamily family);
 
         static bool install(const std::vector<std::string> &pkgs, DistroFamily family);
 
         /** 便捷卸载 */
+        static bool remove(std::string_view pkg);
+
+        static bool remove(const std::vector<std::string> &pkgs);
+
         static bool remove(std::string_view pkg, DistroFamily family);
 
         static bool remove(const std::vector<std::string> &pkgs, DistroFamily family);
 
         /** 更新索引 */
+        static bool update();
+
         static bool update(DistroFamily family);
 
         /** 检查命令是否可用 */
@@ -47,7 +59,7 @@ namespace tmoe::domain {
         static std::string family_key(DistroFamily family);
 
         /** 一步解析发行版家族：先从名称推断，失败则运行时检测。 */
-        static DistroFamily resolve_family(const std::string& distro_name);
+        static DistroFamily resolve_family(const std::string &distro_name);
 
     private:
         static std::string build_install_cmd(const std::vector<std::string> &pkgs,

@@ -1,4 +1,5 @@
 #pragma once
+
 #include "desktop_base.h"
 #include <functional>
 #include <memory>
@@ -19,7 +20,7 @@ namespace tmoe::domain {
 
         /** 创建桌面对象。ID 大小写不敏感。 */
         static std::unique_ptr<DesktopBase> create(
-            std::string_view id, const TmoeConfig &cfg);
+                std::string_view id, const TmoeConfig &cfg);
 
         /** 列出所有已注册的 ID */
         static std::vector<std::string> registered_ids();

@@ -1,6 +1,7 @@
 #ifndef OFFICE_H
 #define OFFICE_H
 #pragma once
+
 #include "core/config.h"
 #include "domain/apps/office_apps.h"
 

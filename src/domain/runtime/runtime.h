@@ -1,6 +1,7 @@
 #ifndef RUNTIME_H
 #define RUNTIME_H
 #pragma once
+
 #include <string>
 #include "core/launch_context.h"
 
@@ -48,10 +49,10 @@ namespace tmoe::domain {
             bool share_proot_loader{false};
             std::string proot_libexec_loader{"default"};
             std::string proot_32_termux_loader{
-                "${TMOE_LINUX_DIR}/lib32/data/data/com.termux/files/usr/libexec/proot/loader"
+                    "${TMOE_LINUX_DIR}/lib32/data/data/com.termux/files/usr/libexec/proot/loader"
             };
             std::string compatible_mode_loader{
-                "${TMOE_LINUX_DIR}/lib/data/data/com.termux/files/usr/libexec/proot/loader"
+                    "${TMOE_LINUX_DIR}/lib/data/data/com.termux/files/usr/libexec/proot/loader"
             };
 
             std::string ld_lib_path{"default"};

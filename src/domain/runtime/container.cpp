@@ -5,12 +5,12 @@
 namespace tmoe::domain {
     Container::Container(std::string name, std::string distro, std::string version,
                          std::string rootfs_path, ContainerMode mode, const TmoeConfig &cfg)
-        : name_(std::move(name)),
-          distro_(std::move(distro)),
-          version_(std::move(version)),
-          rootfs_path_(std::move(rootfs_path)),
-          mode_(mode),
-          cfg_(cfg) {
+            : name_(std::move(name)),
+              distro_(std::move(distro)),
+              version_(std::move(version)),
+              rootfs_path_(std::move(rootfs_path)),
+              mode_(mode),
+              cfg_(cfg) {
         // 根据模式注入运行时策略
         switch (mode_) {
             case ContainerMode::Proot:

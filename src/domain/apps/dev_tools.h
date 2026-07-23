@@ -1,6 +1,7 @@
 #ifndef DEV_TOOLS_H
 #define DEV_TOOLS_H
 #pragma once
+
 #include "core/config.h"
 #include <string>
 #include <vector>

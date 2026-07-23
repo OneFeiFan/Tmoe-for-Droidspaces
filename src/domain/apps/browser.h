@@ -1,6 +1,7 @@
 #ifndef BROWSER_H
 #define BROWSER_H
 #pragma once
+
 #include "core/config.h"
 #include "domain/apps/browser_apps.h"
 

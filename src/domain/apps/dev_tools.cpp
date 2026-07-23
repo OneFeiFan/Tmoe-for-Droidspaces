@@ -99,29 +99,29 @@ namespace tmoe::domain {
 
         // ── 公共 aria2c 标志：断点续传 + 实时进度 ──
         const char *aria2_flags = "--console-log-level=warn --no-conf --continue=true "
-                "--allow-overwrite=true -s 5 -x 5 -k 1M";
+                                  "--allow-overwrite=true -s 5 -x 5 -k 1M";
 
         if (family == DistroFamily::Debian) {
             // Download and install .deb
             auto dl_ret = Executor::passthrough(
-                "cd /tmp && "
-                "aria2c " + std::string(aria2_flags) + " -o 'VSCODE.deb' '" + code_bin_url + "'"
+                    "cd /tmp && "
+                    "aria2c " + std::string(aria2_flags) + " -o 'VSCODE.deb' '" + code_bin_url + "'"
             );
             if (!dl_ret.ok() || !fs::exists("/tmp/VSCODE.deb") || fs::file_size("/tmp/VSCODE.deb") == 0) {
                 Logger::error(_("devtools.error.vscode_download_failed"));
                 return;
             }
             Executor::passthrough(
-                "cd /tmp && "
-                "apt-cache show ./VSCODE.deb 2>/dev/null; "
-                "sudo dpkg -i ./VSCODE.deb || sudo apt install -y ./VSCODE.deb; "
-                "rm -vf VSCODE.deb"
+                    "cd /tmp && "
+                    "apt-cache show ./VSCODE.deb 2>/dev/null; "
+                    "sudo dpkg -i ./VSCODE.deb || sudo apt install -y ./VSCODE.deb; "
+                    "rm -vf VSCODE.deb"
             );
             Logger::ok(_("devtools.ok.vscode_install_done"));
         } else if (family == DistroFamily::RedHat) {
             auto dl_ret = Executor::passthrough(
-                "cd /tmp && "
-                "aria2c " + std::string(aria2_flags) + " -o 'VSCODE.rpm' '" + code_bin_url + "'"
+                    "cd /tmp && "
+                    "aria2c " + std::string(aria2_flags) + " -o 'VSCODE.rpm' '" + code_bin_url + "'"
             );
             if (!dl_ret.ok() || !fs::exists("/tmp/VSCODE.rpm") || fs::file_size("/tmp/VSCODE.rpm") == 0) {
                 Logger::error(_("devtools.error.vscode_download_failed"));
@@ -132,19 +132,19 @@ namespace tmoe::domain {
         } else {
             // Generic tar.gz install
             auto dl_ret = Executor::passthrough(
-                "cd /tmp && "
-                "aria2c " + std::string(aria2_flags) + " -o 'VSCODE.tar.gz' '" + code_bin_url + "'"
+                    "cd /tmp && "
+                    "aria2c " + std::string(aria2_flags) + " -o 'VSCODE.tar.gz' '" + code_bin_url + "'"
             );
             if (!dl_ret.ok() || !fs::exists("/tmp/VSCODE.tar.gz") || fs::file_size("/tmp/VSCODE.tar.gz") == 0) {
                 Logger::error(_("devtools.error.vscode_download_failed"));
                 return;
             }
             Executor::passthrough(
-                "cd /tmp && "
-                "sudo tar -zxvf VSCODE.tar.gz -C /usr/share && "
-                "sudo rm -rvf /usr/share/code 2>/dev/null; "
-                "sudo mv /usr/share/" + code_bin_folder + " /usr/share/code; "
-                "rm -vf VSCODE.tar.gz"
+                    "cd /tmp && "
+                    "sudo tar -zxvf VSCODE.tar.gz -C /usr/share && "
+                    "sudo rm -rvf /usr/share/code 2>/dev/null; "
+                    "sudo mv /usr/share/" + code_bin_folder + " /usr/share/code; "
+                                                              "rm -vf VSCODE.tar.gz"
             );
 
             // Create .electron marker
@@ -152,12 +152,13 @@ namespace tmoe::domain {
 
             // Download share files (icons, desktop, mime, etc.)
             auto share_ret = Executor::passthrough(
-                "cd /tmp && "
-                "CODE_SHARE_FILE='.VSCODE_USR_SHARE.tar.xz'; "
-                "aria2c " + std::string(aria2_flags) + " -o ${CODE_SHARE_FILE} "
-                "https://gitee.com/ak2/vscode-share/raw/master/code.tar.xz || "
-                "aria2c " + std::string(aria2_flags) + " -o ${CODE_SHARE_FILE} "
-                "https://github.com/2moe/vscode-share/raw/master/code.tar.xz"
+                    "cd /tmp && "
+                    "CODE_SHARE_FILE='.VSCODE_USR_SHARE.tar.xz'; "
+                    "aria2c " + std::string(aria2_flags) + " -o ${CODE_SHARE_FILE} "
+                                                           "https://gitee.com/ak2/vscode-share/raw/master/code.tar.xz || "
+                                                           "aria2c " + std::string(aria2_flags) +
+                    " -o ${CODE_SHARE_FILE} "
+                    "https://github.com/2moe/vscode-share/raw/master/code.tar.xz"
             );
             if (!share_ret.ok()) {
                 Logger::warn(_("devtools.warn.vscode_share_failed"));
@@ -168,7 +169,7 @@ namespace tmoe::domain {
 
             // Symlink
             Executor::shell(CommandBuilder("sudo").add_arg("ln").add_flag("-sfv")
-                .add_arg("/usr/share/code/bin/code").add_arg("/usr/bin").build_string());
+                                    .add_arg("/usr/share/code/bin/code").add_arg("/usr/bin").build_string());
             Logger::ok(_("devtools.ok.vscode_install_done"));
         }
 
@@ -238,7 +239,7 @@ namespace tmoe::domain {
             std::string choice = cfg_.tui_bin +
                                  " --title \"你想要对这个小可爱做什么\""
                                  " --yes-button \"" + btn + "\" --no-button \"Configure配置\""
-                                 " --yesno \"" + status + "\" 9 50";
+                                                            " --yesno \"" + status + "\" 9 50";
             auto result = Executor::passthrough(choice);
             if (result.exit_code == 0) {
                 vscode_server_restart();
@@ -251,44 +252,44 @@ namespace tmoe::domain {
     void DeveloperTools::configure_vscode_server() {
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            "CONFIGURE VSCODE_SERVER", "您想要修改哪项配置？", "dev_vscode_server_config");
+                "CONFIGURE VSCODE_SERVER", "您想要修改哪项配置？", "dev_vscode_server_config");
 
         menu->add_child(std::make_shared<LambdaAction>(
-            "upgrade 更新/升级", "1",
-            [this](MenuContext &) -> bool {
-                vscode_server_upgrade();
-                Logger::press_enter();
-                return true;
-            }));
+                "upgrade 更新/升级", "1",
+                [this](MenuContext &) -> bool {
+                    vscode_server_upgrade();
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            "password 设定密码", "2",
-            [this](MenuContext &) -> bool {
-                vscode_server_password();
-                Logger::press_enter();
-                return true;
-            }));
+                "password 设定密码", "2",
+                [this](MenuContext &) -> bool {
+                    vscode_server_password();
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            "edit config manually 手动编辑配置", "3",
-            [this](MenuContext &) -> bool {
-                Executor::passthrough("nano ~/.config/code-server/config.yaml");
-                Logger::press_enter();
-                return true;
-            }));
+                "edit config manually 手动编辑配置", "3",
+                [this](MenuContext &) -> bool {
+                    Executor::passthrough("nano ~/.config/code-server/config.yaml");
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            "stop 停止", "4",
-            [this](MenuContext &) -> bool {
-                Logger::info(_("devtools.status.stopping_service"));
-                Executor::shell("pkill node 2>/dev/null || true");
-                Logger::press_enter();
-                return true;
-            }));
+                "stop 停止", "4",
+                [this](MenuContext &) -> bool {
+                    Logger::info(_("devtools.status.stopping_service"));
+                    Executor::shell("pkill node 2>/dev/null || true");
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            "remove 卸载/移除", "5",
-            [this](MenuContext &) -> bool {
-                vscode_server_remove();
-                Logger::press_enter();
-                return true;
-            }));
+                "remove 卸载/移除", "5",
+                [this](MenuContext &) -> bool {
+                    vscode_server_remove();
+                    Logger::press_enter();
+                    return true;
+                }));
 
         add_sandwich_nav(menu);
         MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
@@ -302,7 +303,7 @@ namespace tmoe::domain {
         std::string local_ver = "NOT-INSTALLED";
         if (Executor::has("code-server")) {
             auto result = Executor::shell(
-                "code-server --version 2>/dev/null | grep -v info | head -n 1 | awk '{print $1}'");
+                    "code-server --version 2>/dev/null | grep -v info | head -n 1 | awk '{print $1}'");
             local_ver = result.stdout_data;
             if (local_ver.empty()) local_ver = "unknown";
         }
@@ -310,15 +311,15 @@ namespace tmoe::domain {
         // Fetch latest version
         std::string latest_ver;
         auto ver_result = Executor::shell(
-            "curl -sL https://gitee.com/mo2/vscode-server/raw/aarch64/version.txt 2>/dev/null | head -n 1"
+                "curl -sL https://gitee.com/mo2/vscode-server/raw/aarch64/version.txt 2>/dev/null | head -n 1"
         );
         latest_ver = ver_result.stdout_data;
 
         Logger::info("╔═══╦══════════╦═══════════════════╦════════════════════");
         Logger::info("║   ║          ║                   ║");
         Logger::info(
-            "║   ║ software ║    ✨" + _("devtools.table.latest_version") + "     ║   " + _(
-                "devtools.table.local_version") + " 🎪");
+                "║   ║ software ║    ✨" + _("devtools.table.latest_version") + "     ║   " + _(
+                        "devtools.table.local_version") + " 🎪");
         Logger::info("║---║----------║-------------------║--------------------");
         Logger::info("║ 1 ║ vscode   ║ " + latest_ver + " ║ " + local_ver);
         Logger::info("║   ║ server   ║                   ║");
@@ -332,25 +333,25 @@ namespace tmoe::domain {
         std::string tmp_arch = (arch == "armhf") ? "armv7l" : arch;
 
         Executor::shell(CommandBuilder("sudo").add_arg("chmod").add_arg("a+rx")
-            .add_arg("/usr/local/bin/code-server-data/code-server")
-            .add_raw("2>/dev/null || true").build_string());
+                                .add_arg("/usr/local/bin/code-server-data/code-server")
+                                .add_raw("2>/dev/null || true").build_string());
 
         if (arch == "arm64") {
             Executor::shell(
-                "cd /tmp && "
-                "rm -rvf .VSCODE_SERVER_TEMP_FOLDER 2>/dev/null; "
-                "git clone -b aarch64 --depth=1 https://gitee.com/mo2/vscode-server.git .VSCODE_SERVER_TEMP_FOLDER && "
-                "cd .VSCODE_SERVER_TEMP_FOLDER && "
-                "tar -PpJxvf code.tar.xz && "
-                "cd .. && "
-                "rm -rf /tmp/.VSCODE_SERVER_TEMP_FOLDER"
+                    "cd /tmp && "
+                    "rm -rvf .VSCODE_SERVER_TEMP_FOLDER 2>/dev/null; "
+                    "git clone -b aarch64 --depth=1 https://gitee.com/mo2/vscode-server.git .VSCODE_SERVER_TEMP_FOLDER && "
+                    "cd .VSCODE_SERVER_TEMP_FOLDER && "
+                    "tar -PpJxvf code.tar.xz && "
+                    "cd .. && "
+                    "rm -rf /tmp/.VSCODE_SERVER_TEMP_FOLDER"
             );
         } else if (arch == "amd64" || arch == "armhf") {
             // 先抓取下载链接
             auto link_result = Executor::shell(
-                "curl -sL https://api.github.com/repos/cdr/code-server/releases 2>/dev/null | "
-                "grep '" + tmp_arch + "' | grep browser_download_url | grep linux | head -n 1 | "
-                "awk -F '\"' '{print $4}'"
+                    "curl -sL https://api.github.com/repos/cdr/code-server/releases 2>/dev/null | "
+                    "grep '" + tmp_arch + "' | grep browser_download_url | grep linux | head -n 1 | "
+                                          "awk -F '\"' '{print $4}'"
             );
             std::string server_url = link_result.stdout_data;
             trim_newline(server_url);
@@ -365,11 +366,11 @@ namespace tmoe::domain {
 
             // 用 passthrough 显示实时进度
             auto dl_ret = Executor::passthrough(
-                "cd /tmp && "
-                "mkdir -pv .VSCODE_SERVER_TEMP_FOLDER && "
-                "cd .VSCODE_SERVER_TEMP_FOLDER && "
-                "aria2c --console-log-level=warn --no-conf --continue=true "
-                "--allow-overwrite=true -s 5 -x 5 -k 1M -o .VSCODE_SERVER.tar.gz '" + server_url + "'"
+                    "cd /tmp && "
+                    "mkdir -pv .VSCODE_SERVER_TEMP_FOLDER && "
+                    "cd .VSCODE_SERVER_TEMP_FOLDER && "
+                    "aria2c --console-log-level=warn --no-conf --continue=true "
+                    "--allow-overwrite=true -s 5 -x 5 -k 1M -o .VSCODE_SERVER.tar.gz '" + server_url + "'"
             );
 
             if (!dl_ret.ok()) {
@@ -386,32 +387,32 @@ namespace tmoe::domain {
 
             // 解压并安装
             Executor::passthrough(
-                "cd /tmp/.VSCODE_SERVER_TEMP_FOLDER && "
-                "tar -zxvf .VSCODE_SERVER.tar.gz && "
-                "VSCODE_FOLDER_NAME=$(ls -l ./ | grep '^d' | awk -F ' ' '$0=$NF') && "
-                "sudo rm -rvf /usr/local/bin/code-server-data /usr/local/bin/code-server && "
-                "sudo mv ${VSCODE_FOLDER_NAME} /usr/local/bin/code-server-data && "
-                "sudo ln -sf /usr/local/bin/code-server-data/bin/code-server /usr/local/bin/code-server"
+                    "cd /tmp/.VSCODE_SERVER_TEMP_FOLDER && "
+                    "tar -zxvf .VSCODE_SERVER.tar.gz && "
+                    "VSCODE_FOLDER_NAME=$(ls -l ./ | grep '^d' | awk -F ' ' '$0=$NF') && "
+                    "sudo rm -rvf /usr/local/bin/code-server-data /usr/local/bin/code-server && "
+                    "sudo mv ${VSCODE_FOLDER_NAME} /usr/local/bin/code-server-data && "
+                    "sudo ln -sf /usr/local/bin/code-server-data/bin/code-server /usr/local/bin/code-server"
             );
         }
 
         // 修正默认 bind 地址（127.0.0.1 → 0.0.0.0）
         Executor::shell(
-            "if grep -q '127.0.0.1:8080' \"${HOME}/.config/code-server/config.yaml\" 2>/dev/null; then "
-            "sed -i 's@bind-addr:.*@bind-addr: 0.0.0.0:18080@' \"${HOME}/.config/code-server/config.yaml\"; fi"
+                "if grep -q '127.0.0.1:8080' \"${HOME}/.config/code-server/config.yaml\" 2>/dev/null; then "
+                "sed -i 's@bind-addr:.*@bind-addr: 0.0.0.0:18080@' \"${HOME}/.config/code-server/config.yaml\"; fi"
         );
 
         // 启动 code-server，显示初始化信息和默认密码
         Logger::info(_("devtools.status.starting_codeserver"));
         Executor::passthrough(
-            "/usr/local/bin/code-server-data/bin/code-server & "
-            "CODE_PID=$!; sleep 3; "
-            "echo ''; "
-            "echo 'Code-server PID: '${CODE_PID}; "
-            "echo 'Access: http://localhost:18080'; "
-            "echo 'Config: ~/.config/code-server/config.yaml'; "
-            "grep '^password:' ~/.config/code-server/config.yaml 2>/dev/null || "
-            "echo 'password: (check config file)'");
+                "/usr/local/bin/code-server-data/bin/code-server & "
+                "CODE_PID=$!; sleep 3; "
+                "echo ''; "
+                "echo 'Code-server PID: '${CODE_PID}; "
+                "echo 'Access: http://localhost:18080'; "
+                "echo 'Config: ~/.config/code-server/config.yaml'; "
+                "grep '^password:' ~/.config/code-server/config.yaml 2>/dev/null || "
+                "echo 'password: (check config file)'");
         Logger::info(_("devtools.hint.codeserver_first_install"));
         Logger::press_enter();
     }
@@ -422,7 +423,7 @@ namespace tmoe::domain {
         Executor::shell("nohup /usr/local/bin/code-server-data/bin/code-server >/dev/null 2>&1 &");
 
         auto port_result = Executor::shell(
-            "grep bind-addr ${HOME}/.config/code-server/config.yaml 2>/dev/null | cut -d ':' -f 3"
+                "grep bind-addr ${HOME}/.config/code-server/config.yaml 2>/dev/null | cut -d ':' -f 3"
         );
         std::string port = port_result.stdout_data;
         if (port.empty()) port = "18080";
@@ -448,8 +449,8 @@ namespace tmoe::domain {
         }
 
         std::string cmd = cfg_.tui_bin +
-            " --inputbox \"" + std::string(_("devtools.prompt.set_password")) + "\" 12 50"
-            " --title \"code-server PASSWORD\"";
+                          " --inputbox \"" + std::string(_("devtools.prompt.set_password")) + "\" 12 50"
+                                                                                              " --title \"code-server PASSWORD\"";
         std::string passwd = Executor::tui_select(cmd);
         if (passwd.empty()) {
             Logger::info(_("devtools.status.cancelled"));
@@ -458,11 +459,11 @@ namespace tmoe::domain {
 
         // 更新 config.yaml 中的 hashed-password
         Executor::shell(
-            "sed -i \"s@^hashed-password:.*@hashed-password: \"'$(echo -n '" + passwd +
-            "' | sha256sum | cut -d' ' -f1)'\"@\" " + config_yaml +
-            " 2>/dev/null || "
-            "sed -i \"s@^password:.*@password: " + passwd + "@\" " + config_yaml +
-            " 2>/dev/null || true");
+                "sed -i \"s@^hashed-password:.*@hashed-password: \"'$(echo -n '" + passwd +
+                "' | sha256sum | cut -d' ' -f1)'\"@\" " + config_yaml +
+                " 2>/dev/null || "
+                "sed -i \"s@^password:.*@password: " + passwd + "@\" " + config_yaml +
+                " 2>/dev/null || true");
         Logger::ok(_("devtools.status.password_updated"));
     }
 
@@ -475,10 +476,10 @@ namespace tmoe::domain {
             return;
 
         Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rvf")
-            .add_arg("/usr/local/bin/code-server-data/")
-            .add_arg("/usr/local/bin/code-server")
-            .add_arg("/tmp/sed-vscode.tmp")
-            .add_raw("2>/dev/null").build_string());
+                                .add_arg("/usr/local/bin/code-server-data/")
+                                .add_arg("/usr/local/bin/code-server")
+                                .add_arg("/tmp/sed-vscode.tmp")
+                                .add_raw("2>/dev/null").build_string());
         Logger::ok(_("devtools.ok.remove_success"));
     }
 
@@ -517,15 +518,15 @@ namespace tmoe::domain {
         auto family = PackageManager::detect_distro_family();
 
         const char *aria2_flags = "--console-log-level=warn --no-conf --continue=true "
-                "--allow-overwrite=true -s 5 -x 5 -k 1M";
+                                  "--allow-overwrite=true -s 5 -x 5 -k 1M";
 
         if (family == DistroFamily::Debian) {
             // 抓取下载链接
             auto link_result = Executor::shell(
-                "LatestVSCodiumLink=$(curl -sL https://mirrors.bfsu.edu.cn/github-release/VSCodium/vscodium/LatestRelease/ 2>/dev/null | "
-                "grep " + arch +
-                " | grep -v '\\.sha' | grep '\\.deb' | tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2) && "
-                "echo \"https://mirrors.bfsu.edu.cn/github-release/VSCodium/vscodium/LatestRelease/${LatestVSCodiumLink}\""
+                    "LatestVSCodiumLink=$(curl -sL https://mirrors.bfsu.edu.cn/github-release/VSCodium/vscodium/LatestRelease/ 2>/dev/null | "
+                    "grep " + arch +
+                    " | grep -v '\\.sha' | grep '\\.deb' | tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2) && "
+                    "echo \"https://mirrors.bfsu.edu.cn/github-release/VSCodium/vscodium/LatestRelease/${LatestVSCodiumLink}\""
             );
             std::string codium_url = link_result.stdout_data;
             trim_newline(codium_url);
@@ -539,7 +540,7 @@ namespace tmoe::domain {
 
             // 下载 (实时进度)
             auto dl_ret = Executor::passthrough(
-                "cd /tmp && aria2c " + std::string(aria2_flags) + " -o 'VSCodium.deb' '" + codium_url + "'"
+                    "cd /tmp && aria2c " + std::string(aria2_flags) + " -o 'VSCodium.deb' '" + codium_url + "'"
             );
             if (!dl_ret.ok() || !fs::exists("/tmp/VSCodium.deb") || fs::file_size("/tmp/VSCodium.deb") == 0) {
                 Logger::error(_("devtools.error.codium_download_failed"));
@@ -548,17 +549,17 @@ namespace tmoe::domain {
 
             // 安装
             Executor::passthrough(
-                "cd /tmp && apt-cache show ./VSCodium.deb 2>/dev/null; "
-                "sudo dpkg -i ./VSCodium.deb || sudo apt install -y ./VSCodium.deb; rm -vf VSCodium.deb"
+                    "cd /tmp && apt-cache show ./VSCodium.deb 2>/dev/null; "
+                    "sudo dpkg -i ./VSCodium.deb || sudo apt install -y ./VSCodium.deb; rm -vf VSCodium.deb"
             );
             Logger::ok(_("devtools.ok.codium_install_done_pkg"));
         } else {
             // 抓取下载链接
             auto link_result = Executor::shell(
-                "LatestVSCodiumLink=$(curl -sL https://mirrors.bfsu.edu.cn/github-release/VSCodium/vscodium/LatestRelease/ 2>/dev/null | "
-                "grep " + codium_arch +
-                " | grep -v '.sha256' | grep '.tar' | tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2) && "
-                "echo \"https://mirrors.bfsu.edu.cn/github-release/VSCodium/vscodium/LatestRelease/${LatestVSCodiumLink}\""
+                    "LatestVSCodiumLink=$(curl -sL https://mirrors.bfsu.edu.cn/github-release/VSCodium/vscodium/LatestRelease/ 2>/dev/null | "
+                    "grep " + codium_arch +
+                    " | grep -v '.sha256' | grep '.tar' | tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2) && "
+                    "echo \"https://mirrors.bfsu.edu.cn/github-release/VSCodium/vscodium/LatestRelease/${LatestVSCodiumLink}\""
             );
             std::string codium_url = link_result.stdout_data;
             trim_newline(codium_url);
@@ -572,7 +573,7 @@ namespace tmoe::domain {
 
             // 下载 (实时进度)
             auto dl_ret = Executor::passthrough(
-                "cd /tmp && aria2c " + std::string(aria2_flags) + " -o 'VSCodium.tar.gz' '" + codium_url + "'"
+                    "cd /tmp && aria2c " + std::string(aria2_flags) + " -o 'VSCodium.tar.gz' '" + codium_url + "'"
             );
             if (!dl_ret.ok() || !fs::exists("/tmp/VSCodium.tar.gz") || fs::file_size("/tmp/VSCodium.tar.gz") == 0) {
                 Logger::error(_("devtools.error.codium_download_failed"));
@@ -626,9 +627,9 @@ namespace tmoe::domain {
             // Download icon
             if (!fs::exists("/usr/share/icons/vscodium.png")) {
                 Executor::passthrough(
-                    "sudo aria2c --console-log-level=warn --no-conf --continue=true "
-                    "-d '/usr/share/icons' -o 'vscodium.png' "
-                    "'https://gitee.com/ak2/icons/raw/master/vscodium.png' 2>/dev/null || true"
+                        "sudo aria2c --console-log-level=warn --no-conf --continue=true "
+                        "-d '/usr/share/icons' -o 'vscodium.png' "
+                        "'https://gitee.com/ak2/icons/raw/master/vscodium.png' 2>/dev/null || true"
                 );
             }
 
@@ -654,7 +655,7 @@ namespace tmoe::domain {
         // Find GNU libxcb
         std::string gnu_libxcb;
         auto find_result = Executor::shell(
-            "dpkg -L libx11-xcb1 2>/dev/null | grep 'libxcb.so' | head -n 1"
+                "dpkg -L libx11-xcb1 2>/dev/null | grep 'libxcb.so' | head -n 1"
         );
         gnu_libxcb = find_result.stdout_data;
         if (gnu_libxcb.empty()) {
@@ -673,19 +674,21 @@ namespace tmoe::domain {
 
         if (!fs::exists(tmoe_linux_dir + "/lib/libxcb.so.1")) {
             Executor::shell(
-                "sudo mkdir -pv " + tmoe_linux_dir + "/lib && "
-                "sudo cp " + gnu_libxcb + " " + tmoe_linux_dir + "/lib/libxcb.so.1 && "
-                "sudo sed -i 's@BIG-REQUESTS@_IG-REQUESTS@' " + tmoe_linux_dir + "/lib/libxcb.so.1"
+                    "sudo mkdir -pv " + tmoe_linux_dir + "/lib && "
+                                                         "sudo cp " + gnu_libxcb + " " + tmoe_linux_dir +
+                    "/lib/libxcb.so.1 && "
+                    "sudo sed -i 's@BIG-REQUESTS@_IG-REQUESTS@' " + tmoe_linux_dir + "/lib/libxcb.so.1"
             );
         }
 
         if (fs::exists(tmoe_linux_dir + "/lib/libxcb.so.1")) {
             std::string lnk_dir = apps_lnk_dir_.string();
             Executor::shell(
-                "sudo sed -i \"s@Exec=/usr/share/codium/codium@Exec=env LD_LIBRARY_PATH=" + tmoe_linux_dir +
-                "/lib /usr/share/codium/codium --no-sandbox@g\" " + lnk_dir + "/codium.desktop 2>/dev/null || true; "
-                "sudo sed -i \"s@Exec=/usr/share/code/code@Exec=env LD_LIBRARY_PATH=" + tmoe_linux_dir +
-                "/lib /usr/share/code/code --no-sandbox@g\" " + lnk_dir + "/code.desktop 2>/dev/null || true"
+                    "sudo sed -i \"s@Exec=/usr/share/codium/codium@Exec=env LD_LIBRARY_PATH=" + tmoe_linux_dir +
+                    "/lib /usr/share/codium/codium --no-sandbox@g\" " + lnk_dir +
+                    "/codium.desktop 2>/dev/null || true; "
+                    "sudo sed -i \"s@Exec=/usr/share/code/code@Exec=env LD_LIBRARY_PATH=" + tmoe_linux_dir +
+                    "/lib /usr/share/code/code --no-sandbox@g\" " + lnk_dir + "/code.desktop 2>/dev/null || true"
             );
             Logger::ok(_("devtools.ok.fix_done"));
         } else {
@@ -790,19 +793,19 @@ namespace tmoe::domain {
             if (!fetch_jetbrains_link(dl_url, dl_version)) {
                 if (contains(grep_name_, "intellij-idea"))
                     tip_manual_install(
-                        "https://www.jetbrains.com/idea/download/#section=linux");
+                            "https://www.jetbrains.com/idea/download/#section=linux");
                 else if (contains(grep_name_, "pycharm"))
                     tip_manual_install(
-                        "https://www.jetbrains.com/pycharm/download/#section=linux");
+                            "https://www.jetbrains.com/pycharm/download/#section=linux");
                 else if (contains(grep_name_, "webstorm"))
                     tip_manual_install(
-                        "https://www.jetbrains.com/webstorm/download/#section=linux");
+                            "https://www.jetbrains.com/webstorm/download/#section=linux");
                 else if (contains(grep_name_, "clion"))
                     tip_manual_install(
-                        "https://www.jetbrains.com/clion/download/#section=linux");
+                            "https://www.jetbrains.com/clion/download/#section=linux");
                 else if (contains(grep_name_, "goland"))
                     tip_manual_install(
-                        "https://www.jetbrains.com/goland/download/#section=linux");
+                            "https://www.jetbrains.com/goland/download/#section=linux");
                 return;
             }
 
@@ -823,8 +826,8 @@ namespace tmoe::domain {
 
             // 保存版本信息
             Executor::shell(
-                "echo '" + dl_version + "' > " + download_path_.string() + "/" + grep_name_ +
-                "-version.txt 2>/dev/null");
+                    "echo '" + dl_version + "' > " + download_path_.string() + "/" + grep_name_ +
+                    "-version.txt 2>/dev/null");
 
             install_java_if_needed();
             Logger::ok(grep_name_ + " " + dl_version + _("devtools.ok.jetbrains_install_done"));
@@ -845,20 +848,21 @@ namespace tmoe::domain {
 
         // 采用企业级加固的 curl 抓取 shiftkey 的最新 Release
         const char *curl_opts = "-4 --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 30 -sL "
-                "-A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'";
+                                "-A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'";
 
         // 安全策略：将 JSON 落地为临时文件，避免 Shell 单引号注入冲突
         std::string tmp_json = "/tmp/gh_desktop_release.json";
         Executor::shell(
-            "curl " + std::string(curl_opts) + " 'https://api.github.com/repos/shiftkey/desktop/releases/latest' -o " +
-            tmp_json);
+                "curl " + std::string(curl_opts) +
+                " 'https://api.github.com/repos/shiftkey/desktop/releases/latest' -o " +
+                tmp_json);
 
         // 检查是否下载成功且包含有效的 API 字段
         auto check_ret = Executor::shell("grep '\"assets\"' " + tmp_json + " > /dev/null 2>&1");
         if (check_ret.exit_code != 0) {
             Logger::error(_("devtools.error.github_api_rate_limit"));
             Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(tmp_json)
-                .add_raw("2>/dev/null").build_string());
+                                    .add_raw("2>/dev/null").build_string());
             return;
         }
 
@@ -871,7 +875,7 @@ namespace tmoe::domain {
 
         if (!confirm("devtools.confirm_upgrade_ide", "是否安装/升级 GitHub Desktop?")) {
             Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(tmp_json)
-                .add_raw("2>/dev/null").build_string());
+                                    .add_raw("2>/dev/null").build_string());
             return;
         }
 
@@ -899,7 +903,7 @@ namespace tmoe::domain {
 
         // 用完即焚，清理临时文件
         Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(tmp_json)
-            .add_raw("2>/dev/null").build_string());
+                                .add_raw("2>/dev/null").build_string());
 
         if (dl_url.empty() || dl_url == "null") {
             Logger::error(_("devtools.error.github_no_link"));
@@ -927,11 +931,11 @@ namespace tmoe::domain {
         } else {
             // AppImage 通用策略
             Executor::shell(CommandBuilder("sudo").add_arg("mkdir").add_flag("-p")
-                .add_arg("/opt/github-desktop").build_string());
+                                    .add_arg("/opt/github-desktop").build_string());
             Executor::shell(CommandBuilder("sudo").add_arg("cp").add_flag("-f").add_arg(dest)
-                .add_arg("/opt/github-desktop/GitHubDesktop.AppImage").build_string());
+                                    .add_arg("/opt/github-desktop/GitHubDesktop.AppImage").build_string());
             Executor::shell(CommandBuilder("sudo").add_arg("chmod").add_arg("+x")
-                .add_arg("/opt/github-desktop/GitHubDesktop.AppImage").build_string());
+                                    .add_arg("/opt/github-desktop/GitHubDesktop.AppImage").build_string());
 
             // 创建桌面图标
             std::string desktop_content =
@@ -946,12 +950,13 @@ namespace tmoe::domain {
             SystemHelper::write_file(apps_lnk_dir_.string() + "/github-desktop.desktop", desktop_content);
             // 获取图标
             Executor::shell(
-                "sudo curl -sL https://raw.githubusercontent.com/shiftkey/desktop/development/app/static/logos/256x256.png -o /usr/share/pixmaps/github-desktop.png 2>/dev/null || true");
+                    "sudo curl -sL https://raw.githubusercontent.com/shiftkey/desktop/development/app/static/logos/256x256.png -o /usr/share/pixmaps/github-desktop.png 2>/dev/null || true");
         }
 
         // 记录版本，供菜单比对
         Executor::shell(
-            "echo '" + latest_ver + "' > " + download_path_.string() + "/" + grep_name_ + "-version.txt 2>/dev/null");
+                "echo '" + latest_ver + "' > " + download_path_.string() + "/" + grep_name_ +
+                "-version.txt 2>/dev/null");
         Logger::ok(_("devtools.ok.github_install_done"));
     }
 
@@ -967,8 +972,8 @@ namespace tmoe::domain {
         // ── 抓取 Android Studio 下载链接 ──
         // 使用精确正则匹配，避免 grep href 误匹配
         auto link_result = Executor::shell(
-            "curl -sL 'https://developer.android.google.cn/studio/' 2>/dev/null | "
-            "grep -oE 'https://[^\"]*android-studio[^\"]*linux\\.tar\\.gz' | head -n 1"
+                "curl -sL 'https://developer.android.google.cn/studio/' 2>/dev/null | "
+                "grep -oE 'https://[^\"]*android-studio[^\"]*linux\\.tar\\.gz' | head -n 1"
         );
         std::string latest_link = link_result.stdout_data;
         trim_newline(latest_link);
@@ -981,13 +986,13 @@ namespace tmoe::domain {
 
         // 从链接中提取文件名和版本号
         std::string download_file_name = Executor::shell(
-            CommandBuilder("basename").add_arg(latest_link).build_string()
+                CommandBuilder("basename").add_arg(latest_link).build_string()
         ).stdout_data;
         trim_newline(download_file_name);
 
         // 兼容 android-studio-ide- 和 android-studio- 两种命名规范
         std::string latest_ver = Executor::shell(
-            "echo '" + download_file_name + "' | sed -E 's/android-studio(-ide)?-(.*)-linux\\.tar\\.gz/\\2/'"
+                "echo '" + download_file_name + "' | sed -E 's/android-studio(-ide)?-(.*)-linux\\.tar\\.gz/\\2/'"
         ).stdout_data;
         trim_newline(latest_ver);
 
@@ -1034,8 +1039,8 @@ namespace tmoe::domain {
 
         // 搜索可能存在的原生包和源码包
         auto ls_result = Executor::shell(
-            "cd " + download_path_.string() + " && ls -lh " + pattern + ".tar.gz " + pattern + ".deb " + pattern +
-            ".rpm " + pattern + ".AppImage 2>/dev/null");
+                "cd " + download_path_.string() + " && ls -lh " + pattern + ".tar.gz " + pattern + ".deb " + pattern +
+                ".rpm " + pattern + ".AppImage 2>/dev/null");
 
         if (ls_result.stdout_data.empty()) {
             Logger::warn(_("devtools.warn.no_pkg_cache"));
@@ -1047,8 +1052,9 @@ namespace tmoe::domain {
 
         if (confirm("devtools.confirm_delete_pkg", "确认删除这些安装包吗?")) {
             Executor::shell(
-                "cd " + download_path_.string() + " && rm -v " + pattern + ".tar.gz " + pattern + ".deb " + pattern +
-                ".rpm " + pattern + ".AppImage 2>/dev/null || true");
+                    "cd " + download_path_.string() + " && rm -v " + pattern + ".tar.gz " + pattern + ".deb " +
+                    pattern +
+                    ".rpm " + pattern + ".AppImage 2>/dev/null || true");
             Logger::ok(_("devtools.ok.cleanup_done"));
         }
     }
@@ -1058,8 +1064,8 @@ namespace tmoe::domain {
     // ═══════════════════════════════════════════════════════════════════
     void DeveloperTools::delete_ide_pkg_02() {
         auto ls_result = Executor::shell(
-            "cd " + download_path_.string() + " && "
-            "ls -t " + grep_name_ + "*.tar.gz 2>/dev/null | head -n 1"
+                "cd " + download_path_.string() + " && "
+                                                  "ls -t " + grep_name_ + "*.tar.gz 2>/dev/null | head -n 1"
         );
         std::string local_pkg = ls_result.stdout_data;
         trim_newline(local_pkg);
@@ -1073,7 +1079,7 @@ namespace tmoe::domain {
 
             if (confirm("devtools.confirm_delete_pkg", "Do you want to delete it?")) {
                 Executor::shell(CommandBuilder("rm").add_flag("-v")
-                    .add_arg(download_path_.string() + "/" + local_pkg).build_string());
+                                        .add_arg(download_path_.string() + "/" + local_pkg).build_string());
             }
         }
     }
@@ -1118,41 +1124,41 @@ namespace tmoe::domain {
             // 倒序读取文件（先删深层文件，再处理目录），仅删除文件和空目录
             std::string clean_cmd =
                     "tac '" + manifest_file + "' | while read -r item; do "
-                    "  target=\"/${item}\"; "
-                    "  if [ -f \"$target\" ] || [ -L \"$target\" ]; then "
-                    "    sudo rm -f \"$target\"; "
-                    "  elif [ -d \"$target\" ]; then "
-                    "    sudo rmdir \"$target\" 2>/dev/null || true; "
-                    "  fi; "
-                    "done";
+                                              "  target=\"/${item}\"; "
+                                              "  if [ -f \"$target\" ] || [ -L \"$target\" ]; then "
+                                              "    sudo rm -f \"$target\"; "
+                                              "  elif [ -d \"$target\" ]; then "
+                                              "    sudo rmdir \"$target\" 2>/dev/null || true; "
+                                              "  fi; "
+                                              "done";
             Executor::shell(clean_cmd);
             Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(manifest_file)
-                .add_raw("2>/dev/null").build_string());
+                                    .add_raw("2>/dev/null").build_string());
         }
 
         if (is_jetbrains) {
             Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf").add_arg(app_opt_dir_)
-                .add_raw("2>/dev/null").build_string());
+                                    .add_raw("2>/dev/null").build_string());
             Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-f")
-                .add_arg(lnk_dir + "/" + lnk_file_)
-                .add_raw("2>/dev/null").build_string());
+                                    .add_arg(lnk_dir + "/" + lnk_file_)
+                                    .add_raw("2>/dev/null").build_string());
             if (!cli_link.empty())
                 Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-f")
-                    .add_arg(cli_link).add_raw("2>/dev/null").build_string());
+                                        .add_arg(cli_link).add_raw("2>/dev/null").build_string());
             Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(version_file)
-                .add_raw("2>/dev/null").build_string());
+                                    .add_raw("2>/dev/null").build_string());
 
             if (contains(grep_name_, "intellij-idea-community")) {
                 Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
-                    .add_arg("/usr/share/licenses/idea")
-                    .add_arg("/usr/share/icons/hicolor/scalable/apps/idea.svg")
-                    .add_raw("2>/dev/null").build_string());
+                                        .add_arg("/usr/share/licenses/idea")
+                                        .add_arg("/usr/share/icons/hicolor/scalable/apps/idea.svg")
+                                        .add_raw("2>/dev/null").build_string());
             }
             if (contains(grep_name_, "pycharm-community")) {
                 Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
-                    .add_arg("/usr/share/licenses/pycharm")
-                    .add_arg("/usr/share/icons/hicolor/scalable/apps/pycharm.svg")
-                    .add_raw("2>/dev/null").build_string());
+                                        .add_arg("/usr/share/licenses/pycharm")
+                                        .add_arg("/usr/share/icons/hicolor/scalable/apps/pycharm.svg")
+                                        .add_raw("2>/dev/null").build_string());
             }
         } else if (grep_name_ == "github-desktop-bin") {
             Logger::step(_("devtools.step.removing_github_desktop"));
@@ -1161,19 +1167,19 @@ namespace tmoe::domain {
 
             // 清理残余的 AppImage 配置和版本号文件
             Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rvf")
-                .add_arg("/opt/github-desktop")
-                .add_arg("/usr/share/pixmaps/github-desktop.png")
-                .add_arg(apps_lnk_dir_.string() + "/github-desktop.desktop")
-                .add_arg(download_path_.string() + "/" + grep_name_ + "-version.txt")
-                .add_raw("2>/dev/null").build_string());
+                                    .add_arg("/opt/github-desktop")
+                                    .add_arg("/usr/share/pixmaps/github-desktop.png")
+                                    .add_arg(apps_lnk_dir_.string() + "/github-desktop.desktop")
+                                    .add_arg(download_path_.string() + "/" + grep_name_ + "-version.txt")
+                                    .add_raw("2>/dev/null").build_string());
         } else {
             Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rvf")
-                .add_arg(app_opt_dir_)
-                .add_arg(lnk_dir + "/" + lnk_file_)
-                .add_arg("/usr/share/pixmaps/" + icon_name_)
-                .add_arg(bin_file_)
-                .add_arg(version_file)
-                .add_raw("2>/dev/null").build_string());
+                                    .add_arg(app_opt_dir_)
+                                    .add_arg(lnk_dir + "/" + lnk_file_)
+                                    .add_arg("/usr/share/pixmaps/" + icon_name_)
+                                    .add_arg(bin_file_)
+                                    .add_arg(version_file)
+                                    .add_raw("2>/dev/null").build_string());
         }
 
         Logger::ok(grep_name_ + _("devtools.ok.uninstall_done"));
@@ -1199,12 +1205,12 @@ namespace tmoe::domain {
 
         // 主目录 + 桌面图标 + 版本记录
         Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf").add_arg(app_opt_dir_)
-            .add_raw("2>/dev/null").build_string());
+                                .add_raw("2>/dev/null").build_string());
         Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-f")
-            .add_arg(lnk_dir + "/" + lnk_file_)
-            .add_raw("2>/dev/null").build_string());
+                                .add_arg(lnk_dir + "/" + lnk_file_)
+                                .add_raw("2>/dev/null").build_string());
         Executor::shell(CommandBuilder("rm").add_flag("-f").add_arg(version_file)
-            .add_raw("2>/dev/null").build_string());
+                                .add_raw("2>/dev/null").build_string());
 
         Logger::ok(grep_name_ + _("devtools.ok.uninstalled"));
     }
@@ -1245,13 +1251,13 @@ namespace tmoe::domain {
             case DistroFamily::Debian: {
                 Logger::step(_("devtools.step.adding_sublime_source"));
                 Executor::passthrough(
-                    "curl -L https://download.sublimetext.com/sublimehq-pub.gpg 2>/dev/null | "
-                    "gpg --dearmor > /tmp/sublimehq-pub.gpg && "
-                    "sudo install -o root -g root -m 644 /tmp/sublimehq-pub.gpg "
-                    "/usr/share/keyrings/sublimehq-pub-archive-keyring.gpg && "
-                    "echo 'deb [signed-by=/usr/share/keyrings/sublimehq-pub-archive-keyring.gpg] "
-                    "https://download.sublimetext.com/ apt/stable/' | "
-                    "sudo tee /etc/apt/sources.list.d/sublime-text.list"
+                        "curl -L https://download.sublimetext.com/sublimehq-pub.gpg 2>/dev/null | "
+                        "gpg --dearmor > /tmp/sublimehq-pub.gpg && "
+                        "sudo install -o root -g root -m 644 /tmp/sublimehq-pub.gpg "
+                        "/usr/share/keyrings/sublimehq-pub-archive-keyring.gpg && "
+                        "echo 'deb [signed-by=/usr/share/keyrings/sublimehq-pub-archive-keyring.gpg] "
+                        "https://download.sublimetext.com/ apt/stable/' | "
+                        "sudo tee /etc/apt/sources.list.d/sublime-text.list"
                 );
                 PackageManager::update(family);
                 PackageManager::install("sublime-text", family);
@@ -1259,16 +1265,16 @@ namespace tmoe::domain {
             }
             case DistroFamily::Arch: {
                 Executor::shell(
-                    "cd /tmp && "
-                    "curl -O https://download.sublimetext.com/sublimehq-pub.gpg 2>/dev/null && "
-                    "pacman-key --add sublimehq-pub.gpg 2>/dev/null && "
-                    "pacman-key --lsign-key 8A8F901A 2>/dev/null && "
-                    "rm sublimehq-pub.gpg"
+                        "cd /tmp && "
+                        "curl -O https://download.sublimetext.com/sublimehq-pub.gpg 2>/dev/null && "
+                        "pacman-key --add sublimehq-pub.gpg 2>/dev/null && "
+                        "pacman-key --lsign-key 8A8F901A 2>/dev/null && "
+                        "rm sublimehq-pub.gpg"
                 );
                 Executor::shell(
-                    "if ! grep -q 'sublimetext' /etc/pacman.conf 2>/dev/null; then "
-                    "echo -e '\\n[sublime-text]\\nServer = https://download.sublimetext.com/arch/stable/x86_64' | "
-                    "sudo tee -a /etc/pacman.conf; fi"
+                        "if ! grep -q 'sublimetext' /etc/pacman.conf 2>/dev/null; then "
+                        "echo -e '\\n[sublime-text]\\nServer = https://download.sublimetext.com/arch/stable/x86_64' | "
+                        "sudo tee -a /etc/pacman.conf; fi"
                 );
                 PackageManager::update(family);
                 PackageManager::install("sublime-text", family);
@@ -1277,17 +1283,17 @@ namespace tmoe::domain {
             case DistroFamily::RedHat:
             case DistroFamily::Suse: {
                 Executor::shell(
-                    "rpm -v --import https://download.sublimetext.com/sublimehq-rpm-pub.gpg 2>/dev/null || true");
+                        "rpm -v --import https://download.sublimetext.com/sublimehq-rpm-pub.gpg 2>/dev/null || true");
 
                 if (Executor::has("dnf")) {
                     Executor::shell(
-                        "dnf config-manager --add-repo https://download.sublimetext.com/rpm/stable/x86_64/sublime-text.repo 2>/dev/null || true");
+                            "dnf config-manager --add-repo https://download.sublimetext.com/rpm/stable/x86_64/sublime-text.repo 2>/dev/null || true");
                 } else if (Executor::has("yum")) {
                     Executor::shell(
-                        "yum-config-manager --add-repo https://download.sublimetext.com/rpm/stable/x86_64/sublime-text.repo 2>/dev/null || true");
+                            "yum-config-manager --add-repo https://download.sublimetext.com/rpm/stable/x86_64/sublime-text.repo 2>/dev/null || true");
                 } else if (Executor::has("zypper")) {
                     Executor::shell(
-                        "zypper addrepo -g -f https://download.sublimetext.com/rpm/stable/x86_64/sublime-text.repo 2>/dev/null || true");
+                            "zypper addrepo -g -f https://download.sublimetext.com/rpm/stable/x86_64/sublime-text.repo 2>/dev/null || true");
                 }
                 PackageManager::install("sublime-text", family);
                 break;
@@ -1313,15 +1319,15 @@ namespace tmoe::domain {
     std::string DeveloperTools::fetch_latest_archlinuxcn_version() {
         // 统一配置 curl 参数：强制 IPv4、重试 3 次、伪装请求头
         const char *curl_opts = "-4 --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 45 -sL "
-                "-A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'";
+                                "-A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'";
 
         if (community_edition_) {
             // ── 社区版 → Arch Linux community 仓库 ──
             Logger::info(_("devtools.status.checking_arch_community") + grep_name_ + " ...");
             auto result = Executor::shell(
-                "curl " + std::string(curl_opts) +
-                " 'https://archlinux.org/packages/community/x86_64/" + grep_name_ + "/' 2>/dev/null | "
-                "grep -oP '(?<=<meta itemprop=\"softwareVersion\" content=\")[^\"]+' | head -n 1"
+                    "curl " + std::string(curl_opts) +
+                    " 'https://archlinux.org/packages/community/x86_64/" + grep_name_ + "/' 2>/dev/null | "
+                                                                                        "grep -oP '(?<=<meta itemprop=\"softwareVersion\" content=\")[^\"]+' | head -n 1"
             );
             std::string ver = result.stdout_data;
             trim_newline(ver);
@@ -1334,10 +1340,10 @@ namespace tmoe::domain {
             // 回退：直接扫 community 镜像目录列表
             Logger::info(_("devtools.status.parsing_failed_try_mirror"));
             auto fallback = Executor::shell(
-                "curl " + std::string(curl_opts) +
-                " 'https://mirrors.kernel.org/archlinux/community/os/x86_64/' 2>/dev/null | "
-                "grep -oP '" + grep_name_ + "-\\K[0-9][0-9._-]+(?=-x86_64\\.pkg\\.tar\\.zst)' | "
-                "sort -V | tail -n 1"
+                    "curl " + std::string(curl_opts) +
+                    " 'https://mirrors.kernel.org/archlinux/community/os/x86_64/' 2>/dev/null | "
+                    "grep -oP '" + grep_name_ + "-\\K[0-9][0-9._-]+(?=-x86_64\\.pkg\\.tar\\.zst)' | "
+                                                "sort -V | tail -n 1"
             );
             ver = fallback.stdout_data;
             trim_newline(ver);
@@ -1347,11 +1353,12 @@ namespace tmoe::domain {
             // ── 旗舰版/AUR → archlinuxcn 仓库 ──
             Logger::info(_("devtools.status.checking_archlinuxcn") + grep_name_ + " ...");
             auto result = Executor::shell(
-                "curl " + std::string(curl_opts) +
-                " 'https://mirrors.bfsu.edu.cn/archlinuxcn/x86_64/' 2>/dev/null | "
-                "grep '\\.pkg\\.tar\\.zst' | grep -Ev '\\.xz\\.sig|\\.zst\\.sig' | "
-                "grep -v '\\-jre\\-' | grep '" + grep_name_ + "' | tail -n 1 | "
-                "sed 's@.*" + grep_name_ + "-@@' | sed 's@-x86_64.pkg.tar.zst.*@@' | sed 's@\\.pkg\\.tar\\.zst.*@@'"
+                    "curl " + std::string(curl_opts) +
+                    " 'https://mirrors.bfsu.edu.cn/archlinuxcn/x86_64/' 2>/dev/null | "
+                    "grep '\\.pkg\\.tar\\.zst' | grep -Ev '\\.xz\\.sig|\\.zst\\.sig' | "
+                    "grep -v '\\-jre\\-' | grep '" + grep_name_ + "' | tail -n 1 | "
+                                                                  "sed 's@.*" + grep_name_ +
+                    "-@@' | sed 's@-x86_64.pkg.tar.zst.*@@' | sed 's@\\.pkg\\.tar\\.zst.*@@'"
             );
             std::string ver = result.stdout_data;
             trim_newline(ver);
@@ -1360,9 +1367,10 @@ namespace tmoe::domain {
             if (ver.empty()) {
                 Logger::info(_("devtools.status.archlinuxcn_not_found"));
                 auto result2 = Executor::shell(
-                    "curl " + std::string(curl_opts) +
-                    " 'https://build.archlinuxcn.org/packages/#/" + grep_name_ + "' 2>/dev/null | "
-                    "grep -oP '" + grep_name_ + "-\\K[0-9.]+' | head -n 1"
+                        "curl " + std::string(curl_opts) +
+                        " 'https://build.archlinuxcn.org/packages/#/" + grep_name_ + "' 2>/dev/null | "
+                                                                                     "grep -oP '" + grep_name_ +
+                        "-\\K[0-9.]+' | head -n 1"
                 );
                 ver = result2.stdout_data;
                 trim_newline(ver);
@@ -1403,8 +1411,8 @@ namespace tmoe::domain {
                 "curl -4 --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 30 -s "
                 "-A 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' '"
                 + api_url + "' | "
-                "jq -r '.[\"" + code + "\"][0] | "
-                "\"\\(.version)|\\(.downloads.linux.link)\"'";
+                            "jq -r '.[\"" + code + "\"][0] | "
+                                                   "\"\\(.version)|\\(.downloads.linux.link)\"'";
 
         auto result = Executor::shell(curl_cmd);
 
@@ -1442,8 +1450,8 @@ namespace tmoe::domain {
             launcher = "bin/idea";
             icon = "bin/idea.png";
             display_name = (community_edition_)
-                               ? "IntelliJ IDEA Community Edition"
-                               : "IntelliJ IDEA Ultimate Edition";
+                           ? "IntelliJ IDEA Community Edition"
+                           : "IntelliJ IDEA Ultimate Edition";
             wm_class = "jetbrains-idea";
         } else if (contains(grep_name_, "pycharm")) {
             launcher = "bin/pycharm";
@@ -1482,15 +1490,15 @@ namespace tmoe::domain {
         std::string desktop_entry =
                 "[Desktop Entry]\n"
                 "Name=" + display_name + "\n"
-                "Type=Application\n"
-                "Comment=JetBrains IDE - installed by tmoes\n"
-                "Exec=" + exec_path + " %u\n"
-                "Icon=" + icon_path + "\n"
-                "Terminal=false\n"
-                "StartupWMClass=" + wm_class + "\n"
-                "Categories=Development;IDE;\n"
-                "MimeType=text/plain;inode/directory;\n"
-                "StartupNotify=true\n";
+                                         "Type=Application\n"
+                                         "Comment=JetBrains IDE - installed by tmoes\n"
+                                         "Exec=" + exec_path + " %u\n"
+                                                               "Icon=" + icon_path + "\n"
+                                                                                     "Terminal=false\n"
+                                                                                     "StartupWMClass=" + wm_class + "\n"
+                                                                                                                    "Categories=Development;IDE;\n"
+                                                                                                                    "MimeType=text/plain;inode/directory;\n"
+                                                                                                                    "StartupNotify=true\n";
 
         std::string lnk_dir = apps_lnk_dir_.string();
         std::string desk_file = lnk_dir + "/" + grep_name_ + ".desktop";
@@ -1514,9 +1522,9 @@ namespace tmoe::domain {
 
         if (!cli_name.empty()) {
             Executor::shell(CommandBuilder("sudo").add_arg("ln").add_flag("-sf")
-                .add_arg(exec_path)
-                .add_arg("/usr/local/bin/" + cli_name)
-                .add_raw("2>/dev/null || true").build_string());
+                                    .add_arg(exec_path)
+                                    .add_arg("/usr/local/bin/" + cli_name)
+                                    .add_raw("2>/dev/null || true").build_string());
             Logger::info(_("devtools.status.cli_cmd") + cli_name);
         }
 
@@ -1537,9 +1545,9 @@ namespace tmoe::domain {
             // 下载 (passthrough 显示实时进度)
             Logger::step(_("devtools.step.downloading") + filename + " ...");
             auto dl_ret = Executor::passthrough(
-                "cd " + dl_path + " && "
-                "aria2c --console-log-level=warn --no-conf --continue=true "
-                "--allow-overwrite=true -s 5 -x 5 -k 1M -o '" + filename + "' '" + url + "'"
+                    "cd " + dl_path + " && "
+                                      "aria2c --console-log-level=warn --no-conf --continue=true "
+                                      "--allow-overwrite=true -s 5 -x 5 -k 1M -o '" + filename + "' '" + url + "'"
             );
             if (!dl_ret.ok() || !fs::exists(dest) || fs::file_size(dest) == 0) {
                 Logger::error(_("devtools.error.download_failed_aria2c") + std::to_string(dl_ret.exit_code));
@@ -1547,8 +1555,9 @@ namespace tmoe::domain {
                 return false;
             }
             Logger::ok(
-                _("devtools.ok.download_complete") + filename + " (" + std::to_string(fs::file_size(dest) / 1048576) +
-                " MB)");
+                    _("devtools.ok.download_complete") + filename + " (" +
+                    std::to_string(fs::file_size(dest) / 1048576) +
+                    " MB)");
         }
 
         // 精准获取压缩包内部的根目录名
@@ -1568,18 +1577,18 @@ namespace tmoe::domain {
         std::string extract_cmd =
                 "if command -v pv >/dev/null 2>&1; then "
                 "  pv '" + dest + "' | sudo tar -zxf - -C /opt; "
-                "else "
-                "  echo '正在后台解压，请稍候...'; "
-                "  sudo tar -zxf '" + dest + "' -C /opt; "
-                "fi";
+                                  "else "
+                                  "  echo '正在后台解压，请稍候...'; "
+                                  "  sudo tar -zxf '" + dest + "' -C /opt; "
+                                                               "fi";
 
         auto extract_ret = Executor::passthrough(extract_cmd);
 
         if (!extract_ret.ok()) {
             Logger::error(_("devtools.error.extract_failed_rollback"));
             Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
-                .add_arg("/opt/" + extracted_dir)
-                .add_raw("2>/dev/null").build_string());
+                                    .add_arg("/opt/" + extracted_dir)
+                                    .add_raw("2>/dev/null").build_string());
             return false;
         }
 
@@ -1587,11 +1596,11 @@ namespace tmoe::domain {
         if (extracted_dir != grep_name_) {
             Logger::info(_("devtools.info.config_dir") + "/opt/" + extracted_dir + " → /opt/" + grep_name_);
             Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
-                .add_arg("/opt/" + grep_name_)
-                .add_raw("2>/dev/null").build_string());
+                                    .add_arg("/opt/" + grep_name_)
+                                    .add_raw("2>/dev/null").build_string());
             Executor::shell(CommandBuilder("sudo").add_arg("mv")
-                .add_arg("/opt/" + extracted_dir)
-                .add_arg("/opt/" + grep_name_).build_string());
+                                    .add_arg("/opt/" + extracted_dir)
+                                    .add_arg("/opt/" + grep_name_).build_string());
         }
 
         // 创建桌面图标
@@ -1620,9 +1629,9 @@ namespace tmoe::domain {
 
         // passthrough 让 aria2c 进度条实时显示
         auto ret = Executor::passthrough(
-            "aria2c --console-log-level=warn --no-conf --continue=true "
-            "--allow-overwrite=true -d " + download_path_.string() +
-            " -o " + filename + " -x 10 -s 10 -k 1M '" + url + "'"
+                "aria2c --console-log-level=warn --no-conf --continue=true "
+                "--allow-overwrite=true -d " + download_path_.string() +
+                " -o " + filename + " -x 10 -s 10 -k 1M '" + url + "'"
         );
 
         if (!ret.ok()) {
@@ -1646,7 +1655,7 @@ namespace tmoe::domain {
 
         // 查找下载的文件
         auto ls_result = Executor::shell(
-            "cd " + dl_path + " && ls -t " + grep_name_ + "*.tar.gz 2>/dev/null | head -n 1"
+                "cd " + dl_path + " && ls -t " + grep_name_ + "*.tar.gz 2>/dev/null | head -n 1"
         );
         std::string pkg_file = ls_result.stdout_data;
         trim_newline(pkg_file);
@@ -1668,10 +1677,10 @@ namespace tmoe::domain {
         std::string extract_cmd =
                 "if command -v pv >/dev/null 2>&1; then "
                 "  pv '" + dest + "' | sudo tar -pzxf - -C /opt; "
-                "else "
-                "  echo '正在后台解压，请稍候...'; "
-                "  sudo tar -pzxf '" + dest + "' -C /opt; "
-                "fi";
+                                  "else "
+                                  "  echo '正在后台解压，请稍候...'; "
+                                  "  sudo tar -pzxf '" + dest + "' -C /opt; "
+                                                                "fi";
 
         auto extract_ret = Executor::passthrough(extract_cmd);
 
@@ -1679,8 +1688,8 @@ namespace tmoe::domain {
             Logger::error(_("devtools.error.extract_failed_rollback"));
             if (!extracted_dir.empty()) {
                 Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
-                    .add_arg("/opt/" + extracted_dir)
-                    .add_raw("2>/dev/null").build_string());
+                                        .add_arg("/opt/" + extracted_dir)
+                                        .add_raw("2>/dev/null").build_string());
             }
             return false;
         }
@@ -1688,11 +1697,11 @@ namespace tmoe::domain {
         // 标准化目录名
         if (!extracted_dir.empty() && extracted_dir != "android-studio") {
             Executor::shell(CommandBuilder("sudo").add_arg("rm").add_flag("-rf")
-                .add_arg("/opt/android-studio")
-                .add_raw("2>/dev/null").build_string());
+                                    .add_arg("/opt/android-studio")
+                                    .add_raw("2>/dev/null").build_string());
             Executor::shell(CommandBuilder("sudo").add_arg("mv")
-                .add_arg("/opt/" + extracted_dir)
-                .add_arg("/opt/android-studio").build_string());
+                                    .add_arg("/opt/" + extracted_dir)
+                                    .add_arg("/opt/android-studio").build_string());
         }
 
         return fs::exists(app_opt_dir_);
@@ -1742,8 +1751,8 @@ namespace tmoe::domain {
         Logger::info("╔═══╦══════════╦═══════════════════╦════════════════════");
         Logger::info("║   ║          ║                   ║");
         Logger::info(
-            "║   ║ software ║    ✨" + _("devtools.table.latest_version") + "     ║   " + _(
-                "devtools.table.local_version") + " 🎪");
+                "║   ║ software ║    ✨" + _("devtools.table.latest_version") + "     ║   " + _(
+                        "devtools.table.local_version") + " 🎪");
         Logger::info("║   ║          ║  Latest version   ║  Local version");
         Logger::info("║---║----------║-------------------║--------------------");
         Logger::info("║ 1 ║ " + grep_name_);
@@ -1758,7 +1767,7 @@ namespace tmoe::domain {
         if (fs::exists(app_opt_dir_)) {
             // Try to get version from version file
             auto result = Executor::shell(
-                "cat " + download_path_.string() + "/" + grep_name_ + "-version.txt 2>/dev/null || echo ''"
+                    "cat " + download_path_.string() + "/" + grep_name_ + "-version.txt 2>/dev/null || echo ''"
             );
             std::string ver = result.stdout_data;
             trim_newline(ver);
@@ -1803,9 +1812,9 @@ namespace tmoe::domain {
 
         // 使用 -d 指定目录，-o 指定纯文件名
         auto ret = Executor::passthrough(
-            "aria2c --console-log-level=warn --no-conf --continue=true "
-            "--allow-overwrite=true -s 5 -x 5 -k 1M "
-            "-d '" + dir + "' -o '" + filename + "' '" + url + "'"
+                "aria2c --console-log-level=warn --no-conf --continue=true "
+                "--allow-overwrite=true -s 5 -x 5 -k 1M "
+                "-d '" + dir + "' -o '" + filename + "' '" + url + "'"
         );
 
         // 验证下载结果

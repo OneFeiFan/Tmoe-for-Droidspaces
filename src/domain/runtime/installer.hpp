@@ -1,6 +1,7 @@
 #ifndef INSTALLER_HPP
 #define INSTALLER_HPP
 #pragma once
+
 #include "domain/runtime/container.h"
 #include "domain/runtime/rootfs_registry.h"
 #include "core/command_builder.hpp"

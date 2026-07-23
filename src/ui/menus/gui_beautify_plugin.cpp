@@ -7,38 +7,38 @@
 
 namespace tmoe::ui::menus {
 
-std::shared_ptr<IUIMenu> BeautifyMenuPlugin::build() {
-    auto& bm = mgr_->beautification_manager_;
+    std::shared_ptr<IUIMenu> BeautifyMenuPlugin::build() {
+        auto &bm = mgr_->beautification_manager_;
 
-    auto menu = make_plugin_menu(
-        _("gui.beautify_title"), _("gui.beautify_prompt"), "gui_beautify");
+        auto menu = make_plugin_menu(
+                _("gui.beautify_title"), _("gui.beautify_prompt"), "gui_beautify");
 
-    menu->add_child(LambdaAction::make(
-        _("gui.beautify.themes"), "1",
-        [&bm] { bm.configure_theme_menu(); }));
+        menu->add_child(LambdaAction::make(
+                _("gui.beautify.themes"), "1",
+                [&bm] { bm.configure_theme_menu(); }));
 
-    menu->add_child(LambdaAction::make(
-        _("gui.beautify.icon_theme"), "2",
-        [&bm] { bm.download_icon_themes_menu(); }));
+        menu->add_child(LambdaAction::make(
+                _("gui.beautify.icon_theme"), "2",
+                [&bm] { bm.download_icon_themes_menu(); }));
 
-    menu->add_child(LambdaAction::make(
-        _("gui.beautify.wallpaper"), "3",
-        [&bm] { bm.download_wallpapers_menu(); }));
+        menu->add_child(LambdaAction::make(
+                _("gui.beautify.wallpaper"), "3",
+                [&bm] { bm.download_wallpapers_menu(); }));
 
-    menu->add_child(LambdaAction::make(
-        _("gui.beautify.mouse_cursor"), "4",
-        [&bm] { bm.configure_mouse_cursor(); }));
+        menu->add_child(LambdaAction::make(
+                _("gui.beautify.mouse_cursor"), "4",
+                [&bm] { bm.configure_mouse_cursor(); }));
 
-    menu->add_child(LambdaAction::make(
-        _("gui.beautify.dock"), "5",
-        [&bm] { bm.install_dock(); }));
+        menu->add_child(LambdaAction::make(
+                _("gui.beautify.dock"), "5",
+                [&bm] { bm.install_dock(); }));
 
-    menu->add_child(LambdaAction::make(
-        _("gui.beautify.compiz"), "6",
-        [&bm] { bm.install_compiz(); }));
+        menu->add_child(LambdaAction::make(
+                _("gui.beautify.compiz"), "6",
+                [&bm] { bm.install_compiz(); }));
 
-    add_sandwich_nav(menu);
-    return menu;
-}
+        add_sandwich_nav(menu);
+        return menu;
+    }
 
 } // namespace tmoe::ui::menus

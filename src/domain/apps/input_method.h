@@ -1,30 +1,37 @@
 #ifndef INPUT_METHOD_H
 #define INPUT_METHOD_H
 #pragma once
+
 #include "core/config.h"
 #include <string>
 
 namespace tmoe::domain {
 
-class InputMethodManager {
-public:
-    explicit InputMethodManager(const TmoeConfig& cfg);
+    class InputMethodManager {
+    public:
+        explicit InputMethodManager(const TmoeConfig &cfg);
 
-    void install_sogou();
-    void show_input_faq();
+        void install_sogou();
 
-    // ── 插件子菜单所需的细粒度操作 ──────────────────────
-    void write_input_env_vars();
-    void setup_fcitx_autostart();
-    void install_fcitx4_engine(const std::string& pkg_name);
-    void install_fcitx4_tools();
-    void install_fcitx5_packages(const std::vector<std::string>& pkgs);
-    void install_ibus_engine(const std::string& pkg_name);
+        void show_input_faq();
 
-private:
+        // ── 插件子菜单所需的细粒度操作 ──────────────────────
+        void write_input_env_vars();
 
-    const TmoeConfig& cfg_;
-};
+        void setup_fcitx_autostart();
+
+        void install_fcitx4_engine(const std::string &pkg_name);
+
+        void install_fcitx4_tools();
+
+        void install_fcitx5_packages(const std::vector<std::string> &pkgs);
+
+        void install_ibus_engine(const std::string &pkg_name);
+
+    private:
+
+        const TmoeConfig &cfg_;
+    };
 
 } // namespace tmoe::domain
 #endif

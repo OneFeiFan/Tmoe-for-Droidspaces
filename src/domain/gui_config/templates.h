@@ -1,4 +1,5 @@
 #pragma once
+
 #include <string>
 
 namespace tmoe::domain::gui_config {

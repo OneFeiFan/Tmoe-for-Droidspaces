@@ -1,4 +1,5 @@
 #pragma once
+
 #include <string>
 #include <vector>
 #include <map>
@@ -106,14 +107,20 @@ namespace tmoe::domain {
                                     const std::string &kali_tools);
 
         void set_auto_install_mode(bool v) { auto_install_mode_ = v; }
+
         bool is_auto_install_mode() const { return auto_install_mode_; }
 
         // 自动安装标志 getter（供 post_desktop_install_prompts 等使用）
         bool auto_fcitx() const { return auto_install_fcitx4_; }
+
         bool auto_electron() const { return auto_install_electron_; }
+
         bool auto_vscode() const { return auto_install_vscode_; }
+
         bool auto_chromium() const { return auto_install_chromium_; }
+
         bool auto_kali() const { return auto_install_kali_; }
+
         const std::string &kali_tools() const { return kali_tools_; }
 
     private:

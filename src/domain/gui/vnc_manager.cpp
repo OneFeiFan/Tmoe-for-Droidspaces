@@ -84,7 +84,7 @@ namespace tmoe::domain {
     // ================================================================
 
     VncManager::VncManager(const TmoeConfig &cfg)
-        : cfg_(cfg) {
+            : cfg_(cfg) {
         vnc_config_.init_defaults();
     }
 
@@ -122,13 +122,13 @@ namespace tmoe::domain {
 
         // 必要包列表（部分分发版可能不同，但 PackageManager 会处理）
         std::vector<std::string> pkgs = {
-            "tigervnc-standalone-server",
-            "tigervnc-viewer",
-            "xfonts-100dpi",
-            "xfonts-75dpi",
-            "xfonts-scalable",
-            "x11vnc",
-            "xvfb"
+                "tigervnc-standalone-server",
+                "tigervnc-viewer",
+                "xfonts-100dpi",
+                "xfonts-75dpi",
+                "xfonts-scalable",
+                "x11vnc",
+                "xvfb"
         };
 
         // 移除可能冲突的包（若有）
@@ -169,17 +169,23 @@ namespace tmoe::domain {
 
         std::string dep;
         switch (family) {
-            case DistroFamily::Debian: dep = "tigervnc-standalone-server";
+            case DistroFamily::Debian:
+                dep = "tigervnc-standalone-server";
                 break;
-            case DistroFamily::RedHat: dep = "tigervnc-server";
+            case DistroFamily::RedHat:
+                dep = "tigervnc-server";
                 break;
-            case DistroFamily::Arch: dep = "tigervnc";
+            case DistroFamily::Arch:
+                dep = "tigervnc";
                 break;
-            case DistroFamily::Void_: dep = "tigervnc";
+            case DistroFamily::Void_:
+                dep = "tigervnc";
                 break;
-            case DistroFamily::Suse: dep = "tigervnc-x11vnc";
+            case DistroFamily::Suse:
+                dep = "tigervnc-x11vnc";
                 break;
-            default: dep = "tigervnc-standalone-server";
+            default:
+                dep = "tigervnc-standalone-server";
                 break;
         }
 
@@ -239,7 +245,7 @@ namespace tmoe::domain {
             PackageManager::install("tightvncserver", family);
             // Fix postinst if needed (tightvnc postinst may fail)
             Executor::passthrough("sudo sed -i -E 's@(configure)@pre\\1@' "
-                "/var/lib/dpkg/info/tightvncserver.postinst 2>/dev/null || true");
+                                  "/var/lib/dpkg/info/tightvncserver.postinst 2>/dev/null || true");
             Executor::passthrough("sudo dpkg --configure -a 2>/dev/null || true");
         }
 
@@ -256,14 +262,16 @@ namespace tmoe::domain {
 
         // Speedo 字体软链接
         if (fs::exists("/usr/share/fonts/X11/Type1") && !fs::exists("/usr/share/fonts/X11/Speedo")) {
-            Executor::passthrough("sudo ln -svf /usr/share/fonts/X11/Type1 /usr/share/fonts/X11/Speedo 2>/dev/null || true");
+            Executor::passthrough(
+                    "sudo ln -svf /usr/share/fonts/X11/Type1 /usr/share/fonts/X11/Speedo 2>/dev/null || true");
         }
 
         // 写回 VNC_SERVER 到 startvnc
         if (!vnc_config_.server.empty()) {
             Executor::passthrough(CommandBuilder("sed").add_flag("-i").add_flag("-E")
-                              .add_arg("s@^(VNC_SERVER)=.*@\\1=" + vnc_config_.server + "@")
-                              .add_arg("/usr/local/bin/startvnc").add_raw("2>/dev/null || true").build_string());
+                                          .add_arg("s@^(VNC_SERVER)=.*@\\1=" + vnc_config_.server + "@")
+                                          .add_arg("/usr/local/bin/startvnc").add_raw(
+                            "2>/dev/null || true").build_string());
         }
     }
 
@@ -281,7 +289,8 @@ namespace tmoe::domain {
         }
 
         auto result = Executor::shell("curl -L '" + latest_deb_repo + "' 2>/dev/null | grep '\\.deb' | "
-                                      "grep '" + arch + "' | grep '" + grep_name_01 + "' | grep '" + grep_name_02 +
+                                                                      "grep '" + arch + "' | grep '" + grep_name_01 +
+                                      "' | grep '" + grep_name_02 +
                                       "' | tail -n 1 | cut -d '=' -f 3 | cut -d '\"' -f 2");
         if (!result.ok() || result.stdout_data.empty()) return "";
         std::string version = result.stdout_data;
@@ -301,26 +310,29 @@ namespace tmoe::domain {
 
         auto download_deb = [&](const std::string &url, const std::string &output) {
             if (url.empty()) return;
-            Executor::passthrough("cd " + tmp_dir + " && aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
-                              "-s 5 -x 5 -k 1M -o '" + output + "' '" + url + "' 2>/dev/null || "
-                              "curl -L -o '" + output + "' '" + url + "' 2>/dev/null || true");
+            Executor::passthrough(
+                    "cd " + tmp_dir + " && aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
+                                      "-s 5 -x 5 -k 1M -o '" + output + "' '" + url + "' 2>/dev/null || "
+                                                                                      "curl -L -o '" + output + "' '" +
+                    url + "' 2>/dev/null || true");
         };
 
         std::string common_url = grep_tiger_vnc_deb_file(deb_repo, "tigervnc-common", "deb10");
         std::string server_url = grep_tiger_vnc_deb_file(deb_repo, "tigervnc-standalone-server", "deb10");
         std::string jpeg_url = grep_tiger_vnc_deb_file(
-            "https://mirrors.bfsu.edu.cn/debian/pool/main/libj/libjpeg-turbo/", "libjpeg62-turbo_", "deb");
+                "https://mirrors.bfsu.edu.cn/debian/pool/main/libj/libjpeg-turbo/", "libjpeg62-turbo_", "deb");
 
         download_deb(common_url, "tigervnc-common_ubuntu-focal.deb");
         download_deb(server_url, "tigervnc-standalone-server_ubuntu-focal.deb");
         download_deb(jpeg_url, "libjpeg62-turbo_ubuntu-focal.deb");
 
         Executor::passthrough("cd " + tmp_dir + " && "
-                          "sudo dpkg -i ./libjpeg62-turbo_ubuntu-focal.deb "
-                          "./tigervnc-common_ubuntu-focal.deb "
-                          "./tigervnc-standalone-server_ubuntu-focal.deb 2>/dev/null || true");
+                                                "sudo dpkg -i ./libjpeg62-turbo_ubuntu-focal.deb "
+                                                "./tigervnc-common_ubuntu-focal.deb "
+                                                "./tigervnc-standalone-server_ubuntu-focal.deb 2>/dev/null || true");
         Executor::passthrough("sudo apt-mark hold tigervnc-common tigervnc-standalone-server 2>/dev/null || true");
-        Executor::passthrough(CommandBuilder("rm").add_flag("-rvf").add_arg(tmp_dir).add_raw("2>/dev/null || true").build_string());
+        Executor::passthrough(
+                CommandBuilder("rm").add_flag("-rvf").add_arg(tmp_dir).add_raw("2>/dev/null || true").build_string());
     }
 
     void VncManager::case_debian_distro_and_install_vnc() {
@@ -334,12 +346,13 @@ namespace tmoe::domain {
             bool is_focal_like = os_check.ok() && contains(os_check.stdout_data, "yes");
             if (is_focal_like && vnc_config_.server_bin == "tigervnc") {
                 auto ver_check = Executor::shell("apt list --installed 2>&1 | grep 'tigervnc-standalone-server' | "
-                    "awk '{print $2}' | grep '1.9.'");
+                                                 "awk '{print $2}' | grep '1.9.'");
                 if (!ver_check.ok() || ver_check.stdout_data.empty()) {
                     ubuntu_install_tiger_vnc_server();
                 }
             } else if (is_focal_like) {
-                Executor::passthrough("sudo apt-mark unhold tigervnc-common tigervnc-standalone-server 2>/dev/null || true");
+                Executor::passthrough(
+                        "sudo apt-mark unhold tigervnc-common tigervnc-standalone-server 2>/dev/null || true");
                 debian_install_vnc_server();
             } else {
                 debian_install_vnc_server();
@@ -349,8 +362,9 @@ namespace tmoe::domain {
         }
         if (!vnc_config_.server.empty()) {
             Executor::passthrough(CommandBuilder("sed").add_flag("-i").add_flag("-E")
-                              .add_arg("s@^(VNC_SERVER)=.*@\\1=" + vnc_config_.server + "@")
-                              .add_arg("/usr/local/bin/startvnc").add_raw("2>/dev/null || true").build_string());
+                                          .add_arg("s@^(VNC_SERVER)=.*@\\1=" + vnc_config_.server + "@")
+                                          .add_arg("/usr/local/bin/startvnc").add_raw(
+                            "2>/dev/null || true").build_string());
         }
     }
 
@@ -366,15 +380,16 @@ namespace tmoe::domain {
         modify_to_xfwm4_breeze_theme();
         if (!vnc_config_.server.empty()) {
             Executor::passthrough(CommandBuilder("sed").add_flag("-i").add_flag("-E")
-                              .add_arg("s@^(VNC_SERVER)=.*@\\1=" + vnc_config_.server + "@")
-                              .add_arg("/usr/local/bin/startvnc").add_raw("2>/dev/null || true").build_string());
+                                          .add_arg("s@^(VNC_SERVER)=.*@\\1=" + vnc_config_.server + "@")
+                                          .add_arg("/usr/local/bin/startvnc").add_raw(
+                            "2>/dev/null || true").build_string());
         }
     }
 
     void VncManager::modify_to_xfwm4_breeze_theme() {
         if (fs::exists("/usr/share/themes/Breeze/xfwm4/themerc")) {
             Executor::passthrough(
-                "dbus-launch xfconf-query -c xfwm4 -t string -np /general/theme -s Breeze 2>/dev/null || true");
+                    "dbus-launch xfconf-query -c xfwm4 -t string -np /general/theme -s Breeze 2>/dev/null || true");
         }
     }
 
@@ -415,12 +430,12 @@ namespace tmoe::domain {
 
     void VncManager::auto_select_keyboard_layout() {
         Executor::passthrough("printf '%s\\n' 'debconf debconf/frontend select Noninteractive' | "
-            "debconf-set-selections 2>/dev/null || true");
+                              "debconf-set-selections 2>/dev/null || true");
         Executor::passthrough(
-            "printf '%s\\n' \"keyboard-configuration keyboard-configuration/layout select 'English (US)'\" | "
-            "debconf-set-selections 2>/dev/null || true");
+                "printf '%s\\n' \"keyboard-configuration keyboard-configuration/layout select 'English (US)'\" | "
+                "debconf-set-selections 2>/dev/null || true");
         Executor::passthrough("echo keyboard-configuration keyboard-configuration/layoutcode select 'us' | "
-            "debconf-set-selections 2>/dev/null || true");
+                              "debconf-set-selections 2>/dev/null || true");
     }
 
     void VncManager::fix_mlocate() {
@@ -431,8 +446,8 @@ namespace tmoe::domain {
         if (cfg_.sub_distro != "ubuntu") return;
 
         auto ver_check = Executor::shell(
-            "grep -qE 'Focal Fossa|focal|bionic|Bionic Beaver|xenial|Xenial Xerus|impish|Impish Indri' "
-            "/etc/os-release && echo 'old' || echo 'new'");
+                "grep -qE 'Focal Fossa|focal|bionic|Bionic Beaver|xenial|Xenial Xerus|impish|Impish Indri' "
+                "/etc/os-release && echo 'old' || echo 'new'");
         if (!ver_check.ok() || ver_check.stdout_data.find("old") == std::string::npos) return;
 
         Logger::info(_("gui.vnc.fixing_mlocate"));
@@ -440,8 +455,8 @@ namespace tmoe::domain {
         if (fs::exists(postinst_dst)) {
             // 内联修复: 在 set -e 后插入 exit 0，防止旧版 Ubuntu 下 dpkg 中断
             Executor::passthrough(CommandBuilder("sed").add_flag("-i")
-                .add_arg("s@set -e@set -e\\nexit 0@").add_arg(postinst_dst)
-                .add_raw("2>/dev/null || true").build_string());
+                                          .add_arg("s@set -e@set -e\\nexit 0@").add_arg(postinst_dst)
+                                          .add_raw("2>/dev/null || true").build_string());
             Logger::ok(_("gui.vnc.mlocate_fixed"));
         } else {
             Logger::debug("mlocate postinst not found, skipping fix");
@@ -451,11 +466,11 @@ namespace tmoe::domain {
     bool VncManager::choose_vnc_server() {
         std::string current_server = vnc_config_.server.empty() ? "tiger" : vnc_config_.server;
         std::string menu_prompt = std::string(_("gui.vnc_server_prompt"))
-            + "\n" + _f("gui.current_value", current_server);
+                                  + "\n" + _f("gui.current_value", current_server);
 
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(_("gui.vnc_server_title"), menu_prompt, "vnc_server");
-        menu->add_child(std::make_shared<LambdaAction>(_("gui.vnc_server_tiger"), "1", [this](MenuContext&) -> bool {
+        menu->add_child(std::make_shared<LambdaAction>(_("gui.vnc_server_tiger"), "1", [this](MenuContext &) -> bool {
             vnc_config_.server = "tiger";
             vnc_config_.server_bin = "tigervnc";
             vnc_config_.dep_server = "tigervnc-standalone-server";
@@ -465,7 +480,7 @@ namespace tmoe::domain {
                 install_vnc_server();
             return false;
         }));
-        menu->add_child(std::make_shared<LambdaAction>(_("gui.vnc_server_tight"), "2", [this](MenuContext&) -> bool {
+        menu->add_child(std::make_shared<LambdaAction>(_("gui.vnc_server_tight"), "2", [this](MenuContext &) -> bool {
             vnc_config_.server = "tight";
             vnc_config_.server_bin = "tightvnc";
             vnc_config_.dep_server = "tightvncserver";
@@ -476,7 +491,7 @@ namespace tmoe::domain {
             return false;
         }));
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
         return true;
     }
@@ -510,12 +525,13 @@ namespace tmoe::domain {
         // 密码长度检查
         if (passwd_to_use.length() < 6 || passwd_to_use.length() > 8) {
             std::string msg = (passwd_to_use.length() < 6)
-                                  ? _("gui.vnc.password_too_short")
-                                  : _("gui.vnc.password_too_long");
+                              ? _("gui.vnc.password_too_short")
+                              : _("gui.vnc.password_too_long");
             Logger::warn(msg);
             Executor::passthrough(cfg_.tui_bin +
-                              " --title \"" + std::string(_("gui.vnc.password_length_error_title")) + "\""
-                              " --msgbox \"" + msg + "\" 10 50");
+                                  " --title \"" + std::string(_("gui.vnc.password_length_error_title")) + "\""
+                                                                                                          " --msgbox \"" +
+                                  msg + "\" 10 50");
             if (password.empty()) {
                 return configure_vnc_password("");
             } else {
@@ -531,13 +547,15 @@ namespace tmoe::domain {
                   vnc_config_.passwd_file.string() + " 2>/dev/null";
         } else {
             cmd = CommandBuilder("x11vnc").add_arg("-storepasswd").add_arg(passwd_to_use)
-                      .add_arg(vnc_config_.passwd_file.string()).add_raw("2>/dev/null").build_string();
+                    .add_arg(vnc_config_.passwd_file.string()).add_raw("2>/dev/null").build_string();
         }
 
         if (Executor::passthrough(cmd).ok()) {
             vnc_config_.password = passwd_to_use;
             if (cfg_.is_root) {
-                Executor::passthrough(CommandBuilder("chmod").add_arg("600").add_arg(vnc_config_.passwd_file.string()).add_raw("2>/dev/null").build_string());
+                Executor::passthrough(
+                        CommandBuilder("chmod").add_arg("600").add_arg(vnc_config_.passwd_file.string()).add_raw(
+                                "2>/dev/null").build_string());
             }
             Logger::ok(_f("gui.vnc.password_set", vnc_config_.passwd_file.string()));
             // Bash: 提示用户重启 VNC 使密码生效
@@ -546,8 +564,10 @@ namespace tmoe::domain {
             fs::path x11passwd = vnc_config_.vnc_home_dir / "x11passwd";
             if (fs::exists(vnc_config_.passwd_file)) {
                 Executor::passthrough(CommandBuilder("cp").add_arg(vnc_config_.passwd_file.string())
-                    .add_arg(x11passwd.string()).add_raw("2>/dev/null || true").build_string());
-                Executor::passthrough(CommandBuilder("chmod").add_arg("600").add_arg(x11passwd.string()).add_raw("2>/dev/null || true").build_string());
+                                              .add_arg(x11passwd.string()).add_raw(
+                                "2>/dev/null || true").build_string());
+                Executor::passthrough(CommandBuilder("chmod").add_arg("600").add_arg(x11passwd.string()).add_raw(
+                        "2>/dev/null || true").build_string());
             }
             return true;
         }
@@ -564,13 +584,13 @@ namespace tmoe::domain {
 
         std::ostringstream config;
         config << "# tmoe-linux TigerVNC config — TigerVNC auto-reads ~/.vnc/config\n"
-                << "securitytypes=vncauth,tlsvnc\n"
-                << "geometry=" << vnc_config_.resolution_w << "x" << vnc_config_.resolution_h << "\n"
-                << "depth=" << vnc_config_.pixel_depth << "\n"
-                << "ZlibLevel=" << vnc_config_.zlib_level << "\n"
-                << "localhost=" << (vnc_config_.localhost_only ? "yes" : "no") << "\n"
-                << "CompareFB=" << (vnc_config_.compare_fb ? "1" : "0") << "\n"
-                << "deferglyphs=16\n";
+               << "securitytypes=vncauth,tlsvnc\n"
+               << "geometry=" << vnc_config_.resolution_w << "x" << vnc_config_.resolution_h << "\n"
+               << "depth=" << vnc_config_.pixel_depth << "\n"
+               << "ZlibLevel=" << vnc_config_.zlib_level << "\n"
+               << "localhost=" << (vnc_config_.localhost_only ? "yes" : "no") << "\n"
+               << "CompareFB=" << (vnc_config_.compare_fb ? "1" : "0") << "\n"
+               << "deferglyphs=16\n";
 
         return write_file_content(cfg_path, config.str());
     }
@@ -609,49 +629,49 @@ namespace tmoe::domain {
 
         std::ostringstream script;
         script << "#!/bin/bash\n"
-                << "# tmoe-linux Xsession — 自动生成\n"
-                << "LOG=/tmp/tmoe_vnc_session.log\n"
-                << "exec 2>>\"$LOG\"\n"
-                << "echo \"=== tmoe-xsession started $(date) ===\" >> \"$LOG\"\n"
-                << "unset WAYLAND_DISPLAY\n"
-                << "unset XDG_RUNTIME_DIR\n"
-                << "export LIBGL_ALWAYS_SOFTWARE=1\n"
-                << "export GALLIUM_DRIVER=llvmpipe\n\n"
-                << "SESSION_01=\"" << cmds.cmd1 << "\"\n"
-                << "SESSION_02=\"" << cmds.cmd2 << "\"\n\n"
-                << "set_session_env() {\n"
-                << "    if command -v \"$SESSION_01\" >/dev/null 2>&1; then\n"
-                << "        REMOTE_DESKTOP_SESSION=\"$SESSION_01\"\n"
-                << "    elif command -v \"$SESSION_02\" >/dev/null 2>&1; then\n"
-                << "        REMOTE_DESKTOP_SESSION=\"$SESSION_02\"\n"
-                << "    else\n"
-                << "        echo \"Error: $SESSION_01 / $SESSION_02 not found\" >> \"$LOG\"\n"
-                << "        exec xterm -geometry 80x24+10+10 -ls -title \"VNC Fallback\"\n"
-                << "    fi\n"
-                << "    [[ ! -s /etc/environment ]] || source /etc/environment\n"
-                << "}\n\n"
-                << "open_terminal() {\n"
-                << "    for term in xfce4-terminal x-terminal-emulator konsole gnome-terminal lxterminal mate-terminal; do\n"
-                << "        if command -v \"$term\" >/dev/null 2>&1; then\n"
-                << "            \"$term\" & break\n"
-                << "        fi\n"
-                << "    done\n"
-                << "}\n\n"
-                << "start_session() {\n"
-                << "    set_session_env\n"
-                << "    open_terminal\n"
-                << "    echo \"Starting: $REMOTE_DESKTOP_SESSION\" >> \"$LOG\"\n";
+               << "# tmoe-linux Xsession — 自动生成\n"
+               << "LOG=/tmp/tmoe_vnc_session.log\n"
+               << "exec 2>>\"$LOG\"\n"
+               << "echo \"=== tmoe-xsession started $(date) ===\" >> \"$LOG\"\n"
+               << "unset WAYLAND_DISPLAY\n"
+               << "unset XDG_RUNTIME_DIR\n"
+               << "export LIBGL_ALWAYS_SOFTWARE=1\n"
+               << "export GALLIUM_DRIVER=llvmpipe\n\n"
+               << "SESSION_01=\"" << cmds.cmd1 << "\"\n"
+               << "SESSION_02=\"" << cmds.cmd2 << "\"\n\n"
+               << "set_session_env() {\n"
+               << "    if command -v \"$SESSION_01\" >/dev/null 2>&1; then\n"
+               << "        REMOTE_DESKTOP_SESSION=\"$SESSION_01\"\n"
+               << "    elif command -v \"$SESSION_02\" >/dev/null 2>&1; then\n"
+               << "        REMOTE_DESKTOP_SESSION=\"$SESSION_02\"\n"
+               << "    else\n"
+               << "        echo \"Error: $SESSION_01 / $SESSION_02 not found\" >> \"$LOG\"\n"
+               << "        exec xterm -geometry 80x24+10+10 -ls -title \"VNC Fallback\"\n"
+               << "    fi\n"
+               << "    [[ ! -s /etc/environment ]] || source /etc/environment\n"
+               << "}\n\n"
+               << "open_terminal() {\n"
+               << "    for term in xfce4-terminal x-terminal-emulator konsole gnome-terminal lxterminal mate-terminal; do\n"
+               << "        if command -v \"$term\" >/dev/null 2>&1; then\n"
+               << "            \"$term\" & break\n"
+               << "        fi\n"
+               << "    done\n"
+               << "}\n\n"
+               << "start_session() {\n"
+               << "    set_session_env\n"
+               << "    open_terminal\n"
+               << "    echo \"Starting: $REMOTE_DESKTOP_SESSION\" >> \"$LOG\"\n";
         bool is_container = cfg_.is_termux || cfg_.is_chroot ||
                             cfg_.linux_distro == "Android";
         script << "    dbus-launch"
-                << (is_container ? "" : " --exit-with-session")
-                << " $REMOTE_DESKTOP_SESSION \"$@\"\n"
-                << "    rc=$?\n"
-                << "    echo \"Session exited with code $rc\" >> \"$LOG\"\n"
-                << "    # 桌面会话崩溃 → 启动回退终端\n"
-                << "    exec xterm -geometry 80x24+10+10 -ls -title \"Session crashed - Fallback\"\n"
-                << "}\n\n"
-                << "start_session\n";
+               << (is_container ? "" : " --exit-with-session")
+               << " $REMOTE_DESKTOP_SESSION \"$@\"\n"
+               << "    rc=$?\n"
+               << "    echo \"Session exited with code $rc\" >> \"$LOG\"\n"
+               << "    # 桌面会话崩溃 → 启动回退终端\n"
+               << "    exec xterm -geometry 80x24+10+10 -ls -title \"Session crashed - Fallback\"\n"
+               << "}\n\n"
+               << "start_session\n";
         return script.str();
     }
 
@@ -659,30 +679,30 @@ namespace tmoe::domain {
         // 参考 xrdp startwm.sh: 优先用系统 Xsession，不存在则回退到 tmoe-xsession
         std::ostringstream script;
         script << "#!/bin/bash\n"
-                << "# tmoe-linux VNC xstartup\n\n"
-                << "unset SESSION_MANAGER\n"
-                << "unset DBUS_SESSION_BUS_ADDRESS\n"
-                << "unset XDG_RUNTIME_DIR\n"
-                << "export XDG_SESSION_TYPE=x11\n"
-                << "export PULSE_SERVER=127.0.0.1\n\n"
-                << "[ -r /etc/profile ] && . /etc/profile\n\n"
-                << "if command -v fcitx >/dev/null 2>&1; then\n"
-                << "    fcitx-autostart >/dev/null 2>&1 &\n"
-                << "fi\n"
-                << "if command -v ibus-daemon >/dev/null 2>&1; then\n"
-                << "    ibus-daemon -drx >/dev/null 2>&1 &\n"
-                << "fi\n\n"
-                << "# 优先用 tmoe 生成的会话脚本（含 DBus 和桌面启动）\n"
-                << "if [ -x " << vnc_config_.xsession_file.string() << " ]; then\n"
-                << "    exec " << vnc_config_.xsession_file.string() << "\n"
-                << "elif [ -x /etc/X11/Xsession ]; then\n"
-                << "    exec /etc/X11/Xsession\n"
-                << "elif [ -x /etc/X11/xinit/Xsession ]; then\n"
-                << "    exec /etc/X11/xinit/Xsession\n"
-                << "else\n"
-                << "    xterm -geometry 80x24+10+10 -ls -title \"tmoe VNC Desktop\" &\n"
-                << "    exec twm\n"
-                << "fi\n";
+               << "# tmoe-linux VNC xstartup\n\n"
+               << "unset SESSION_MANAGER\n"
+               << "unset DBUS_SESSION_BUS_ADDRESS\n"
+               << "unset XDG_RUNTIME_DIR\n"
+               << "export XDG_SESSION_TYPE=x11\n"
+               << "export PULSE_SERVER=127.0.0.1\n\n"
+               << "[ -r /etc/profile ] && . /etc/profile\n\n"
+               << "if command -v fcitx >/dev/null 2>&1; then\n"
+               << "    fcitx-autostart >/dev/null 2>&1 &\n"
+               << "fi\n"
+               << "if command -v ibus-daemon >/dev/null 2>&1; then\n"
+               << "    ibus-daemon -drx >/dev/null 2>&1 &\n"
+               << "fi\n\n"
+               << "# 优先用 tmoe 生成的会话脚本（含 DBus 和桌面启动）\n"
+               << "if [ -x " << vnc_config_.xsession_file.string() << " ]; then\n"
+               << "    exec " << vnc_config_.xsession_file.string() << "\n"
+               << "elif [ -x /etc/X11/Xsession ]; then\n"
+               << "    exec /etc/X11/Xsession\n"
+               << "elif [ -x /etc/X11/xinit/Xsession ]; then\n"
+               << "    exec /etc/X11/xinit/Xsession\n"
+               << "else\n"
+               << "    xterm -geometry 80x24+10+10 -ls -title \"tmoe VNC Desktop\" &\n"
+               << "    exec twm\n"
+               << "fi\n";
         return script.str();
     }
 
@@ -695,14 +715,16 @@ namespace tmoe::domain {
             Logger::error(_f("gui.vnc.xsession_write_failed", vnc_config_.xsession_file.string()));
             return false;
         }
-        Executor::passthrough(CommandBuilder("chmod").add_arg("755").add_arg(vnc_config_.xsession_file.string()).add_raw("2>/dev/null || true").build_string());
+        Executor::passthrough(
+                CommandBuilder("chmod").add_arg("755").add_arg(vnc_config_.xsession_file.string()).add_raw(
+                        "2>/dev/null || true").build_string());
 
         // 2. 确保 DBus 环境
         Executor::passthrough("sudo mkdir -p /run/dbus /var/lib/dbus 2>/dev/null");
         Executor::passthrough("sudo ln -svf /run /var/ 2>/dev/null || true");
         if (!fs::exists("/etc/machine-id")) {
             Executor::passthrough("sudo sh -c 'dbus-uuidgen > /etc/machine-id' 2>/dev/null || "
-                "sudo sh -c 'cat /proc/sys/kernel/random/uuid > /etc/machine-id' 2>/dev/null || true");
+                                  "sudo sh -c 'cat /proc/sys/kernel/random/uuid > /etc/machine-id' 2>/dev/null || true");
         }
         if (!fs::exists("/etc/machine-id") || fs::file_size("/etc/machine-id") == 0) {
             write_file_content("/etc/machine-id", "0ecb780817003d3342d16adb5ff1dfa9\n");
@@ -712,13 +734,15 @@ namespace tmoe::domain {
         }
 
         // 3. 创建 xstartup（使用实际家目录，兼容 chroot 中 $HOME 错误的环境）
-        Executor::passthrough("mkdir -p " + vnc_config_.vnc_home_dir.string() + " 2>/dev/null; sudo mkdir -p /etc/X11/xinit 2>/dev/null");
+        Executor::passthrough("mkdir -p " + vnc_config_.vnc_home_dir.string() +
+                              " 2>/dev/null; sudo mkdir -p /etc/X11/xinit 2>/dev/null");
         std::string xstartup_content = generate_xstartup_content();
         if (!write_file_content(vnc_config_.xstartup_file, xstartup_content)) {
             Logger::error(_f("gui.vnc.xstartup_write_failed", vnc_config_.xstartup_file.string()));
             return false;
         }
-        Executor::passthrough(CommandBuilder("chmod").add_arg("+x").add_arg(vnc_config_.xstartup_file.string()).build_string());
+        Executor::passthrough(
+                CommandBuilder("chmod").add_arg("+x").add_arg(vnc_config_.xstartup_file.string()).build_string());
 
         // 4. 默认配置
         configure_vnc_defaults();
@@ -884,12 +908,12 @@ namespace tmoe::domain {
         // WSL: Plan 9/WSLg 挂载点可能是只读的 → 先尝试 remount rw
         if (cfg_.is_wsl) {
             Executor::passthrough(
-                "sudo mount -o remount,rw /tmp/.X11-unix 2>/dev/null || true");
+                    "sudo mount -o remount,rw /tmp/.X11-unix 2>/dev/null || true");
         }
         Executor::passthrough(
-            "[ -f /tmp/.X11-unix ] && rm -f /tmp/.X11-unix; "
-            "mkdir -p /tmp/.X11-unix; "
-            "chmod 1777 /tmp/.X11-unix 2>/dev/null || true");
+                "[ -f /tmp/.X11-unix ] && rm -f /tmp/.X11-unix; "
+                "mkdir -p /tmp/.X11-unix; "
+                "chmod 1777 /tmp/.X11-unix 2>/dev/null || true");
 
         // WSL 环境准备 (VNC 以普通用户运行，无需 sudo)
         std::string env_prefix;
@@ -913,9 +937,10 @@ namespace tmoe::domain {
         {
             std::string vnc_home = vnc_config_.vnc_home_dir.string();
             Executor::passthrough(
-                "mkdir -p " + vnc_home + " && "
-                "grep -q extension=GLX " + vnc_home + "/config 2>/dev/null || "
-                "echo extension=GLX >> " + vnc_home + "/config");
+                    "mkdir -p " + vnc_home + " && "
+                                             "grep -q extension=GLX " + vnc_home + "/config 2>/dev/null || "
+                                                                                   "echo extension=GLX >> " + vnc_home +
+                    "/config");
         }
 
         launch_dbus_daemon();
@@ -943,9 +968,9 @@ namespace tmoe::domain {
             // G48: Android — am start RealVNC viewer
             if (cfg_.is_termux) {
                 Executor::shell(
-                    "am start -n com.realvnc.viewer.android/"
-                    "com.realvnc.viewer.android.app.ConnectionChooserActivity "
-                    "2>/dev/null || true");
+                        "am start -n com.realvnc.viewer.android/"
+                        "com.realvnc.viewer.android.app.ConnectionChooserActivity "
+                        "2>/dev/null || true");
             }
             // G52/G167: WSL — 启动 Windows 侧 TigerVNC viewer
             if (cfg_.is_wsl) {
@@ -953,8 +978,8 @@ namespace tmoe::domain {
                 if (fs::exists(viewer)) {
                     std::string passwd_opt = (fs::exists(vnc_config_.passwd_file) &&
                                               fs::file_size(vnc_config_.passwd_file) > 0)
-                        ? " -PasswordFile " + vnc_config_.passwd_file.string()
-                        : "";
+                                             ? " -PasswordFile " + vnc_config_.passwd_file.string()
+                                             : "";
                     Executor::shell("cd \"${HOME}\" && nohup " + viewer + passwd_opt +
                                     " localhost:" + std::to_string(vnc_config_.rfb_port) +
                                     " &>/dev/null &");
@@ -979,7 +1004,9 @@ namespace tmoe::domain {
         }
 
         // 1. vncserver -kill
-        Executor::passthrough(CommandBuilder("vncserver").add_flag("-kill").add_arg(":" + std::to_string(display)).add_raw("2>/dev/null").build_string());
+        Executor::passthrough(
+                CommandBuilder("vncserver").add_flag("-kill").add_arg(":" + std::to_string(display)).add_raw(
+                        "2>/dev/null").build_string());
 
         // 2. 基于 PID 文件
         remove_vnc_pid_file(display);
@@ -990,11 +1017,16 @@ namespace tmoe::domain {
         Executor::passthrough("pkill -f 'Xtightvnc.*:" + std::to_string(display) + "' 2>/dev/null || true");
 
         // 4. 清理锁
-        Executor::passthrough(CommandBuilder("rm").add_flag("-f").add_arg("/tmp/.X" + std::to_string(display) + "-lock").add_raw("2>/dev/null").build_string());
-        Executor::passthrough(CommandBuilder("rm").add_flag("-f").add_arg("/tmp/.X11-unix/X" + std::to_string(display)).add_raw("2>/dev/null").build_string());
+        Executor::passthrough(
+                CommandBuilder("rm").add_flag("-f").add_arg("/tmp/.X" + std::to_string(display) + "-lock").add_raw(
+                        "2>/dev/null").build_string());
+        Executor::passthrough(
+                CommandBuilder("rm").add_flag("-f").add_arg("/tmp/.X11-unix/X" + std::to_string(display)).add_raw(
+                        "2>/dev/null").build_string());
 
         // 5. 停止 websockify
-        Executor::passthrough("pkill -f 'websockify.*:" + std::to_string(vnc_config_.rfb_port) + "' 2>/dev/null || true");
+        Executor::passthrough(
+                "pkill -f 'websockify.*:" + std::to_string(vnc_config_.rfb_port) + "' 2>/dev/null || true");
 
         // 6. 可选：停止 x11vnc
         if (opts.stop_x11vnc) {
@@ -1027,12 +1059,12 @@ namespace tmoe::domain {
         // WSL: Plan 9/WSLg 挂载点可能是只读的 → 先尝试 remount rw
         if (cfg_.is_wsl) {
             Executor::passthrough(
-                "sudo mount -o remount,rw /tmp/.X11-unix 2>/dev/null || true");
+                    "sudo mount -o remount,rw /tmp/.X11-unix 2>/dev/null || true");
         }
         Executor::passthrough(
-            "[ -f /tmp/.X11-unix ] && rm -f /tmp/.X11-unix; "
-            "mkdir -p /tmp/.X11-unix; "
-            "chmod 1777 /tmp/.X11-unix 2>/dev/null || true");
+                "[ -f /tmp/.X11-unix ] && rm -f /tmp/.X11-unix; "
+                "mkdir -p /tmp/.X11-unix; "
+                "chmod 1777 /tmp/.X11-unix 2>/dev/null || true");
 
         // 1. Xvfb
         std::string xvfb_cmd = build_xvfb_command(x11_display, 0, 0);
@@ -1058,8 +1090,8 @@ namespace tmoe::domain {
                 if (fs::exists(viewer)) {
                     std::string passwd_opt = (fs::exists(vnc_config_.passwd_file) &&
                                               fs::file_size(vnc_config_.passwd_file) > 0)
-                        ? " -PasswordFile " + vnc_config_.passwd_file.string()
-                        : "";
+                                             ? " -PasswordFile " + vnc_config_.passwd_file.string()
+                                             : "";
                     Executor::shell("cd \"${HOME}\" && nohup " + viewer + passwd_opt +
                                     " localhost:" + std::to_string(vnc_config_.rfb_port) +
                                     " &>/dev/null &");
@@ -1121,7 +1153,8 @@ namespace tmoe::domain {
                 }
             }
             // 进程不存在 → 锁文件是残留的 → 清理掉
-            Executor::passthrough("rm -f " + lock + " /tmp/.X11-unix/X" + std::to_string(display) + " 2>/dev/null || true");
+            Executor::passthrough(
+                    "rm -f " + lock + " /tmp/.X11-unix/X" + std::to_string(display) + " 2>/dev/null || true");
         }
         return false;
     }
@@ -1140,16 +1173,16 @@ namespace tmoe::domain {
     std::string VncManager::get_local_ip_addresses() const {
         std::ostringstream ips;
         auto v4 = Executor::shell(
-            "ip -4 addr show scope global | grep inet | awk '{print $2}' | cut -d/ -f1 2>/dev/null");
+                "ip -4 addr show scope global | grep inet | awk '{print $2}' | cut -d/ -f1 2>/dev/null");
         if (v4.ok() && !v4.stdout_data.empty()) {
-            for (auto& line : split(v4.stdout_data, '\n')) {
+            for (auto &line: split(v4.stdout_data, '\n')) {
                 trim(line);
                 if (!line.empty()) ips << "vnc://" << line << ":" << vnc_config_.rfb_port << "  ";
             }
         }
         if (ips.str().empty()) {
             auto v4_host = Executor::shell(
-                "hostname -I 2>/dev/null | awk '{for(i=1;i<=NF;i++){if($i ~ /^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$/ && $i != \"127.0.0.1\"){print $i;exit}}}'");
+                    "hostname -I 2>/dev/null | awk '{for(i=1;i<=NF;i++){if($i ~ /^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$/ && $i != \"127.0.0.1\"){print $i;exit}}}'");
             if (v4_host.ok() && !v4_host.stdout_data.empty()) {
                 std::string ip = v4_host.stdout_data;
                 trim(ip);
@@ -1166,10 +1199,10 @@ namespace tmoe::domain {
     void VncManager::write_vnc_pid_file(int display) const {
         std::ostringstream cmd;
         cmd << "pgrep -f 'X(vnc|tigervnc|tightvnc).*:" << display << "' | head -1 > "
-                << vnc_config_.vnc_pid_file.string() << " 2>/dev/null";
+            << vnc_config_.vnc_pid_file.string() << " 2>/dev/null";
         Executor::passthrough(cmd.str());
         Executor::passthrough("pgrep -f 'X(tigervnc|tightvnc).*:" + std::to_string(display) + "' | head -1 > "
-                          + vnc_config_.x_pid_file.string() + " 2>/dev/null || true");
+                              + vnc_config_.x_pid_file.string() + " 2>/dev/null || true");
     }
 
     void VncManager::remove_vnc_pid_file(int display) const {
@@ -1178,7 +1211,9 @@ namespace tmoe::domain {
             if (!pid_data.empty()) {
                 std::string mypid = pid_data;
                 trim_newline(mypid);
-                if (!mypid.empty()) Executor::passthrough(CommandBuilder("kill").add_arg(mypid).add_raw("2>/dev/null || true").build_string());
+                if (!mypid.empty())
+                    Executor::passthrough(
+                            CommandBuilder("kill").add_arg(mypid).add_raw("2>/dev/null || true").build_string());
             }
             fs::remove(vnc_config_.vnc_pid_file);
         }
@@ -1187,7 +1222,9 @@ namespace tmoe::domain {
             if (!pid_data.empty()) {
                 std::string mypid = pid_data;
                 trim_newline(mypid);
-                if (!mypid.empty()) Executor::passthrough(CommandBuilder("kill").add_arg(mypid).add_raw("2>/dev/null || true").build_string());
+                if (!mypid.empty())
+                    Executor::passthrough(
+                            CommandBuilder("kill").add_arg(mypid).add_raw("2>/dev/null || true").build_string());
             }
             fs::remove(vnc_config_.x_pid_file);
         }
@@ -1232,7 +1269,7 @@ namespace tmoe::domain {
         trim_newline(field2);
         if (field2 == "microsoft") {
             auto route = Executor::shell(
-                "ip route list table 0 | head -n 1 | awk -F 'default via ' '{print $2}' | awk '{print $1}' 2>/dev/null");
+                    "ip route list table 0 | head -n 1 | awk -F 'default via ' '{print $2}' | awk '{print $1}' 2>/dev/null");
             if (route.ok() && !route.stdout_data.empty()) {
                 std::string ip = route.stdout_data;
                 trim_newline(ip);
@@ -1259,94 +1296,95 @@ namespace tmoe::domain {
 
         auto write_script = [&](const std::string &name, const std::string &content) {
             write_file_content(fs::path("/usr/local/bin/" + name), content);
-            Executor::passthrough(CommandBuilder("sudo").add_arg("chmod").add_arg("+x").add_arg("/usr/local/bin/" + name).build_string());
+            Executor::passthrough(CommandBuilder("sudo").add_arg("chmod").add_arg("+x").add_arg(
+                    "/usr/local/bin/" + name).build_string());
         };
 
         // startvnc — 用户可编辑的完整脚本，对齐 Bash 原版
         // 注: $HOME 在此脚本中用于运行时配置读取和 fallback 路径，
         // C++ 主路径已通过 SystemHelper::user_home() 使用实际家目录
         write_script("startvnc",
-            "#!/usr/bin/env bash\n"
-            "# ============================================================\n"
-            "# tmoe-linux startvnc — VNC 启动脚本\n"
-            "# 修改变量即可自定义 VNC 行为，修改后直接 startvnc 生效\n"
-            "# ============================================================\n"
-            "\n"
-            "# ── 基本配置 ──\n"
-            "VNC_DISPLAY=2                    # 显示编号，对应端口 5900+编号\n"
-            "RFB_PORT=$((5900 + VNC_DISPLAY))  # VNC 监听端口（默认 5902）\n"
-            "VNC_RESOLUTION=1440x720           # 分辨率 WxH\n"
-            "VNC_SERVER=tiger                  # tiger 或 tight\n"
-            "VNC_USER=$(id -un)                # 以哪个用户运行\n"
-            "\n"
-            "# ── 压缩与画质 ──\n"
-            "ZLIB_LEVEL=0                      # 0-9，0=最快 9=最高压缩\n"
-            "PIXEL_DEPTH=24                    # 16、24 或 32\n"
-            "\n"
-            "# ── 安全 ──\n"
-            "VNC_LOCALHOST=false               # true=仅监听本地\n"
-            "ALWAYS_SHARED=true                # 允许多客户端共享\n"
-            "\n"
-            "# ── 音频 ──\n"
-            "PULSE_SERVER=127.0.0.1            # PulseAudio 服务器地址\n"
-            "\n"
-            "# ── 高级选项 ──\n"
-            "AUTO_START_DBUS=true              # 自动启动 D-Bus\n"
-            "AUTO_STOP_VNC=true                # 启动前自动停止旧 VNC\n"
-            "AUTO_VNC_LOG_CLEARING=true        # 每次启动清空日志\n"
-            "VNC_LOG_FILE=$HOME/.vnc/vnc.log\n"
-            "\n"
-            "# ── 加载系统/用户配置文件 ──\n"
-            "[ -r /etc/tigervnc/vncserver-config-tmoe ] && source /etc/tigervnc/vncserver-config-tmoe 2>/dev/null\n"
-            "[ -r \"$HOME/.vnc/config\" ] && { grep -q '^geometry=' \"$HOME/.vnc/config\" && VNC_RESOLUTION=$(grep '^geometry=' \"$HOME/.vnc/config\" | cut -d= -f2); grep -q '^ZlibLevel=' \"$HOME/.vnc/config\" && ZLIB_LEVEL=$(grep '^ZlibLevel=' \"$HOME/.vnc/config\" | cut -d= -f2); grep -q '^depth=' \"$HOME/.vnc/config\" && PIXEL_DEPTH=$(grep '^depth=' \"$HOME/.vnc/config\" | cut -d= -f2); } 2>/dev/null || true\n"
-            "\n"
-            "# 通过 tmoe C++ 运行时启动（完整逻辑）\n"
-            "TMOE_BIN=\"" + std::string(tmoe_bin) + "\"\n"
-            "if [ -x \"$TMOE_BIN\" ]; then\n"
-            "    \"$TMOE_BIN\" gui --start-vnc --display \"$VNC_DISPLAY\" --resolution \"$VNC_RESOLUTION\" \"$@\"\n"
-            "    exit $?\n"
-            "fi\n"
-            "\n"
-            "# fallback: 直接用 vncserver 启动\n"
-            "echo 'tmoe not found, using vncserver directly...'\n"
-            "mkdir -p ~/.vnc /tmp/.X11-unix 2>/dev/null\n"
-            "chmod 1777 /tmp/.X11-unix 2>/dev/null\n"
-            "vncserver \"${VNC_USER:+ -u $VNC_USER}\" :${VNC_DISPLAY} -geometry ${VNC_RESOLUTION} -depth ${PIXEL_DEPTH} -localhost no -SecurityTypes VncAuth 2>&1\n");
+                     "#!/usr/bin/env bash\n"
+                     "# ============================================================\n"
+                     "# tmoe-linux startvnc — VNC 启动脚本\n"
+                     "# 修改变量即可自定义 VNC 行为，修改后直接 startvnc 生效\n"
+                     "# ============================================================\n"
+                     "\n"
+                     "# ── 基本配置 ──\n"
+                     "VNC_DISPLAY=2                    # 显示编号，对应端口 5900+编号\n"
+                     "RFB_PORT=$((5900 + VNC_DISPLAY))  # VNC 监听端口（默认 5902）\n"
+                     "VNC_RESOLUTION=1440x720           # 分辨率 WxH\n"
+                     "VNC_SERVER=tiger                  # tiger 或 tight\n"
+                     "VNC_USER=$(id -un)                # 以哪个用户运行\n"
+                     "\n"
+                     "# ── 压缩与画质 ──\n"
+                     "ZLIB_LEVEL=0                      # 0-9，0=最快 9=最高压缩\n"
+                     "PIXEL_DEPTH=24                    # 16、24 或 32\n"
+                     "\n"
+                     "# ── 安全 ──\n"
+                     "VNC_LOCALHOST=false               # true=仅监听本地\n"
+                     "ALWAYS_SHARED=true                # 允许多客户端共享\n"
+                     "\n"
+                     "# ── 音频 ──\n"
+                     "PULSE_SERVER=127.0.0.1            # PulseAudio 服务器地址\n"
+                     "\n"
+                     "# ── 高级选项 ──\n"
+                     "AUTO_START_DBUS=true              # 自动启动 D-Bus\n"
+                     "AUTO_STOP_VNC=true                # 启动前自动停止旧 VNC\n"
+                     "AUTO_VNC_LOG_CLEARING=true        # 每次启动清空日志\n"
+                     "VNC_LOG_FILE=$HOME/.vnc/vnc.log\n"
+                     "\n"
+                     "# ── 加载系统/用户配置文件 ──\n"
+                     "[ -r /etc/tigervnc/vncserver-config-tmoe ] && source /etc/tigervnc/vncserver-config-tmoe 2>/dev/null\n"
+                     "[ -r \"$HOME/.vnc/config\" ] && { grep -q '^geometry=' \"$HOME/.vnc/config\" && VNC_RESOLUTION=$(grep '^geometry=' \"$HOME/.vnc/config\" | cut -d= -f2); grep -q '^ZlibLevel=' \"$HOME/.vnc/config\" && ZLIB_LEVEL=$(grep '^ZlibLevel=' \"$HOME/.vnc/config\" | cut -d= -f2); grep -q '^depth=' \"$HOME/.vnc/config\" && PIXEL_DEPTH=$(grep '^depth=' \"$HOME/.vnc/config\" | cut -d= -f2); } 2>/dev/null || true\n"
+                     "\n"
+                     "# 通过 tmoe C++ 运行时启动（完整逻辑）\n"
+                     "TMOE_BIN=\"" + std::string(tmoe_bin) + "\"\n"
+                                                             "if [ -x \"$TMOE_BIN\" ]; then\n"
+                                                             "    \"$TMOE_BIN\" gui --start-vnc --display \"$VNC_DISPLAY\" --resolution \"$VNC_RESOLUTION\" \"$@\"\n"
+                                                             "    exit $?\n"
+                                                             "fi\n"
+                                                             "\n"
+                                                             "# fallback: 直接用 vncserver 启动\n"
+                                                             "echo 'tmoe not found, using vncserver directly...'\n"
+                                                             "mkdir -p ~/.vnc /tmp/.X11-unix 2>/dev/null\n"
+                                                             "chmod 1777 /tmp/.X11-unix 2>/dev/null\n"
+                                                             "vncserver \"${VNC_USER:+ -u $VNC_USER}\" :${VNC_DISPLAY} -geometry ${VNC_RESOLUTION} -depth ${PIXEL_DEPTH} -localhost no -SecurityTypes VncAuth 2>&1\n");
 
         // stopvnc
         write_script("stopvnc",
                      "#!/bin/bash\n# tmoe-linux stopvnc — thin wrapper\n"
                      "TMOE_BIN=\"" + std::string(tmoe_bin) + "\"\n"
-                     "[ -x \"$TMOE_BIN\" ] && exec \"$TMOE_BIN\" gui --stop-vnc \"$@\"\n"
-                     "pkill Xvnc; pkill Xtigervnc; pkill Xtightvnc; pkill x11vnc; pkill websockify 2>/dev/null\n"
-                     "echo 'VNC stopped (fallback)'\n");
+                                                             "[ -x \"$TMOE_BIN\" ] && exec \"$TMOE_BIN\" gui --stop-vnc \"$@\"\n"
+                                                             "pkill Xvnc; pkill Xtigervnc; pkill Xtightvnc; pkill x11vnc; pkill websockify 2>/dev/null\n"
+                                                             "echo 'VNC stopped (fallback)'\n");
 
         // startxsdl
         write_script("startxsdl",
                      "#!/bin/bash\n# tmoe-linux startxsdl — thin wrapper\n"
                      "TMOE_BIN=\"" + std::string(tmoe_bin) + "\"\n"
-                     "[ -x \"$TMOE_BIN\" ] && exec \"$TMOE_BIN\" gui --start-xsdl \"$@\"\n"
-                     "export DISPLAY=\"${1:-127.0.0.1:0}\"\n"
-                     "export PULSE_SERVER=\"tcp:${DISPLAY%:*}:4713\"\n"
-                     "echo \"XSDL DISPLAY=$DISPLAY PULSE_SERVER=$PULSE_SERVER\"\n");
+                                                             "[ -x \"$TMOE_BIN\" ] && exec \"$TMOE_BIN\" gui --start-xsdl \"$@\"\n"
+                                                             "export DISPLAY=\"${1:-127.0.0.1:0}\"\n"
+                                                             "export PULSE_SERVER=\"tcp:${DISPLAY%:*}:4713\"\n"
+                                                             "echo \"XSDL DISPLAY=$DISPLAY PULSE_SERVER=$PULSE_SERVER\"\n");
 
         // startx11vnc
         write_script("startx11vnc",
                      "#!/bin/bash\n# tmoe-linux startx11vnc — thin wrapper\n"
                      "TMOE_BIN=\"" + std::string(tmoe_bin) + "\"\n"
-                     "[ -x \"$TMOE_BIN\" ] && exec \"$TMOE_BIN\" gui --start-x11vnc \"$@\"\n"
-                     "Xvfb :233 -screen 0 1440x720x24 -ac +extension GLX +extension RANDR +render -retro -noreset -br &\n"
-                     "sleep 2; x11vnc -display :233 -rfbport 5902 -forever -shared -bg -ncache_cr -xkb -noxrecord -noxdamage -noshm -cursor arrow -nothreads\n"
-                     "echo 'x11vnc started on port 5902 (fallback)'\n");
+                                                             "[ -x \"$TMOE_BIN\" ] && exec \"$TMOE_BIN\" gui --start-x11vnc \"$@\"\n"
+                                                             "Xvfb :233 -screen 0 1440x720x24 -ac +extension GLX +extension RANDR +render -retro -noreset -br &\n"
+                                                             "sleep 2; x11vnc -display :233 -rfbport 5902 -forever -shared -bg -ncache_cr -xkb -noxrecord -noxdamage -noshm -cursor arrow -nothreads\n"
+                                                             "echo 'x11vnc started on port 5902 (fallback)'\n");
 
         // novnc
         write_script("novnc",
                      "#!/bin/bash\n# tmoe-linux novnc — thin wrapper\n"
                      "TMOE_BIN=\"" + std::string(tmoe_bin) + "\"\n"
-                     "[ -x \"$TMOE_BIN\" ] && exec \"$TMOE_BIN\" gui --start-novnc \"$@\"\n"
-                     "NOVNC_DIR=/usr/share/novnc; [ -d \"$NOVNC_DIR\" ] || NOVNC_DIR=/opt/novnc\n"
-                     "websockify --web=\"$NOVNC_DIR\" \"${1:-36080}\" localhost:${2:-5902} &\n"
-                     "echo \"noVNC: http://localhost:${1:-36080}/vnc.html (fallback)\"\n");
+                                                             "[ -x \"$TMOE_BIN\" ] && exec \"$TMOE_BIN\" gui --start-novnc \"$@\"\n"
+                                                             "NOVNC_DIR=/usr/share/novnc; [ -d \"$NOVNC_DIR\" ] || NOVNC_DIR=/opt/novnc\n"
+                                                             "websockify --web=\"$NOVNC_DIR\" \"${1:-36080}\" localhost:${2:-5902} &\n"
+                                                             "echo \"noVNC: http://localhost:${1:-36080}/vnc.html (fallback)\"\n");
 
         // symlinks
         Executor::passthrough("sudo ln -sf /usr/local/bin/startvnc /usr/local/bin/tightvnc 2>/dev/null || true");
@@ -1363,7 +1401,7 @@ namespace tmoe::domain {
         // Bash: proot/chroot 环境中 pid 文件可能是残留的 → 清理后重新 fork
         if (is_in_container) {
             Executor::passthrough("sudo rm -vf /var/run/dbus/pid /run/dbus/pid "
-                "/var/run/dbus/messagebus.pid /run/messagebus.pid 2>/dev/null || true");
+                                  "/var/run/dbus/messagebus.pid /run/messagebus.pid 2>/dev/null || true");
             Executor::passthrough("sudo mkdir -p /run/dbus /var/lib/dbus 2>/dev/null");
             return Executor::passthrough("sudo dbus-daemon --system --fork 2>/dev/null").ok()
                    || Executor::passthrough("dbus-daemon --system --fork 2>/dev/null").ok();
@@ -1391,7 +1429,7 @@ namespace tmoe::domain {
 
         if (!fs::exists("/etc/machine-id")) {
             Executor::passthrough("sudo sh -c 'dbus-uuidgen > /etc/machine-id' 2>/dev/null || "
-                "sudo sh -c 'cat /proc/sys/kernel/random/uuid > /etc/machine-id' 2>/dev/null || true");
+                                  "sudo sh -c 'cat /proc/sys/kernel/random/uuid > /etc/machine-id' 2>/dev/null || true");
         }
         if (!fs::exists("/etc/machine-id") || fs::file_size("/etc/machine-id") == 0) {
             write_file_content("/etc/machine-id", "0ecb780817003d3342d16adb5ff1dfa9\n");
@@ -1409,17 +1447,21 @@ namespace tmoe::domain {
 
         if (fs::exists("/run/dbus/pid")) {
             auto pid_data = SystemHelper::read_file("/run/dbus/pid");
-            if (!pid_data.empty()) Executor::passthrough(CommandBuilder("kill").add_arg(pid_data).add_raw("2>/dev/null || true").build_string());
+            if (!pid_data.empty())
+                Executor::passthrough(
+                        CommandBuilder("kill").add_arg(pid_data).add_raw("2>/dev/null || true").build_string());
             fs::remove("/run/dbus/pid");
         }
         if (fs::exists("/var/run/dbus/pid")) {
             auto pid_data = SystemHelper::read_file("/var/run/dbus/pid");
-            if (!pid_data.empty()) Executor::passthrough(CommandBuilder("kill").add_arg(pid_data).add_raw("2>/dev/null || true").build_string());
+            if (!pid_data.empty())
+                Executor::passthrough(
+                        CommandBuilder("kill").add_arg(pid_data).add_raw("2>/dev/null || true").build_string());
             fs::remove("/var/run/dbus/pid");
         }
 
         Executor::passthrough("sudo service dbus stop 2>/dev/null || sudo systemctl stop dbus 2>/dev/null || "
-            "pkill dbus-daemon 2>/dev/null || true");
+                              "pkill dbus-daemon 2>/dev/null || true");
         Executor::passthrough("pkill dbus-launch 2>/dev/null || true");
 
         Logger::ok(_("gui.vnc.dbus_stopped"));
@@ -1457,16 +1499,16 @@ namespace tmoe::domain {
                                "#!/bin/bash\n"
                                "# tmoe-linux wslg — native thin wrapper\n"
                                "TMOE_BIN=\"" + std::string(tmoe_bin) + "\"\n"
-                               "[ -x \"$TMOE_BIN\" ] && exec \"$TMOE_BIN\" gui --start-wslg \"$@\"\n"
-                               "# Fallback: direct Xwayland for WSLg\n"
-                               "unset WAYLAND_DISPLAY\n"
-                               "Xwayland :${1:-2} -noreset &\n"
-                               "echo 'WSLg Xwayland started on :${1:-2}'\n");
+                                                                       "[ -x \"$TMOE_BIN\" ] && exec \"$TMOE_BIN\" gui --start-wslg \"$@\"\n"
+                                                                       "# Fallback: direct Xwayland for WSLg\n"
+                                                                       "unset WAYLAND_DISPLAY\n"
+                                                                       "Xwayland :${1:-2} -noreset &\n"
+                                                                       "echo 'WSLg Xwayland started on :${1:-2}'\n");
             Executor::passthrough("sudo chmod a+rx /usr/local/bin/wslg 2>/dev/null || true");
         }
         if (cfg_.sub_distro == "centos") {
             Executor::passthrough("sudo sed -i -E 's@(AUTO_START_DBUS=).*@\\1false@' "
-                "/usr/local/bin/startvnc /usr/local/bin/startxsdl 2>/dev/null || true");
+                                  "/usr/local/bin/startvnc /usr/local/bin/startxsdl 2>/dev/null || true");
         }
     }
 
@@ -1496,7 +1538,7 @@ namespace tmoe::domain {
 
         // 2. 回退：读取旧 Bash startvnc 脚本中的 VNC_RESOLUTION
         auto r = Executor::shell(
-            "grep '^VNC_RESOLUTION=' /usr/local/bin/startvnc 2>/dev/null | awk -F '=' '{print $2}' | head -n 1");
+                "grep '^VNC_RESOLUTION=' /usr/local/bin/startvnc 2>/dev/null | awk -F '=' '{print $2}' | head -n 1");
         if (r.ok() && !r.stdout_data.empty()) {
             std::string res = r.stdout_data;
             trim_newline(res);
@@ -1525,7 +1567,8 @@ namespace tmoe::domain {
         std::string cur = vnc_config_.pulse_server.empty() ? "127.0.0.1" : vnc_config_.pulse_server;
         std::string cmd = cfg_.tui_bin +
                           " --title \"" + std::string(_("gui.x11vnc.modify_pulse_title")) + "\""
-                          " --inputbox \"" + std::string(_("gui.x11vnc.modify_pulse_prompt")) +
+                                                                                            " --inputbox \"" +
+                          std::string(_("gui.x11vnc.modify_pulse_prompt")) +
                           _f("gui.current_value", cur) + "\" 15 50 \"" + cur + "\"";
         std::string addr = Executor::tui_select(cmd);
         if (!addr.empty()) {
@@ -1537,7 +1580,8 @@ namespace tmoe::domain {
     void VncManager::modify_x11vnc_resolution() {
         std::string cmd = cfg_.tui_bin +
                           " --title \"" + std::string(_("gui.x11vnc.modify_resolution_title")) + "\""
-                          " --inputbox \"" + std::string(_("gui.x11vnc.modify_resolution_prompt")) + "\" 10 50 \"1280x720\"";
+                                                                                                 " --inputbox \"" +
+                          std::string(_("gui.x11vnc.modify_resolution_prompt")) + "\" 10 50 \"1280x720\"";
         std::string res = Executor::tui_select(cmd);
         if (!res.empty()) {
             auto x = res.find('x');
@@ -1554,7 +1598,8 @@ namespace tmoe::domain {
     void VncManager::modify_x11vnc_port() {
         std::string cmd = cfg_.tui_bin +
                           " --title \"" + std::string(_("gui.x11vnc.modify_port_title")) + "\""
-                          " --inputbox \"" + std::string(_("gui.x11vnc.modify_port_prompt")) + "\" 10 50 \"5902\"";
+                                                                                           " --inputbox \"" +
+                          std::string(_("gui.x11vnc.modify_port_prompt")) + "\" 10 50 \"5902\"";
         std::string port = Executor::tui_select(cmd);
         if (!port.empty()) {
             try {

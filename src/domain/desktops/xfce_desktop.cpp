@@ -13,7 +13,7 @@
 
 namespace tmoe::domain {
     XfceDesktop::XfceDesktop(const TmoeConfig &cfg)
-        : XfceDesktop(cfg, gui_config::all_desktops()[0]) // xfce is idx 0
+            : XfceDesktop(cfg, gui_config::all_desktops()[0]) // xfce is idx 0
     {
     }
 
@@ -35,11 +35,12 @@ namespace tmoe::domain {
 
     // ── 阶段2: 装包前版本选择 ──
     PreInstallChoices XfceDesktop::pre_install_choices(
-        DistroFamily family, bool is_auto_mode) {
+            DistroFamily family, bool is_auto_mode) {
         PreInstallChoices c;
         if (family == DistroFamily::Debian
             && cfg_.sub_distro == "ubuntu" && !is_auto_mode) {
-            if (ui::dialog::yesno(cfg_, "Xfce or Xubuntu-desktop", _("gui.desktop.xfce_or_xubuntu_desc"), "xfce", "xubuntu") == 1)
+            if (ui::dialog::yesno(cfg_, "Xfce or Xubuntu-desktop", _("gui.desktop.xfce_or_xubuntu_desc"), "xfce",
+                                  "xubuntu") == 1)
                 c.pkg_list = "xubuntu-desktop";
         }
         return c;
@@ -87,13 +88,13 @@ namespace tmoe::domain {
         if (ctx.family != DistroFamily::Alpine) {
             if (!fs::exists("/usr/share/icons/Breeze-Adapta-Cursor")) {
                 Executor::shell(
-                    "cd /tmp && "
-                    "wget -qO breeze-adapta-cursor.tar.gz "
-                    "'https://mirrors.bfsu.edu.cn/archlinux/community/os/x86_64/"
-                    "breeze-adapta-cursor-theme-5.90.0-1-any.pkg.tar.zst' 2>/dev/null || "
-                    "curl -sL 'https://gitee.com/ak2/breeze-adapta-cursor/raw/master/"
-                    "breeze-adapta-cursor.tar.gz' -o breeze-adapta-cursor.tar.gz 2>/dev/null; "
-                    "sudo tar -xzf breeze-adapta-cursor.tar.gz -C /usr/share/icons/ 2>/dev/null || true");
+                        "cd /tmp && "
+                        "wget -qO breeze-adapta-cursor.tar.gz "
+                        "'https://mirrors.bfsu.edu.cn/archlinux/community/os/x86_64/"
+                        "breeze-adapta-cursor-theme-5.90.0-1-any.pkg.tar.zst' 2>/dev/null || "
+                        "curl -sL 'https://gitee.com/ak2/breeze-adapta-cursor/raw/master/"
+                        "breeze-adapta-cursor.tar.gz' -o breeze-adapta-cursor.tar.gz 2>/dev/null; "
+                        "sudo tar -xzf breeze-adapta-cursor.tar.gz -C /usr/share/icons/ 2>/dev/null || true");
             }
         }
         // Papirus 图标主题
@@ -109,9 +110,9 @@ namespace tmoe::domain {
             std::string wp_dir = SystemHelper::user_pictures_dir();
             fs::create_directories(wp_dir);
             Executor::shell(
-                "cd /usr/share/backgrounds && "
-                "sudo curl -sL 'https://gitee.com/ak2/icons/raw/master/debian-xfce.jpg' "
-                "-o xfce-stripes.png 2>/dev/null || true");
+                    "cd /usr/share/backgrounds && "
+                    "sudo curl -sL 'https://gitee.com/ak2/icons/raw/master/debian-xfce.jpg' "
+                    "-o xfce-stripes.png 2>/dev/null || true");
         }
     }
 
@@ -131,12 +132,12 @@ namespace tmoe::domain {
 
     void XfceDesktop::install_debian_extras(const PostInstallContext &ctx) {
         PackageManager::install({
-                                    "xfce4-whiskermenu-plugin", "xfce4-taskmanager",
-                                    "xfce4-places-plugin", "xfce4-netload-plugin", "xfce4-battery-plugin",
-                                    "xfce4-datetime-plugin", "xfce4-verve-plugin", "xfce4-mount-plugin",
-                                    "xfce4-screenshooter", "xfce4-clipman-plugin", "xfce4-pulseaudio-plugin",
-                                    "thunar-archive-plugin", "gvfs", "gvfs-backends", "gvfs-fuse",
-                                    "engrampa", "ristretto", "mousepad", "menulibre", "mugshot"
+                                        "xfce4-whiskermenu-plugin", "xfce4-taskmanager",
+                                        "xfce4-places-plugin", "xfce4-netload-plugin", "xfce4-battery-plugin",
+                                        "xfce4-datetime-plugin", "xfce4-verve-plugin", "xfce4-mount-plugin",
+                                        "xfce4-screenshooter", "xfce4-clipman-plugin", "xfce4-pulseaudio-plugin",
+                                        "thunar-archive-plugin", "gvfs", "gvfs-backends", "gvfs-fuse",
+                                        "engrampa", "ristretto", "mousepad", "menulibre", "mugshot"
                                 }, ctx.family);
 
         if (!fs::exists("/usr/share/themes/Breeze/xfwm4/themerc"))
@@ -146,16 +147,16 @@ namespace tmoe::domain {
             if (!fs::exists("/usr/share/icons/Windows-10-Icons")) {
                 Logger::step("Installing Kali Undercover theme...");
                 Executor::shell(
-                    "mkdir -pv /tmp/.kali-undercover-win10-theme && cd /tmp/.kali-undercover-win10-theme && "
-                    "UNDERCOVERlatestLINK=\"$(curl -L 'https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-undercover/' 2>/dev/null | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2)\" && "
-                    "(aria2c --console-log-level=warn --no-conf --allow-overwrite=true -s5 -x5 -k1M -o kali-undercover.deb 'https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-undercover/'\"$UNDERCOVERlatestLINK\" 2>/dev/null || "
-                    "apt download kali-undercover 2>/dev/null && mv *deb kali-undercover.deb) && "
-                    "ar xv kali-undercover.deb && cd / && sudo tar -Jxvf /tmp/.kali-undercover-win10-theme/data.tar.xz ./usr 2>/dev/null && "
-                    "sudo mv -f /usr/bin/kali-undercover /usr/local/bin/ 2>/dev/null; update-icon-caches /usr/share/icons/Windows-10-Icons 2>/dev/null &");
+                        "mkdir -pv /tmp/.kali-undercover-win10-theme && cd /tmp/.kali-undercover-win10-theme && "
+                        "UNDERCOVERlatestLINK=\"$(curl -L 'https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-undercover/' 2>/dev/null | grep all.deb | tail -n1 | cut -d '=' -f3 | cut -d '\"' -f2)\" && "
+                        "(aria2c --console-log-level=warn --no-conf --allow-overwrite=true -s5 -x5 -k1M -o kali-undercover.deb 'https://mirrors.bfsu.edu.cn/kali/pool/main/k/kali-undercover/'\"$UNDERCOVERlatestLINK\" 2>/dev/null || "
+                        "apt download kali-undercover 2>/dev/null && mv *deb kali-undercover.deb) && "
+                        "ar xv kali-undercover.deb && cd / && sudo tar -Jxvf /tmp/.kali-undercover-win10-theme/data.tar.xz ./usr 2>/dev/null && "
+                        "sudo mv -f /usr/bin/kali-undercover /usr/local/bin/ 2>/dev/null; update-icon-caches /usr/share/icons/Windows-10-Icons 2>/dev/null &");
             }
             PackageManager::install("kali-themes-common", DistroFamily::Debian);
             Executor::shell(
-                "dbus-launch xfconf-query -c xsettings -np /Net/IconThemeName -s Windows-10-Icons 2>/dev/null || true");
+                    "dbus-launch xfconf-query -c xsettings -np /Net/IconThemeName -s Windows-10-Icons 2>/dev/null || true");
             // 下载 kali-themes-common 图标主题（Bash: git_clone_kali_themes_common）
             desktop_utils::download_kali_themes_common();
         }
@@ -194,10 +195,10 @@ namespace tmoe::domain {
     void XfceDesktop::download_breeze_cursor(const PostInstallContext & /*ctx*/) {
         if (fs::exists("/usr/share/icons/Breeze-Adapta-Cursor")) return;
         Executor::passthrough(
-            "wget -qO /tmp/breeze-adapta-cursor.tar.gz "
-            "'https://github.com/arch-linux-archive/community/raw/master/"
-            "breeze-adapta-cursor-theme.tar.gz' 2>/dev/null && "
-            "sudo tar -xzf /tmp/breeze-adapta-cursor.tar.gz -C /usr/share/icons/ 2>/dev/null || true");
+                "wget -qO /tmp/breeze-adapta-cursor.tar.gz "
+                "'https://github.com/arch-linux-archive/community/raw/master/"
+                "breeze-adapta-cursor-theme.tar.gz' 2>/dev/null && "
+                "sudo tar -xzf /tmp/breeze-adapta-cursor.tar.gz -C /usr/share/icons/ 2>/dev/null || true");
     }
 
     void XfceDesktop::configure_xfce_settings(const PostInstallContext &ctx) {
@@ -214,29 +215,29 @@ namespace tmoe::domain {
 
         // 图标主题
         std::string icon_theme = (ctx.family == DistroFamily::Alpine)
-                                     ? "Faenza"
-                                     : "Flat-Remix-Blue-Light";
+                                 ? "Faenza"
+                                 : "Flat-Remix-Blue-Light";
         Executor::shell("dbus-launch xfconf-query -c xsettings -np /Net/IconThemeName -s "
                         + icon_theme + " 2>/dev/null || true");
         // 光标主题
         Executor::shell("dbus-launch xfconf-query -c xsettings -t string "
-            "-np /Gtk/CursorThemeName -s \"Breeze-Adapta-Cursor\" 2>/dev/null || true");
+                        "-np /Gtk/CursorThemeName -s \"Breeze-Adapta-Cursor\" 2>/dev/null || true");
         // 工作区数量
         Executor::shell("dbus-launch xfconf-query -c xfwm4 -t int "
-            "-np /general/workspace_count -s 2 2>/dev/null || true");
+                        "-np /general/workspace_count -s 2 2>/dev/null || true");
         // GTK 主题
         Executor::shell("dbus-launch xfconf-query -c xsettings -np /Net/ThemeName "
-            "-s \"Adwaita-dark\" 2>/dev/null || "
-            "xfconf-query -c xsettings -np /Net/ThemeName -s \"Greybird\" 2>/dev/null || true");
+                        "-s \"Adwaita-dark\" 2>/dev/null || "
+                        "xfconf-query -c xsettings -np /Net/ThemeName -s \"Greybird\" 2>/dev/null || true");
     }
 
     void XfceDesktop::xfce_color_scheme() const {
         if (!fs::exists("/usr/share/xfce4/terminal/colorschemes/Monokai Remastered.theme")) {
             Logger::info(_("gui.xfce4.color_scheme_config"));
             Executor::shell("cd /usr/share/xfce4/terminal && "
-                "sudo curl -Lo 'colorschemes.tar.xz' "
-                "'https://gitee.com/mo2/xfce-themes/raw/terminal/colorschemes.tar.xz' 2>/dev/null && "
-                "sudo tar -Jxvf 'colorschemes.tar.xz' 2>/dev/null || true");
+                            "sudo curl -Lo 'colorschemes.tar.xz' "
+                            "'https://gitee.com/mo2/xfce-themes/raw/terminal/colorschemes.tar.xz' 2>/dev/null && "
+                            "sudo tar -Jxvf 'colorschemes.tar.xz' 2>/dev/null || true");
         }
 
         std::string home = SystemHelper::user_home();
@@ -247,7 +248,7 @@ namespace tmoe::domain {
         if (!has_palette) {
             // 移除旧配色行，写入新配色
             std::string filtered;
-            for (auto& line : split(content, '\n')) {
+            for (auto &line: split(content, '\n')) {
                 if (line.find("ColorPalette=") == std::string::npos &&
                     line.find("ColorForeground=") == std::string::npos &&
                     line.find("ColorBackground=") == std::string::npos)

@@ -71,7 +71,7 @@ namespace tmoe::domain {
         fs::path proc_dir = target / "proc";
         if (fs::exists(proc_dir) && fs::is_directory(proc_dir)) {
             int entry_count = 0;
-            for (const auto& entry : fs::directory_iterator(proc_dir)) {
+            for (const auto &entry: fs::directory_iterator(proc_dir)) {
                 if (++entry_count > 2) break; // 超过 . 和 .. 即非空
             }
             if (entry_count > 2) {
@@ -83,7 +83,7 @@ namespace tmoe::domain {
 
         // 2. 检查容器内是否有活跃挂载点（dev/shm, dev/pts, proc, sys）
         auto mount_check = Executor::shell(
-            "grep -qs '" + rootfs + "/' /proc/mounts 2>/dev/null && echo 'mounted' || true");
+                "grep -qs '" + rootfs + "/' /proc/mounts 2>/dev/null && echo 'mounted' || true");
         if (mount_check.ok() && !mount_check.stdout_data.empty()
             && mount_check.stdout_data.find("mounted") != std::string::npos) {
             Logger::error(_("container.has_active_mounts"));
@@ -93,7 +93,7 @@ namespace tmoe::domain {
 
         // 3. 显示磁盘占用（Bash: du -sh --exclude=media/*）
         auto du_result = Executor::shell(
-            "du -sh --exclude='" + rootfs + "/media/*' " + rootfs + " 2>/dev/null | awk '{print $1}' || true");
+                "du -sh --exclude='" + rootfs + "/media/*' " + rootfs + " 2>/dev/null | awk '{print $1}' || true");
         if (du_result.ok() && !du_result.stdout_data.empty()) {
             std::string size = du_result.stdout_data;
             trim_newline(size);
@@ -118,13 +118,13 @@ namespace tmoe::domain {
         // ── 后续清理（对应 Bash: remove_gnu_linux_container L92-L129）──
 
         // 5. 删除启动器脚本 (R75: $PREFIX/bin 下的容器入口脚本)
-        const char* prefix_env = std::getenv("PREFIX");
+        const char *prefix_env = std::getenv("PREFIX");
         std::string bin_dir = prefix_env ? (std::string(prefix_env) + "/bin") : "/usr/local/bin";
-        auto cleanup_launcher = [&](const std::string& launcher) {
+        auto cleanup_launcher = [&](const std::string &launcher) {
             fs::path p = fs::path(bin_dir) / launcher;
             if (fs::exists(p)) {
                 Executor::passthrough(
-                    CommandBuilder("rm").add_flag("-fv").add_arg(p.string()).build_string());
+                        CommandBuilder("rm").add_flag("-fv").add_arg(p.string()).build_string());
             }
         };
         cleanup_launcher(name_str);              // 容器同名启动器
@@ -135,19 +135,19 @@ namespace tmoe::domain {
 
         // 6. 清理 /etc/profile 中的 alias (R76)
         Executor::shell(
-            "sed -i '/alias " + name_str + "=/d' /etc/profile 2>/dev/null || true");
+                "sed -i '/alias " + name_str + "=/d' /etc/profile 2>/dev/null || true");
         Executor::shell(
-            "sed -i '/alias " + name_str + "-rm=/d' /etc/profile 2>/dev/null || true");
+                "sed -i '/alias " + name_str + "-rm=/d' /etc/profile 2>/dev/null || true");
 
         // 7. 提示是否删除 rootfs 镜像文件 (R78-R79)
         auto rootfs_files = Executor::shell(
-            "ls " + cfg_.temp_dir.string() + "/" + name_str + "*-rootfs.tar.* 2>/dev/null || true");
+                "ls " + cfg_.temp_dir.string() + "/" + name_str + "*-rootfs.tar.* 2>/dev/null || true");
         if (rootfs_files.ok() && !rootfs_files.stdout_data.empty()) {
             if (Logger::confirm(_("container.confirm_remove_rootfs"))) {
                 Executor::passthrough(
-                    CommandBuilder("rm").add_flag("-fv")
-                        .add_arg(cfg_.temp_dir.string() + "/" + name_str + "*-rootfs.tar.*")
-                        .build_string());
+                        CommandBuilder("rm").add_flag("-fv")
+                                .add_arg(cfg_.temp_dir.string() + "/" + name_str + "*-rootfs.tar.*")
+                                .build_string());
                 Logger::ok(_("container.rootfs_removed"));
             }
         }

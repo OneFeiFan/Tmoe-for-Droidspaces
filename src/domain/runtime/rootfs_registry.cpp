@@ -37,9 +37,9 @@ namespace tmoe::domain {
     }
 
     std::optional<RootfsInfo> RootfsRegistry::query_rootfs(
-        const std::string &distro,
-        const std::string &version,
-        const std::string &arch) const {
+            const std::string &distro,
+            const std::string &version,
+            const std::string &arch) const {
         if (!data_["distributions"].contains(distro)) {
             return std::nullopt;
         }

@@ -9,7 +9,7 @@ namespace tmoe {
 
         // 检测平台
 #ifdef TMOE_PLATFORM_LINUX
-    cfg.kernel = "linux";
+        cfg.kernel = "linux";
 #endif
 
         // 检测 CPU 架构 (uname -m → 内部命名)
@@ -53,7 +53,7 @@ namespace tmoe {
         }
 
         // 检测 chroot/proot 容器环境
-        const char* tmoe_chroot = std::getenv("TMOE_CHROOT");
+        const char *tmoe_chroot = std::getenv("TMOE_CHROOT");
         if (tmoe_chroot && std::string(tmoe_chroot) == "true") {
             cfg.is_chroot = true;
         } else {
@@ -65,7 +65,8 @@ namespace tmoe {
                 if (nl != std::string::npos && nl + 1 < lines.size()) {
                     std::string inode1 = lines.substr(0, nl);
                     std::string inode2 = lines.substr(nl + 1);
-                    trim_newline(inode1); trim_newline(inode2);
+                    trim_newline(inode1);
+                    trim_newline(inode2);
                     if (!inode1.empty() && inode1 != inode2) {
                         cfg.is_chroot = true;
                     }
@@ -92,55 +93,31 @@ namespace tmoe {
             contains(content, "deepin") || contains(content, "kali")) {
             cfg.linux_distro = "debian";
             cfg.distro_family = DistroFamily::Debian;
-            cfg.update_command = "apt update";
-            cfg.install_command = "apt install -y";
-            cfg.remove_command = "apt purge -y";
             if (contains(content, "ubuntu")) cfg.sub_distro = "ubuntu";
             else if (contains(content, "kali")) cfg.sub_distro = "kali";
         } else if (contains(content, "Arch") || contains(content, "Manjaro")) {
             cfg.linux_distro = "arch";
             cfg.distro_family = DistroFamily::Arch;
-            cfg.update_command = "pacman -Syy";
-            cfg.install_command = "pacman -Syu --noconfirm --needed";
-            cfg.remove_command = "pacman -Rsc";
         } else if (contains(content, "Alpine")) {
             cfg.linux_distro = "alpine";
             cfg.distro_family = DistroFamily::Alpine;
-            cfg.update_command = "apk update";
-            cfg.install_command = "apk add";
-            cfg.remove_command = "sudo apk del";
         } else if (contains(content, "Fedora") || contains(content, "CentOS") ||
                    contains(content, "Red Hat") || contains(content, "rhel") ||
                    contains(content, "AlmaLinux") || contains(content, "Rocky")) {
             cfg.linux_distro = "fedora";
             cfg.distro_family = DistroFamily::RedHat;
-            cfg.update_command = "dnf check-update";
-            cfg.install_command = "dnf install -y";
-            cfg.remove_command = "dnf remove -y";
         } else if (contains(content, "openSUSE") || contains(content, "SUSE")) {
             cfg.linux_distro = "opensuse";
             cfg.distro_family = DistroFamily::Suse;
-            cfg.update_command = "zypper refresh";
-            cfg.install_command = "zypper install -y";
-            cfg.remove_command = "zypper remove -y";
         } else if (contains(content, "Gentoo")) {
             cfg.linux_distro = "gentoo";
             cfg.distro_family = DistroFamily::Gentoo;
-            cfg.update_command = "emerge --sync";
-            cfg.install_command = "emerge -av";
-            cfg.remove_command = "emerge -Cav";
         } else if (contains(content, "Void")) {
             cfg.linux_distro = "void";
             cfg.distro_family = DistroFamily::Void_;
-            cfg.update_command = "xbps-install -S";
-            cfg.install_command = "xbps-install -y";
-            cfg.remove_command = "xbps-remove -y";
         } else if (contains(content, "Solus")) {
             cfg.linux_distro = "solus";
             cfg.distro_family = DistroFamily::Solus;
-            cfg.update_command = "eopkg update-repo";
-            cfg.install_command = "eopkg install -y";
-            cfg.remove_command = "eopkg remove -y";
         }
 
         // 默认容器根目录路径

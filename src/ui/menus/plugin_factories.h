@@ -1,5 +1,6 @@
 /** UI 插件工厂 — 通过模板消除 17 个重复工厂函数。 */
 #pragma once
+
 #include "ui/menu.h"
 #include "ui/menus/gui_desktop_plugin.h"
 #include "ui/menus/gui_beautify_plugin.h"
@@ -23,9 +24,9 @@
 namespace tmoe::ui::menus {
 
 /** 通用工厂：实例化 Plugin 并调用 build()。 */
-template<typename Plugin, typename Mgr>
-inline std::shared_ptr<IUIMenu> make_menu(Mgr* mgr) {
-    return Plugin(mgr).build();
-}
+    template<typename Plugin, typename Mgr>
+    inline std::shared_ptr<IUIMenu> make_menu(Mgr *mgr) {
+        return Plugin(mgr).build();
+    }
 
 } // namespace tmoe::ui::menus

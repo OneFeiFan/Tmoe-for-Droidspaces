@@ -123,18 +123,24 @@ namespace tmoe::domain {
     std::string TermuxManager::select_desktop_environment() {
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            _("termux.gui_title"), _("termux.de_select_prompt"), "termux_de_select");
+                _("termux.gui_title"), _("termux.de_select_prompt"), "termux_de_select");
 
         std::string selected;
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.de_xfce"), "1",
-            [&selected](MenuContext&) -> bool { selected = "xfce"; return true; }));
+                _("termux.de_xfce"), "1",
+                [&selected](MenuContext &) -> bool {
+                    selected = "xfce";
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.de_lxqt"), "2",
-            [&selected](MenuContext&) -> bool { selected = "lxqt"; return true; }));
+                _("termux.de_lxqt"), "2",
+                [&selected](MenuContext &) -> bool {
+                    selected = "lxqt";
+                    return true;
+                }));
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
         return selected;
     }
@@ -181,33 +187,46 @@ namespace tmoe::domain {
     std::string TermuxManager::select_vnc_resolution() {
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            _("termux.vnc_res_title"), _("termux.vnc_res_prompt"), "termux_vnc_res");
+                _("termux.vnc_res_title"), _("termux.vnc_res_prompt"), "termux_vnc_res");
 
         std::string selected = "1280x720"; // default
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.vnc_res_hd"), "1",
-            [&selected](MenuContext&) -> bool { selected = "1280x720"; return true; }));
+                _("termux.vnc_res_hd"), "1",
+                [&selected](MenuContext &) -> bool {
+                    selected = "1280x720";
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.vnc_res_fhd"), "2",
-            [&selected](MenuContext&) -> bool { selected = "1920x1080"; return true; }));
+                _("termux.vnc_res_fhd"), "2",
+                [&selected](MenuContext &) -> bool {
+                    selected = "1920x1080";
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.vnc_res_portrait"), "3",
-            [&selected](MenuContext&) -> bool { selected = "720x1440"; return true; }));
+                _("termux.vnc_res_portrait"), "3",
+                [&selected](MenuContext &) -> bool {
+                    selected = "720x1440";
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.vnc_res_2k"), "4",
-            [&selected](MenuContext&) -> bool { selected = "2560x1440"; return true; }));
+                _("termux.vnc_res_2k"), "4",
+                [&selected](MenuContext &) -> bool {
+                    selected = "2560x1440";
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.vnc_res_custom"), "5",
-            [this, &selected](MenuContext&) -> bool {
-                std::string input_cmd = cfg_.tui_bin + " --title \"" + _("termux.vnc_custom_title") + "\" "
-                                        "--inputbox \"" + _("termux.vnc_custom_input") + "\" 0 50";
-                auto custom = Executor::tui_select(input_cmd);
-                if (!custom.empty()) selected = custom;
-                return true;
-            }));
+                _("termux.vnc_res_custom"), "5",
+                [this, &selected](MenuContext &) -> bool {
+                    std::string input_cmd = cfg_.tui_bin + " --title \"" + _("termux.vnc_custom_title") + "\" "
+                                                                                                          "--inputbox \"" +
+                                            _("termux.vnc_custom_input") + "\" 0 50";
+                    auto custom = Executor::tui_select(input_cmd);
+                    if (!custom.empty()) selected = custom;
+                    return true;
+                }));
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
         return selected;
     }
@@ -265,7 +284,7 @@ namespace tmoe::domain {
 
         ofs << "# Auto-start RealVNC viewer on Android\n";
         ofs <<
-                "am start -n com.realvnc.viewer.android/com.realvnc.viewer.android.app.ConnectionChooserActivity 2>/dev/null\n\n";
+            "am start -n com.realvnc.viewer.android/com.realvnc.viewer.android.app.ConnectionChooserActivity 2>/dev/null\n\n";
 
         ofs << "# Auto-start file manager\n";
         ofs << "for fm in thunar pcmanfm-qt nautilus dolphin; do\n";
@@ -330,34 +349,40 @@ namespace tmoe::domain {
 
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            _("termux.vnc_conf_title"), _("termux.vnc_conf_prompt"), "termux_vnc_conf");
+                _("termux.vnc_conf_title"), _("termux.vnc_conf_prompt"), "termux_vnc_conf");
 
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.vnc_conf_resolution"), "1",
-            [this, startvnc](MenuContext&) -> bool {
-                std::string new_resolution = select_vnc_resolution();
-                if (new_resolution.empty()) return false;
-                std::string sed_cmd = "sed -i -E 's@^(VNC_RESOLUTION=).*@\\1" + new_resolution + "@' " + startvnc;
-                Executor::shell(sed_cmd);
-                Logger::ok(_f("termux.vnc_resolution_updated", new_resolution));
-                return true;
-            }));
+                _("termux.vnc_conf_resolution"), "1",
+                [this, startvnc](MenuContext &) -> bool {
+                    std::string new_resolution = select_vnc_resolution();
+                    if (new_resolution.empty()) return false;
+                    std::string sed_cmd = "sed -i -E 's@^(VNC_RESOLUTION=).*@\\1" + new_resolution + "@' " + startvnc;
+                    Executor::shell(sed_cmd);
+                    Logger::ok(_f("termux.vnc_resolution_updated", new_resolution));
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.vnc_conf_edit"), "2",
-            [this](MenuContext&) -> bool { edit_vnc_config_manually(); return true; }));
+                _("termux.vnc_conf_edit"), "2",
+                [this](MenuContext &) -> bool {
+                    edit_vnc_config_manually();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.vnc_conf_lan"), "3",
-            [this](MenuContext&) -> bool { detect_and_show_lan_ip(); return true; }));
+                _("termux.vnc_conf_lan"), "3",
+                [this](MenuContext &) -> bool {
+                    detect_and_show_lan_ip();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.vnc_conf_fix"), "4",
-            [this, startvnc](MenuContext&) -> bool {
-                run_termux_fix_shebang(startvnc);
-                Logger::ok(_("termux.startvnc_fixed"));
-                return true;
-            }));
+                _("termux.vnc_conf_fix"), "4",
+                [this, startvnc](MenuContext &) -> bool {
+                    run_termux_fix_shebang(startvnc);
+                    Logger::ok(_("termux.startvnc_fixed"));
+                    return true;
+                }));
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
         return true;
     }
@@ -366,7 +391,8 @@ namespace tmoe::domain {
         if (!cfg_.is_termux) return true;
 
         std::string confirm = cfg_.tui_bin + " --title \"" + _("termux.remove_gui_title") + "\" "
-                              "--yesno \"" + _("termux.remove_gui_confirm") + "\" 0 50";
+                                                                                            "--yesno \"" +
+                              _("termux.remove_gui_confirm") + "\" 0 50";
 
         if (!Executor::shell(confirm).ok()) {
             Logger::info(_("termux.gui_remove_cancelled"));
@@ -403,7 +429,7 @@ namespace tmoe::domain {
         auto now = std::chrono::system_clock::now();
         auto t = std::chrono::system_clock::to_time_t(now);
         std::tm tm_buf{};
-platform::local_time(&t, &tm_buf);
+        platform::local_time(&t, &tm_buf);
         char buf[32];
         std::strftime(buf, sizeof(buf), "%Y-%m-%d_%H-%M", &tm_buf);
         out_timestamp = buf;
@@ -411,7 +437,8 @@ platform::local_time(&t, &tm_buf);
 
     std::string TermuxManager::get_backup_filename() {
         std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.backup_name_title") + "\" "
-                          "--inputbox \"" + _("termux.backup_name_input") + "\" 0 50 \"termux-backup\"";
+                                                                                         "--inputbox \"" +
+                          _("termux.backup_name_input") + "\" 0 50 \"termux-backup\"";
 
         auto name = Executor::tui_select(cmd);
         if (name.empty()) name = "termux-backup";
@@ -420,10 +447,12 @@ platform::local_time(&t, &tm_buf);
 
     std::string TermuxManager::select_backup_directories() {
         std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.backup_dir_title") + "\" "
-                          "--checklist \"" + _("termux.backup_dir_prompt") + "\" 0 50 0 "
-                          "\"home\" \"" + _("termux.backup_home") + "\" ON "
-                          "\"usr\" \"" + _("termux.backup_usr") + "\" OFF "
-                          "3>&1 1>&2 2>&3";
+                                                                                        "--checklist \"" +
+                          _("termux.backup_dir_prompt") + "\" 0 50 0 "
+                                                          "\"home\" \"" + _("termux.backup_home") + "\" ON "
+                                                                                                    "\"usr\" \"" +
+                          _("termux.backup_usr") + "\" OFF "
+                                                   "3>&1 1>&2 2>&3";
 
         return Executor::tui_select(cmd);
     }
@@ -452,9 +481,11 @@ platform::local_time(&t, &tm_buf);
 
         // 3. 选择压缩类型
         std::string compress_cmd = cfg_.tui_bin + " --title \"" + _("termux.compress_title") + "\" "
-                                   "--yesno \"" + _("termux.compress_yesno") + "\" 0 50 "
-                                   "--yes-button \"" + _("termux.compress_zstd") + "\" --no-button \"" + _(
-                                       "termux.compress_xz") + "\"";
+                                                                                               "--yesno \"" +
+                                   _("termux.compress_yesno") + "\" 0 50 "
+                                                                "--yes-button \"" + _("termux.compress_zstd") +
+                                   "\" --no-button \"" + _(
+                                           "termux.compress_xz") + "\"";
 
         bool use_zstd = Executor::shell(compress_cmd).ok();
 
@@ -524,7 +555,7 @@ platform::local_time(&t, &tm_buf);
 
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            _("termux.select_backup_title"), _("termux.select_backup_prompt"), "termux_backup_files");
+                _("termux.select_backup_title"), _("termux.select_backup_prompt"), "termux_backup_files");
 
         std::string selected_path;
         std::stringstream ss(ls_result);
@@ -538,16 +569,16 @@ platform::local_time(&t, &tm_buf);
             std::string fname = (pos != std::string::npos) ? line.substr(pos + 1) : line;
             trim_newline(line);
             menu->add_child(std::make_shared<LambdaAction>(
-                fname, std::to_string(idx),
-                [&selected_path, path = line](MenuContext&) -> bool {
-                    selected_path = path;
-                    return true;
-                }));
+                    fname, std::to_string(idx),
+                    [&selected_path, path = line](MenuContext &) -> bool {
+                        selected_path = path;
+                        return true;
+                    }));
             idx++;
         }
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
         return selected_path;
     }
@@ -568,7 +599,8 @@ platform::local_time(&t, &tm_buf);
             std::string latest = detect_latest_backup();
             if (!latest.empty()) {
                 std::string confirm = cfg_.tui_bin + " --title \"" + _("termux.restore_title") + "\" "
-                                      "--yesno \"" + _f("termux.restore_confirm_latest", latest) + "\" 0 50";
+                                                                                                 "--yesno \"" +
+                                      _f("termux.restore_confirm_latest", latest) + "\" 0 50";
                 if (Executor::shell(confirm).ok()) {
                     restore_file = latest;
                 } else {
@@ -586,7 +618,8 @@ platform::local_time(&t, &tm_buf);
 
         // 警告
         std::string warn = cfg_.tui_bin + " --title \"" + _("termux.warning_title") + "\" "
-                           "--yesno \"" + _("termux.restore_warning") + "\" 0 50";
+                                                                                      "--yesno \"" +
+                           _("termux.restore_warning") + "\" 0 50";
         if (!Executor::shell(warn).ok()) {
             Logger::info(_("termux.restore_cancelled"));
             return false;
@@ -638,49 +671,50 @@ platform::local_time(&t, &tm_buf);
 
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            _("termux.beautify_title"), _("termux.beautify_prompt"), "termux_beautify");
+                _("termux.beautify_title"), _("termux.beautify_prompt"), "termux_beautify");
 
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.beautify_tmoe_zsh"), "1",
-            [this](MenuContext&) -> bool { return configure_tmoe_zsh(); }));
+                _("termux.beautify_tmoe_zsh"), "1",
+                [this](MenuContext &) -> bool { return configure_tmoe_zsh(); }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.beautify_ohmyzsh"), "2",
-            [](MenuContext&) -> bool {
-                Logger::step(_("termux.installing_ohmyzsh"));
-                PackageManager::install({"zsh", "git", "curl"}, DistroFamily::Debian);
-                Executor::shell(
-                    "sh -c \"$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\" \"\" --unattended");
-                Logger::ok(_("termux.ohmyzsh_installed"));
-                return true;
-            }));
+                _("termux.beautify_ohmyzsh"), "2",
+                [](MenuContext &) -> bool {
+                    Logger::step(_("termux.installing_ohmyzsh"));
+                    PackageManager::install({"zsh", "git", "curl"}, DistroFamily::Debian);
+                    Executor::shell(
+                            "sh -c \"$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\" \"\" --unattended");
+                    Logger::ok(_("termux.ohmyzsh_installed"));
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.beautify_p10k"), "3",
-            [](MenuContext&) -> bool {
-                Logger::step(_("termux.installing_p10k"));
-                std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/data/data/com.termux/files/home";
-                std::string p10k_dir = home + "/.oh-my-zsh/custom/themes/powerlevel10k";
-                if (!fs::exists(p10k_dir)) {
-                    Executor::shell("git clone --depth=1 https://github.com/romkatv/powerlevel10k.git " + p10k_dir);
-                }
-                std::string zshrc = home + "/.zshrc";
-                if (fs::exists(zshrc)) {
-                    Executor::shell("sudo sed -i 's/^ZSH_THEME=.*/ZSH_THEME=\"powerlevel10k\\/powerlevel10k\"/' " + zshrc);
-                }
-                Logger::ok(_("termux.p10k_installed"));
-                return true;
-            }));
+                _("termux.beautify_p10k"), "3",
+                [](MenuContext &) -> bool {
+                    Logger::step(_("termux.installing_p10k"));
+                    std::string home = std::getenv("HOME") ? std::getenv("HOME") : "/data/data/com.termux/files/home";
+                    std::string p10k_dir = home + "/.oh-my-zsh/custom/themes/powerlevel10k";
+                    if (!fs::exists(p10k_dir)) {
+                        Executor::shell("git clone --depth=1 https://github.com/romkatv/powerlevel10k.git " + p10k_dir);
+                    }
+                    std::string zshrc = home + "/.zshrc";
+                    if (fs::exists(zshrc)) {
+                        Executor::shell(
+                                "sudo sed -i 's/^ZSH_THEME=.*/ZSH_THEME=\"powerlevel10k\\/powerlevel10k\"/' " + zshrc);
+                    }
+                    Logger::ok(_("termux.p10k_installed"));
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.beautify_colorls"), "4",
-            [](MenuContext&) -> bool {
-                Logger::step(_("termux.installing_colorls"));
-                PackageManager::install("ruby", DistroFamily::Debian);
-                Executor::shell("gem install colorls");
-                Logger::ok(_("termux.colorls_installed"));
-                return true;
-            }));
+                _("termux.beautify_colorls"), "4",
+                [](MenuContext &) -> bool {
+                    Logger::step(_("termux.installing_colorls"));
+                    PackageManager::install("ruby", DistroFamily::Debian);
+                    Executor::shell("gem install colorls");
+                    Logger::ok(_("termux.colorls_installed"));
+                    return true;
+                }));
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
         return true;
     }
@@ -699,7 +733,8 @@ platform::local_time(&t, &tm_buf);
 
         // 安装依赖
         std::string confirm = cfg_.tui_bin + " --title \"" + _("termux.zsh_title") + "\" "
-                              "--yesno \"" + _("termux.zsh_confirm") + "\" 0 50";
+                                                                                     "--yesno \"" +
+                              _("termux.zsh_confirm") + "\" 0 50";
         if (!Executor::shell(confirm).ok()) {
             Logger::info(_("termux.tmoe_zsh_cancelled"));
             return false;
@@ -725,7 +760,7 @@ platform::local_time(&t, &tm_buf);
         // 对应 original bash: start_tmoe_zsh_manager() in old/tools/app/center
         // 启动外部 tmoe-zsh TUI 管理脚本 (https://github.com/2cd/zsh)
         const std::string zsh_tool_url = "https://raw.githubusercontent.com/2cd/zsh/master/zsh.sh";
-        const char* home_env = std::getenv("HOME");
+        const char *home_env = std::getenv("HOME");
         std::string home = home_env ? home_env : "/root";
         std::string local_zsh_script = home + "/.config/tmoe-zsh/git/zsh.sh";
 
@@ -744,7 +779,7 @@ platform::local_time(&t, &tm_buf);
         }
 
         // 优先级3: 从 GitHub 下载并运行
-        const char* sudo_user = std::getenv("SUDO_USER");
+        const char *sudo_user = std::getenv("SUDO_USER");
         bool is_root_home = (home == "/root");
         bool needs_su = is_root_home && sudo_user && !cfg_.is_termux;
 
@@ -756,7 +791,7 @@ platform::local_time(&t, &tm_buf);
         } else {
             Logger::step(_("termux.tmoe_zsh_starting"));
             Executor::passthrough(
-                "bash -c \"$(curl -LfsS " + zsh_tool_url + ")\""
+                    "bash -c \"$(curl -LfsS " + zsh_tool_url + ")\""
             );
         }
 
@@ -812,62 +847,83 @@ platform::local_time(&t, &tm_buf);
         // 否则显示 TUI 菜单
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            _("termux.mirror_title"), _("termux.mirror_prompt"), "termux_mirror");
+                _("termux.mirror_title"), _("termux.mirror_prompt"), "termux_mirror");
 
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.mirror_bfsu"), "1",
-            [this](MenuContext&) -> bool {
-                modify_termux_sources_list("https://mirrors.bfsu.edu.cn/termux/apt");
-                return true;
-            }));
+                _("termux.mirror_bfsu"), "1",
+                [this](MenuContext &) -> bool {
+                    modify_termux_sources_list("https://mirrors.bfsu.edu.cn/termux/apt");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.mirror_tencent"), "2",
-            [this](MenuContext&) -> bool {
-                modify_termux_sources_list("https://mirrors.cloud.tencent.com/termux/apt");
-                return true;
-            }));
+                _("termux.mirror_tencent"), "2",
+                [this](MenuContext &) -> bool {
+                    modify_termux_sources_list("https://mirrors.cloud.tencent.com/termux/apt");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.mirror_tsinghua"), "3",
-            [this](MenuContext&) -> bool {
-                modify_termux_sources_list("https://mirrors.tuna.tsinghua.edu.cn/termux/apt");
-                return true;
-            }));
+                _("termux.mirror_tsinghua"), "3",
+                [this](MenuContext &) -> bool {
+                    modify_termux_sources_list("https://mirrors.tuna.tsinghua.edu.cn/termux/apt");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.mirror_ustc"), "4",
-            [this](MenuContext&) -> bool {
-                modify_termux_sources_list("https://mirrors.ustc.edu.cn/termux/apt");
-                return true;
-            }));
+                _("termux.mirror_ustc"), "4",
+                [this](MenuContext &) -> bool {
+                    modify_termux_sources_list("https://mirrors.ustc.edu.cn/termux/apt");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.mirror_repos"), "5",
-            [this](MenuContext&) -> bool { manage_termux_repos(); return true; }));
+                _("termux.mirror_repos"), "5",
+                [this](MenuContext &) -> bool {
+                    manage_termux_repos();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.mirror_speed_test"), "6",
-            [this](MenuContext&) -> bool { run_mirror_speed_test(); return true; }));
+                _("termux.mirror_speed_test"), "6",
+                [this](MenuContext &) -> bool {
+                    run_mirror_speed_test();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.mirror_edit"), "7",
-            [this](MenuContext&) -> bool { edit_sources_manually(); return true; }));
+                _("termux.mirror_edit"), "7",
+                [this](MenuContext &) -> bool {
+                    edit_sources_manually();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.mirror_clean"), "8",
-            [this](MenuContext&) -> bool { clean_sources_list(); return true; }));
+                _("termux.mirror_clean"), "8",
+                [this](MenuContext &) -> bool {
+                    clean_sources_list();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.mirror_restore"), "9",
-            [this](MenuContext&) -> bool { restore_default_sources(); return true; }));
+                _("termux.mirror_restore"), "9",
+                [this](MenuContext &) -> bool {
+                    restore_default_sources();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.mirror_backup_sources"), "10",
-            [this](MenuContext&) -> bool { backup_sources_list(); return true; }));
+                _("termux.mirror_backup_sources"), "10",
+                [this](MenuContext &) -> bool {
+                    backup_sources_list();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.mirror_old_format"), "11",
-            [this](MenuContext&) -> bool {
-                use_old_mirror_format("https://mirrors.tuna.tsinghua.edu.cn/termux");
-                return true;
-            }));
+                _("termux.mirror_old_format"), "11",
+                [this](MenuContext &) -> bool {
+                    use_old_mirror_format("https://mirrors.tuna.tsinghua.edu.cn/termux");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.mirror_alpine"), "12",
-            [this](MenuContext&) -> bool { switch_alpine_mirror(); return true; }));
+                _("termux.mirror_alpine"), "12",
+                [this](MenuContext &) -> bool {
+                    switch_alpine_mirror();
+                    return true;
+                }));
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
         return true;
     }
@@ -894,11 +950,11 @@ platform::local_time(&t, &tm_buf);
             std::string component;
         };
         std::vector<RepoEntry> repos = {
-            {"root", "root stable"},
-            {"x11", "x11 main"},
-            {"game", "games stable"},
-            {"science", "science stable"},
-            {"unstable", "unstable main"},
+                {"root",     "root stable"},
+                {"x11",      "x11 main"},
+                {"game",     "games stable"},
+                {"science",  "science stable"},
+                {"unstable", "unstable main"},
         };
 
         for (auto &r: repos) {
@@ -951,41 +1007,43 @@ platform::local_time(&t, &tm_buf);
 
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            _("termux.repo_title"), _("termux.repo_prompt"), "termux_repos");
+                _("termux.repo_title"), _("termux.repo_prompt"), "termux_repos");
 
         std::string repos[] = {"", "root", "x11", "game", "science", "unstable"};
         std::string labels[] = {"", _("termux.repo_root"), _("termux.repo_x11"),
-                                   _("termux.repo_game"), _("termux.repo_science"),
-                                   _("termux.repo_unstable")};
+                                _("termux.repo_game"), _("termux.repo_science"),
+                                _("termux.repo_unstable")};
 
         for (int i = 1; i <= 5; ++i) {
             std::string repo = repos[i];
             menu->add_child(std::make_shared<LambdaAction>(
-                labels[i], std::to_string(i),
-                [this, repo](MenuContext&) -> bool {
-                    std::string action = cfg_.tui_bin + " --title \"" + _f("termux.repo_toggle_title", repo) + "\" "
-                                         "--yesno \"" + _f("termux.repo_toggle_confirm", repo) + "\" 0 50 "
-                                         "--yes-button \"" + _("termux.btn_enable") + "\" --no-button \"" + _("termux.btn_disable")
-                                         + "\"";
+                    labels[i], std::to_string(i),
+                    [this, repo](MenuContext &) -> bool {
+                        std::string action = cfg_.tui_bin + " --title \"" + _f("termux.repo_toggle_title", repo) + "\" "
+                                                                                                                   "--yesno \"" +
+                                             _f("termux.repo_toggle_confirm", repo) + "\" 0 50 "
+                                                                                      "--yes-button \"" +
+                                             _("termux.btn_enable") + "\" --no-button \"" + _("termux.btn_disable")
+                                             + "\"";
 
-                    if (Executor::shell(action).ok()) {
-                        Logger::step(_f("termux.enabling_repo", repo));
-                        PackageManager::update(DistroFamily::Debian);
-                        PackageManager::install(repo + "-repo", DistroFamily::Debian);
-                        PackageManager::update(DistroFamily::Debian);
-                        Logger::ok(_f("termux.repo_enabled", repo));
-                    } else {
-                        Logger::step(_f("termux.disabling_repo", repo));
-                        PackageManager::remove(repo + "-repo", DistroFamily::Debian);
-                        PackageManager::update(DistroFamily::Debian);
-                        Logger::ok(_f("termux.repo_disabled", repo));
-                    }
-                    return true;
-                }));
+                        if (Executor::shell(action).ok()) {
+                            Logger::step(_f("termux.enabling_repo", repo));
+                            PackageManager::update(DistroFamily::Debian);
+                            PackageManager::install(repo + "-repo", DistroFamily::Debian);
+                            PackageManager::update(DistroFamily::Debian);
+                            Logger::ok(_f("termux.repo_enabled", repo));
+                        } else {
+                            Logger::step(_f("termux.disabling_repo", repo));
+                            PackageManager::remove(repo + "-repo", DistroFamily::Debian);
+                            PackageManager::update(DistroFamily::Debian);
+                            Logger::ok(_f("termux.repo_disabled", repo));
+                        }
+                        return true;
+                    }));
         }
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
     }
 
@@ -1006,11 +1064,11 @@ platform::local_time(&t, &tm_buf);
         };
 
         std::vector<MirrorTest> mirrors = {
-            {"BFSU (北外)", "https://mirrors.bfsu.edu.cn/termux/apt/termux-main/pool/main/c/clang/"},
-            {"Tencent (腾讯云)", "https://mirrors.cloud.tencent.com/termux/apt/termux-main/pool/main/c/clang/"},
-            {"Tsinghua (清华)", "https://mirrors.tuna.tsinghua.edu.cn/termux/apt/termux-main/pool/main/c/clang/"},
-            {"USTC (中科大)", "https://mirrors.ustc.edu.cn/termux/apt/termux-main/pool/main/c/clang/"},
-            {"Official (官方)", "https://packages.termux.dev/apt/termux-main/pool/main/c/clang/"},
+                {"BFSU (北外)",      "https://mirrors.bfsu.edu.cn/termux/apt/termux-main/pool/main/c/clang/"},
+                {"Tencent (腾讯云)", "https://mirrors.cloud.tencent.com/termux/apt/termux-main/pool/main/c/clang/"},
+                {"Tsinghua (清华)",  "https://mirrors.tuna.tsinghua.edu.cn/termux/apt/termux-main/pool/main/c/clang/"},
+                {"USTC (中科大)",    "https://mirrors.ustc.edu.cn/termux/apt/termux-main/pool/main/c/clang/"},
+                {"Official (官方)",  "https://packages.termux.dev/apt/termux-main/pool/main/c/clang/"},
         };
 
         Logger::info(_("termux.speedtest_header_speed"));
@@ -1022,7 +1080,7 @@ platform::local_time(&t, &tm_buf);
         for (auto &m: mirrors) {
             // 获取最新 clang .deb 文件名
             auto deb_name_result = Executor::shell(
-                "curl -sL " + m.url + " | grep -oP 'clang_[^\"]*\\.deb' | head -1");
+                    "curl -sL " + m.url + " | grep -oP 'clang_[^\"]*\\.deb' | head -1");
 
             std::string deb_name = deb_name_result.stdout_data;
             trim_newline(deb_name);
@@ -1036,11 +1094,12 @@ platform::local_time(&t, &tm_buf);
 
             // 使用 aria2c 下载测速
             auto speed = Executor::shell(
-                "aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
-                "--max-connection-per-server=1 --split=1 "
-                "--dir=" + temp_dir + " "
-                "--out=\".speed_test_" + m.name + "\" "
-                "\"" + full_url + "\" 2>&1 | grep -oP 'DL:\\K[0-9.]+[KM]?iB/s' | tail -1");
+                    "aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
+                    "--max-connection-per-server=1 --split=1 "
+                    "--dir=" + temp_dir + " "
+                                          "--out=\".speed_test_" + m.name + "\" "
+                                                                            "\"" + full_url +
+                    "\" 2>&1 | grep -oP 'DL:\\K[0-9.]+[KM]?iB/s' | tail -1");
 
             std::string speed_str = speed.stdout_data;
             trim_newline(speed_str);
@@ -1102,7 +1161,8 @@ platform::local_time(&t, &tm_buf);
         if (!cfg_.is_termux) return;
 
         std::string confirm = cfg_.tui_bin + " --title \"" + _("termux.restore_default_title") + "\" "
-                              "--yesno \"" + _("termux.restore_default_confirm") + "\" 0 50";
+                                                                                                 "--yesno \"" +
+                              _("termux.restore_default_confirm") + "\" 0 50";
         if (!Executor::shell(confirm).ok()) return;
 
         Logger::step(_("termux.restoring_default_sources"));
@@ -1152,7 +1212,8 @@ platform::local_time(&t, &tm_buf);
 
         // 扩展菜单
         std::string ask = cfg_.tui_bin + " --title \"" + _("termux.signal9_detect_title") + "\" "
-                          "--yesno \"" + _("termux.signal9_detect_yesno") + "\" 0 50";
+                                                                                            "--yesno \"" +
+                          _("termux.signal9_detect_yesno") + "\" 0 50";
         if (!Executor::shell(ask).ok()) {
             Logger::info(_("termux.signal9_skip"));
             return true;
@@ -1161,44 +1222,51 @@ platform::local_time(&t, &tm_buf);
         // 增强菜单
         using namespace tmoe::ui;
         auto fix_menu = make_plugin_menu(
-            _("termux.signal9_fix_title"), _("termux.signal9_fix_prompt"), "termux_signal9");
+                _("termux.signal9_fix_title"), _("termux.signal9_fix_prompt"), "termux_signal9");
 
         fix_menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.signal9_adb_fix"), "1",
-            [this](MenuContext&) -> bool { return connect_adb_and_fix(); }));
+                _("termux.signal9_adb_fix"), "1",
+                [this](MenuContext &) -> bool { return connect_adb_and_fix(); }));
         fix_menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.signal9_samsung"), "2",
-            [this](MenuContext&) -> bool {
-                set_samsung_adb_comp_mode();
-                return connect_adb_and_fix();
-            }));
+                _("termux.signal9_samsung"), "2",
+                [this](MenuContext &) -> bool {
+                    set_samsung_adb_comp_mode();
+                    return connect_adb_and_fix();
+                }));
         fix_menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.signal9_adb_pair"), "3",
-            [this](MenuContext&) -> bool {
-                if (adb_pair_and_connect_flow()) {
-                    return execute_max_phantom_fix("");
-                }
-                return true;
-            }));
+                _("termux.signal9_adb_pair"), "3",
+                [this](MenuContext &) -> bool {
+                    if (adb_pair_and_connect_flow()) {
+                        return execute_max_phantom_fix("");
+                    }
+                    return true;
+                }));
         fix_menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.signal9_adb_port"), "4",
-            [this](MenuContext&) -> bool { select_adb_port(); return true; }));
+                _("termux.signal9_adb_port"), "4",
+                [this](MenuContext &) -> bool {
+                    select_adb_port();
+                    return true;
+                }));
         fix_menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.signal9_verify"), "5",
-            [this](MenuContext&) -> bool { verify_signal9_fix(); return true; }));
+                _("termux.signal9_verify"), "5",
+                [this](MenuContext &) -> bool {
+                    verify_signal9_fix();
+                    return true;
+                }));
         fix_menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.signal9_manual"), "6",
-            [](MenuContext&) -> bool {
-                Logger::info(_("termux.signal9_manual_cmd_title"));
-                Logger::info(
-                    "adb shell \"/system/bin/device_config put activity_manager max_phantom_processes 2147483647\"");
-                Logger::info("adb shell \"/system/bin/settings put global settings_enable_monitor_phantom_procs false\"");
-                Logger::info("adb shell \"/system/bin/device_config set_sync_disabled_for_tests persistent\"");
-                return true;
-            }));
+                _("termux.signal9_manual"), "6",
+                [](MenuContext &) -> bool {
+                    Logger::info(_("termux.signal9_manual_cmd_title"));
+                    Logger::info(
+                            "adb shell \"/system/bin/device_config put activity_manager max_phantom_processes 2147483647\"");
+                    Logger::info(
+                            "adb shell \"/system/bin/settings put global settings_enable_monitor_phantom_procs false\"");
+                    Logger::info("adb shell \"/system/bin/device_config set_sync_disabled_for_tests persistent\"");
+                    return true;
+                }));
 
         add_sandwich_nav(fix_menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(fix_menu);
         return true;
     }
@@ -1223,7 +1291,8 @@ platform::local_time(&t, &tm_buf);
         if (is_samsung_device()) {
             Logger::warn(_("termux.samsung_detected"));
             std::string samsung_ask = cfg_.tui_bin + " --title \"" + _("termux.samsung_title") + "\" "
-                                      "--yesno \"" + _("termux.samsung_yesno") + "\" 0 50";
+                                                                                                 "--yesno \"" +
+                                      _("termux.samsung_yesno") + "\" 0 50";
             if (Executor::shell(samsung_ask).ok()) {
                 set_samsung_adb_comp_mode();
             }
@@ -1232,59 +1301,61 @@ platform::local_time(&t, &tm_buf);
         // 3. 连接方式选择
         using namespace tmoe::ui;
         auto adb_method_menu = make_plugin_menu(
-            _("termux.adb_connect_title"), _("termux.adb_connect_prompt"), "termux_adb_connect");
+                _("termux.adb_connect_title"), _("termux.adb_connect_prompt"), "termux_adb_connect");
 
         std::string adb_target;
         bool skip_fix = false;
 
         adb_method_menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.adb_wireless_pair"), "1",
-            [this](MenuContext&) -> bool {
-                adb_pair_and_connect_flow();
-                int count = count_adb_devices();
-                if (count <= 0) {
-                    Logger::warn(_("termux.adb_no_device"));
-                }
-                return true;
-            }));
+                _("termux.adb_wireless_pair"), "1",
+                [this](MenuContext &) -> bool {
+                    adb_pair_and_connect_flow();
+                    int count = count_adb_devices();
+                    if (count <= 0) {
+                        Logger::warn(_("termux.adb_no_device"));
+                    }
+                    return true;
+                }));
         adb_method_menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.adb_direct"), "2",
-            [this, &adb_target](MenuContext&) -> bool {
-                std::string conn_cmd = cfg_.tui_bin + " --title \"" + _("termux.adb_addr_title") + "\" "
-                                       "--inputbox \"" + _("termux.adb_addr_input") + "\" 0 50";
-                adb_target = Executor::tui_select(conn_cmd);
-                if (!adb_target.empty()) {
-                    Logger::step(_f("termux.adb_connecting", adb_target));
-                    Executor::shell("adb connect " + adb_target);
-                }
-                return true;
-            }));
+                _("termux.adb_direct"), "2",
+                [this, &adb_target](MenuContext &) -> bool {
+                    std::string conn_cmd = cfg_.tui_bin + " --title \"" + _("termux.adb_addr_title") + "\" "
+                                                                                                       "--inputbox \"" +
+                                           _("termux.adb_addr_input") + "\" 0 50";
+                    adb_target = Executor::tui_select(conn_cmd);
+                    if (!adb_target.empty()) {
+                        Logger::step(_f("termux.adb_connecting", adb_target));
+                        Executor::shell("adb connect " + adb_target);
+                    }
+                    return true;
+                }));
         adb_method_menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.adb_usb"), "3",
-            [](MenuContext&) -> bool {
-                Logger::info(_("termux.adb_usb_hint"));
-                return true;
-            }));
+                _("termux.adb_usb"), "3",
+                [](MenuContext &) -> bool {
+                    Logger::info(_("termux.adb_usb_hint"));
+                    return true;
+                }));
         adb_method_menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.adb_list_devices"), "4",
-            [](MenuContext&) -> bool {
-                Executor::shell("adb devices -l");
-                Logger::info(_("termux.adb_check_device_status"));
-                return true;
-            }));
+                _("termux.adb_list_devices"), "4",
+                [](MenuContext &) -> bool {
+                    Executor::shell("adb devices -l");
+                    Logger::info(_("termux.adb_check_device_status"));
+                    return true;
+                }));
         adb_method_menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.adb_skip"), "5",
-            [&skip_fix](MenuContext&) -> bool {
-                Logger::info(_("termux.signal9_manual_cmd_title"));
-                Logger::info(
-                    "adb shell \"/system/bin/device_config put activity_manager max_phantom_processes 2147483647\"");
-                Logger::info("adb shell \"/system/bin/settings put global settings_enable_monitor_phantom_procs false\"");
-                skip_fix = true;
-                return true;
-            }));
+                _("termux.adb_skip"), "5",
+                [&skip_fix](MenuContext &) -> bool {
+                    Logger::info(_("termux.signal9_manual_cmd_title"));
+                    Logger::info(
+                            "adb shell \"/system/bin/device_config put activity_manager max_phantom_processes 2147483647\"");
+                    Logger::info(
+                            "adb shell \"/system/bin/settings put global settings_enable_monitor_phantom_procs false\"");
+                    skip_fix = true;
+                    return true;
+                }));
 
         add_sandwich_nav(adb_method_menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(adb_method_menu);
 
         if (skip_fix) return true;
@@ -1325,7 +1396,7 @@ platform::local_time(&t, &tm_buf);
 
         // 修复前验证 (if possible)
         auto before = Executor::shell(
-            adb_prefix + " shell dumpsys activity settings 2>/dev/null | grep max_phantom_processes");
+                adb_prefix + " shell dumpsys activity settings 2>/dev/null | grep max_phantom_processes");
         if (before.ok() && !before.stdout_data.empty()) {
             Logger::info(_f("termux.signal9_before_state", before.stdout_data));
         }
@@ -1333,24 +1404,24 @@ platform::local_time(&t, &tm_buf);
         // 命令 1: 设置最大 phantom 进程数为 2147483647
         Logger::step(_("termux.signal9_set_max_phantom"));
         Executor::shell(
-            adb_prefix +
-            " shell \"/system/bin/device_config put activity_manager max_phantom_processes 2147483647\" 2>/dev/null; true");
+                adb_prefix +
+                " shell \"/system/bin/device_config put activity_manager max_phantom_processes 2147483647\" 2>/dev/null; true");
 
         // 命令 2: 禁用 phantom 进程监控
         Logger::step(_("termux.signal9_disable_monitor"));
         Executor::shell(
-            adb_prefix +
-            " shell \"/system/bin/settings put global settings_enable_monitor_phantom_procs false\" 2>/dev/null; true");
+                adb_prefix +
+                " shell \"/system/bin/settings put global settings_enable_monitor_phantom_procs false\" 2>/dev/null; true");
 
         // 命令 3: 持久化 (set_sync_disabled_for_tests)
         Logger::step(_("termux.signal9_persist_settings"));
         Executor::shell(
-            adb_prefix +
-            " shell \"/system/bin/device_config set_sync_disabled_for_tests persistent\" 2>/dev/null; true");
+                adb_prefix +
+                " shell \"/system/bin/device_config set_sync_disabled_for_tests persistent\" 2>/dev/null; true");
 
         // 修复后验证
         auto after = Executor::shell(
-            adb_prefix + " shell dumpsys activity settings 2>/dev/null | grep max_phantom_processes");
+                adb_prefix + " shell dumpsys activity settings 2>/dev/null | grep max_phantom_processes");
         if (after.ok() && !after.stdout_data.empty()) {
             Logger::ok(_f("termux.signal9_after_state", after.stdout_data));
         } else {
@@ -1374,23 +1445,35 @@ platform::local_time(&t, &tm_buf);
 
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            _("termux.disk_title"), _("termux.disk_prompt"), "termux_disk");
+                _("termux.disk_title"), _("termux.disk_prompt"), "termux_disk");
 
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.disk_dir_ranking"), "1",
-            [this](MenuContext&) -> bool { show_termux_dir_usage(); return true; }));
+                _("termux.disk_dir_ranking"), "1",
+                [this](MenuContext &) -> bool {
+                    show_termux_dir_usage();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.disk_large_files"), "2",
-            [this](MenuContext&) -> bool { show_termux_large_files(); return true; }));
+                _("termux.disk_large_files"), "2",
+                [this](MenuContext &) -> bool {
+                    show_termux_large_files();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.disk_sdcard"), "3",
-            [this](MenuContext&) -> bool { show_sdcard_usage(); return true; }));
+                _("termux.disk_sdcard"), "3",
+                [this](MenuContext &) -> bool {
+                    show_sdcard_usage();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.disk_overall"), "4",
-            [this](MenuContext&) -> bool { show_overall_disk_usage(); return true; }));
+                _("termux.disk_overall"), "4",
+                [this](MenuContext &) -> bool {
+                    show_overall_disk_usage();
+                    return true;
+                }));
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
     }
 
@@ -1426,8 +1509,8 @@ platform::local_time(&t, &tm_buf);
 
         std::string prefix = std::getenv("PREFIX") ? std::getenv("PREFIX") : "/data/data/com.termux/files";
         Executor::shell(
-            "cd " + prefix +
-            " && find ./ -type f -print0 2>/dev/null | xargs -0 du 2>/dev/null | sort -n | tail -30 | cut -f2 | xargs -I{} du -sh {} 2>/dev/null");
+                "cd " + prefix +
+                " && find ./ -type f -print0 2>/dev/null | xargs -0 du 2>/dev/null | sort -n | tail -30 | cut -f2 | xargs -I{} du -sh {} 2>/dev/null");
 
         Logger::ok(_("termux.disk_file_query_done"));
     }
@@ -1445,7 +1528,7 @@ platform::local_time(&t, &tm_buf);
 
         Logger::info(_("termux.disk_sdcard_file_top30"));
         Executor::shell(
-            "cd /sdcard && find ./ -type f -print0 2>/dev/null | xargs -0 du 2>/dev/null | sort -n | tail -30 | cut -f2 | xargs -I{} du -sh {} 2>/dev/null");
+                "cd /sdcard && find ./ -type f -print0 2>/dev/null | xargs -0 du 2>/dev/null | sort -n | tail -30 | cut -f2 | xargs -I{} du -sh {} 2>/dev/null");
 
         Logger::ok(_("termux.disk_sdcard_query_done"));
     }
@@ -1484,7 +1567,8 @@ platform::local_time(&t, &tm_buf);
                 std::string tar_file = cfg_.temp_dir.string() + "/libpopt.tar.gz";
 
                 CommandBuilder("curl").add_flag("-Lo").add_arg(tar_file).add_arg(uri).execute();
-                CommandBuilder("tar").add_flag("-zxvf").add_arg(tar_file).add_arg("-C").add_arg(cfg_.work_dir.string()).execute();
+                CommandBuilder("tar").add_flag("-zxvf").add_arg(tar_file).add_arg("-C").add_arg(
+                        cfg_.work_dir.string()).execute();
                 CommandBuilder("rm").add_flag("-f").add_arg(tar_file).execute();
             }
 
@@ -1511,52 +1595,75 @@ platform::local_time(&t, &tm_buf);
     void TermuxManager::termux_color_scheme_menu() {
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            _("termux.color_title"), _("termux.color_prompt"), "termux_color");
+                _("termux.color_title"), _("termux.color_prompt"), "termux_color");
 
-        auto download_color = [](const std::string& color_file) {
+        auto download_color = [](const std::string &color_file) {
             Logger::step(_f("termux.color_downloading", color_file));
             std::string url = "https://raw.githubusercontent.com/2cd/zsh/master/share/colors/" + color_file;
-            std::string dest = std::string(std::getenv("HOME") ? std::getenv("HOME") : "/data/data/com.termux/files/home")
-                               + "/.termux/colors.properties";
+            std::string dest =
+                    std::string(std::getenv("HOME") ? std::getenv("HOME") : "/data/data/com.termux/files/home")
+                    + "/.termux/colors.properties";
             CommandBuilder("curl").add_flag("-L").add_flag("-o").add_arg(dest).add_arg(url).execute();
         };
 
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.color_neon"), "1",
-            [download_color](MenuContext&) -> bool { download_color("neon"); return true; }));
+                _("termux.color_neon"), "1",
+                [download_color](MenuContext &) -> bool {
+                    download_color("neon");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.color_monokai"), "2",
-            [download_color](MenuContext&) -> bool { download_color("monokai.dark"); return true; }));
+                _("termux.color_monokai"), "2",
+                [download_color](MenuContext &) -> bool {
+                    download_color("monokai.dark");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.color_material"), "3",
-            [download_color](MenuContext&) -> bool { download_color("material"); return true; }));
+                _("termux.color_material"), "3",
+                [download_color](MenuContext &) -> bool {
+                    download_color("material");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.color_bright"), "4",
-            [download_color](MenuContext&) -> bool { download_color("bright.light"); return true; }));
+                _("termux.color_bright"), "4",
+                [download_color](MenuContext &) -> bool {
+                    download_color("bright.light");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.color_materia"), "5",
-            [download_color](MenuContext&) -> bool { download_color("materia"); return true; }));
+                _("termux.color_materia"), "5",
+                [download_color](MenuContext &) -> bool {
+                    download_color("materia");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.color_miu"), "6",
-            [download_color](MenuContext&) -> bool { download_color("miu"); return true; }));
+                _("termux.color_miu"), "6",
+                [download_color](MenuContext &) -> bool {
+                    download_color("miu");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.color_wildcherry"), "7",
-            [download_color](MenuContext&) -> bool { download_color("wild.cherry"); return true; }));
+                _("termux.color_wildcherry"), "7",
+                [download_color](MenuContext &) -> bool {
+                    download_color("wild.cherry");
+                    return true;
+                }));
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
     }
 
     void TermuxManager::termux_font_menu() {
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            _("termux.font_title"), _("termux.font_prompt"), "termux_font");
+                _("termux.font_title"), _("termux.font_prompt"), "termux_font");
 
-        auto download_font = [](const std::string& font_path) {
+        auto download_font = [](const std::string &font_path) {
             Logger::step(_("termux.font_downloading"));
-            std::string termux_dir = std::string(std::getenv("HOME") ? std::getenv("HOME") : "/data/data/com.termux/files/home")
-                                     + "/.termux";
+            std::string termux_dir =
+                    std::string(std::getenv("HOME") ? std::getenv("HOME") : "/data/data/com.termux/files/home")
+                    + "/.termux";
             std::string url = "https://gitee.com/ak2/" + font_path;
             std::string tar_file = termux_dir + "/font.tar.xz";
 
@@ -1566,44 +1673,44 @@ platform::local_time(&t, &tm_buf);
         };
 
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.font_inconsolata"), "1",
-            [download_font](MenuContext&) -> bool {
-                download_font("inconsolata-go-font/raw/master/inconsolatago.tar.xz");
-                return true;
-            }));
+                _("termux.font_inconsolata"), "1",
+                [download_font](MenuContext &) -> bool {
+                    download_font("inconsolata-go-font/raw/master/inconsolatago.tar.xz");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.font_iosevka"), "2",
-            [download_font](MenuContext&) -> bool {
-                download_font("inconsolata-go-font/raw/master/iosevka.tar.xz");
-                return true;
-            }));
+                _("termux.font_iosevka"), "2",
+                [download_font](MenuContext &) -> bool {
+                    download_font("inconsolata-go-font/raw/master/iosevka.tar.xz");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.font_iosevka_bold"), "3",
-            [download_font](MenuContext&) -> bool {
-                download_font("iosevka-italic-font/raw/master/font.tar.xz");
-                return true;
-            }));
+                _("termux.font_iosevka_bold"), "3",
+                [download_font](MenuContext &) -> bool {
+                    download_font("iosevka-italic-font/raw/master/font.tar.xz");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.font_iosevka_mono"), "4",
-            [download_font](MenuContext&) -> bool {
-                download_font("iosevka-term-mono/raw/master/font.tar.xz");
-                return true;
-            }));
+                _("termux.font_iosevka_mono"), "4",
+                [download_font](MenuContext &) -> bool {
+                    download_font("iosevka-term-mono/raw/master/font.tar.xz");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.font_fira"), "5",
-            [download_font](MenuContext&) -> bool {
-                download_font("fira-code/raw/master/font.tar.xz");
-                return true;
-            }));
+                _("termux.font_fira"), "5",
+                [download_font](MenuContext &) -> bool {
+                    download_font("fira-code/raw/master/font.tar.xz");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.font_fira_medium"), "6",
-            [download_font](MenuContext&) -> bool {
-                download_font("fira-code-medium/raw/master/font.tar.xz");
-                return true;
-            }));
+                _("termux.font_fira_medium"), "6",
+                [download_font](MenuContext &) -> bool {
+                    download_font("fira-code-medium/raw/master/font.tar.xz");
+                    return true;
+                }));
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
     }
 
@@ -1613,18 +1720,20 @@ platform::local_time(&t, &tm_buf);
 
         if (!fs::exists(prop_file) || Executor::shell("grep -q '# extra-keys-style = default' " + prop_file).ok()) {
             std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.keys_title") + "\" "
-                              "--yesno \"" + _("termux.keys_yesno") + "\" 10 50";
+                                                                                      "--yesno \"" +
+                              _("termux.keys_yesno") + "\" 10 50";
 
             if (Executor::shell(cmd).ok()) {
                 Logger::step(_("termux.keys_configuring"));
                 std::string url = "https://raw.githubusercontent.com/2cd/zsh/master/share/termux.properties";
                 std::string tmp_file = termux_dir + "/termux.properties.02";
 
-                if (fs::exists(prop_file)) CommandBuilder("cp").add_flag("-f").add_arg(prop_file).add_arg(prop_file + ".bak").execute();
+                if (fs::exists(prop_file))
+                    CommandBuilder("cp").add_flag("-f").add_arg(prop_file).add_arg(prop_file + ".bak").execute();
                 CommandBuilder("curl").add_flag("-L").add_flag("-o").add_arg(tmp_file).add_arg(url).execute();
 
                 Executor::shell(
-                    "sed -i -E 's@# (extra-keys-style)@#\\1@g;s@^[^#]@#&@g;1r " + tmp_file + "' " + prop_file);
+                        "sed -i -E 's@# (extra-keys-style)@#\\1@g;s@^[^#]@#&@g;1r " + tmp_file + "' " + prop_file);
 
                 if (!fs::exists(prop_file)) {
                     CommandBuilder("mv").add_flag("-f").add_arg(tmp_file).add_arg(prop_file).execute();
@@ -1672,7 +1781,7 @@ platform::local_time(&t, &tm_buf);
         // 清理旧配置并添加新配置
         Executor::shell("sudo sed -i '/auth-ip-acl/d;/module-native-protocol-tcp/d' " + pa_conf);
         Executor::shell(
-            "echo 'load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1' >> " + pa_conf);
+                "echo 'load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1' >> " + pa_conf);
 
         Logger::ok(_("termux.pa_tcp_configured"));
         return true;
@@ -1713,11 +1822,12 @@ platform::local_time(&t, &tm_buf);
 
         // 检测当前局域网音频状态
         bool lan_enabled = Executor::shell(
-            "grep -Eq '192\\.168\\.0\\.0/16.*172\\.16\\.0\\.0/12' " + pa_conf).ok();
+                "grep -Eq '192\\.168\\.0\\.0/16.*172\\.16\\.0\\.0/12' " + pa_conf).ok();
 
         std::string status_msg = lan_enabled ? _("termux.lan_audio_enabled") : _("termux.lan_audio_local_only");
         std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.lan_audio_title") + "\" "
-                          "--yesno \"" + _f("termux.lan_audio_yesno", status_msg) + "\" 12 60";
+                                                                                       "--yesno \"" +
+                          _f("termux.lan_audio_yesno", status_msg) + "\" 12 60";
 
         if (!Executor::shell(cmd).ok()) {
             Logger::info(_("termux.pa_lan_cancelled"));
@@ -1730,13 +1840,14 @@ platform::local_time(&t, &tm_buf);
         if (lan_enabled) {
             // 禁用局域网, 仅限 localhost
             Executor::shell(
-                "echo 'load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=0' >> " + pa_conf);
+                    "echo 'load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=0' >> " +
+                    pa_conf);
             Logger::ok(_("termux.pa_lan_disabled"));
         } else {
             // 启用局域网
             Executor::shell(
-                "echo 'load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1;192.168.0.0/16;172.16.0.0/12 auth-anonymous=1' >> "
-                + pa_conf);
+                    "echo 'load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1;192.168.0.0/16;172.16.0.0/12 auth-anonymous=1' >> "
+                    + pa_conf);
             Logger::ok(_("termux.pa_lan_enabled"));
         }
 
@@ -1762,13 +1873,13 @@ platform::local_time(&t, &tm_buf);
         Executor::shell("cd " + git_dir + " && git reset --hard origin/master 2>/dev/null || true");
 
         auto result = Executor::shell(
-            "cd " + git_dir + " && git pull --rebase --stat origin master --allow-unrelated-histories 2>&1");
+                "cd " + git_dir + " && git pull --rebase --stat origin master --allow-unrelated-histories 2>&1");
 
         if (!result.ok()) {
             Logger::warn(_("termux.self_update_rebase_failed"));
             Executor::shell("cd " + git_dir + " && git rebase --skip 2>/dev/null || true");
             result = Executor::shell(
-                "cd " + git_dir + " && git pull --rebase --stat origin master --allow-unrelated-histories 2>&1");
+                    "cd " + git_dir + " && git pull --rebase --stat origin master --allow-unrelated-histories 2>&1");
         }
 
         // termux-fix-shebang 修复脚本
@@ -1786,12 +1897,14 @@ platform::local_time(&t, &tm_buf);
 
             // 创建 tome 别名
             if (fs::exists("/data/data/com.termux/files/usr/bin/tmoe")) {
-                CommandBuilder("ln").add_flag("-sf").add_arg("tmoe").add_arg("/data/data/com.termux/files/usr/bin/tome").add_raw("2>/dev/null").execute();
+                CommandBuilder("ln").add_flag("-sf").add_arg("tmoe").add_arg(
+                        "/data/data/com.termux/files/usr/bin/tome").add_raw("2>/dev/null").execute();
             }
 
             // 修复 debian-i 符号链接
             if (fs::exists(cfg_.work_dir / "share/manager")) {
-                CommandBuilder("ln").add_flag("-sf").add_arg((cfg_.work_dir / "share/manager").string()).add_arg("/data/data/com.termux/files/usr/bin/debian-i").add_raw("2>/dev/null").execute();
+                CommandBuilder("ln").add_flag("-sf").add_arg((cfg_.work_dir / "share/manager").string()).add_arg(
+                        "/data/data/com.termux/files/usr/bin/debian-i").add_raw("2>/dev/null").execute();
             }
         }
 
@@ -1858,9 +1971,11 @@ platform::local_time(&t, &tm_buf);
                 Logger::error(_f("termux.android_old_version", version));
                 Logger::error(_("termux.android_old_format_hint"));
                 std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.android_version_title") + "\" "
-                                  "--yesno \"" + _f("termux.android_version_yesno", version) + "\" 10 50 "
-                                  "--yes-button \"" + _("termux.android_use_old") + "\" --no-button \"" + _(
-                                      "termux.btn_cancel") + "\"";
+                                                                                                     "--yesno \"" +
+                                  _f("termux.android_version_yesno", version) + "\" 10 50 "
+                                                                                "--yes-button \"" +
+                                  _("termux.android_use_old") + "\" --no-button \"" + _(
+                                          "termux.btn_cancel") + "\"";
 
                 if (Executor::shell(cmd).ok()) {
                     use_old_mirror_format("https://mirrors.tuna.tsinghua.edu.cn/termux");
@@ -1910,27 +2025,30 @@ platform::local_time(&t, &tm_buf);
 
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            _("termux.alpine_mirror_title"), _("termux.alpine_mirror_prompt"), "termux_alpine_mirror");
+                _("termux.alpine_mirror_title"), _("termux.alpine_mirror_prompt"), "termux_alpine_mirror");
 
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.alpine_tuna"), "1",
-            [apk_repos](MenuContext&) -> bool {
-                CommandBuilder("cp").add_arg(apk_repos).add_arg(apk_repos + ".bak").add_raw("2>/dev/null").execute();
-                Executor::shell(
-                    "sed -i 's|http[s]*://[^/]*/alpine|https://mirrors.tuna.tsinghua.edu.cn/alpine|g' " + apk_repos);
-                Logger::ok(_("termux.alpine_mirror_switched_tuna"));
-                return true;
-            }));
+                _("termux.alpine_tuna"), "1",
+                [apk_repos](MenuContext &) -> bool {
+                    CommandBuilder("cp").add_arg(apk_repos).add_arg(apk_repos + ".bak").add_raw(
+                            "2>/dev/null").execute();
+                    Executor::shell(
+                            "sed -i 's|http[s]*://[^/]*/alpine|https://mirrors.tuna.tsinghua.edu.cn/alpine|g' " +
+                            apk_repos);
+                    Logger::ok(_("termux.alpine_mirror_switched_tuna"));
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.alpine_official"), "2",
-            [apk_repos](MenuContext&) -> bool {
-                Executor::shell("sudo sed -i 's|http[s]*://[^/]*/alpine|https://dl-cdn.alpinelinux.org/alpine|g' " + apk_repos);
-                Logger::ok(_("termux.alpine_mirror_restored_official"));
-                return true;
-            }));
+                _("termux.alpine_official"), "2",
+                [apk_repos](MenuContext &) -> bool {
+                    Executor::shell("sudo sed -i 's|http[s]*://[^/]*/alpine|https://dl-cdn.alpinelinux.org/alpine|g' " +
+                                    apk_repos);
+                    Logger::ok(_("termux.alpine_mirror_restored_official"));
+                    return true;
+                }));
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
     }
 
@@ -1949,38 +2067,40 @@ platform::local_time(&t, &tm_buf);
         if (fs::exists("/etc/apt/sources.list")) {
             using namespace tmoe::ui;
             auto menu = make_plugin_menu(
-                _("termux.linux_mirror_title"), _("termux.linux_mirror_prompt"), "termux_linux_mirror");
+                    _("termux.linux_mirror_title"), _("termux.linux_mirror_prompt"), "termux_linux_mirror");
 
             menu->add_child(std::make_shared<LambdaAction>(
-                _("termux.linux_mirror_tuna"), "1",
-                [mirror_url](MenuContext&) -> bool {
-                    CommandBuilder("cp").add_arg("/etc/apt/sources.list").add_arg("/etc/apt/sources.list.bak").add_raw("2>/dev/null").execute();
-                    Executor::shell("sudo sed -i 's|http[s]*://[^/]*/|" + mirror_url + "/|g' /etc/apt/sources.list");
-                    Logger::ok(_("termux.linux_mirror_switched_tuna"));
-                    return true;
-                }));
+                    _("termux.linux_mirror_tuna"), "1",
+                    [mirror_url](MenuContext &) -> bool {
+                        CommandBuilder("cp").add_arg("/etc/apt/sources.list").add_arg(
+                                "/etc/apt/sources.list.bak").add_raw("2>/dev/null").execute();
+                        Executor::shell(
+                                "sudo sed -i 's|http[s]*://[^/]*/|" + mirror_url + "/|g' /etc/apt/sources.list");
+                        Logger::ok(_("termux.linux_mirror_switched_tuna"));
+                        return true;
+                    }));
             menu->add_child(std::make_shared<LambdaAction>(
-                _("termux.linux_mirror_restore"), "2",
-                [](MenuContext&) -> bool {
-                    if (fs::exists("/etc/apt/sources.list.bak")) {
-                        Executor::shell("sudo cp /etc/apt/sources.list.bak /etc/apt/sources.list");
-                        Logger::ok(_("termux.linux_mirror_restored"));
-                    } else {
-                        Logger::warn(_("termux.linux_mirror_no_backup"));
-                    }
-                    return true;
-                }));
+                    _("termux.linux_mirror_restore"), "2",
+                    [](MenuContext &) -> bool {
+                        if (fs::exists("/etc/apt/sources.list.bak")) {
+                            Executor::shell("sudo cp /etc/apt/sources.list.bak /etc/apt/sources.list");
+                            Logger::ok(_("termux.linux_mirror_restored"));
+                        } else {
+                            Logger::warn(_("termux.linux_mirror_no_backup"));
+                        }
+                        return true;
+                    }));
             menu->add_child(std::make_shared<LambdaAction>(
-                _("termux.linux_mirror_backup"), "3",
-                [](MenuContext&) -> bool {
-                    Executor::shell(
-                        "tar -PJcvf /tmp/sources-list_deb_bak.tar.xz /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null");
-                    Logger::ok(_f("termux.linux_mirror_backup_done", "/tmp/sources-list_deb_bak.tar.xz"));
-                    return true;
-                }));
+                    _("termux.linux_mirror_backup"), "3",
+                    [](MenuContext &) -> bool {
+                        Executor::shell(
+                                "tar -PJcvf /tmp/sources-list_deb_bak.tar.xz /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null");
+                        Logger::ok(_f("termux.linux_mirror_backup_done", "/tmp/sources-list_deb_bak.tar.xz"));
+                        return true;
+                    }));
 
             add_sandwich_nav(menu);
-            MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+            MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
             MenuEngine(ctx).run(menu);
         }
 
@@ -2040,7 +2160,8 @@ platform::local_time(&t, &tm_buf);
         Logger::step(_("termux.adb_pair_connect_starting"));
 
         std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.adb_wireless_title") + "\" "
-                          "--inputbox \"" + _("termux.adb_wireless_input") + R"(" 0 50 "")";
+                                                                                          "--inputbox \"" +
+                          _("termux.adb_wireless_input") + R"(" 0 50 "")";
 
         std::string addr = Executor::tui_select(cmd);
         if (addr.empty()) {
@@ -2050,7 +2171,8 @@ platform::local_time(&t, &tm_buf);
 
         // 阶段 1: 配对
         std::string pair_cmd = cfg_.tui_bin + " --title \"" + _("termux.adb_pair_title") + "\" "
-                               "--inputbox \"" + _f("termux.adb_pair_input", addr) + R"(" 0 50 "")";
+                                                                                           "--inputbox \"" +
+                               _f("termux.adb_pair_input", addr) + R"(" 0 50 "")";
 
         std::string pair_code = Executor::tui_select(pair_cmd);
 
@@ -2065,7 +2187,8 @@ platform::local_time(&t, &tm_buf);
 
         // 阶段 2: 连接 (地址可能不同)
         std::string connect_cmd = cfg_.tui_bin + " --title \"" + _("termux.adb_connect2_title") + "\" "
-                                  "--inputbox \"" + _f("termux.adb_connect2_input", addr) + "\" 0 50 \"" + addr + "\"";
+                                                                                                  "--inputbox \"" +
+                                  _f("termux.adb_connect2_input", addr) + "\" 0 50 \"" + addr + "\"";
 
         std::string connect_addr = Executor::tui_select(connect_cmd);
         if (connect_addr.empty()) {
@@ -2090,7 +2213,8 @@ platform::local_time(&t, &tm_buf);
         Logger::step(_("termux.adb_port_configuring"));
 
         std::string cmd = cfg_.tui_bin + " --title \"" + _("termux.adb_port_title") + "\" "
-                          "--inputbox \"" + _("termux.adb_port_input") + "\" 0 50 \"5037\"";
+                                                                                      "--inputbox \"" +
+                          _("termux.adb_port_input") + "\" 0 50 \"5037\"";
 
         std::string port_str = Executor::tui_select(cmd);
         if (port_str.empty()) return false;
@@ -2139,7 +2263,7 @@ platform::local_time(&t, &tm_buf);
             // 多设备时列出选择
             auto devices = Executor::shell("adb devices 2>/dev/null | grep -v 'List' | grep 'device$'");
             std::vector<std::string> device_ids;
-            for (auto& line : split(devices.stdout_data, '\n')) {
+            for (auto &line: split(devices.stdout_data, '\n')) {
                 size_t tab = line.find('\t');
                 if (tab != std::string::npos) {
                     device_ids.push_back(line.substr(0, tab));
@@ -2159,7 +2283,7 @@ platform::local_time(&t, &tm_buf);
 
         // 使用 dumpsys 验证
         auto result = Executor::shell(
-            adb_target + " dumpsys activity settings 2>/dev/null | grep max_phantom_processes");
+                adb_target + " dumpsys activity settings 2>/dev/null | grep max_phantom_processes");
         std::string output = result.stdout_data;
         trim_newline(output);
 
@@ -2193,7 +2317,7 @@ platform::local_time(&t, &tm_buf);
 
         Logger::step(_("termux.gui_starting_vnc_viewer"));
         Executor::shell(
-            "am start -n com.realvnc.viewer.android/com.realvnc.viewer.android.app.ConnectionChooserActivity 2>/dev/null");
+                "am start -n com.realvnc.viewer.android/com.realvnc.viewer.android.app.ConnectionChooserActivity 2>/dev/null");
         Logger::info(_("termux.gui_vnc_viewer_hint"));
     }
 
@@ -2265,8 +2389,8 @@ platform::local_time(&t, &tm_buf);
         Logger::info(_("termux.gui_linux_fallback"));
         Logger::step(_("termux.gui_downloading_external_tool"));
         Executor::shell(
-            "bash -c \"$(curl -L https://gitee.com/mo2/linux/raw/2/2)\" --install-gui "
-            "|| bash -c \"$(curl -L https://raw.githubusercontent.com/2cd/linux/2/2)\" --install-gui");
+                "bash -c \"$(curl -L https://gitee.com/mo2/linux/raw/2/2)\" --install-gui "
+                "|| bash -c \"$(curl -L https://raw.githubusercontent.com/2cd/linux/2/2)\" --install-gui");
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -2283,8 +2407,8 @@ platform::local_time(&t, &tm_buf);
         } else {
             // 手动卸载常见挂载点
             std::vector<std::string> mount_points = {
-                "/data/data/com.termux/files/usr/tmp/.tmoe/containers",
-                "/data/data/com.termux/files/home/.tmoe/linux"
+                    "/data/data/com.termux/files/usr/tmp/.tmoe/containers",
+                    "/data/data/com.termux/files/home/.tmoe/linux"
             };
             for (auto &mp: mount_points) {
                 Executor::shell("umount -l " + mp + " 2>/dev/null");
@@ -2300,46 +2424,46 @@ platform::local_time(&t, &tm_buf);
 
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            _("termux.timeshift_title"), _("termux.timeshift_prompt"), "termux_timeshift");
+                _("termux.timeshift_title"), _("termux.timeshift_prompt"), "termux_timeshift");
 
         menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.timeshift_install"), "1",
-            [family](MenuContext&) -> bool {
-                Logger::step(_("termux.timeshift_installing_now"));
-                PackageManager::install("timeshift", family);
-                if (Executor::has("timeshift")) {
-                    Logger::ok(_("termux.timeshift_install_ok"));
-                } else {
-                    Logger::error(_("termux.timeshift_install_failed"));
-                }
-                return true;
-            }));
-        menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.timeshift_create"), "2",
-            [family](MenuContext&) -> bool {
-                if (!Executor::has("timeshift")) {
-                    Logger::step(_("termux.timeshift_not_installed_yet"));
+                _("termux.timeshift_install"), "1",
+                [family](MenuContext &) -> bool {
+                    Logger::step(_("termux.timeshift_installing_now"));
                     PackageManager::install("timeshift", family);
-                }
-                Logger::step(_("termux.timeshift_creating_snapshot"));
-                Executor::shell("sudo timeshift --create --comments \"tmoe-linux auto backup\"");
-                Logger::ok(_("termux.timeshift_snapshot_ok"));
-                return true;
-            }));
-        menu->add_child(std::make_shared<LambdaAction>(
-            _("termux.timeshift_restore"), "3",
-            [family](MenuContext&) -> bool {
-                if (!Executor::has("timeshift")) {
-                    Logger::error(_("termux.timeshift_not_installed"));
+                    if (Executor::has("timeshift")) {
+                        Logger::ok(_("termux.timeshift_install_ok"));
+                    } else {
+                        Logger::error(_("termux.timeshift_install_failed"));
+                    }
                     return true;
-                }
-                Logger::warn(_("termux.timeshift_restore_warning"));
-                Executor::shell("sudo timeshift --restore");
-                return true;
-            }));
+                }));
+        menu->add_child(std::make_shared<LambdaAction>(
+                _("termux.timeshift_create"), "2",
+                [family](MenuContext &) -> bool {
+                    if (!Executor::has("timeshift")) {
+                        Logger::step(_("termux.timeshift_not_installed_yet"));
+                        PackageManager::install("timeshift", family);
+                    }
+                    Logger::step(_("termux.timeshift_creating_snapshot"));
+                    Executor::shell("sudo timeshift --create --comments \"tmoe-linux auto backup\"");
+                    Logger::ok(_("termux.timeshift_snapshot_ok"));
+                    return true;
+                }));
+        menu->add_child(std::make_shared<LambdaAction>(
+                _("termux.timeshift_restore"), "3",
+                [family](MenuContext &) -> bool {
+                    if (!Executor::has("timeshift")) {
+                        Logger::error(_("termux.timeshift_not_installed"));
+                        return true;
+                    }
+                    Logger::warn(_("termux.timeshift_restore_warning"));
+                    Executor::shell("sudo timeshift --restore");
+                    return true;
+                }));
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
     }
 
@@ -2364,7 +2488,7 @@ platform::local_time(&t, &tm_buf);
 
         // 检测是否需要旧版 openssl-1.1 (某些旧包依赖)
         bool need_legacy = Executor::shell(
-            "apt list --installed 2>/dev/null | grep -i openssl | grep '1.1'").ok();
+                "apt list --installed 2>/dev/null | grep -i openssl | grep '1.1'").ok();
 
         if (need_legacy) {
             Logger::warn(_("termux.openssl_legacy_needed"));
@@ -2382,28 +2506,28 @@ platform::local_time(&t, &tm_buf);
     std::string TermuxManager::map_binary_to_termux_pkg(const std::string &binary) {
         // 将命令行工具名称映射到 Termux 包名
         static const std::unordered_map<std::string, std::string> pkg_map = {
-            {"xz", "xz-utils"},
-            {"aria2c", "aria2"},
-            {"pkill", "procps"},
-            {"chroot", "coreutils"},
-            {"unshare", "util-linux"},
-            {"pgrep", "procps"},
-            {"pidof", "procps"},
-            {"bat", "bat"},
-            {"batcat", "bat"},
-            {"lsof", "lsof"},
-            {"micro", "micro"},
-            {"nano", "nano"},
-            {"vim", "vim"},
-            {"neovim", "neovim"},
-            {"tar", "tar"},
-            {"gzip", "gzip"},
-            {"bzip2", "bzip2"},
-            {"zstd", "zstd"},
-            {"wget", "wget"},
-            {"curl", "curl"},
-            {"git", "git"},
-            {"proot", "proot"},
+                {"xz",      "xz-utils"},
+                {"aria2c",  "aria2"},
+                {"pkill",   "procps"},
+                {"chroot",  "coreutils"},
+                {"unshare", "util-linux"},
+                {"pgrep",   "procps"},
+                {"pidof",   "procps"},
+                {"bat",     "bat"},
+                {"batcat",  "bat"},
+                {"lsof",    "lsof"},
+                {"micro",   "micro"},
+                {"nano",    "nano"},
+                {"vim",     "vim"},
+                {"neovim",  "neovim"},
+                {"tar",     "tar"},
+                {"gzip",    "gzip"},
+                {"bzip2",   "bzip2"},
+                {"zstd",    "zstd"},
+                {"wget",    "wget"},
+                {"curl",    "curl"},
+                {"git",     "git"},
+                {"proot",   "proot"},
         };
 
         auto it = pkg_map.find(binary);

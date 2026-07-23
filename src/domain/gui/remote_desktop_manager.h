@@ -1,4 +1,5 @@
 #pragma once
+
 #include <string>
 #include <vector>
 #include <filesystem>
@@ -91,6 +92,7 @@ namespace tmoe::domain {
     private:
         /// 返回 sudo 前缀。proot/Termux/已是 root 则不需要 sudo
         std::string sudo_cmd() const;
+
         const TmoeConfig &cfg_;
         VncManager &vnc_manager_;
         DesktopManager &desktop_manager_;

@@ -9,7 +9,7 @@
 namespace tmoe::ui::menus {
     std::shared_ptr<IUIMenu> BrowserMenuPlugin::build() {
         auto menu = make_plugin_menu(
-            _("browser.menu_title"), _("browser.menu_prompt"), "plugin_browser");
+                _("browser.menu_title"), _("browser.menu_prompt"), "plugin_browser");
 
         // ── Firefox / Chromium — 多步向导 ──
         menu->add_action(_("browser.menu_item_firefox_chromium"), "1",
@@ -48,19 +48,19 @@ namespace tmoe::ui::menus {
 
         // ── Microsoft Edge — 安装/卸载双按钮 ──
         menu->add_child(std::make_shared<ChoiceAction>(
-            _("browser.menu_item_edge"), "2",
-            _("browser.edge_install_remove_title"), _("browser.edge_install_remove_yesno"),
-            "install", [this] { mgr_->edge.install(); },
-            "remove", [this] { mgr_->edge.remove(); },
-            10, 50));
+                _("browser.menu_item_edge"), "2",
+                _("browser.edge_install_remove_title"), _("browser.edge_install_remove_yesno"),
+                "install", [this] { mgr_->edge.install(); },
+                "remove", [this] { mgr_->edge.remove(); },
+                10, 50));
 
         // ── Falkon — 安装/卸载双按钮 ──
         menu->add_child(std::make_shared<ChoiceAction>(
-            _("browser.menu_item_falkon"), "3",
-            _("browser.falkon_install_remove_title"), _("browser.falkon_install_remove_yesno"),
-            "install", [this] { mgr_->falkon.install(); },
-            "remove", [this] { mgr_->falkon.remove(); },
-            8, 50));
+                _("browser.menu_item_falkon"), "3",
+                _("browser.falkon_install_remove_title"), _("browser.falkon_install_remove_yesno"),
+                "install", [this] { mgr_->falkon.install(); },
+                "remove", [this] { mgr_->falkon.remove(); },
+                8, 50));
 
         // ── 仅安装的应用 ──
         menu->add_action(_("browser.menu_item_vivaldi"), "4",

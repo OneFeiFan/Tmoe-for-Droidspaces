@@ -41,10 +41,10 @@ bt-tracker=udp://tracker.opentrackr.org:1337/announce,udp://tracker.openbittorre
             PackageManager::install("aria2", family);
         }
         Executor::shell(
-            "if ! pgrep -x aria2c >/dev/null 2>&1; then "
-            "  nohup aria2c --conf-path=$HOME/.aria2/aria2.conf "
-            "    -D >/dev/null 2>&1 & "
-            "  sleep 1; fi"
+                "if ! pgrep -x aria2c >/dev/null 2>&1; then "
+                "  nohup aria2c --conf-path=$HOME/.aria2/aria2.conf "
+                "    -D >/dev/null 2>&1 & "
+                "  sleep 1; fi"
         );
         Logger::ok(_("download.aria2_started"));
     }
@@ -58,14 +58,14 @@ bt-tracker=udp://tracker.opentrackr.org:1337/announce,udp://tracker.openbittorre
     void DownloadTools::install_aria_webui() {
         Logger::step(_("download.aria2_web_installing"));
         Executor::shell(
-            "mkdir -p /sdcard/Download/aria2ng 2>/dev/null; "
-            "cd /sdcard/Download/aria2ng && "
-            "if [ ! -f index.html ]; then "
-            "  wget -q --no-check-certificate "
-            "    https://github.com/mayswind/AriaNg/releases/download/1.3.6/AriaNg-1.3.6.zip "
-            "    -O aria2ng.zip 2>/dev/null && "
-            "  unzip -o aria2ng.zip 2>/dev/null && "
-            "  rm -f aria2ng.zip; fi"
+                "mkdir -p /sdcard/Download/aria2ng 2>/dev/null; "
+                "cd /sdcard/Download/aria2ng && "
+                "if [ ! -f index.html ]; then "
+                "  wget -q --no-check-certificate "
+                "    https://github.com/mayswind/AriaNg/releases/download/1.3.6/AriaNg-1.3.6.zip "
+                "    -O aria2ng.zip 2>/dev/null && "
+                "  unzip -o aria2ng.zip 2>/dev/null && "
+                "  rm -f aria2ng.zip; fi"
         );
         Logger::ok(_("download.aria2_web_done"));
     }
@@ -77,31 +77,31 @@ bt-tracker=udp://tracker.opentrackr.org:1337/announce,udp://tracker.openbittorre
     void DownloadTools::install_yt_dlp() {
         Logger::step(_("download.yt_dlp_pip"));
         Executor::shell("pip3 install yt-dlp 2>/dev/null || "
-            "pip install yt-dlp 2>/dev/null || "
-            "sudo apt install -y yt-dlp 2>/dev/null || "
-            "sudo pacman -S --noconfirm yt-dlp 2>/dev/null || true");
+                        "pip install yt-dlp 2>/dev/null || "
+                        "sudo apt install -y yt-dlp 2>/dev/null || "
+                        "sudo pacman -S --noconfirm yt-dlp 2>/dev/null || true");
         Logger::info("  " + _("download.yt_dlp_example"));
     }
 
     void DownloadTools::install_you_get() {
         Logger::step(_("download.you_get"));
         Executor::shell("pip3 install you-get 2>/dev/null || "
-            "pip install you-get 2>/dev/null || true");
+                        "pip install you-get 2>/dev/null || true");
         Logger::info("  " + _("download.you_get_example"));
     }
 
     void DownloadTools::install_lux() {
         Logger::step(_("download.lux"));
         Executor::shell(
-            "if command -v go >/dev/null 2>&1; then "
-            "  go install github.com/iawia002/lux@latest 2>/dev/null; "
-            "elif [ -f /usr/local/bin/lux ]; then :; "
-            "else "
-            "  sudo wget -q https://github.com/iawia002/lux/releases/latest/download/"
-            "    lux_$(uname -s)_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
-            "    -O /usr/local/bin/lux 2>/dev/null && "
-            "  sudo chmod 755 /usr/local/bin/lux 2>/dev/null; "
-            "fi"
+                "if command -v go >/dev/null 2>&1; then "
+                "  go install github.com/iawia002/lux@latest 2>/dev/null; "
+                "elif [ -f /usr/local/bin/lux ]; then :; "
+                "else "
+                "  sudo wget -q https://github.com/iawia002/lux/releases/latest/download/"
+                "    lux_$(uname -s)_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
+                "    -O /usr/local/bin/lux 2>/dev/null && "
+                "  sudo chmod 755 /usr/local/bin/lux 2>/dev/null; "
+                "fi"
         );
         Logger::info("  " + _("download.lux_example"));
     }
@@ -109,21 +109,21 @@ bt-tracker=udp://tracker.opentrackr.org:1337/announce,udp://tracker.openbittorre
     void DownloadTools::install_annie() {
         Logger::step(_("download.annie"));
         Executor::shell(
-            "if command -v go >/dev/null 2>&1; then "
-            "  go install github.com/iawia002/annie@latest 2>/dev/null; "
-            "else "
-            "  sudo wget -q https://github.com/iawia002/annie/releases/latest/download/"
-            "    annie_$(uname -s)_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
-            "    -O /usr/local/bin/annie 2>/dev/null && "
-            "  sudo chmod 755 /usr/local/bin/annie 2>/dev/null; "
-            "fi"
+                "if command -v go >/dev/null 2>&1; then "
+                "  go install github.com/iawia002/annie@latest 2>/dev/null; "
+                "else "
+                "  sudo wget -q https://github.com/iawia002/annie/releases/latest/download/"
+                "    annie_$(uname -s)_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
+                "    -O /usr/local/bin/annie 2>/dev/null && "
+                "  sudo chmod 755 /usr/local/bin/annie 2>/dev/null; "
+                "fi"
         );
     }
 
     void DownloadTools::install_gallery_dl() {
         Logger::step(_("download.gallery_dl"));
         Executor::shell("pip3 install gallery-dl 2>/dev/null || "
-            "pip install gallery-dl 2>/dev/null || true");
+                        "pip install gallery-dl 2>/dev/null || true");
     }
 
     // 爬虫工具子项
@@ -148,7 +148,7 @@ bt-tracker=udp://tracker.opentrackr.org:1337/announce,udp://tracker.openbittorre
     void DownloadTools::install_scrapy() {
         Logger::step(_("download.crawler_installing"));
         Executor::shell("pip3 install scrapy 2>/dev/null || "
-            "pip install scrapy 2>/dev/null || true");
+                        "pip install scrapy 2>/dev/null || true");
     }
 
     void DownloadTools::install_curl_batch() {

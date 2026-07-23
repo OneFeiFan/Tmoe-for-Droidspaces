@@ -3,8 +3,16 @@
 #include "core/logger.h"
 #include "core/i18n.h"
 #include "core/str_utils.h"
+#include "core/platform.h"
 
 namespace tmoe::domain {
+
+    /** 非 root 用户需要 sudo 提权，root/Termux 则不需要 */
+    static std::string maybe_sudo(const std::string &cmd) {
+        if (platform::geteuid() != 0) return "sudo " + cmd;
+        return cmd;
+    }
+
     DistroFamily PackageManager::detect_distro_family() {
         // 通过 /etc/os-release 检测
         auto result = Executor::shell("cat /etc/os-release 2>/dev/null").stdout_data;
@@ -61,31 +69,55 @@ namespace tmoe::domain {
     PackageManager::Commands PackageManager::commands_for(DistroFamily family) {
         switch (family) {
             case DistroFamily::Debian:
-                return {"sudo eatmydata apt install -y", "sudo apt purge -y", "sudo apt update", true};
+                return {"eatmydata apt install -y", "apt purge -y", "apt update", true};
             case DistroFamily::Arch:
-                return {"sudo pacman -Syu --noconfirm --needed", "sudo pacman -Rsc", "sudo pacman -Syy", false};
+                return {"pacman -Syu --noconfirm --needed", "pacman -Rsc", "pacman -Syy", false};
             case DistroFamily::RedHat:
                 if (is_command_available("dnf"))
-                    return {"sudo dnf install -y --skip-broken", "sudo dnf remove -y", "sudo dnf update", false};
-                return {"sudo yum install -y --skip-broken", "sudo yum remove -y", "sudo yum update", false};
+                    return {"dnf install -y --skip-broken", "dnf remove -y", "dnf update", false};
+                return {"yum install -y --skip-broken", "yum remove -y", "yum update", false};
             case DistroFamily::Alpine:
-                return {"sudo apk add", "sudo apk del", "sudo apk update", false};
+                return {"apk add", "apk del", "apk update", false};
             case DistroFamily::Gentoo:
-                return {"sudo emerge -avk", "sudo emerge -C", "", false};
+                return {"emerge -avk", "emerge -C", "", false};
             case DistroFamily::Suse:
-                return {"sudo zypper in -y", "sudo zypper rm", "", false};
+                return {"zypper in -y", "zypper rm", "", false};
             case DistroFamily::Solus:
-                return {"sudo eopkg install -y", "sudo eopkg remove -y", "", false};
+                return {"eopkg install -y", "eopkg remove -y", "", false};
             case DistroFamily::Void_:
-                return {"sudo xbps-install -Sy", "sudo xbps-remove -R", "", false};
+                return {"xbps-install -Sy", "xbps-remove -R", "", false};
             case DistroFamily::Slackware:
-                return {"sudo slackpkg install", "sudo slackpkg remove", "sudo slackpkg update", false};
+                return {"slackpkg install", "slackpkg remove", "slackpkg update", false};
             case DistroFamily::OpenWrt:
                 return {"opkg install", "opkg remove", "opkg update", false};
             default:
-                return {"sudo apt install -y", "sudo apt purge -y", "sudo apt update", false};
+                return {"apt install -y", "apt purge -y", "apt update", false};
         }
     }
+
+    // ── 自动检测发行版的便捷重载 ──
+
+    bool PackageManager::install(std::string_view pkg) {
+        return install(std::string(pkg), detect_distro_family());
+    }
+
+    bool PackageManager::install(const std::vector<std::string> &pkgs) {
+        return install(pkgs, detect_distro_family());
+    }
+
+    bool PackageManager::remove(std::string_view pkg) {
+        return remove(std::string(pkg), detect_distro_family());
+    }
+
+    bool PackageManager::remove(const std::vector<std::string> &pkgs) {
+        return remove(pkgs, detect_distro_family());
+    }
+
+    bool PackageManager::update() {
+        return update(detect_distro_family());
+    }
+
+    // ── 指定发行版的原始重载 ──
 
     bool PackageManager::install(std::string_view pkg, DistroFamily family) {
         return install(std::vector<std::string>{std::string(pkg)}, family);
@@ -110,7 +142,7 @@ namespace tmoe::domain {
         std::string install_line = build_install_cmd(pkgs, cmd);
 
         // 透传输出，让用户看到包管理器的实时进度
-        if (Executor::passthrough(install_line).ok()) {
+        if (Executor::passthrough(maybe_sudo(install_line)).ok()) {
             Logger::ok(_("app.install_done"));
             return true;
         }
@@ -118,7 +150,7 @@ namespace tmoe::domain {
         // 容错：Debian 下尝试不带 eatmydata
         if (cmd.use_eatmydata) {
             Logger::warn(_("app.retry_without_eatmydata"));
-            std::string fallback = "sudo apt install -y ";
+            std::string fallback = maybe_sudo("apt install -y ");
             for (const auto &p: pkgs) fallback += p + " ";
             if (Executor::passthrough(fallback).ok()) return true;
         }
@@ -143,14 +175,14 @@ namespace tmoe::domain {
         Logger::step(_("app.removing") + ": " + pkg_list);
 
         std::string remove_line = build_remove_cmd(pkgs, cmd);
-        return Executor::passthrough(remove_line).ok();
+        return Executor::passthrough(maybe_sudo(remove_line)).ok();
     }
 
     bool PackageManager::update(DistroFamily family) {
         auto cmd = commands_for(family);
         if (cmd.update.empty()) return true;
         Logger::step(_("app.updating"));
-        return Executor::passthrough(cmd.update).ok();
+        return Executor::passthrough(maybe_sudo(cmd.update)).ok();
     }
 
     bool PackageManager::is_command_available(std::string_view cmd) {
@@ -160,21 +192,30 @@ namespace tmoe::domain {
     bool PackageManager::ensure_eatmydata() {
         if (is_command_available("eatmydata")) return true;
         Logger::step(_("app.installing_eatmydata"));
-        if (Executor::passthrough("sudo apt install -y eatmydata").ok()) return true;
-        return Executor::passthrough("sudo apt install -y -f eatmydata").ok();
+        if (Executor::passthrough(maybe_sudo("apt install -y eatmydata")).ok()) return true;
+        return Executor::passthrough(maybe_sudo("apt install -y -f eatmydata")).ok();
     }
 
     std::string PackageManager::family_key(DistroFamily family) {
         switch (family) {
-            case DistroFamily::Debian: return "debian";
-            case DistroFamily::Arch: return "arch";
-            case DistroFamily::RedHat: return "redhat";
-            case DistroFamily::Void_: return "void";
-            case DistroFamily::Gentoo: return "gentoo";
-            case DistroFamily::Suse: return "suse";
-            case DistroFamily::Alpine: return "alpine";
-            case DistroFamily::Solus: return "solus";
-            default: return "";
+            case DistroFamily::Debian:
+                return "debian";
+            case DistroFamily::Arch:
+                return "arch";
+            case DistroFamily::RedHat:
+                return "redhat";
+            case DistroFamily::Void_:
+                return "void";
+            case DistroFamily::Gentoo:
+                return "gentoo";
+            case DistroFamily::Suse:
+                return "suse";
+            case DistroFamily::Alpine:
+                return "alpine";
+            case DistroFamily::Solus:
+                return "solus";
+            default:
+                return "";
         }
     }
 
@@ -196,7 +237,7 @@ namespace tmoe::domain {
         return result;
     }
 
-    DistroFamily PackageManager::resolve_family(const std::string& distro_name) {
+    DistroFamily PackageManager::resolve_family(const std::string &distro_name) {
         auto family = infer_family_from_config(distro_name);
         if (family == DistroFamily::Unknown)
             family = detect_distro_family();

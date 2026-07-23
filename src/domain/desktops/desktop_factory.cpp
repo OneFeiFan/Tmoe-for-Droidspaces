@@ -41,6 +41,7 @@ namespace {
             REGISTER_DESKTOP("cutefish", CutefishDesktop);
         }
     } auto_register;
+
 #undef REGISTER_DESKTOP
 }
 
@@ -57,7 +58,7 @@ namespace tmoe::domain {
     }
 
     std::unique_ptr<DesktopBase> DesktopFactory::create(
-        std::string_view id, const TmoeConfig &cfg) {
+            std::string_view id, const TmoeConfig &cfg) {
         std::string id_lower(id);
         std::transform(id_lower.begin(), id_lower.end(), id_lower.begin(), ::tolower);
 

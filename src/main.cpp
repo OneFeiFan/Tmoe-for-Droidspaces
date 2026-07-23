@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
     // 阶段3.1: 权限降级 — 若通过 sudo 启动，降回原始用户
     // 真 root 环境 (login shell, 容器内) 不做处理，SUDO_USER 为空
     if (cfg.is_root) {
-        const char* sudo_user = std::getenv("SUDO_USER");
+        const char *sudo_user = std::getenv("SUDO_USER");
         if (sudo_user && sudo_user[0] != '\0') {
             int real_uid = tmoe::platform::getuid();
             if (real_uid != 0 && tmoe::platform::seteuid(real_uid) == 0) {
@@ -123,29 +123,29 @@ int main(int argc, char *argv[]) {
     if (cfg.is_wsl) {
         if (!fs::exists("/etc/updatedb.conf")) {
             tmoe::Executor::shell(
-                "sudo tee /etc/updatedb.conf >/dev/null <<'TMOE_EOF'\n"
-                "PRUNE_BIND_MOUNTS=\"yes\"\n"
-                "PRUNENAMES=\".git .bzr .hg .svn\"\n"
-                "PRUNEPATHS=\"/tmp /var/spool /media /var/lib/os-prober /var/lib/ceph "
-                "/home/.ecryptfs /var/lib/schroot /mnt\"\n"
-                "PRUNEFS=\"NFS nfs nfs4 rpc_pipefs afs binfmt_misc proc smbfs autofs "
-                "iso9660 ncpfs coda devpts ftpfs devfs devtmpfs fuse.mfs shm sysfs "
-                "cifs rmpfs cgroup fuse.sshfs curlftpfs ceph fuse.ceph fuse.glusterfs "
-                "fuse.bpf fuse.rclone configfs ecryptfs\"\n"
-                "TMOE_EOF");
+                    "sudo tee /etc/updatedb.conf >/dev/null <<'TMOE_EOF'\n"
+                    "PRUNE_BIND_MOUNTS=\"yes\"\n"
+                    "PRUNENAMES=\".git .bzr .hg .svn\"\n"
+                    "PRUNEPATHS=\"/tmp /var/spool /media /var/lib/os-prober /var/lib/ceph "
+                    "/home/.ecryptfs /var/lib/schroot /mnt\"\n"
+                    "PRUNEFS=\"NFS nfs nfs4 rpc_pipefs afs binfmt_misc proc smbfs autofs "
+                    "iso9660 ncpfs coda devpts ftpfs devfs devtmpfs fuse.mfs shm sysfs "
+                    "cifs rmpfs cgroup fuse.sshfs curlftpfs ceph fuse.ceph fuse.glusterfs "
+                    "fuse.bpf fuse.rclone configfs ecryptfs\"\n"
+                    "TMOE_EOF");
         }
         if (!fs::exists("/etc/apt/preferences.d/tmoe-wsl-blacklist")) {
             tmoe::Executor::shell(
-                "sudo mkdir -p /etc/apt/preferences.d && "
-                "sudo tee /etc/apt/preferences.d/tmoe-wsl-blacklist >/dev/null <<'TMOE_EOF'\n"
-                "# tmoe-linux WSL package blacklist\n"
-                "Package: acpid acpi-support modemmanager\n"
-                "Pin: release *\n"
-                "Pin-Priority: -1\n"
-                "TMOE_EOF");
+                    "sudo mkdir -p /etc/apt/preferences.d && "
+                    "sudo tee /etc/apt/preferences.d/tmoe-wsl-blacklist >/dev/null <<'TMOE_EOF'\n"
+                    "# tmoe-linux WSL package blacklist\n"
+                    "Package: acpid acpi-support modemmanager\n"
+                    "Pin: release *\n"
+                    "Pin-Priority: -1\n"
+                    "TMOE_EOF");
         }
         // P2: WSL 下 cmd.exe 需要 Windows 系统目录在 PATH 中 (open_uri 等依赖)
-        const char* existing_path = std::getenv("PATH");
+        const char *existing_path = std::getenv("PATH");
         std::string new_path = "/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS/system32/WindowsPowerShell/v1.0";
         if (existing_path) new_path += ":" + std::string(existing_path);
         tmoe::platform::set_env("PATH", new_path.c_str());
@@ -166,10 +166,10 @@ int main(int argc, char *argv[]) {
     // 阶段5.6: 首次运行 — 弹出语言选择对话框 (仅交互模式)
     if (first_run && pos_args.empty()) {
         std::string choice = tmoe::Executor::tui_select(
-            cfg.tui_bin + " --title \"tmoe-linux\" "
-            "--menu \"Language / 语言\\n\\nPlease select your preferred language.\" 12 50 2 "
-            "\"zh_CN\" \"中文 (简体)  /  Chinese (Simplified)\" "
-            "\"en_US\" \"English\"");
+                cfg.tui_bin + " --title \"tmoe-linux\" "
+                              "--menu \"Language / 语言\\n\\nPlease select your preferred language.\" 12 50 2 "
+                              "\"zh_CN\" \"中文 (简体)  /  Chinese (Simplified)\" "
+                              "\"en_US\" \"English\"");
         if (!choice.empty()) {
             lang = choice;
             tmoe::I18n::init(lang);
@@ -188,10 +188,11 @@ int main(int argc, char *argv[]) {
             std::string yes_label = _("mirror.auto_yes");
             std::string no_label = _("mirror.auto_skip");
             std::string cmd = cfg.tui_bin +
-                " --title \"tmoe-linux\""
-                " --yes-button \"" + yes_label + "\""
-                " --no-button \"" + no_label + "\""
-                " --yesno \"" + std::string(_("mirror.first_run_prompt")) + "\" 0 0";
+                              " --title \"tmoe-linux\""
+                              " --yes-button \"" + yes_label + "\""
+                                                               " --no-button \"" + no_label + "\""
+                                                                                              " --yesno \"" +
+                              std::string(_("mirror.first_run_prompt")) + "\" 0 0";
             if (tmoe::Executor::passthrough(cmd).exit_code == 0) {
                 tmoe::domain::MirrorManager mirror_mgr(cfg);
                 mirror_mgr.auto_select();
@@ -216,12 +217,12 @@ int main(int argc, char *argv[]) {
         tmoe::Logger::error(_("cli.too_many_args"));
         auto retype_hint = _("cli.retype_hint");
         tmoe::Logger::info(retype_hint + " tmoe "
-                          + std::string(pos_args[0]) + " "
-                          + std::string(pos_args[1]) + " "
-                          + std::string(pos_args[2]) + " "
-                          + std::string(pos_args[3]) + " "
-                          + std::string(pos_args[4]) + " "
-                          + std::string(pos_args[5]));
+                           + std::string(pos_args[0]) + " "
+                           + std::string(pos_args[1]) + " "
+                           + std::string(pos_args[2]) + " "
+                           + std::string(pos_args[3]) + " "
+                           + std::string(pos_args[4]) + " "
+                           + std::string(pos_args[5]));
     }
 
     return manager.run_launch_context(ctx);

@@ -1,4 +1,5 @@
 #pragma once
+
 #include "core/config.h"
 #include "core/executor.h"
 #include "core/logger.h"
@@ -77,6 +78,7 @@ namespace tmoe::domain {
         void run_vnc_config_menu();
 
         void run_remote_desktop_menu();
+
         void run_xsdl_config_menu();
 
 
@@ -93,6 +95,7 @@ namespace tmoe::domain {
         bool handle_gui_cli_flag(std::string_view flag);
 
         void set_auto_install_mode(bool v) { auto_install_mode_ = v; }
+
         bool is_auto_install() const { return auto_install_mode_; }
 
         // ═══════════════════════════════════════════════
@@ -100,11 +103,17 @@ namespace tmoe::domain {
         // ═══════════════════════════════════════════════
 
         VncManager &vnc_manager() { return vnc_manager_; }
+
         const VncManager &vnc_manager() const { return vnc_manager_; }
+
         DesktopManager &desktop_manager() { return desktop_manager_; }
+
         const DesktopManager &desktop_manager() const { return desktop_manager_; }
+
         RemoteDesktopManager &remote_desktop_manager() { return remote_desktop_manager_; }
+
         BeautificationManager beautification_manager_;
+
         const RemoteDesktopManager &remote_desktop_manager() const { return remote_desktop_manager_; }
 
         // ═══════════════════════════════════════════════

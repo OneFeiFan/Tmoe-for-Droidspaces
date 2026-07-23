@@ -97,13 +97,14 @@ namespace tmoe::domain {
                           " without sandbox\n\n"
                           "BIN=\"\"\n"
                           "for CANDIDATE in " + bin_str + " " + bin_str + "-browser; do\n"
-                          "    if command -v \"$CANDIDATE\" >/dev/null 2>&1; then\n"
-                          "        BIN=\"$CANDIDATE\"\n"
-                          "        break\n"
-                          "    fi\n"
-                          "done\n\n"
-                          "if [ -z \"$BIN\" ]; then\n"
-                          "    echo \"" + std::string(display_name) + " not found\" >&2\n"
+                                                                          "    if command -v \"$CANDIDATE\" >/dev/null 2>&1; then\n"
+                                                                          "        BIN=\"$CANDIDATE\"\n"
+                                                                          "        break\n"
+                                                                          "    fi\n"
+                                                                          "done\n\n"
+                                                                          "if [ -z \"$BIN\" ]; then\n"
+                                                                          "    echo \"" + std::string(display_name) +
+                          " not found\" >&2\n"
                           "    exit 1\n"
                           "fi\n\n"
                           "[ \"$(id -u)\" -eq 0 ] && exec \"$BIN\" --no-sandbox \"$@\"\n"
@@ -122,11 +123,11 @@ namespace tmoe::domain {
         std::string desktop_content =
                 "[Desktop Entry]\n"
                 "Name=" + std::string(display_name) + " (No Sandbox)\n"
-                "Exec=" + wrapper_path + "\n"
-                "Icon=" + bin_str + "\n"
-                "Type=Application\n"
-                "Categories=Network;WebBrowser;\n"
-                "Terminal=false\n";
+                                                      "Exec=" + wrapper_path + "\n"
+                                                                               "Icon=" + bin_str + "\n"
+                                                                                                   "Type=Application\n"
+                                                                                                   "Categories=Network;WebBrowser;\n"
+                                                                                                   "Terminal=false\n";
 
         SystemHelper::write_file(desktop_path, desktop_content);
         CommandBuilder("sudo").add_arg("chmod").add_arg("644").add_arg(desktop_path)
@@ -167,11 +168,12 @@ namespace tmoe::domain {
         std::string desktop_content =
                 "[Desktop Entry]\n"
                 "Name=" + std::string(app_name) + "\n"
-                "Exec=" + std::string(exec_path) + "\n"
-                "Icon=" + std::string(icon_name) + "\n"
+                                                  "Exec=" + std::string(exec_path) + "\n"
+                                                                                     "Icon=" + std::string(icon_name) +
+                "\n"
                 "Type=Application\n"
                 "Categories=" + std::string(categories) + "\n"
-                "Terminal=false\n";
+                                                          "Terminal=false\n";
 
         SystemHelper::write_file(desktop_path, desktop_content);
         CommandBuilder("sudo").add_arg("chmod").add_arg("644").add_arg(desktop_path)

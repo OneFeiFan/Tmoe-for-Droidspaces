@@ -1,6 +1,7 @@
 #ifndef LAUNCH_CONTEXT_H
 #define LAUNCH_CONTEXT_H
 #pragma once
+
 #include <string>
 #include <vector>
 

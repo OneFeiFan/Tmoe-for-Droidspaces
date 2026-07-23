@@ -1,4 +1,5 @@
 #pragma once
+
 #include "core/config.h"
 #include "core/executor.h"
 #include "core/logger.h"
@@ -20,81 +21,83 @@ namespace tmoe::domain {
  *   6. 密码管理 (root 密码修改)
  *   7. 主机名配置
  */
-class ConfigManager {
-public:
-    explicit ConfigManager(const TmoeConfig& cfg);
+    class ConfigManager {
+    public:
+        explicit ConfigManager(const TmoeConfig &cfg);
 
-    // ── DNS ──
+        // ── DNS ──
 
-    /** 将指定 DNS 写入 /etc/resolv.conf。 */
-    bool apply_dns(const std::string& provider_id);
+        /** 将指定 DNS 写入 /etc/resolv.conf。 */
+        bool apply_dns(const std::string &provider_id);
 
-    // ── 时区 ──
+        // ── 时区 ──
 
-    /** 写入时区 (timedatectl 优先, 回退 ln -sf)。 */
-    bool apply_timezone(const std::string& tz);
+        /** 写入时区 (timedatectl 优先, 回退 ln -sf)。 */
+        bool apply_timezone(const std::string &tz);
 
-    /** 检测当前时区。 */
-    std::string detect_current_timezone() const;
+        /** 检测当前时区。 */
+        std::string detect_current_timezone() const;
 
-    // ── Locale ──
+        // ── Locale ──
 
-    /** 列出所有可用 locale (从 /usr/share/i18n/SUPPORTED 或内置表)。 */
-    std::vector<std::pair<std::string, std::string>> list_supported_locales() const;
+        /** 列出所有可用 locale (从 /usr/share/i18n/SUPPORTED 或内置表)。 */
+        std::vector<std::pair<std::string, std::string>> list_supported_locales() const;
 
-    // ── 共享目录 ──
+        // ── 共享目录 ──
 
-    /** 共享目录开关菜单。 */
-    bool configure_shared_dirs();
+        /** 共享目录开关菜单。 */
+        bool configure_shared_dirs();
 
-    /** 写入挂载配置文件。 */
-    bool write_mount_conf(const std::string& conf_name, bool enabled);
+        /** 写入挂载配置文件。 */
+        bool write_mount_conf(const std::string &conf_name, bool enabled);
 
-    // ── 密码 ──
+        // ── 密码 ──
 
-    /** 修改 root 密码 (chpasswd)。 */
-    bool change_root_password();
+        /** 修改 root 密码 (chpasswd)。 */
+        bool change_root_password();
 
-    // ── 主机名 ──
+        // ── 主机名 ──
 
-    /** 修改容器主机名。 */
-    bool configure_hostname();
+        /** 修改容器主机名。 */
+        bool configure_hostname();
 
-    /** 读取当前主机名。 */
-    std::string current_hostname() const;
+        /** 读取当前主机名。 */
+        std::string current_hostname() const;
 
-    /** 获取关联的 TmoeConfig 引用（供插件层构造依赖对象）。 */
-    const TmoeConfig& config() const { return cfg_; }
+        /** 获取关联的 TmoeConfig 引用（供插件层构造依赖对象）。 */
+        const TmoeConfig &config() const { return cfg_; }
 
-    /** 获取 tmoe 配置目录路径。 */
-    std::string config_dir() const;
+        /** 获取 tmoe 配置目录路径。 */
+        std::string config_dir() const;
 
-    /** 写入配置文件（内部通过 SystemHelper 处理权限）。 */
-    bool write_config_file(const std::string& path, const std::string& content) const;
+        /** 写入配置文件（内部通过 SystemHelper 处理权限）。 */
+        bool write_config_file(const std::string &path, const std::string &content) const;
 
-    // ── DNS 注册表 ──
-    struct DnsEntry {
-        std::string id;
-        std::string name_key;   // i18n key for display name
-        std::string primary;
-        std::string secondary;
+        // ── DNS 注册表 ──
+        struct DnsEntry {
+            std::string id;
+            std::string name_key;   // i18n key for display name
+            std::string primary;
+            std::string secondary;
+        };
+
+        static const std::vector<DnsEntry> &dns_registry();
+
+        // ── 时区注册表 ──
+        struct TzEntry {
+            std::string zone;
+            std::string name_key;   // i18n key for display name
+        };
+
+        static const std::vector<std::pair<std::string, std::vector<TzEntry>>> &tz_registry();
+
+        // ── Locale 注册表 ──
+        static const std::vector<std::pair<std::string, std::vector<std::string>>> &locale_registry();
+
+    private:
+        const TmoeConfig &cfg_;
+
+        std::string read_config_file(const std::string &path) const;
     };
-    static const std::vector<DnsEntry>& dns_registry();
-
-    // ── 时区注册表 ──
-    struct TzEntry {
-        std::string zone;
-        std::string name_key;   // i18n key for display name
-    };
-    static const std::vector<std::pair<std::string, std::vector<TzEntry>>>& tz_registry();
-
-    // ── Locale 注册表 ──
-    static const std::vector<std::pair<std::string, std::vector<std::string>>>& locale_registry();
-
-private:
-    const TmoeConfig& cfg_;
-
-    std::string read_config_file(const std::string& path) const;
-};
 
 } // namespace tmoe::domain

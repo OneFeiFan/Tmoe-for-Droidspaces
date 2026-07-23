@@ -25,23 +25,23 @@ namespace tmoe::domain {
     };
 
     static const DistroSpec DISTRO_SPECS[] = {
-        {"alpine", "docker.distros_alpine", "latest", "edge", ""},
-        {"debian", "docker.distros_debian", "unstable", "stable", ""},
-        {"ubuntu", "docker.distros_ubuntu", "latest", "devel", ""},
-        {"kalilinux/kali-rolling", "docker.distros_kali", "latest", "latest", "kali"},
-        {"archlinux", "docker.distros_arch", "latest", "", "arch"},
-        {"fedora", "docker.distros_fedora", "latest", "rawhide", ""},
-        {"centos", "docker.distros_centos", "latest", "7", "cent"},
-        {"opensuse/tumbleweed", "docker.distros_opensuse", "latest", "latest", "suse"},
-        {"gentoo/stage3-amd64", "docker.distros_gentoo", "latest", "", "gentoo"},
-        {"clearlinux", "docker.distros_clearlinux", "latest", "base", "clear"},
-        {"voidlinux/voidlinux", "docker.distros_void", "latest", "latest", "void"},
-        {"oraclelinux", "docker.distros_oracle", "latest", "7", "oracle"},
-        {"amazonlinux", "docker.distros_amazon", "latest", "with-sources", "amazon"},
-        {"crux", "docker.distros_crux", "latest", "3.4", ""},
-        {"openwrtorg/rootfs", "docker.distros_openwrt", "latest", "", "openwrt"},
-        {"alt", "docker.distros_alt", "latest", "sisyphus", ""},
-        {"photon", "docker.distros_photon", "latest", "2.0", ""},
+            {"alpine",                 "docker.distros_alpine",     "latest",   "edge",         ""},
+            {"debian",                 "docker.distros_debian",     "unstable", "stable",       ""},
+            {"ubuntu",                 "docker.distros_ubuntu",     "latest",   "devel",        ""},
+            {"kalilinux/kali-rolling", "docker.distros_kali",       "latest",   "latest",       "kali"},
+            {"archlinux",              "docker.distros_arch",       "latest",   "",             "arch"},
+            {"fedora",                 "docker.distros_fedora",     "latest",   "rawhide",      ""},
+            {"centos",                 "docker.distros_centos",     "latest",   "7",            "cent"},
+            {"opensuse/tumbleweed",    "docker.distros_opensuse",   "latest",   "latest",       "suse"},
+            {"gentoo/stage3-amd64",    "docker.distros_gentoo",     "latest",   "",             "gentoo"},
+            {"clearlinux",             "docker.distros_clearlinux", "latest",   "base",         "clear"},
+            {"voidlinux/voidlinux",    "docker.distros_void",       "latest",   "latest",       "void"},
+            {"oraclelinux",            "docker.distros_oracle",     "latest",   "7",            "oracle"},
+            {"amazonlinux",            "docker.distros_amazon",     "latest",   "with-sources", "amazon"},
+            {"crux",                   "docker.distros_crux",       "latest",   "3.4",          ""},
+            {"openwrtorg/rootfs",      "docker.distros_openwrt",    "latest",   "",             "openwrt"},
+            {"alt",                    "docker.distros_alt",        "latest",   "sisyphus",     ""},
+            {"photon",                 "docker.distros_photon",     "latest",   "2.0",          ""},
     };
 
     DockerManager::DockerManager(const TmoeConfig &cfg) : cfg_(cfg) {
@@ -64,7 +64,7 @@ namespace tmoe::domain {
 
         if (is_redhat_family()) {
             Executor::passthrough(
-                "dnf config-manager --add-repo https://mirrors.bfsu.edu.cn/docker-ce/linux/fedora/docker-ce.repo 2>/dev/null");
+                    "dnf config-manager --add-repo https://mirrors.bfsu.edu.cn/docker-ce/linux/fedora/docker-ce.repo 2>/dev/null");
             return PackageManager::install({"docker-ce", "docker-ce-cli", "containerd.io"}, DistroFamily::RedHat);
         }
 
@@ -96,9 +96,11 @@ namespace tmoe::domain {
         // 对应 Bash install_docker_ce_or_io (604-621行)
         std::string menu = cfg_.tui_bin +
                            " --title \"" + _("docker.install_ce_or_io_title") + "\""
-                           " --yes-button '" + _("docker.btn_ce") + "'"
+                                                                                " --yes-button '" + _("docker.btn_ce") +
+                           "'"
                            " --no-button '" + _("docker.btn_io") + "'"
-                           " --yesno \"" + _("docker.install_ce_or_io_prompt") + "\" 0 50";
+                                                                   " --yesno \"" + _("docker.install_ce_or_io_prompt") +
+                           "\" 0 50";
         auto result = Executor::passthrough(menu);
         bool install_ce = result.exit_code == 0;
 
@@ -119,10 +121,11 @@ namespace tmoe::domain {
         // 对应 Bash install_docker_portainer (1139-1158行): 默认端口39080
         bool cancelled = false;
         std::string port_str = Executor::tui_select(
-            cfg_.tui_bin +
-            " --title \"" + _("docker.portainer_port_title") + "\""
-            " --inputbox \"" + _("docker.portainer_port_input") + "\" 0 50 \"39080\"",
-            cancelled);
+                cfg_.tui_bin +
+                " --title \"" + _("docker.portainer_port_title") + "\""
+                                                                   " --inputbox \"" + _("docker.portainer_port_input") +
+                "\" 0 50 \"39080\"",
+                cancelled);
         if (cancelled) return false;
         int port = port_str.empty() ? 39080 : std::stoi(port_str);
 
@@ -156,21 +159,21 @@ namespace tmoe::domain {
 
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            _("docker.distros_title"), _("docker.distros_prompt"), "docker_distros");
+                _("docker.distros_title"), _("docker.distros_prompt"), "docker_distros");
 
         for (int i = 0; i < 17; ++i) {
             int idx = i;
             menu->add_child(std::make_shared<LambdaAction>(
-                _(DISTRO_SPECS[i].label_key), std::to_string(i + 1),
-                [this, idx](MenuContext&) -> bool {
-                    process_docker_distro_choice(idx);
-                    Logger::press_enter();
-                    return true;
-                }));
+                    _(DISTRO_SPECS[i].label_key), std::to_string(i + 1),
+                    [this, idx](MenuContext &) -> bool {
+                        process_docker_distro_choice(idx);
+                        Logger::press_enter();
+                        return true;
+                    }));
         }
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
     }
 
@@ -290,85 +293,89 @@ namespace tmoe::domain {
                                                   const std::string &tag2) {
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            docker_name + " CONTAINER", _("docker.mgt_menu_prompt"), "docker_mgt_01");
+                docker_name + " CONTAINER", _("docker.mgt_menu_prompt"), "docker_mgt_01");
 
         menu->add_child(std::make_shared<LambdaAction>(
-            tag1 + " (" + _("docker.mgt_run_tag") + ")", "1",
-            [this, docker_name, tag1, container_name](MenuContext&) -> bool {
-                run_special_tag_docker_container(docker_name, tag1, container_name, false);
-                Logger::press_enter();
-                return true;
-            }));
+                tag1 + " (" + _("docker.mgt_run_tag") + ")", "1",
+                [this, docker_name, tag1, container_name](MenuContext &) -> bool {
+                    run_special_tag_docker_container(docker_name, tag1, container_name, false);
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            tag2 + " (" + _("docker.mgt_run_tag") + ")", "2",
-            [this, docker_name, tag2, container_name](MenuContext&) -> bool {
-                run_special_tag_docker_container(docker_name, tag2, container_name, false);
-                Logger::press_enter();
-                return true;
-            }));
+                tag2 + " (" + _("docker.mgt_run_tag") + ")", "2",
+                [this, docker_name, tag2, container_name](MenuContext &) -> bool {
+                    run_special_tag_docker_container(docker_name, tag2, container_name, false);
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mgt_custom_tag"), "3",
-            [this, docker_name, container_name](MenuContext&) -> bool {
-                std::string custom_tag = custom_docker_container_tag(docker_name, container_name);
-                if (!custom_tag.empty()) {
-                    run_special_tag_docker_container(docker_name, custom_tag, container_name, false);
-                }
-                Logger::press_enter();
-                return true;
-            }));
+                _("docker.mgt_custom_tag"), "3",
+                [this, docker_name, container_name](MenuContext &) -> bool {
+                    std::string custom_tag = custom_docker_container_tag(docker_name, container_name);
+                    if (!custom_tag.empty()) {
+                        run_special_tag_docker_container(docker_name, custom_tag, container_name, false);
+                    }
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            "docker attach " + container_name + " (" + _("docker.mgt_attach_label") + ")", "4",
-            [this, container_name, docker_name, tag1](MenuContext&) -> bool {
-                docker_attach_container(container_name, docker_name, tag1);
-                Logger::press_enter();
-                return true;
-            }));
+                "docker attach " + container_name + " (" + _("docker.mgt_attach_label") + ")", "4",
+                [this, container_name, docker_name, tag1](MenuContext &) -> bool {
+                    docker_attach_container(container_name, docker_name, tag1);
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mgt_systemd"), "5",
-            [this, docker_name, tag1, container_name](MenuContext&) -> bool {
-                run_special_tag_docker_container(docker_name, tag1, container_name, true);
-                Logger::press_enter();
-                return true;
-            }));
+                _("docker.mgt_systemd"), "5",
+                [this, docker_name, tag1, container_name](MenuContext &) -> bool {
+                    run_special_tag_docker_container(docker_name, tag1, container_name, true);
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mgt_readme"), "6",
-            [this, container_name](MenuContext&) -> bool {
-                tmoe_docker_readme(container_name);
-                return true;
-            }));
+                _("docker.mgt_readme"), "6",
+                [this, container_name](MenuContext &) -> bool {
+                    tmoe_docker_readme(container_name);
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mgt_reset"), "7",
-            [this, docker_name, tag1, container_name](MenuContext&) -> bool {
-                Logger::info(_("docker.reset_prompt"));
-                std::string confirm = cfg_.tui_bin +
-                                      " --title \"" + _("docker.mgt_reset") + "\""
-                                      " --yesno \"" + _("docker.reset_prompt") + "\" 0 50";
-                if (Executor::passthrough(confirm).exit_code == 0) {
-                    reset_docker_container(docker_name, tag1, container_name);
-                }
-                Logger::press_enter();
-                return true;
-            }));
+                _("docker.mgt_reset"), "7",
+                [this, docker_name, tag1, container_name](MenuContext &) -> bool {
+                    Logger::info(_("docker.reset_prompt"));
+                    std::string confirm = cfg_.tui_bin +
+                                          " --title \"" + _("docker.mgt_reset") + "\""
+                                                                                  " --yesno \"" +
+                                          _("docker.reset_prompt") + "\" 0 50";
+                    if (Executor::passthrough(confirm).exit_code == 0) {
+                        reset_docker_container(docker_name, tag1, container_name);
+                    }
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mgt_delete"), "8",
-            [this, docker_name, tag1, tag2, container_name](MenuContext&) -> bool {
-                std::string del_menu = cfg_.tui_bin +
-                                       " --title \"" + _("docker.delete_title") + "\""
-                                       " --yes-button '" + _("docker.delete_container_only") + "'"
-                                       " --no-button '" + _("docker.delete_with_image") + "'"
-                                       " --yesno \"" + _("docker.delete_prompt") + "\" 0 50";
-                auto del_choice = Executor::passthrough(del_menu);
-                if (del_choice.exit_code == 0) {
-                    remove_container(container_name);
-                } else {
-                    delete_container_and_image(docker_name, tag1, tag2, container_name);
-                }
-                Logger::press_enter();
-                return true;
-            }));
+                _("docker.mgt_delete"), "8",
+                [this, docker_name, tag1, tag2, container_name](MenuContext &) -> bool {
+                    std::string del_menu = cfg_.tui_bin +
+                                           " --title \"" + _("docker.delete_title") + "\""
+                                                                                      " --yes-button '" +
+                                           _("docker.delete_container_only") + "'"
+                                                                               " --no-button '" +
+                                           _("docker.delete_with_image") + "'"
+                                                                           " --yesno \"" + _("docker.delete_prompt") +
+                                           "\" 0 50";
+                    auto del_choice = Executor::passthrough(del_menu);
+                    if (del_choice.exit_code == 0) {
+                        remove_container(container_name);
+                    } else {
+                        delete_container_and_image(docker_name, tag1, tag2, container_name);
+                    }
+                    Logger::press_enter();
+                    return true;
+                }));
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
     }
 
@@ -378,90 +385,94 @@ namespace tmoe::domain {
                                                   const std::string &tag1) {
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            docker_name + " CONTAINER", _("docker.mgt_menu_prompt"), "docker_mgt_02");
+                docker_name + " CONTAINER", _("docker.mgt_menu_prompt"), "docker_mgt_02");
 
         menu->add_child(std::make_shared<LambdaAction>(
-            docker_name, "1",
-            [this, docker_name, tag1, container_name](MenuContext&) -> bool {
-                run_special_tag_docker_container(docker_name, tag1, container_name, false);
-                Logger::press_enter();
-                return true;
-            }));
+                docker_name, "1",
+                [this, docker_name, tag1, container_name](MenuContext &) -> bool {
+                    run_special_tag_docker_container(docker_name, tag1, container_name, false);
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            docker_name2, "2",
-            [this, docker_name2, tag1, container_name](MenuContext&) -> bool {
-                run_special_tag_docker_container(docker_name2, tag1, container_name, false);
-                Logger::press_enter();
-                return true;
-            }));
+                docker_name2, "2",
+                [this, docker_name2, tag1, container_name](MenuContext &) -> bool {
+                    run_special_tag_docker_container(docker_name2, tag1, container_name, false);
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mgt_custom_tag"), "3",
-            [this, docker_name, container_name](MenuContext&) -> bool {
-                std::string ct = custom_docker_container_tag(docker_name, container_name);
-                if (!ct.empty()) {
-                    run_special_tag_docker_container(docker_name, ct, container_name, false);
-                }
-                Logger::press_enter();
-                return true;
-            }));
+                _("docker.mgt_custom_tag"), "3",
+                [this, docker_name, container_name](MenuContext &) -> bool {
+                    std::string ct = custom_docker_container_tag(docker_name, container_name);
+                    if (!ct.empty()) {
+                        run_special_tag_docker_container(docker_name, ct, container_name, false);
+                    }
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            "docker attach " + container_name + " (" + _("docker.mgt_attach_label") + ")", "4",
-            [this, container_name, docker_name, tag1](MenuContext&) -> bool {
-                docker_attach_container(container_name, docker_name, tag1);
-                Logger::press_enter();
-                return true;
-            }));
+                "docker attach " + container_name + " (" + _("docker.mgt_attach_label") + ")", "4",
+                [this, container_name, docker_name, tag1](MenuContext &) -> bool {
+                    docker_attach_container(container_name, docker_name, tag1);
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mgt_systemd"), "5",
-            [this, docker_name, tag1, container_name](MenuContext&) -> bool {
-                run_special_tag_docker_container(docker_name, tag1, container_name, true);
-                Logger::press_enter();
-                return true;
-            }));
+                _("docker.mgt_systemd"), "5",
+                [this, docker_name, tag1, container_name](MenuContext &) -> bool {
+                    run_special_tag_docker_container(docker_name, tag1, container_name, true);
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mgt_readme"), "6",
-            [this, container_name](MenuContext&) -> bool {
-                tmoe_docker_readme(container_name);
-                return true;
-            }));
+                _("docker.mgt_readme"), "6",
+                [this, container_name](MenuContext &) -> bool {
+                    tmoe_docker_readme(container_name);
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mgt_reset"), "7",
-            [this, docker_name, tag1, container_name](MenuContext&) -> bool {
-                std::string confirm = cfg_.tui_bin +
-                                      " --title \"" + _("docker.mgt_reset") + "\""
-                                      " --yesno \"" + _("docker.reset_prompt") + "\" 0 50";
-                if (Executor::passthrough(confirm).exit_code == 0) {
-                    reset_docker_container(docker_name, tag1, container_name);
-                }
-                Logger::press_enter();
-                return true;
-            }));
+                _("docker.mgt_reset"), "7",
+                [this, docker_name, tag1, container_name](MenuContext &) -> bool {
+                    std::string confirm = cfg_.tui_bin +
+                                          " --title \"" + _("docker.mgt_reset") + "\""
+                                                                                  " --yesno \"" +
+                                          _("docker.reset_prompt") + "\" 0 50";
+                    if (Executor::passthrough(confirm).exit_code == 0) {
+                        reset_docker_container(docker_name, tag1, container_name);
+                    }
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mgt_delete"), "8",
-            [this, docker_name, docker_name2, tag1, container_name](MenuContext&) -> bool {
-                std::string del_menu = cfg_.tui_bin +
-                                       " --title \"" + _("docker.delete_title") + "\""
-                                       " --yes-button '" + _("docker.delete_container_only") + "'"
-                                       " --no-button '" + _("docker.delete_with_image") + "'"
-                                       " --yesno \"" + _("docker.delete_prompt") + "\" 0 50";
-                auto dc = Executor::passthrough(del_menu);
-                if (dc.exit_code == 0) {
-                    remove_container(container_name);
-                } else {
-                    delete_container_and_image(docker_name, tag1, "", container_name);
-                    Executor::passthrough(
-                        CommandBuilder("docker").add_flag("rmi").add_arg(docker_name2 + ":" + tag1)
-                        .add_raw("2>/dev/null").build_string());
-                    Executor::passthrough(
-                        CommandBuilder("docker").add_flag("rmi").add_arg(docker_name2)
-                        .add_raw("2>/dev/null").build_string());
-                }
-                Logger::press_enter();
-                return true;
-            }));
+                _("docker.mgt_delete"), "8",
+                [this, docker_name, docker_name2, tag1, container_name](MenuContext &) -> bool {
+                    std::string del_menu = cfg_.tui_bin +
+                                           " --title \"" + _("docker.delete_title") + "\""
+                                                                                      " --yes-button '" +
+                                           _("docker.delete_container_only") + "'"
+                                                                               " --no-button '" +
+                                           _("docker.delete_with_image") + "'"
+                                                                           " --yesno \"" + _("docker.delete_prompt") +
+                                           "\" 0 50";
+                    auto dc = Executor::passthrough(del_menu);
+                    if (dc.exit_code == 0) {
+                        remove_container(container_name);
+                    } else {
+                        delete_container_and_image(docker_name, tag1, "", container_name);
+                        Executor::passthrough(
+                                CommandBuilder("docker").add_flag("rmi").add_arg(docker_name2 + ":" + tag1)
+                                        .add_raw("2>/dev/null").build_string());
+                        Executor::passthrough(
+                                CommandBuilder("docker").add_flag("rmi").add_arg(docker_name2)
+                                        .add_raw("2>/dev/null").build_string());
+                    }
+                    Logger::press_enter();
+                    return true;
+                }));
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
     }
 
@@ -470,76 +481,79 @@ namespace tmoe::domain {
                                                   const std::string &tag1) {
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            docker_name + " CONTAINER", _("docker.mgt_menu_prompt"), "docker_mgt_03");
+                docker_name + " CONTAINER", _("docker.mgt_menu_prompt"), "docker_mgt_03");
 
         menu->add_child(std::make_shared<LambdaAction>(
-            tag1 + " (" + _("docker.mgt_run_tag") + ")", "1",
-            [this, docker_name, tag1, container_name](MenuContext&) -> bool {
-                run_special_tag_docker_container(docker_name, tag1, container_name, false);
-                Logger::press_enter();
-                return true;
-            }));
+                tag1 + " (" + _("docker.mgt_run_tag") + ")", "1",
+                [this, docker_name, tag1, container_name](MenuContext &) -> bool {
+                    run_special_tag_docker_container(docker_name, tag1, container_name, false);
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mgt_custom_tag"), "2",
-            [this, docker_name, container_name](MenuContext&) -> bool {
-                std::string ct = custom_docker_container_tag(docker_name, container_name);
-                if (!ct.empty()) {
-                    run_special_tag_docker_container(docker_name, ct, container_name, false);
-                }
-                Logger::press_enter();
-                return true;
-            }));
+                _("docker.mgt_custom_tag"), "2",
+                [this, docker_name, container_name](MenuContext &) -> bool {
+                    std::string ct = custom_docker_container_tag(docker_name, container_name);
+                    if (!ct.empty()) {
+                        run_special_tag_docker_container(docker_name, ct, container_name, false);
+                    }
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            "docker attach " + container_name + " (" + _("docker.mgt_attach_label") + ")", "3",
-            [this, container_name, docker_name, tag1](MenuContext&) -> bool {
-                docker_attach_container(container_name, docker_name, tag1);
-                Logger::press_enter();
-                return true;
-            }));
+                "docker attach " + container_name + " (" + _("docker.mgt_attach_label") + ")", "3",
+                [this, container_name, docker_name, tag1](MenuContext &) -> bool {
+                    docker_attach_container(container_name, docker_name, tag1);
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mgt_systemd"), "4",
-            [this, docker_name, tag1, container_name](MenuContext&) -> bool {
-                run_special_tag_docker_container(docker_name, tag1, container_name, true);
-                Logger::press_enter();
-                return true;
-            }));
+                _("docker.mgt_systemd"), "4",
+                [this, docker_name, tag1, container_name](MenuContext &) -> bool {
+                    run_special_tag_docker_container(docker_name, tag1, container_name, true);
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mgt_readme"), "5",
-            [this, container_name](MenuContext&) -> bool {
-                tmoe_docker_readme(container_name);
-                return true;
-            }));
+                _("docker.mgt_readme"), "5",
+                [this, container_name](MenuContext &) -> bool {
+                    tmoe_docker_readme(container_name);
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mgt_reset"), "6",
-            [this, docker_name, tag1, container_name](MenuContext&) -> bool {
-                std::string confirm = cfg_.tui_bin +
-                                      " --yesno \"" + _("docker.reset_prompt") + "\" 0 50";
-                if (Executor::passthrough(confirm).exit_code == 0) {
-                    reset_docker_container(docker_name, tag1, container_name);
-                }
-                Logger::press_enter();
-                return true;
-            }));
+                _("docker.mgt_reset"), "6",
+                [this, docker_name, tag1, container_name](MenuContext &) -> bool {
+                    std::string confirm = cfg_.tui_bin +
+                                          " --yesno \"" + _("docker.reset_prompt") + "\" 0 50";
+                    if (Executor::passthrough(confirm).exit_code == 0) {
+                        reset_docker_container(docker_name, tag1, container_name);
+                    }
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mgt_delete"), "7",
-            [this, docker_name, tag1, container_name](MenuContext&) -> bool {
-                std::string del_menu = cfg_.tui_bin +
-                                       " --title \"" + _("docker.delete_title") + "\""
-                                       " --yes-button '" + _("docker.delete_container_only") + "'"
-                                       " --no-button '" + _("docker.delete_with_image") + "'"
-                                       " --yesno \"" + _("docker.delete_prompt") + "\" 0 50";
-                auto dc = Executor::passthrough(del_menu);
-                if (dc.exit_code == 0) {
-                    remove_container(container_name);
-                } else {
-                    delete_container_and_image(docker_name, tag1, "", container_name);
-                }
-                Logger::press_enter();
-                return true;
-            }));
+                _("docker.mgt_delete"), "7",
+                [this, docker_name, tag1, container_name](MenuContext &) -> bool {
+                    std::string del_menu = cfg_.tui_bin +
+                                           " --title \"" + _("docker.delete_title") + "\""
+                                                                                      " --yes-button '" +
+                                           _("docker.delete_container_only") + "'"
+                                                                               " --no-button '" +
+                                           _("docker.delete_with_image") + "'"
+                                                                           " --yesno \"" + _("docker.delete_prompt") +
+                                           "\" 0 50";
+                    auto dc = Executor::passthrough(del_menu);
+                    if (dc.exit_code == 0) {
+                        remove_container(container_name);
+                    } else {
+                        delete_container_and_image(docker_name, tag1, "", container_name);
+                    }
+                    Logger::press_enter();
+                    return true;
+                }));
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
     }
 
@@ -598,27 +612,28 @@ namespace tmoe::domain {
             Logger::info(_("docker.start_configure_prompt"));
             std::string confirm = cfg_.tui_bin +
                                   " --title \"" + container_name + "\""
-                                  " --yesno \"" + _("docker.start_configure_prompt") + "\" 0 50";
+                                                                   " --yesno \"" + _("docker.start_configure_prompt") +
+                                  "\" 0 50";
             if (Executor::passthrough(confirm).exit_code == 0) {
                 ensure_docker_running();
                 Executor::shell(
-                    CommandBuilder("docker").add_flag("start").add_arg(container_name).build_string());
+                        CommandBuilder("docker").add_flag("start").add_arg(container_name).build_string());
 
                 // 执行配置脚本
                 std::string config_file = mount_dir.string() + "/.tmoe-linux-docker.sh";
                 if (fs::exists(config_file)) {
                     Executor::passthrough(
-                        CommandBuilder("docker").add_flag("exec").add_flag("-it")
-                        .add_arg(container_name).add_arg("/bin/sh")
-                        .add_arg(config_file).build_string());
+                            CommandBuilder("docker").add_flag("exec").add_flag("-it")
+                                    .add_arg(container_name).add_arg("/bin/sh")
+                                    .add_arg(config_file).build_string());
                 } else {
                     Executor::passthrough(
-                        CommandBuilder("docker").add_flag("exec").add_flag("-it")
-                        .add_arg(container_name).add_arg("/bin/bash")
-                        .add_raw("2>/dev/null").build_string()
-                        + " || " +
-                        CommandBuilder("docker").add_flag("attach")
-                        .add_arg(container_name).build_string());
+                            CommandBuilder("docker").add_flag("exec").add_flag("-it")
+                                    .add_arg(container_name).add_arg("/bin/bash")
+                                    .add_raw("2>/dev/null").build_string()
+                            + " || " +
+                            CommandBuilder("docker").add_flag("attach")
+                                    .add_arg(container_name).build_string());
                 }
             }
         }
@@ -669,7 +684,7 @@ namespace tmoe::domain {
         auto exec = Executor::shell(cb.build_string());
         if (!exec.ok()) return result;
 
-        for (auto& line : split(exec.stdout_data, '\n'))
+        for (auto &line: split(exec.stdout_data, '\n'))
             if (!line.empty()) result.push_back(line);
         return result;
     }
@@ -678,10 +693,10 @@ namespace tmoe::domain {
         Logger::step(_f("docker.removing_container", std::string(name)));
         ensure_docker_running();
         Executor::passthrough(
-            CommandBuilder("docker").add_flag("stop").add_arg(std::string(name))
-            .add_raw("2>/dev/null").build_string());
+                CommandBuilder("docker").add_flag("stop").add_arg(std::string(name))
+                        .add_raw("2>/dev/null").build_string());
         return Executor::passthrough(
-            CommandBuilder("docker").add_flag("rm").add_arg(std::string(name)).build_string()).ok();
+                CommandBuilder("docker").add_flag("rm").add_arg(std::string(name)).build_string()).ok();
     }
 
     bool DockerManager::delete_container_and_image(const std::string &docker_name,
@@ -693,26 +708,26 @@ namespace tmoe::domain {
 
         if (!container_name.empty()) {
             Executor::passthrough(
-                CommandBuilder("docker").add_flag("stop").add_arg(container_name)
-                .add_raw("2>/dev/null").build_string());
+                    CommandBuilder("docker").add_flag("stop").add_arg(container_name)
+                            .add_raw("2>/dev/null").build_string());
             Executor::passthrough(
-                CommandBuilder("docker").add_flag("rm").add_arg(container_name)
-                .add_raw("2>/dev/null").build_string());
+                    CommandBuilder("docker").add_flag("rm").add_arg(container_name)
+                            .add_raw("2>/dev/null").build_string());
         }
 
         // 删除镜像
         Logger::info(_f("docker.delete_image_rmi", docker_name, docker_tag));
         Executor::passthrough(
-            CommandBuilder("docker").add_flag("rmi").add_arg(docker_name + ":" + docker_tag)
-            .add_raw("2>/dev/null").build_string());
+                CommandBuilder("docker").add_flag("rmi").add_arg(docker_name + ":" + docker_tag)
+                        .add_raw("2>/dev/null").build_string());
         if (!docker_tag2.empty() && docker_tag2 != docker_tag) {
             Executor::passthrough(
-                CommandBuilder("docker").add_flag("rmi").add_arg(docker_name + ":" + docker_tag2)
-                .add_raw("2>/dev/null").build_string());
+                    CommandBuilder("docker").add_flag("rmi").add_arg(docker_name + ":" + docker_tag2)
+                            .add_raw("2>/dev/null").build_string());
         }
         Executor::passthrough(
-            CommandBuilder("docker").add_flag("rmi").add_arg(docker_name)
-            .add_raw("2>/dev/null").build_string());
+                CommandBuilder("docker").add_flag("rmi").add_arg(docker_name)
+                        .add_raw("2>/dev/null").build_string());
 
         return true;
     }
@@ -725,10 +740,10 @@ namespace tmoe::domain {
 
         // 检查容器是否存在
         auto check = Executor::shell(
-            CommandBuilder("docker").add_flag("ps").add_flag("-a")
-            .add_opt("--format", "{{.Names}}")
-            .add_raw("2>/dev/null | grep -q \"^" + container_name + "$\"")
-            .build_string());
+                CommandBuilder("docker").add_flag("ps").add_flag("-a")
+                        .add_opt("--format", "{{.Names}}")
+                        .add_raw("2>/dev/null | grep -q \"^" + container_name + "$\"")
+                        .build_string());
         if (!check.ok()) {
             Logger::warn(_f("docker.attach_not_found", container_name));
             Logger::info(_f("docker.attach_pull_prompt", docker_name));
@@ -742,15 +757,15 @@ namespace tmoe::domain {
         }
 
         Executor::passthrough(
-            CommandBuilder("docker").add_flag("start").add_arg(container_name).build_string());
+                CommandBuilder("docker").add_flag("start").add_arg(container_name).build_string());
         // 先尝试 bash，失败则 attach
         auto r = Executor::passthrough(
-            CommandBuilder("docker").add_flag("exec").add_flag("-it")
-            .add_arg(container_name).add_arg("/bin/bash")
-            .add_raw("2>/dev/null").build_string());
+                CommandBuilder("docker").add_flag("exec").add_flag("-it")
+                        .add_arg(container_name).add_arg("/bin/bash")
+                        .add_raw("2>/dev/null").build_string());
         if (!r.ok()) {
             Executor::passthrough(
-                CommandBuilder("docker").add_flag("attach").add_arg(container_name).build_string());
+                    CommandBuilder("docker").add_flag("attach").add_arg(container_name).build_string());
         }
         return true;
     }
@@ -765,7 +780,7 @@ namespace tmoe::domain {
 
         Logger::info(_f("docker.pulling_image", docker_name, docker_tag));
         Executor::passthrough(
-            CommandBuilder("docker").add_flag("pull").add_arg(docker_name + ":" + docker_tag).build_string());
+                CommandBuilder("docker").add_flag("pull").add_arg(docker_name + ":" + docker_tag).build_string());
 
         // reset 不走 systemd 路径
         return run_special_tag_docker_container(docker_name, docker_tag, container_name, false);
@@ -785,8 +800,8 @@ namespace tmoe::domain {
         }
 
         auto result = Executor::passthrough(
-            CommandBuilder("docker").add_flag("export").add_arg(std::string(name))
-            .add_raw("> " + std::string(output_path)).build_string());
+                CommandBuilder("docker").add_flag("export").add_arg(std::string(name))
+                        .add_raw("> " + std::string(output_path)).build_string());
         if (result.ok()) {
             auto size_mb = fs::file_size(output_path) / (1024 * 1024);
             Logger::ok(_f("docker.export_ok", std::string(output_path), std::to_string(size_mb)));
@@ -801,12 +816,12 @@ namespace tmoe::domain {
         std::vector<std::string> names, images;
         auto exec = Executor::shell("docker ps -a --format \"{{.Names}}\" 2>/dev/null");
         if (exec.ok()) {
-            for (auto& line : split(exec.stdout_data, '\n'))
+            for (auto &line: split(exec.stdout_data, '\n'))
                 if (!line.empty()) names.push_back(line);
         }
         auto exec2 = Executor::shell("docker ps -a --format \"{{.Image}}\" 2>/dev/null");
         if (exec2.ok()) {
-            for (auto& line : split(exec2.stdout_data, '\n'))
+            for (auto &line: split(exec2.stdout_data, '\n'))
                 if (!line.empty()) images.push_back(line);
         }
 
@@ -818,35 +833,35 @@ namespace tmoe::domain {
         // TUI 选择容器
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            _("docker.export_container_title"), _("docker.export_container_prompt"), "docker_export");
+                _("docker.export_container_title"), _("docker.export_container_prompt"), "docker_export");
 
         for (size_t i = 0; i < names.size() && i < images.size(); ++i) {
             std::string cname = names[i];
             std::string label = names[i] + " [" + images[i] + "]";
             menu->add_child(std::make_shared<LambdaAction>(
-                label, names[i],
-                [this, cname](MenuContext&) -> bool {
-                    export_container_flow(cname);
-                    Logger::press_enter();
-                    return true;
-                }));
+                    label, names[i],
+                    [this, cname](MenuContext &) -> bool {
+                        export_container_flow(cname);
+                        Logger::press_enter();
+                        return true;
+                    }));
         }
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
     }
 
-    void DockerManager::export_container_flow(const std::string& container_name) {
+    void DockerManager::export_container_flow(const std::string &container_name) {
         // 选择保存路径
         std::string start_dir;
         std::string home_dir = SystemHelper::user_home();
         for (const auto &d: {
-                 home_dir + "/sd/Download/backup/rootfs",
-                 std::string{"/media/sd/Download/backup/rootfs"},
-                 home_dir + "/sd",
-                 home_dir
-             }) {
+                home_dir + "/sd/Download/backup/rootfs",
+                std::string{"/media/sd/Download/backup/rootfs"},
+                home_dir + "/sd",
+                home_dir
+        }) {
             if (fs::is_directory(d)) {
                 start_dir = d;
                 break;
@@ -873,11 +888,11 @@ namespace tmoe::domain {
             user.erase(std::remove(user.begin(), user.end(), '\n'), user.end());
             user.erase(std::remove(user.begin(), user.end(), '\r'), user.end());
             Executor::shell(
-                CommandBuilder("chown").add_arg(user + ":" + user).add_arg(bak_file)
-                .add_raw("2>/dev/null").build_string());
+                    CommandBuilder("chown").add_arg(user + ":" + user).add_arg(bak_file)
+                            .add_raw("2>/dev/null").build_string());
             Executor::shell(
-                CommandBuilder("chmod").add_arg("a+rw").add_arg(bak_file)
-                .add_raw("2>/dev/null").build_string());
+                    CommandBuilder("chmod").add_arg("a+rw").add_arg(bak_file)
+                            .add_raw("2>/dev/null").build_string());
         }
     }
 
@@ -909,8 +924,8 @@ namespace tmoe::domain {
 
         std::string full_name = std::string(image_name) + ":" + std::string(tag);
         auto result = Executor::passthrough(
-            CommandBuilder("docker").add_flag("import").add_arg("-").add_arg(full_name)
-            .add_raw("< " + tar_path_str).build_string());
+                CommandBuilder("docker").add_flag("import").add_arg("-").add_arg(full_name)
+                        .add_raw("< " + tar_path_str).build_string());
         if (result.ok()) {
             Logger::ok(_f("docker.import_ok", full_name));
         }
@@ -924,11 +939,11 @@ namespace tmoe::domain {
         std::string start_dir;
         std::string home_dir = SystemHelper::user_home();
         for (const auto &d: {
-                 home_dir + "/sd/Download/backup/rootfs",
-                 std::string{"/media/sd/Download/backup/rootfs"},
-                 home_dir + "/sd",
-                 home_dir
-             }) {
+                home_dir + "/sd/Download/backup/rootfs",
+                std::string{"/media/sd/Download/backup/rootfs"},
+                home_dir + "/sd",
+                home_dir
+        }) {
             if (fs::is_directory(d)) {
                 start_dir = d;
                 break;
@@ -938,7 +953,8 @@ namespace tmoe::domain {
 
         std::string path_cmd = cfg_.tui_bin +
                                " --title \"" + _("docker.tar_path_title") + "\""
-                               " --inputbox \"" + _("docker.tar_path_input") + "\" 0 50";
+                                                                            " --inputbox \"" +
+                               _("docker.tar_path_input") + "\" 0 50";
         std::string tarpath = Executor::tui_select(path_cmd);
 
         if (tarpath.empty() || !fs::exists(tarpath)) {
@@ -948,7 +964,8 @@ namespace tmoe::domain {
 
         std::string img_cmd = cfg_.tui_bin +
                               " --title \"" + _("docker.import_image_title") + "\""
-                              " --inputbox \"" + _("docker.import_image_input") + "\" 0 50 \"myimage:latest\"";
+                                                                               " --inputbox \"" +
+                              _("docker.import_image_input") + "\" 0 50 \"myimage:latest\"";
         std::string img = Executor::tui_select(img_cmd);
         if (img.empty()) return;
 
@@ -965,7 +982,8 @@ namespace tmoe::domain {
         // 询问是否运行容器
         std::string name_cmd = cfg_.tui_bin +
                                " --title \"" + _("docker.container_name_title") + "\""
-                               " --inputbox \"" + _("docker.container_name_input") + "\" 0 50 \"" +
+                                                                                  " --inputbox \"" +
+                               _("docker.container_name_input") + "\" 0 50 \"" +
                                (colon != std::string::npos ? img.substr(0, colon) : img) + "\"";
         std::string cname = Executor::tui_select(name_cmd);
         if (cname.empty()) return;
@@ -988,40 +1006,40 @@ namespace tmoe::domain {
 
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            _("docker.mirror_title"), _("docker.mirror_prompt"), "docker_mirror_config");
+                _("docker.mirror_title"), _("docker.mirror_prompt"), "docker_mirror_config");
 
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mirror_ustc"), "1",
-            [this](MenuContext&) -> bool {
-                apply_docker_mirror("https://docker.mirrors.ustc.edu.cn");
-                return true;
-            }));
+                _("docker.mirror_ustc"), "1",
+                [this](MenuContext &) -> bool {
+                    apply_docker_mirror("https://docker.mirrors.ustc.edu.cn");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mirror_163"), "2",
-            [this](MenuContext&) -> bool {
-                apply_docker_mirror("https://hub-mirror.c.163.com");
-                return true;
-            }));
+                _("docker.mirror_163"), "2",
+                [this](MenuContext &) -> bool {
+                    apply_docker_mirror("https://hub-mirror.c.163.com");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mirror_aliyun"), "3",
-            [this](MenuContext&) -> bool {
-                apply_docker_mirror("https://registry.cn-hangzhou.aliyuncs.com");
-                return true;
-            }));
+                _("docker.mirror_aliyun"), "3",
+                [this](MenuContext &) -> bool {
+                    apply_docker_mirror("https://registry.cn-hangzhou.aliyuncs.com");
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mirror_tencent"), "4",
-            [this](MenuContext&) -> bool {
-                apply_docker_mirror("https://mirror.ccs.tencentyun.com");
-                return true;
-            }));
+                _("docker.mirror_tencent"), "4",
+                [this](MenuContext &) -> bool {
+                    apply_docker_mirror("https://mirror.ccs.tencentyun.com");
+                    return true;
+                }));
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
         return true;
     }
 
-    bool DockerManager::apply_docker_mirror(const std::string& mirror_url) {
+    bool DockerManager::apply_docker_mirror(const std::string &mirror_url) {
         fs::path daemon_dir = "/etc/docker";
         if (!fs::exists(daemon_dir)) fs::create_directories(daemon_dir);
 
@@ -1040,58 +1058,58 @@ namespace tmoe::domain {
     void DockerManager::docker_mirror_source() {
         using namespace tmoe::ui;
         auto menu = make_plugin_menu(
-            _("docker.mirror_title_sub"), _("docker.mirror_prompt"), "docker_mirror_source");
+                _("docker.mirror_title_sub"), _("docker.mirror_prompt"), "docker_mirror_source");
 
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mirror_163_label"), "1",
-            [this](MenuContext&) -> bool {
-                configure_mirror();
-                Logger::press_enter();
-                return true;
-            }));
+                _("docker.mirror_163_label"), "1",
+                [this](MenuContext &) -> bool {
+                    configure_mirror();
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mirror_edit_daemon"), "2",
-            [this](MenuContext&) -> bool {
-                Executor::passthrough("nano /etc/docker/daemon.json 2>/dev/null || vi /etc/docker/daemon.json");
-                Logger::press_enter();
-                return true;
-            }));
+                _("docker.mirror_edit_daemon"), "2",
+                [this](MenuContext &) -> bool {
+                    Executor::passthrough("nano /etc/docker/daemon.json 2>/dev/null || vi /etc/docker/daemon.json");
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mirror_edit_source"), "3",
-            [this](MenuContext&) -> bool {
-                if (is_debian_family()) {
-                    std::string editor = "nano";
-                    auto e = Executor::shell("which nano 2>/dev/null");
-                    if (!e.ok()) editor = "vi";
-                    Executor::passthrough(
-                        CommandBuilder(editor).add_arg("/etc/apt/sources.list.d/docker-ce.list")
-                        .add_raw("2>/dev/null").build_string());
-                } else {
-                    Logger::info(_("docker.unsupported_distro"));
-                }
-                Logger::press_enter();
-                return true;
-            }));
+                _("docker.mirror_edit_source"), "3",
+                [this](MenuContext &) -> bool {
+                    if (is_debian_family()) {
+                        std::string editor = "nano";
+                        auto e = Executor::shell("which nano 2>/dev/null");
+                        if (!e.ok()) editor = "vi";
+                        Executor::passthrough(
+                                CommandBuilder(editor).add_arg("/etc/apt/sources.list.d/docker-ce.list")
+                                        .add_raw("2>/dev/null").build_string());
+                    } else {
+                        Logger::info(_("docker.unsupported_distro"));
+                    }
+                    Logger::press_enter();
+                    return true;
+                }));
         menu->add_child(std::make_shared<LambdaAction>(
-            _("docker.mirror_remove_list"), "4",
-            [this](MenuContext&) -> bool {
-                Logger::warn(_("docker.mirror_remove_confirm"));
-                Logger::info("rm -fv /etc/apt/sources.list.d/docker-ce.list "
-                    "/etc/apt/sources.list.d/docker.list "
-                    "/usr/share/keyrings/docker-ce-archive-keyring.gpg");
-                std::string confirm = cfg_.tui_bin +
-                                      " --yesno \"" + _("docker.mirror_remove_confirm") + "\" 0 50";
-                if (Executor::passthrough(confirm).exit_code == 0) {
-                    Executor::shell("sudo rm -fv /etc/apt/sources.list.d/docker-ce.list "
-                        "/etc/apt/sources.list.d/docker.list "
-                        "/usr/share/keyrings/docker-ce-archive-keyring.gpg 2>/dev/null");
-                }
-                Logger::press_enter();
-                return true;
-            }));
+                _("docker.mirror_remove_list"), "4",
+                [this](MenuContext &) -> bool {
+                    Logger::warn(_("docker.mirror_remove_confirm"));
+                    Logger::info("rm -fv /etc/apt/sources.list.d/docker-ce.list "
+                                 "/etc/apt/sources.list.d/docker.list "
+                                 "/usr/share/keyrings/docker-ce-archive-keyring.gpg");
+                    std::string confirm = cfg_.tui_bin +
+                                          " --yesno \"" + _("docker.mirror_remove_confirm") + "\" 0 50";
+                    if (Executor::passthrough(confirm).exit_code == 0) {
+                        Executor::shell("sudo rm -fv /etc/apt/sources.list.d/docker-ce.list "
+                                        "/etc/apt/sources.list.d/docker.list "
+                                        "/usr/share/keyrings/docker-ce-archive-keyring.gpg 2>/dev/null");
+                    }
+                    Logger::press_enter();
+                    return true;
+                }));
 
         add_sandwich_nav(menu);
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
     }
 
@@ -1107,7 +1125,7 @@ namespace tmoe::domain {
         } else {
             std::string home = SystemHelper::user_home();
             auto result = Executor::shell(
-                std::string("grep \"") + home + "\" /etc/passwd | awk -F':' '{print $1}' | head -n 1");
+                    std::string("grep \"") + home + "\" /etc/passwd | awk -F':' '{print $1}' | head -n 1");
             if (result.ok() && !result.stdout_data.empty()) {
                 cur_user = result.stdout_data;
                 cur_user.erase(std::remove(cur_user.begin(), cur_user.end(), '\n'), cur_user.end());
@@ -1129,8 +1147,8 @@ namespace tmoe::domain {
 
         Executor::shell("sudo groupadd docker 2>/dev/null");
         bool ok = Executor::shell(
-            CommandBuilder("sudo").add_arg("gpasswd").add_flag("-a").add_arg(cur_user).add_arg("docker")
-            .build_string()).ok();
+                CommandBuilder("sudo").add_arg("gpasswd").add_flag("-a").add_arg(cur_user).add_arg("docker")
+                        .build_string()).ok();
         if (ok) {
             Logger::ok(_("docker.user_added_to_group") + ": " + cur_user);
             Logger::info(_("docker.relogin_hint"));
@@ -1161,7 +1179,8 @@ namespace tmoe::domain {
 
         std::string cmd = cfg_.tui_bin +
                           " --title \"" + _("docker.custom_tag_title") + "\""
-                          " --inputbox \"" + _("docker.custom_tag_prompt") + "\n" + docker_url + "\" 0 50";
+                                                                         " --inputbox \"" +
+                          _("docker.custom_tag_prompt") + "\n" + docker_url + "\" 0 50";
         std::string tag = Executor::tui_select(cmd);
 
         if (tag.empty()) {
@@ -1208,8 +1227,8 @@ namespace tmoe::domain {
             user.erase(std::remove(user.begin(), user.end(), '\r'), user.end());
             if (!user.empty()) {
                 Executor::shell(
-                    CommandBuilder("chown").add_flag("-R").add_arg(user + ":" + user)
-                    .add_arg(mount_dir.string()).add_raw("2>/dev/null").build_string());
+                        CommandBuilder("chown").add_flag("-R").add_arg(user + ":" + user)
+                                .add_arg(mount_dir.string()).add_raw("2>/dev/null").build_string());
             }
         }
 
@@ -1220,8 +1239,8 @@ namespace tmoe::domain {
             std::ofstream ofs(config_file);
             if (ofs) {
                 ofs << "#!/bin/sh\n"
-                        << "# tmoe-linux docker container configuration script\n"
-                        << "echo 'Container configured via tmoe-linux C++'\n";
+                    << "# tmoe-linux docker container configuration script\n"
+                    << "echo 'Container configured via tmoe-linux C++'\n";
                 ofs.close();
             }
         }
@@ -1304,7 +1323,7 @@ namespace tmoe::domain {
         PackageManager::install({"ca-certificates", "curl", "gnupg", "lsb-release"}, DistroFamily::Debian);
         std::string mirror = "https://mirrors.bfsu.edu.cn/docker-ce/linux/" + release;
         std::string gpg_cmd = "curl -fsSL " + mirror + "/gpg 2>/dev/null | "
-                              "gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg 2>/dev/null";
+                                                       "gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg 2>/dev/null";
         Executor::passthrough(gpg_cmd);
 
         std::string repo_line = "deb [arch=$(dpkg --print-architecture) "
@@ -1339,9 +1358,9 @@ namespace tmoe::domain {
         // GPG 密钥
         Executor::passthrough("curl -fsSL https://mirrors.bfsu.edu.cn/docker-ce/linux/"
                               + docker_release + "/gpg 2>/dev/null | "
-                              "gpg --dearmor > /tmp/docker-ce.gpg 2>/dev/null");
+                                                 "gpg --dearmor > /tmp/docker-ce.gpg 2>/dev/null");
         Executor::passthrough("install -o root -g root -m 644 /tmp/docker-ce.gpg "
-            "/usr/share/keyrings/docker-ce-archive-keyring.gpg");
+                              "/usr/share/keyrings/docker-ce-archive-keyring.gpg");
 
         // 注释已有源
         Executor::shell("sudo sed -i 's@^[^#]*deb @#&@g' /etc/apt/sources.list.d/docker-ce.list 2>/dev/null");
@@ -1349,17 +1368,19 @@ namespace tmoe::domain {
         // TUI 选择源
         std::string src_menu = cfg_.tui_bin +
                                " --title \"" + _("docker.debian_repo_title") + "\""
-                               " --yes-button '" + _("docker.debian_repo_bfsu") + "'"
-                               " --no-button '" + _("docker.debian_repo_docker") + "'"
-                               " --yesno \"" + _("docker.debian_repo_prompt") + "\" 0 50";
+                                                                               " --yes-button '" +
+                               _("docker.debian_repo_bfsu") + "'"
+                                                              " --no-button '" + _("docker.debian_repo_docker") + "'"
+                                                                                                                  " --yesno \"" +
+                               _("docker.debian_repo_prompt") + "\" 0 50";
         auto src_choice = Executor::passthrough(src_menu);
 
         std::string deb_line = (src_choice.exit_code == 0)
-                                   ? "deb [signed-by=/usr/share/keyrings/docker-ce-archive-keyring.gpg] "
-                                     "https://mirrors.bfsu.edu.cn/docker-ce/linux/" + docker_release + " " + code +
-                                     " stable\n"
-                                   : "deb [signed-by=/usr/share/keyrings/docker-ce-archive-keyring.gpg] "
-                                     "https://download.docker.com/linux/" + docker_release + " " + code + " stable\n";
+                               ? "deb [signed-by=/usr/share/keyrings/docker-ce-archive-keyring.gpg] "
+                                 "https://mirrors.bfsu.edu.cn/docker-ce/linux/" + docker_release + " " + code +
+                                 " stable\n"
+                               : "deb [signed-by=/usr/share/keyrings/docker-ce-archive-keyring.gpg] "
+                                 "https://download.docker.com/linux/" + docker_release + " " + code + " stable\n";
         SystemHelper::append_file("/etc/apt/sources.list.d/docker-ce.list", deb_line);
 
         PackageManager::update(DistroFamily::Debian);
@@ -1370,7 +1391,8 @@ namespace tmoe::domain {
     std::string DockerManager::tui_input_tag() {
         std::string cmd = cfg_.tui_bin +
                           " --title \"" + _("docker.tag_title") + "\""
-                          " --inputbox \"" + _("docker.tag_input") + "\" 0 0 \"latest\"";
+                                                                  " --inputbox \"" + _("docker.tag_input") +
+                          "\" 0 0 \"latest\"";
         std::string tag = Executor::tui_select(cmd);
         if (tag.empty()) return "latest";
         return tag;

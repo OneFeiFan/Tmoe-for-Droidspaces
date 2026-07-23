@@ -34,20 +34,22 @@ namespace tmoe::domain {
                                      _f("swcenter.electron.what_to_do", app_name),
                                      "electron_" + app_name,
                                      _f("swcenter.electron.what_to_do", app_name));
-        menu->add_child(std::make_shared<LambdaAction>(_("swcenter.electron.install_upgrade"), "1", [this, app_name](MenuContext&) -> bool {
-            ensure_electron_runtime();
-            download_tmoe_electron_app(app_name);
-            Logger::press_enter();
-            return true;
-        }));
-        menu->add_child(std::make_shared<LambdaAction>(_("swcenter.electron.remove"), "2", [this, app_name](MenuContext&) -> bool {
-            remove_electron_app(app_name);
-            Logger::press_enter();
-            return true;
-        }));
+        menu->add_child(std::make_shared<LambdaAction>(_("swcenter.electron.install_upgrade"), "1",
+                                                       [this, app_name](MenuContext &) -> bool {
+                                                           ensure_electron_runtime();
+                                                           download_tmoe_electron_app(app_name);
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
+        menu->add_child(std::make_shared<LambdaAction>(_("swcenter.electron.remove"), "2",
+                                                       [this, app_name](MenuContext &) -> bool {
+                                                           remove_electron_app(app_name);
+                                                           Logger::press_enter();
+                                                           return true;
+                                                       }));
         add_sandwich_nav(menu);
         // MenuContext 需要 non-const TmoeConfig&（历史遗留），此处 cfg_ 以 const 引用持有
-        MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
+        MenuContext ctx{const_cast<TmoeConfig &>(cfg_)};
         MenuEngine(ctx).run(menu);
     }
 
@@ -62,15 +64,15 @@ namespace tmoe::domain {
 
         // 下载最新 Electron
         auto result = Executor::passthrough(
-            "cd /tmp && "
-            "ELECTRON_VER=18.2.3; "
-            "ELECTRON_URL=\"https://npmmirror.com/mirrors/electron/v${ELECTRON_VER}/electron-v${ELECTRON_VER}-linux-x64.zip\"; "
-            "rm -rf .electron_tmp 2>/dev/null; mkdir -pv .electron_tmp; cd .electron_tmp; "
-            "aria2c --console-log-level=warn --no-conf --continue=true "
-            "--allow-overwrite=true -s 3 -x 3 -k 1M -o electron.zip \"${ELECTRON_URL}\" && "
-            "sudo unzip -qo electron.zip -d /opt/electron && "
-            "sudo chmod a+rx /opt/electron/electron && "
-            "sudo ln -sf /opt/electron/electron /usr/bin/electron"
+                "cd /tmp && "
+                "ELECTRON_VER=18.2.3; "
+                "ELECTRON_URL=\"https://npmmirror.com/mirrors/electron/v${ELECTRON_VER}/electron-v${ELECTRON_VER}-linux-x64.zip\"; "
+                "rm -rf .electron_tmp 2>/dev/null; mkdir -pv .electron_tmp; cd .electron_tmp; "
+                "aria2c --console-log-level=warn --no-conf --continue=true "
+                "--allow-overwrite=true -s 3 -x 3 -k 1M -o electron.zip \"${ELECTRON_URL}\" && "
+                "sudo unzip -qo electron.zip -d /opt/electron && "
+                "sudo chmod a+rx /opt/electron/electron && "
+                "sudo ln -sf /opt/electron/electron /usr/bin/electron"
         );
 
         if (!result.ok() || !fs::exists("/opt/electron/electron")) {
@@ -94,10 +96,10 @@ namespace tmoe::domain {
 
         Logger::step(_f("swcenter.electron.downloading", app_name));
         auto dl_ret = Executor::passthrough(
-            "cd " + tmp_dir + " && "
-            "aria2c --console-log-level=warn --no-conf --continue=true "
-            "--allow-overwrite=true -x 3 -k 1M --split 3 -o app.tar.xz "
-            "'" + pkg_url + "/apps/" + app_name + "/app.tar.xz'"
+                "cd " + tmp_dir + " && "
+                                  "aria2c --console-log-level=warn --no-conf --continue=true "
+                                  "--allow-overwrite=true -x 3 -k 1M --split 3 -o app.tar.xz "
+                                  "'" + pkg_url + "/apps/" + app_name + "/app.tar.xz'"
         );
 
         if (!dl_ret.ok()) {
@@ -113,11 +115,11 @@ namespace tmoe::domain {
             Logger::warn(_f("swcenter.electron.extract_not_found", app_name));
             // 重试一次
             Executor::passthrough(
-                "cd " + tmp_dir + " && "
-                "aria2c --console-log-level=warn --no-conf --continue=true "
-                "--allow-overwrite=true -x 3 -k 1M --split 3 -o app.tar.xz "
-                "'" + pkg_url + "/apps/" + app_name + "/app.tar.xz' && "
-                "sudo tar -Jxvf app.tar.xz -C /opt"
+                    "cd " + tmp_dir + " && "
+                                      "aria2c --console-log-level=warn --no-conf --continue=true "
+                                      "--allow-overwrite=true -x 3 -k 1M --split 3 -o app.tar.xz "
+                                      "'" + pkg_url + "/apps/" + app_name + "/app.tar.xz' && "
+                                                                            "sudo tar -Jxvf app.tar.xz -C /opt"
             );
         }
 
@@ -129,17 +131,19 @@ namespace tmoe::domain {
 
         // 修复权限并复制 .desktop 文件
         Executor::shell(
-            "sudo chmod -Rv 755 /opt/" + app_name + "/usr/bin/ 2>/dev/null || true; "
-            "find /opt/" + app_name + " -type d -print | xargs sudo chmod -v a+rx 2>/dev/null || true; "
-            "find /opt/" + app_name + " -type f -print | xargs sudo chmod a+r 2>/dev/null || true"
+                "sudo chmod -Rv 755 /opt/" + app_name + "/usr/bin/ 2>/dev/null || true; "
+                                                        "find /opt/" + app_name +
+                " -type d -print | xargs sudo chmod -v a+rx 2>/dev/null || true; "
+                "find /opt/" + app_name + " -type f -print | xargs sudo chmod a+r 2>/dev/null || true"
         );
 
         // 复制 .desktop 到系统
         Executor::shell(
-            "cd /opt/" + app_name + " && "
-            "if [ -e ." + apps_lnk_dir_ + "/" + app_name + ".desktop ]; then "
-            "  sudo cp -vf ." + apps_lnk_dir_ + "/" + app_name + ".desktop " + apps_lnk_dir_ + "/; "
-            "fi"
+                "cd /opt/" + app_name + " && "
+                                        "if [ -e ." + apps_lnk_dir_ + "/" + app_name + ".desktop ]; then "
+                                                                                       "  sudo cp -vf ." +
+                apps_lnk_dir_ + "/" + app_name + ".desktop " + apps_lnk_dir_ + "/; "
+                                                                               "fi"
         );
 
         CommandBuilder("rm").add_flag("-rf").add_arg(tmp_dir).add_raw("2>/dev/null").execute();
@@ -190,15 +194,15 @@ namespace tmoe::domain {
             Logger::step(_("swcenter.spotify.installing"));
             // 下载并安装 GPG 公钥
             Executor::passthrough(
-                "curl -LsS https://download.spotify.com/debian/pubkey.gpg | "
-                "gpg --dearmor > /tmp/spotify.gpg && "
-                "sudo install -o root -g root -m 644 /tmp/spotify.gpg "
-                "/etc/apt/trusted.gpg.d/spotify.gpg && rm -f /tmp/spotify.gpg");
+                    "curl -LsS https://download.spotify.com/debian/pubkey.gpg | "
+                    "gpg --dearmor > /tmp/spotify.gpg && "
+                    "sudo install -o root -g root -m 644 /tmp/spotify.gpg "
+                    "/etc/apt/trusted.gpg.d/spotify.gpg && rm -f /tmp/spotify.gpg");
             Executor::passthrough(
-                "curl -LsS https://download.spotify.com/debian/pubkey_0D811D58.gpg | "
-                "gpg --dearmor > /tmp/spotify_pub.gpg && "
-                "sudo install -o root -g root -m 644 /tmp/spotify_pub.gpg "
-                "/etc/apt/trusted.gpg.d/spotify_pub.gpg && rm -f /tmp/spotify_pub.gpg");
+                    "curl -LsS https://download.spotify.com/debian/pubkey_0D811D58.gpg | "
+                    "gpg --dearmor > /tmp/spotify_pub.gpg && "
+                    "sudo install -o root -g root -m 644 /tmp/spotify_pub.gpg "
+                    "/etc/apt/trusted.gpg.d/spotify_pub.gpg && rm -f /tmp/spotify_pub.gpg");
             // 添加 apt 源
             SystemHelper::write_file("/etc/apt/sources.list.d/spotify.list",
                                      "deb http://repository.spotify.com stable non-free\n");
@@ -227,9 +231,9 @@ namespace tmoe::domain {
         if (!fs::exists(icon_file)) {
             Executor::shell("sudo mkdir -pv " + icon_dir);
             Executor::passthrough(
-                "sudo aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
-                "-d " + icon_dir + " -o netease-cloud-music.jpg "
-                "\"https://gitee.com/ak2/icons/raw/master/netease-cloud-music.jpg\"");
+                    "sudo aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
+                    "-d " + icon_dir + " -o netease-cloud-music.jpg "
+                                       "\"https://gitee.com/ak2/icons/raw/master/netease-cloud-music.jpg\"");
         }
 
         Logger::step(_("swcenter.netease.checking_version"));
@@ -238,8 +242,8 @@ namespace tmoe::domain {
         // 从优麒麟仓库获取版本号
         std::string kylin_repo = "http://archive.ubuntukylin.com/software/pool/partner/";
         auto ver_result = Executor::shell(
-            "curl -sL '" + kylin_repo + "' 2>/dev/null | "
-            "grep netease-cloud-music | grep -oP 'href=\"\\K[^\"]+' | head -1");
+                "curl -sL '" + kylin_repo + "' 2>/dev/null | "
+                                            "grep netease-cloud-music | grep -oP 'href=\"\\K[^\"]+' | head -1");
         std::string latest_ver = ver_result.stdout_data;
         trim_newline(latest_ver);
 
@@ -257,7 +261,7 @@ namespace tmoe::domain {
         } else if (family == DistroFamily::RedHat) {
             Executor::passthrough("curl -LsS https://dl.senorsen.com/pub/package/linux/add_repo.sh | sudo bash");
             Executor::passthrough("sudo dnf install -y "
-                "http://dl-http.senorsen.com/pub/package/linux/rpm/senorsen-repo-0.0.1-1.noarch.rpm");
+                                  "http://dl-http.senorsen.com/pub/package/linux/rpm/senorsen-repo-0.0.1-1.noarch.rpm");
             Executor::passthrough("sudo dnf install -y netease-cloud-music");
         } else {
             // Debian 系：从优麒麟或debiancn下载deb
@@ -268,14 +272,14 @@ namespace tmoe::domain {
                 deb_url = "http://mirrors.ustc.edu.cn/debiancn/pool/main/n/netease-cloud-music/";
             }
             Executor::passthrough(
-                "cd /tmp && "
-                "LATEST=$(curl -sL '" + deb_url + "' 2>/dev/null | "
-                "  grep netease-cloud-music | grep -oP 'href=\"\\K[^\"]+' | tail -1) && "
-                "aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
-                "  -s 5 -x 5 -k 1M -o netease-cloud-music.deb "
-                "  \"" + deb_url + "${LATEST}\" && "
-                "sudo apt install -y ./netease-cloud-music.deb || sudo apt install -f -y && "
-                "rm -f netease-cloud-music.deb");
+                    "cd /tmp && "
+                    "LATEST=$(curl -sL '" + deb_url + "' 2>/dev/null | "
+                                                      "  grep netease-cloud-music | grep -oP 'href=\"\\K[^\"]+' | tail -1) && "
+                                                      "aria2c --console-log-level=warn --no-conf --allow-overwrite=true "
+                                                      "  -s 5 -x 5 -k 1M -o netease-cloud-music.deb "
+                                                      "  \"" + deb_url + "${LATEST}\" && "
+                                                                         "sudo apt install -y ./netease-cloud-music.deb || sudo apt install -f -y && "
+                                                                         "rm -f netease-cloud-music.deb");
         }
 
         // 保存版本信息
@@ -310,7 +314,7 @@ namespace tmoe::domain {
         // 2. 安全落地配置文件：使用官方动态分发接口
         std::string tmp_json = "/tmp/qq_pc_config.json";
         const char *curl_opts = "-4 --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 30 -sL "
-                "-A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'";
+                                "-A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'";
 
         CommandBuilder("curl")
                 .add_raw(std::string(curl_opts))
@@ -410,18 +414,18 @@ namespace tmoe::domain {
         Logger::step(_("swcenter.qq.installing"));
         if (ext == ".deb") {
             Executor::passthrough(
-                "cd /tmp && apt-cache show ./" + dest_file + " 2>/dev/null; sudo apt install -y ./" + dest_file +
-                " && rm -vf " + dest_file);
+                    "cd /tmp && apt-cache show ./" + dest_file + " 2>/dev/null; sudo apt install -y ./" + dest_file +
+                    " && rm -vf " + dest_file);
         } else if (ext == ".rpm") {
             Executor::passthrough(
-                "cd /tmp && sudo rpm -Uvh ./" + dest_file + " || sudo yum localinstall -y ./" + dest_file +
-                " && rm -vf " +
-                dest_file);
+                    "cd /tmp && sudo rpm -Uvh ./" + dest_file + " || sudo yum localinstall -y ./" + dest_file +
+                    " && rm -vf " +
+                    dest_file);
         } else {
             // AppImage 配置部署
             Executor::shell(
-                "sudo mkdir -p /opt/linuxqq && sudo mv /tmp/" + dest_file +
-                " /opt/linuxqq/linuxqq.AppImage && sudo chmod +x /opt/linuxqq/linuxqq.AppImage");
+                    "sudo mkdir -p /opt/linuxqq && sudo mv /tmp/" + dest_file +
+                    " /opt/linuxqq/linuxqq.AppImage && sudo chmod +x /opt/linuxqq/linuxqq.AppImage");
             std::string desktop_content =
                     "[Desktop Entry]\n"
                     "Name=QQ\n"
@@ -432,7 +436,7 @@ namespace tmoe::domain {
                     "Icon=qq\n"
                     "Categories=Network;InstantMessaging;\n";
             Executor::shell(
-                "sudo sh -c 'cat > /usr/share/applications/linuxqq.desktop' <<'EOF'\n" + desktop_content + "EOF\n");
+                    "sudo sh -c 'cat > /usr/share/applications/linuxqq.desktop' <<'EOF'\n" + desktop_content + "EOF\n");
         }
 
         Logger::ok(_f("swcenter.qq.install_done", version));
@@ -455,7 +459,7 @@ namespace tmoe::domain {
         // 2. 安全策略：获取官网 HTML 源码落地为临时文件
         std::string tmp_html = "/tmp/wechat_linux.html";
         const char *curl_opts = "-4 --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 30 -sL "
-                "-A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'";
+                                "-A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'";
 
         CommandBuilder("curl")
                 .add_raw(std::string(curl_opts))
@@ -566,8 +570,8 @@ namespace tmoe::domain {
             Executor::passthrough("sudo rpm -Uvh '" + dest + "' || sudo yum localinstall -y '" + dest + "'");
         } else {
             Executor::shell(
-                "sudo mkdir -p /opt/wechat && sudo mv '" + dest +
-                "' /opt/wechat/wechat.AppImage && sudo chmod +x /opt/wechat/wechat.AppImage");
+                    "sudo mkdir -p /opt/wechat && sudo mv '" + dest +
+                    "' /opt/wechat/wechat.AppImage && sudo chmod +x /opt/wechat/wechat.AppImage");
             std::string desktop_content =
                     "[Desktop Entry]\n"
                     "Name=WeChat\n"
@@ -578,7 +582,7 @@ namespace tmoe::domain {
                     "Icon=wechat\n"
                     "Categories=Network;InstantMessaging;\n";
             Executor::shell(
-                "sudo sh -c 'cat > " + app_lnk_dir + "/wechat.desktop' <<'EOF'\n" + desktop_content + "EOF\n");
+                    "sudo sh -c 'cat > " + app_lnk_dir + "/wechat.desktop' <<'EOF'\n" + desktop_content + "EOF\n");
         }
 
         Logger::ok(_("swcenter.wechat.install_done"));
@@ -613,9 +617,9 @@ namespace tmoe::domain {
 
         Logger::step(_("swcenter.skype.downloading"));
         auto dl_ret = Executor::passthrough(
-            "cd /tmp && "
-            "aria2c --console-log-level=warn --no-conf --continue=true "
-            "--allow-overwrite=true -s 5 -x 5 -k 1M -o " + dl_file + " '" + dl_url + "'"
+                "cd /tmp && "
+                "aria2c --console-log-level=warn --no-conf --continue=true "
+                "--allow-overwrite=true -s 5 -x 5 -k 1M -o " + dl_file + " '" + dl_url + "'"
         );
 
         if (!dl_ret.ok()) {
@@ -627,8 +631,9 @@ namespace tmoe::domain {
             Executor::passthrough("cd /tmp && sudo yum install -y ./" + dl_file + "; rm -vf " + dl_file);
         } else {
             Executor::passthrough(
-                "cd /tmp && apt-cache show ./" + dl_file + " 2>/dev/null; "
-                "sudo apt install -y ./" + dl_file + "; rm -vf " + dl_file
+                    "cd /tmp && apt-cache show ./" + dl_file + " 2>/dev/null; "
+                                                               "sudo apt install -y ./" + dl_file + "; rm -vf " +
+                    dl_file
             );
         }
         Logger::ok(_("swcenter.skype.install_done"));
@@ -640,9 +645,9 @@ namespace tmoe::domain {
 
         // 从 AUR 抓取最新 deb 链接
         auto url_result = Executor::shell(
-            "curl --connect-timeout 15 --max-time 30 -sL "
-            "'https://aur.archlinux.org/packages/mitalk/' 2>/dev/null | "
-            "grep -oP 'https://[^\"]*\\.deb' | head -n 1"
+                "curl --connect-timeout 15 --max-time 30 -sL "
+                "'https://aur.archlinux.org/packages/mitalk/' 2>/dev/null | "
+                "grep -oP 'https://[^\"]*\\.deb' | head -n 1"
         );
         std::string dl_url = url_result.stdout_data;
         trim_newline(dl_url);
@@ -666,21 +671,21 @@ namespace tmoe::domain {
             return;
 
         Executor::passthrough(
-            "cd /tmp && "
-            "aria2c --console-log-level=warn --no-conf --continue=true "
-            "--allow-overwrite=true -s 5 -x 5 -k 1M -o " + dl_file + " '" + dl_url + "'"
+                "cd /tmp && "
+                "aria2c --console-log-level=warn --no-conf --continue=true "
+                "--allow-overwrite=true -s 5 -x 5 -k 1M -o " + dl_file + " '" + dl_url + "'"
         );
 
         if (is_appimage) {
             Executor::passthrough(
-                "cd /tmp && chmod +x " + dl_file +
-                " && mkdir -p ~/Applications && mv " + dl_file + " ~/Applications/ && "
-                "rm -vf /tmp/" + dl_file);
+                    "cd /tmp && chmod +x " + dl_file +
+                    " && mkdir -p ~/Applications && mv " + dl_file + " ~/Applications/ && "
+                                                                     "rm -vf /tmp/" + dl_file);
         } else {
             Executor::passthrough(
-                "cd /tmp && sudo dpkg -i ./" + dl_file + " || sudo apt install -y ./" + dl_file +
-                " 2>/dev/null || true; "
-                "rm -vf " + dl_file
+                    "cd /tmp && sudo dpkg -i ./" + dl_file + " || sudo apt install -y ./" + dl_file +
+                    " 2>/dev/null || true; "
+                    "rm -vf " + dl_file
             );
         }
         Logger::ok(_("swcenter.mitalk.install_done"));
@@ -714,87 +719,87 @@ namespace tmoe::domain {
             case DistroFamily::Debian: {
                 // 每个包名独立移除，一个失败不影响其他
                 for (const auto &pkg: {
-                         // xfce
-                         "xfce4", "xfce4-goodies", "xfce4-terminal", "xfce4-panel", "thunar",
-                         "xfce4-whiskermenu-plugin", "xfce4-taskmanager",
-                         "xfce4-places-plugin", "xfce4-netload-plugin", "xfce4-battery-plugin",
-                         "xfce4-datetime-plugin", "xfce4-verve-plugin", "xfce4-mount-plugin",
-                         "xfce4-screenshooter", "xfce4-clipman-plugin", "xfce4-pulseaudio-plugin",
-                         "xfce4-panel-profiles", "xfpanel-switch",
-                         "thunar-archive-plugin", "engrampa", "ristretto", "mousepad", "menulibre",
-                         "qt5ct", "mugshot", "xfwm4-theme-breeze",
-                         "gvfs", "gvfs-backends", "gvfs-fuse",
-                         // lxde
-                         "lxde-core", "lxterminal", "lxde", "lxde-common",
-                         // lxqt
-                         "lxqt-core", "lxqt", "lxqt-qtplugin", "qterminal", "qterminal-l10n",
-                         "pcmanfm-qt", "pcmanfm-qt-l10n", "openbox", "lxqt-session", "lxqt-config",
-                         "lxqt-theme-debian", "lxqt-session-l10n",
-                         // mate
-                         "mate-desktop-environment", "mate-desktop-environment-core", "mate-terminal",
-                         "mate-session-manager", "mate-settings-daemon", "marco", "mate-panel",
-                         // kde
-                         "kde-plasma-desktop", "plasma-desktop", "kde-full", "kde-standard",
-                         "kubuntu-desktop",
-                         // gnome
-                         "gnome-session", "gnome-shell", "gnome-core",
-                         // cinnamon
-                         "cinnamon-desktop-environment", "cinnamon", "cinnamon-l10n",
-                         // budgie
-                         "budgie-desktop", "budgie-core",
-                         // dde/deepin
-                         "ubuntudde-dde", "ubuntudde-dde-extras", "deepin-terminal",
-                         "deepin-desktop-environment",
-                         // ukui
-                         "ukui-session-manager", "ukui-menu", "ukui-control-center",
-                         "ukui-screensaver", "ukui-themes", "peony", "ubuntukylin-desktop",
-                         // cutefish
-                         "cutefish", "cutefish-core", "cutefish-settings",
-                         "cutefish-dock", "cutefish-launcher", "cutefish-filemanager",
-                         "cutefish-terminal", "cutefish-texteditor",
-                         // wm
-                         "icewm", "openbox", "fvwm", "awesome", "enlightenment", "fluxbox",
-                         "i3", "i3-wm", "xmonad", "metacity", "twm", "dwm",
-                         // common
-                         "tightvncserver", "tigervnc-standalone-server", "dbus-x11",
-                         "fonts-noto-cjk", "fonts-noto-color-emoji",
-                     }) {
+                        // xfce
+                        "xfce4", "xfce4-goodies", "xfce4-terminal", "xfce4-panel", "thunar",
+                        "xfce4-whiskermenu-plugin", "xfce4-taskmanager",
+                        "xfce4-places-plugin", "xfce4-netload-plugin", "xfce4-battery-plugin",
+                        "xfce4-datetime-plugin", "xfce4-verve-plugin", "xfce4-mount-plugin",
+                        "xfce4-screenshooter", "xfce4-clipman-plugin", "xfce4-pulseaudio-plugin",
+                        "xfce4-panel-profiles", "xfpanel-switch",
+                        "thunar-archive-plugin", "engrampa", "ristretto", "mousepad", "menulibre",
+                        "qt5ct", "mugshot", "xfwm4-theme-breeze",
+                        "gvfs", "gvfs-backends", "gvfs-fuse",
+                        // lxde
+                        "lxde-core", "lxterminal", "lxde", "lxde-common",
+                        // lxqt
+                        "lxqt-core", "lxqt", "lxqt-qtplugin", "qterminal", "qterminal-l10n",
+                        "pcmanfm-qt", "pcmanfm-qt-l10n", "openbox", "lxqt-session", "lxqt-config",
+                        "lxqt-theme-debian", "lxqt-session-l10n",
+                        // mate
+                        "mate-desktop-environment", "mate-desktop-environment-core", "mate-terminal",
+                        "mate-session-manager", "mate-settings-daemon", "marco", "mate-panel",
+                        // kde
+                        "kde-plasma-desktop", "plasma-desktop", "kde-full", "kde-standard",
+                        "kubuntu-desktop",
+                        // gnome
+                        "gnome-session", "gnome-shell", "gnome-core",
+                        // cinnamon
+                        "cinnamon-desktop-environment", "cinnamon", "cinnamon-l10n",
+                        // budgie
+                        "budgie-desktop", "budgie-core",
+                        // dde/deepin
+                        "ubuntudde-dde", "ubuntudde-dde-extras", "deepin-terminal",
+                        "deepin-desktop-environment",
+                        // ukui
+                        "ukui-session-manager", "ukui-menu", "ukui-control-center",
+                        "ukui-screensaver", "ukui-themes", "peony", "ubuntukylin-desktop",
+                        // cutefish
+                        "cutefish", "cutefish-core", "cutefish-settings",
+                        "cutefish-dock", "cutefish-launcher", "cutefish-filemanager",
+                        "cutefish-terminal", "cutefish-texteditor",
+                        // wm
+                        "icewm", "openbox", "fvwm", "awesome", "enlightenment", "fluxbox",
+                        "i3", "i3-wm", "xmonad", "metacity", "twm", "dwm",
+                        // common
+                        "tightvncserver", "tigervnc-standalone-server", "dbus-x11",
+                        "fonts-noto-cjk", "fonts-noto-color-emoji",
+                }) {
                     PackageManager::remove(std::string(pkg), family);
                 }
                 Executor::passthrough(
-                    "sudo apt autoremove --purge -y 2>/dev/null || sudo apt autoremove -y 2>/dev/null || true");
+                        "sudo apt autoremove --purge -y 2>/dev/null || sudo apt autoremove -y 2>/dev/null || true");
                 break;
             }
             case DistroFamily::Arch:
                 for (const auto &pkg: {
-                         "xfce4", "xfce4-goodies", "xfce4-terminal",
-                         "mate", "mate-extra",
-                         "lxde", "lxqt", "plasma-desktop",
-                         "gnome", "gnome-extra", "gnome-tweaks",
-                         "cinnamon", "cinnamon-translations",
-                         "deepin", "deepin-extra", "deepin-kwin",
-                         "ukui", "cutefish",
-                         "i3-wm", "i3status", "i3lock", "dmenu",
-                         "xmonad", "xmobar", "openbox", "fluxbox",
-                         "awesome", "enlightenment", "icewm", "twm", "dwm",
-                     })
+                        "xfce4", "xfce4-goodies", "xfce4-terminal",
+                        "mate", "mate-extra",
+                        "lxde", "lxqt", "plasma-desktop",
+                        "gnome", "gnome-extra", "gnome-tweaks",
+                        "cinnamon", "cinnamon-translations",
+                        "deepin", "deepin-extra", "deepin-kwin",
+                        "ukui", "cutefish",
+                        "i3-wm", "i3status", "i3lock", "dmenu",
+                        "xmonad", "xmobar", "openbox", "fluxbox",
+                        "awesome", "enlightenment", "icewm", "twm", "dwm",
+                })
                     PackageManager::remove(std::string(pkg), family);
                 break;
             case DistroFamily::RedHat:
                 for (const auto &grp: {
-                         "xfce", "mate-desktop", "lxde-desktop", "lxqt",
-                         "KDE", "GNOME", "Cinnamon Desktop"
-                     })
+                        "xfce", "mate-desktop", "lxde-desktop", "lxqt",
+                        "KDE", "GNOME", "Cinnamon Desktop"
+                })
                     Executor::passthrough("sudo dnf groupremove -y \"" + std::string(grp) + "\" 2>/dev/null || true");
                 PackageManager::remove("deepin-desktop", family);
                 break;
             default:
                 for (const auto &pkg: {
-                         "xfce4", "xfce4-goodies", "lxde", "lxqt", "mate-desktop",
-                         "kde-plasma-desktop", "gnome-session", "gnome-shell", "cinnamon",
-                         "budgie-desktop", "ukui-session-manager", "cutefish",
-                         "deepin-desktop-environment",
-                     })
+                        "xfce4", "xfce4-goodies", "lxde", "lxqt", "mate-desktop",
+                        "kde-plasma-desktop", "gnome-session", "gnome-shell", "cinnamon",
+                        "budgie-desktop", "ukui-session-manager", "cutefish",
+                        "deepin-desktop-environment",
+                })
                     PackageManager::remove(std::string(pkg), family);
                 break;
         }
@@ -802,34 +807,34 @@ namespace tmoe::domain {
         // ── 共享清理：桌面配置残余（所有发行版通用）──
         std::string h = SystemHelper::user_home();
         for (const auto *dir: {
-                 "/.config/xfce4", "/.config/mate", "/.config/lxde",
-                 "/.config/lxqt", "/.config/kde", "/.config/plasma",
-                 "/.config/kde.org", "/.config/kdeconnect",
-                 "/.config/dconf", "/.config/gnome", "/.config/cinnamon",
-                 "/.config/budgie", "/.config/deepin", "/.config/ukui",
-                 "/.config/cutefish", "/.config/KDE", "/.config/session",
-                 "/.kde", "/.local/share/kde", "/.local/share/plasma",
-                 "/.cache/xfce4", "/.cache/mate", "/.cache/lxde", "/.cache/lxqt",
-                 "/.cache/kde", "/.cache/plasma"
-             })
+                "/.config/xfce4", "/.config/mate", "/.config/lxde",
+                "/.config/lxqt", "/.config/kde", "/.config/plasma",
+                "/.config/kde.org", "/.config/kdeconnect",
+                "/.config/dconf", "/.config/gnome", "/.config/cinnamon",
+                "/.config/budgie", "/.config/deepin", "/.config/ukui",
+                "/.config/cutefish", "/.config/KDE", "/.config/session",
+                "/.kde", "/.local/share/kde", "/.local/share/plasma",
+                "/.cache/xfce4", "/.cache/mate", "/.cache/lxde", "/.cache/lxqt",
+                "/.cache/kde", "/.cache/plasma"
+        })
             Executor::passthrough("rm -rf " + h + dir + " 2>/dev/null || true");
         Executor::passthrough("rm -rf ~/.vnc ~/.dbus ~/.cache/sessions 2>/dev/null || true");
         Executor::passthrough("sudo rm -rf /etc/tigervnc 2>/dev/null || true");
         // ~/.local/share 各桌面数据
         for (const auto *dir: {
-                 "/.local/share/xfce4", "/.local/share/kde", "/.local/share/plasma",
-                 "/.local/share/mate", "/.local/share/gnome", "/.local/share/cinnamon",
-                 "/.local/share/budgie", "/.local/share/deepin", "/.local/share/ukui",
-                 "/.local/share/lxde", "/.local/share/lxqt", "/.local/share/cutefish"
-             })
+                "/.local/share/xfce4", "/.local/share/kde", "/.local/share/plasma",
+                "/.local/share/mate", "/.local/share/gnome", "/.local/share/cinnamon",
+                "/.local/share/budgie", "/.local/share/deepin", "/.local/share/ukui",
+                "/.local/share/lxde", "/.local/share/lxqt", "/.local/share/cutefish"
+        })
             Executor::passthrough("rm -rf " + h + dir + " 2>/dev/null || true");
         for (const auto *script: {
-                 "/usr/local/bin/startvnc", "/usr/local/bin/stopvnc",
-                 "/usr/local/bin/startxsdl", "/usr/local/bin/novnc",
-                 "/usr/local/bin/startx11vnc", "/usr/local/bin/x11vncpasswd",
-                 "/usr/local/bin/tightvnc", "/usr/local/bin/tigervnc",
-                 "/usr/local/bin/gnome-shell-x11", "/usr/local/bin/budgie-desktop-builtin"
-             })
+                "/usr/local/bin/startvnc", "/usr/local/bin/stopvnc",
+                "/usr/local/bin/startxsdl", "/usr/local/bin/novnc",
+                "/usr/local/bin/startx11vnc", "/usr/local/bin/x11vncpasswd",
+                "/usr/local/bin/tightvnc", "/usr/local/bin/tigervnc",
+                "/usr/local/bin/gnome-shell-x11", "/usr/local/bin/budgie-desktop-builtin"
+        })
             Executor::passthrough(std::string("sudo rm -f ") + script + " 2>/dev/null || true");
         if (ui::dialog::yesno(cfg_, "", _("swcenter.cleanup.confirm_rm_x11_xinit"), "", "", 8, 60) == 0) {
             Executor::passthrough("sudo rm -rf /etc/X11/xinit 2>/dev/null || true");
@@ -840,28 +845,28 @@ namespace tmoe::domain {
         // 对应旧 Bash: 火狐娘 vs chromium娘 二选一
         auto family = infer_family_from_config(cfg_.linux_distro);
         int choice = ui::dialog::yesno(cfg_,
-            _("swcenter.cleanup.browser_title"),
-            _("swcenter.cleanup.browser_dialog_text"),
-            "Firefox", "chromium", 10, 60);
+                                       _("swcenter.cleanup.browser_title"),
+                                       _("swcenter.cleanup.browser_dialog_text"),
+                                       "Firefox", "chromium", 10, 60);
         // exit_code: 0=Firefox(yes), 1=chromium(no), 255=ESC
 
         if (choice == 0) {
             if (ui::dialog::yesno(cfg_, "", _("swcenter.cleanup.browser_firefox_confirm")) != 0) return;
             for (const auto *pkg: {
-                     "firefox-esr", "firefox-esr-l10n-zh-cn",
-                     "firefox", "firefox-l10n-zh-cn", "firefox-locale-zh-hans"
-                 })
+                    "firefox-esr", "firefox-esr-l10n-zh-cn",
+                    "firefox", "firefox-l10n-zh-cn", "firefox-locale-zh-hans"
+            })
                 PackageManager::remove(std::string(pkg), family);
         } else if (choice == 1) {
             if (ui::dialog::yesno(cfg_, "", _("swcenter.cleanup.browser_chromium_confirm")) != 0) return;
             if (family == DistroFamily::Debian) {
                 Executor::passthrough(
-                    "apt-mark unhold chromium-browser chromium-browser-l10n chromium-codecs-ffmpeg-extra 2>/dev/null || true");
+                        "apt-mark unhold chromium-browser chromium-browser-l10n chromium-codecs-ffmpeg-extra 2>/dev/null || true");
             }
             for (const auto *pkg: {
-                     "chromium", "chromium-l10n",
-                     "chromium-browser", "chromium-browser-l10n"
-                 })
+                    "chromium", "chromium-l10n",
+                    "chromium-browser", "chromium-browser-l10n"
+            })
                 PackageManager::remove(std::string(pkg), family);
         }
         if (family == DistroFamily::Debian) {
@@ -913,15 +918,15 @@ namespace tmoe::domain {
         Logger::info("Adding debian-opt repository (https://github.com/coslyk/debianopt-repo)");
 
         Executor::passthrough(
-            "curl -LsS 'https://dl.cloudsmith.io/public/debianopt/debianopt/gpg.D215CE5D26AF10D5.key' | "
-            "gpg --dearmor > /tmp/debian-opt-11.gpg 2>/dev/null && "
-            "sudo install -o root -g root -m 644 /tmp/debian-opt-11.gpg "
-            "/usr/share/keyrings/debian-opt-11-archive-keyring.gpg && "
-            "rm -f /tmp/debian-opt-11.gpg");
+                "curl -LsS 'https://dl.cloudsmith.io/public/debianopt/debianopt/gpg.D215CE5D26AF10D5.key' | "
+                "gpg --dearmor > /tmp/debian-opt-11.gpg 2>/dev/null && "
+                "sudo install -o root -g root -m 644 /tmp/debian-opt-11.gpg "
+                "/usr/share/keyrings/debian-opt-11-archive-keyring.gpg && "
+                "rm -f /tmp/debian-opt-11.gpg");
 
         SystemHelper::write_file("/etc/apt/sources.list.d/debianopt-debianopt.list",
-            "deb [signed-by=/usr/share/keyrings/debian-opt-11-archive-keyring.gpg] "
-            "https://dl.cloudsmith.io/public/debianopt/debianopt/deb/debian bullseye main\n");
+                                 "deb [signed-by=/usr/share/keyrings/debian-opt-11-archive-keyring.gpg] "
+                                 "https://dl.cloudsmith.io/public/debianopt/debianopt/deb/debian bullseye main\n");
 
         auto family = infer_family_from_config(cfg_.linux_distro);
         if (family == DistroFamily::Debian) {
@@ -930,19 +935,19 @@ namespace tmoe::domain {
         Logger::ok("debian-opt repo configured");
     }
 
-    void SoftwareCenter::debian_opt_install_or_remove(const std::string& name) {
+    void SoftwareCenter::debian_opt_install_or_remove(const std::string &name) {
         auto family = infer_family_from_config(cfg_.linux_distro);
         bool is_debian = (family == DistroFamily::Debian);
 
         // 检测是否已安装 (dpkg 或 command -v)
         bool installed = Executor::has(name) ||
-            Executor::shell("dpkg -l " + name + " 2>/dev/null | grep -q '^ii'").ok();
+                         Executor::shell("dpkg -l " + name + " 2>/dev/null | grep -q '^ii'").ok();
 
         if (installed) {
             Logger::info(_f("swcenter.already_installed", name));
             int choice = ui::dialog::yesno(cfg_, name + " manager",
-                _f("swcenter.debian_opt.what_to_do", name),
-                _("swcenter.debian_opt.upgrade"), _("swcenter.debian_opt.remove"), 0, 0);
+                                           _f("swcenter.debian_opt.what_to_do", name),
+                                           _("swcenter.debian_opt.upgrade"), _("swcenter.debian_opt.remove"), 0, 0);
             if (choice == 0) {
                 // 升级
                 ensure_debian_opt_repo();
@@ -955,8 +960,9 @@ namespace tmoe::domain {
                     PackageManager::remove(name, family);
                 } else {
                     Executor::passthrough(
-                        "sudo rm -rf /opt/" + name + " "
-                        "/usr/share/applications/" + name + ".desktop 2>/dev/null || true");
+                            "sudo rm -rf /opt/" + name + " "
+                                                         "/usr/share/applications/" + name +
+                            ".desktop 2>/dev/null || true");
                 }
                 Logger::ok(_f("swcenter.debian_opt.removed", name));
             }
