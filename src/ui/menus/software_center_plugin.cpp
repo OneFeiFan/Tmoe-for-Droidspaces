@@ -457,7 +457,8 @@ std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_debian_opt_internet_men
 // ═══════════════════════════════════════════════════════════════
 std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_electron_vm_menu() {
     auto menu = make_plugin_menu(
-        _("swcenter.electron.vm_title"), _("swcenter.electron.vm_prompt"), "plugin_electron_vm");
+        _("swcenter.electron.vm_title"), _("swcenter.electron.vm_item_label"),
+        "plugin_electron_vm", _("swcenter.electron.vm_prompt"));
     menu->add_action(_("swcenter.electron.vm_macos8"), "1", [this] {
         Logger::info(_("swcenter.electron.vm_macos8_size"));
         if (!Logger::confirm(_("swcenter.electron.vm_confirm_macos8"))) {
@@ -503,7 +504,8 @@ std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_electron_vm_menu() {
 // ═══════════════════════════════════════════════════════════════
 std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_electron_music_menu() {
     auto menu = make_plugin_menu(
-        _("swcenter.electron.music_menu_title"), _("swcenter.electron.music_menu_title"), "plugin_electron_music");
+        _("swcenter.electron.music_menu_title"), _("swcenter.electron.music_item_label"),
+        "plugin_electron_music", _("swcenter.electron.music_menu_prompt"));
     menu->add_action(_("swcenter.electron.music_ncm"), "1", [this] {
         mgr_->electron_install_or_remove("electron-netease-cloud-music");
     });
@@ -525,7 +527,8 @@ std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_electron_music_menu() {
 // ═══════════════════════════════════════════════════════════════
 std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_electron_video_menu() {
     auto menu = make_plugin_menu(
-        _("swcenter.electron.video_menu_title"), _("swcenter.electron.video_menu_prompt"), "plugin_electron_video");
+        _("swcenter.electron.video_menu_title"), _("swcenter.electron.video_item_label"),
+        "plugin_electron_video", _("swcenter.electron.video_menu_prompt"));
     menu->add_action(_("swcenter.electron.video_bilibili"), "1", [this] {
         mgr_->electron_install_or_remove("bilibili");
     });
@@ -549,7 +552,8 @@ std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_electron_video_menu() {
 // ═══════════════════════════════════════════════════════════════
 std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_electron_note_menu() {
     auto menu = make_plugin_menu(
-        _("swcenter.electron.note_menu_title"), _("swcenter.electron.note_menu_prompt"), "plugin_electron_note");
+        _("swcenter.electron.note_menu_title"), _("swcenter.electron.note_item_label"),
+        "plugin_electron_note", _("swcenter.electron.note_menu_prompt"));
     menu->add_action(_("swcenter.electron.note_obsidian"), "1", [this] {
         mgr_->electron_install_or_remove("obsidian");
     });
@@ -573,7 +577,8 @@ std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_electron_note_menu() {
 // ═══════════════════════════════════════════════════════════════
 std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_electron_dev_menu() {
     auto menu = make_plugin_menu(
-        _("swcenter.electron.dev_title"), _("swcenter.electron.dev_prompt"), "plugin_electron_dev");
+        _("swcenter.electron.dev_title"), _("swcenter.electron.dev_item_label"),
+        "plugin_electron_dev", _("swcenter.electron.dev_prompt"));
     menu->add_action(_("swcenter.electron.dev_netron"), "1", [this] {
         mgr_->electron_install_or_remove("netron");
     });
@@ -586,7 +591,8 @@ std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_electron_dev_menu() {
 // ═══════════════════════════════════════════════════════════════
 std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build_electron_manager_menu() {
     auto menu = make_plugin_menu(
-        _("swcenter.electron.title_manager"), _("swcenter.electron.mgr_prompt"), "plugin_electron_manager");
+        _("swcenter.electron.title_manager"), _("swcenter.electron.mgr_item_label"),
+        "plugin_electron_manager", _("swcenter.electron.mgr_prompt"));
     menu->add_action(_("swcenter.electron.mgr_install"), "1", [this] {
         mgr_->ensure_electron_runtime();
     });
@@ -627,13 +633,24 @@ std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build() {
 
     // 3: Electron → nested sub-menu
     auto electron_apps_menu = make_plugin_menu(
-        _("swcenter.electron"), _("swcenter.electron.menu_prompt"), "plugin_electron_apps");
-    electron_apps_menu->add_child(build_electron_music_menu());
-    electron_apps_menu->add_child(build_electron_video_menu());
-    electron_apps_menu->add_child(build_electron_note_menu());
-    electron_apps_menu->add_child(build_electron_vm_menu());
-    electron_apps_menu->add_child(build_electron_dev_menu());
-    electron_apps_menu->add_child(build_electron_manager_menu());
+        _("swcenter.electron"), _("swcenter.electron.menu_prompt"), "plugin_electron_apps",
+        _("swcenter.electron.menu_prompt"));
+
+    // 每个子菜单包装为 LambdaAction（独立 Engine），保证 Back 正确返回 electron_apps_menu
+    auto wrap_sub = [](std::shared_ptr<IUIMenu> sub) {
+        return std::make_shared<LambdaAction>(
+            sub->get_label(), sub->get_tag(),
+            [sub = std::move(sub)](MenuContext& ctx) -> bool {
+                MenuEngine(ctx).run(sub);
+                return true;
+            });
+    };
+    electron_apps_menu->add_child(wrap_sub(build_electron_music_menu()));
+    electron_apps_menu->add_child(wrap_sub(build_electron_video_menu()));
+    electron_apps_menu->add_child(wrap_sub(build_electron_note_menu()));
+    electron_apps_menu->add_child(wrap_sub(build_electron_vm_menu()));
+    electron_apps_menu->add_child(wrap_sub(build_electron_dev_menu()));
+    electron_apps_menu->add_child(wrap_sub(build_electron_manager_menu()));
     add_navigation_items(electron_apps_menu);
     menu->add_submenu(_("swcenter.electron"), "3", electron_apps_menu);
 

@@ -68,4 +68,13 @@ inline std::shared_ptr<SimpleMenu> make_plugin_menu(
         std::move(title), std::move(label), std::move(tag));
 }
 
+/** 带自定义 prompt 的 SimpleMenu 快捷创建。
+ *  prompt 为空时自动使用默认 menu.tui.title。 */
+inline std::shared_ptr<SimpleMenu> make_plugin_menu(
+    std::string title, std::string label, std::string tag, std::string prompt)
+{
+    return std::make_shared<SimpleMenu>(
+        std::move(title), std::move(label), std::move(tag), std::move(prompt));
+}
+
 } // namespace tmoe::ui

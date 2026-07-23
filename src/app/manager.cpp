@@ -74,6 +74,35 @@ namespace tmoe::app {
         register_plugins();
     }
 
+    // ── 首次启动初始化（幂等：标记文件防重复）──
+    void Manager::ensure_initialized() {
+        std::string marker = SystemHelper::user_home() + "/.config/tmoe-linux/.initialized_v2";
+        if (fs::exists(marker)) return;  // 已初始化过，跳过
+
+        Logger::step(_("init.first_run"));
+
+        // 1. 确保工作目录
+        environment_->initialize();
+
+        // 2. 检查并安装核心依赖（aria2c, sudo, curl, wget, git, zstd, gpg, jq, pv...）
+        environment_->check_dependencies();
+
+        // 3. Termux 环境初始化
+        if (cfg_.is_termux) {
+            cfg_.tui_bin = termux_->check_and_patch_tui_env();
+            termux_->check_and_init_environment();
+        }
+
+        // 4. 写标记文件，防止重复执行
+        std::error_code ec;
+        fs::create_directories(fs::path(marker).parent_path(), ec);
+        if (!ec) {
+            std::ofstream ofs(marker);
+            if (ofs) ofs << "1\n";
+        }
+        Logger::ok(_("init.done"));
+    }
+
     // ═══════════════════════════════════════════════════════
     // 容器操作辅助方法（原 tui_routes_ 内联逻辑）
     // ═══════════════════════════════════════════════════════
@@ -615,6 +644,8 @@ namespace tmoe::app {
     int Manager::run_interactive_plugin() {
         using namespace tmoe::ui;
 
+        ensure_initialized();
+
         MenuContext ctx{cfg_};
 
         // 直接使用 build_root_menu() 构建与旧 UI 一致的主菜单：
@@ -659,7 +690,7 @@ namespace tmoe::app {
             return 0;
         }
 
-        environment_->initialize();
+        ensure_initialized();
 
         switch (ctx.mode) {
             case LaunchMode::Proot:

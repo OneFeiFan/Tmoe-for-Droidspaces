@@ -52,16 +52,20 @@ inline std::shared_ptr<IUIMenu> make_menu_with_nav(std::shared_ptr<IUIMenu> menu
  *  使用基类默认的 build_whiptail_cmd() 遍历 children。 */
 class SimpleMenu : public IUIMenu {
 public:
-    SimpleMenu(std::string title, std::string label, std::string tag)
-        : title_(std::move(title)), label_(std::move(label)), tag_(std::move(tag)) {}
+    SimpleMenu(std::string title, std::string label, std::string tag,
+               std::string prompt = "")
+        : title_(std::move(title)), label_(std::move(label)), tag_(std::move(tag)),
+          prompt_(std::move(prompt)) {}
 
     std::string get_label() const override { return label_; }
     std::string get_tag() const override { return tag_; }
     std::string get_title() const override { return title_; }
-    std::string get_prompt() const override { return _("menu.tui.title"); }
+    std::string get_prompt() const override {
+        return prompt_.empty() ? _("menu.tui.title") : prompt_;
+    }
 
 private:
-    std::string title_, label_, tag_;
+    std::string title_, label_, tag_, prompt_;
 };
 
 } // namespace tmoe::ui

@@ -30,19 +30,23 @@ namespace tmoe::domain {
     // ═══════════════════════════════════
     void SoftwareCenter::electron_install_or_remove(const std::string &app_name) {
         using namespace tmoe::ui;
-        auto menu = make_plugin_menu(app_name + " manager", _f("swcenter.electron.what_to_do", app_name), "electron_" + app_name);
+        auto menu = make_plugin_menu(_f("swcenter.electron.app_title", app_name),
+                                     _f("swcenter.electron.what_to_do", app_name),
+                                     "electron_" + app_name,
+                                     _f("swcenter.electron.what_to_do", app_name));
         menu->add_child(std::make_shared<LambdaAction>(_("swcenter.electron.install_upgrade"), "1", [this, app_name](MenuContext&) -> bool {
             ensure_electron_runtime();
             download_tmoe_electron_app(app_name);
             Logger::press_enter();
-            return false;
+            return true;
         }));
         menu->add_child(std::make_shared<LambdaAction>(_("swcenter.electron.remove"), "2", [this, app_name](MenuContext&) -> bool {
             remove_electron_app(app_name);
             Logger::press_enter();
-            return false;
+            return true;
         }));
         add_sandwich_nav(menu);
+        // MenuContext 需要 non-const TmoeConfig&（历史遗留），此处 cfg_ 以 const 引用持有
         MenuContext ctx{const_cast<TmoeConfig&>(cfg_)};
         MenuEngine(ctx).run(menu);
     }

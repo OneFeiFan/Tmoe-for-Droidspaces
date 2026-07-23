@@ -119,7 +119,7 @@ namespace tmoe::domain {
 
         // 移除 Debian 系强制锁定 DuckDuckGo 搜索引擎的 policy 文件
         Executor::shell(
-            "sudo rm -rf /etc/chromium/policies/managed/ /etc/chromium-browser/policies/managed/ 2>/dev/null || true");
+            "sudo rm -rf /etc/chromium/master_preferences /etc/chromium/policies/managed/ /etc/chromium-browser/policies/managed/ 2>/dev/null || true");
         Logger::info(_("browser.chromium_policy_cleaned"));
 
         create_sandbox_wrapper(name(), bin_name());
@@ -320,6 +320,7 @@ namespace tmoe::domain {
         trim_newline(arch);
         if (arch != "x86_64") {
             Logger::warn(_("browser.edge_arch_unsupported") + ": " + arch);
+            Logger::press_enter();
             return false;
         }
 

@@ -82,6 +82,9 @@ namespace tmoe::app {
         /** 将各领域模块注册到 MenuRegistry 并构建主菜单。 */
         void register_plugins();
 
+        /** 首次启动初始化：检查/安装核心依赖（aria2c/sudo/curl 等），幂等（标记文件防重复）。 */
+        void ensure_initialized();
+
         /** 构建主菜单（Termux 10 项 / Linux 7 项）。 */
         std::shared_ptr<tmoe::ui::IUIMenu> build_root_menu();
 
