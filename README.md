@@ -103,7 +103,6 @@ INSTALL_DIR=~/.local/bin curl -fsSL https://raw.githubusercontent.com/OneFeiFan/
 | 平台 | 架构 |
 |------|------|
 | Ubuntu 24.04 | x86_64, ARM64 |
-| macOS 14/15 | x86_64, ARM64 |
 
 PR 仅验证编译通过。`main` 分支 push 额外上传 7 天有效期的构建产物供临时下载。
 

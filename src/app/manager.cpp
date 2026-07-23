@@ -7,7 +7,10 @@
 #include "ui/builtin_actions.h"
 #include "ui/menus/plugin_factories.h"
 #include <algorithm>
+#include <filesystem>
 #include <fstream>
+
+namespace fs = std::filesystem;
 
 namespace tmoe::app {
     Manager::Manager(TmoeConfig cfg, LocaleSaveFunc save_locale)
@@ -166,11 +169,113 @@ namespace tmoe::app {
     }
 
     void Manager::action_self_update() {
-        Logger::step(_("update.fetching"));
-        if (CommandBuilder("git").add_flag("-C").add_arg(cfg_.work_dir.string()).add_arg("pull").execute().ok()) {
+        // 参考 install.sh: 从 GitHub Releases 下载预编译二进制，直接替换
+        Logger::step(_("update.checking"));
+
+        // 1. 检测当前平台
+        std::string os_name;
+#ifdef __linux__
+        os_name = "Linux";
+#elif defined(__APPLE__)
+        os_name = "macOS";
+#else
+        Logger::error(_("update.unsupported_os"));
+        Logger::press_enter();
+        return;
+#endif
+
+        std::string arch;
+#if defined(__x86_64__) || defined(__amd64__)
+        arch = "x86_64";
+#elif defined(__aarch64__)
+        arch = "aarch64";
+#elif defined(__arm__)
+        arch = "armv7l";
+#else
+        Logger::error(_("update.unsupported_arch"));
+        Logger::press_enter();
+        return;
+#endif
+
+        // 2. 查询 GitHub API 获取最新 release
+        std::string api_url = "https://api.github.com/repos/OneFeiFan/Tmoe-for-Droidspaces/releases?per_page=1";
+        auto api_result = Executor::shell(
+            "curl -fsSL \"" + api_url + "\" 2>/dev/null || wget -qO- \"" + api_url + "\" 2>/dev/null");
+        if (!api_result.ok() || api_result.stdout_data.empty()) {
+            Logger::error(_("update.api_failed"));
+            Logger::press_enter();
+            return;
+        }
+
+        // 3. 解析 tag_name 和下载 URL
+        std::string json = api_result.stdout_data;
+        auto tag_start = json.find("\"tag_name\":\"");
+        if (tag_start == std::string::npos) {
+            Logger::error(_("update.no_release"));
+            Logger::press_enter();
+            return;
+        }
+        tag_start += 12; // skip "tag_name":"
+        auto tag_end = json.find("\"", tag_start);
+        std::string tag = json.substr(tag_start, tag_end - tag_start);
+
+        // 构造下载 URL 模式: tmoes-{tag}-{os}-{arch}
+        std::string asset_pattern = "tmoes-" + tag + "-" + os_name + "-" + arch;
+        auto url_pos = json.find(asset_pattern);
+        if (url_pos == std::string::npos) {
+            // 尝试 static 变体
+            asset_pattern = "tmoes-" + tag + "-" + os_name + "-" + arch + "-static";
+            url_pos = json.find(asset_pattern);
+        }
+        if (url_pos == std::string::npos) {
+            Logger::error(_("update.no_asset") + ": " + asset_pattern);
+            Logger::press_enter();
+            return;
+        }
+
+        // 提取 browser_download_url
+        auto bw_start = json.rfind("\"browser_download_url\":\"", url_pos);
+        if (bw_start == std::string::npos) {
+            Logger::error(_("update.no_asset"));
+            Logger::press_enter();
+            return;
+        }
+        bw_start += 24;
+        auto bw_end = json.find("\"", bw_start);
+        std::string download_url = json.substr(bw_start, bw_end - bw_start);
+
+        Logger::info(std::string(_("update.new_version")) + ": " + tag);
+        if (!Logger::confirm(_("update.confirm"))) return;
+
+        // 4. 下载新二进制
+        Logger::step(_("update.downloading"));
+        std::string tmp_dir = "/tmp/tmoes_update";
+        Executor::shell("mkdir -p " + tmp_dir + " 2>/dev/null");
+        std::string tmp_file = tmp_dir + "/tmoes_new";
+        auto dl_result = Executor::shell(
+            "curl -fsSL -o " + tmp_file + " \"" + download_url + "\" 2>&1 || "
+            "wget -q -O " + tmp_file + " \"" + download_url + "\" 2>&1");
+        if (!dl_result.ok() || !fs::exists(tmp_file)) {
+            Logger::error(_("update.download_failed"));
+            Executor::shell("rm -rf " + tmp_dir + " 2>/dev/null");
+            Logger::press_enter();
+            return;
+        }
+
+        // 5. 替换当前二进制
+        std::string current_exe = fs::read_symlink("/proc/self/exe").string();
+        if (current_exe.empty()) current_exe = "/usr/local/bin/tmoes";
+        Logger::info(std::string(_("update.replacing")) + ": " + current_exe);
+        Executor::shell("chmod +x " + tmp_file);
+        auto mv_result = Executor::shell(
+            "sudo mv " + tmp_file + " " + current_exe + " 2>/dev/null || "
+            "mv " + tmp_file + " " + current_exe + " 2>/dev/null");
+        Executor::shell("rm -rf " + tmp_dir + " 2>/dev/null");
+
+        if (mv_result.ok()) {
             Logger::ok(_("update.success"));
         } else {
-            Logger::error(_("update.failed"));
+            Logger::error(_("update.replace_failed"));
         }
         Logger::press_enter();
     }
@@ -263,7 +368,7 @@ namespace tmoe::app {
             add_navigation_items(menu);
             return menu;
         } else {
-            // Linux 工具箱：7 项
+            // Linux 工具箱：9 项
             auto menu = make_plugin_menu(title, _("menu.tui.tool_prompt"), "main_tool");
             menu->add_child(std::make_shared<LambdaAction>(
                 _("menu.tui.gui_de"), "1",
@@ -314,6 +419,13 @@ namespace tmoe::app {
                 _("menu.tui.locale"), "8",
                 [this](MenuContext &ctx) -> bool {
                     MenuEngine(ctx).run(build_locale_menu());
+                    return true;
+                }));
+            // 9: 自更新 — 从 GitHub Releases 下载最新预编译二进制
+            menu->add_child(std::make_shared<LambdaAction>(
+                _("menu.tui.update"), "9",
+                [this](MenuContext &) -> bool {
+                    action_self_update();
                     return true;
                 }));
             add_navigation_items(menu);
