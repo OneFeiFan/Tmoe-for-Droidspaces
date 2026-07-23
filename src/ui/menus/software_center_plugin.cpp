@@ -636,21 +636,25 @@ std::shared_ptr<IUIMenu> SoftwareCenterMenuPlugin::build() {
         _("swcenter.electron"), _("swcenter.electron.menu_prompt"), "plugin_electron_apps",
         _("swcenter.electron.menu_prompt"));
 
-    // 每个子菜单包装为 LambdaAction（独立 Engine），保证 Back 正确返回 electron_apps_menu
-    auto wrap_sub = [](std::shared_ptr<IUIMenu> sub) {
-        return std::make_shared<LambdaAction>(
-            sub->get_label(), sub->get_tag(),
-            [sub = std::move(sub)](MenuContext& ctx) -> bool {
-                MenuEngine(ctx).run(sub);
-                return true;
-            });
-    };
-    electron_apps_menu->add_child(wrap_sub(build_electron_music_menu()));
-    electron_apps_menu->add_child(wrap_sub(build_electron_video_menu()));
-    electron_apps_menu->add_child(wrap_sub(build_electron_note_menu()));
-    electron_apps_menu->add_child(wrap_sub(build_electron_vm_menu()));
-    electron_apps_menu->add_child(wrap_sub(build_electron_dev_menu()));
-    electron_apps_menu->add_child(wrap_sub(build_electron_manager_menu()));
+    // 每个子菜单通过独立 Engine 运行，保证 Back 正确返回 electron_apps_menu
+    electron_apps_menu->add_submenu(
+        _("swcenter.electron.music_item_label"), "plugin_electron_music",
+        build_electron_music_menu());
+    electron_apps_menu->add_submenu(
+        _("swcenter.electron.video_item_label"), "plugin_electron_video",
+        build_electron_video_menu());
+    electron_apps_menu->add_submenu(
+        _("swcenter.electron.note_item_label"), "plugin_electron_note",
+        build_electron_note_menu());
+    electron_apps_menu->add_submenu(
+        _("swcenter.electron.vm_item_label"), "plugin_electron_vm",
+        build_electron_vm_menu());
+    electron_apps_menu->add_submenu(
+        _("swcenter.electron.dev_item_label"), "plugin_electron_dev",
+        build_electron_dev_menu());
+    electron_apps_menu->add_submenu(
+        _("swcenter.electron.mgr_item_label"), "plugin_electron_manager",
+        build_electron_manager_menu());
     add_navigation_items(electron_apps_menu);
     menu->add_submenu(_("swcenter.electron"), "3", electron_apps_menu);
 
